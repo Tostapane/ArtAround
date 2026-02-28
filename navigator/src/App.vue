@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import DropDownMenu from './components/DropDownMenu.vue'
 import Header from './components/Header.vue'
+import Selector from './components/selection/Selector.vue';
+
 </script>
 
 <template>
   <Header />
-  <h2>Personalizza la tua visita:</h2>
-  <DropDownMenu />
+  <Selector />
   <main class="p-8">
   </main>
 </template>
