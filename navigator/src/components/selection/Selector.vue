@@ -17,7 +17,7 @@
 
 <template>
   <div class="w-full max-w-md mx-auto bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-    <h2 class="text-xl font-bold text-gray-900 mb-6">Personalizza la tua visita</h2>
+    <h2 class="textp-xl font-bold text-gray-900 mb-6">Personalizza la tua visita</h2>
 
     <div class="space-y-5">
       <div class="flex flex-col gap-2">

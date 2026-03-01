@@ -17,7 +17,7 @@ const navigation = [
       <div class="flex lg:flex-1">
         <a href="#" class="-m-1.5 p-1.5 flex items-center gap-2">
           <span class="sr-only">ArtAround</span>
-          <div class="h-8 w-8 rounded-full bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-sm">A</div>
+          <div class="h-8 w-8 rounded-full bg-linear-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-sm">A</div>
           <span class="font-bold text-xl tracking-tight text-gray-900">ArtAround</span>
         </a>
       </div>
@@ -42,7 +42,7 @@ const navigation = [
         <div class="flex items-center justify-between">
           <a href="#" class="-m-1.5 p-1.5 flex items-center gap-2">
             <span class="sr-only">ArtAround</span>
-            <div class="h-8 w-8 rounded-full bg-gradient-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-sm">A</div>
+            <div class="h-8 w-8 rounded-full bg-linear-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-sm">A</div>
             <span class="font-bold text-xl tracking-tight text-gray-900">ArtAround</span>
           </a>
           <button type="button" class="-m-2.5 rounded-md p-2.5 text-gray-700" @click="mobileMenuOpen = false">
@@ -68,5 +68,5 @@ const navigation = [
 </template>
 
 <style scoped>
-@reference "../assets/main.css";
+  @reference "../assets/main.css";
 </style>
