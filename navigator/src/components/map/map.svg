@@ -1,21 +1,29 @@
-<svg viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg" class="museum-map">
-      
-      <rect x="10" y="10" width="480" height="280" fill="#f0f0f0" stroke="#333" stroke-width="2" />
-      <line x1="250" y1="10" x2="250" y2="290" stroke="#333" stroke-width="2" />
-      
-      <circle @click="print()" id="art-001" cx="120" cy="150" r="10" fill="gray" />
-      <circle id="art-002" cx="380" cy="200" r="10" fill="gray" />
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
+  <rect x="10" y="10" width="780" height="580" fill="#f0f0f0" stroke="#333" stroke-width="4" />
 
-      <circle
-        v-for="art in artworks"
-        :key="art.svgId"
-        r="12"
-        fill="blue"
-        class="interactive-node"
-        tabindex="0"
-        role="button"
-        :aria-label="art.title"
-        @click="selectArtwork(art)"
-        @keyup.enter="selectArtwork(art)"
-      />
+  <line x1="400" y1="10" x2="400" y2="250" stroke="#333" stroke-width="4" />
+  <line x1="400" y1="350" x2="400" y2="590" stroke="#333" stroke-width="4" />
+
+  <line x1="10" y1="300" x2="150" y2="300" stroke="#333" stroke-width="4" />
+  <line x1="250" y1="300" x2="550" y2="300" stroke="#333" stroke-width="4" />
+  <line x1="650" y1="300" x2="790" y2="300" stroke="#333" stroke-width="4" />
+
+  <line x1="600" y1="10" x2="600" y2="150" stroke="#333" stroke-width="2" />
+  <line x1="200" y1="450" x2="200" y2="590" stroke="#333" stroke-width="2" />
+
+  <circle id="art-001" cx="80" cy="80" r="10" fill="gray" />
+  <circle id="art-002" cx="300" cy="80" r="10" fill="gray" />
+  <circle id="art-003" cx="190" cy="180" r="15" fill="#555" />
+  
+  <rect id="art-004" x="450" y="50" width="30" height="30" fill="gray" />
+  <rect id="art-005" x="680" y="80" width="20" height="40" fill="gray" />
+  <circle id="art-006" cx="500" cy="200" r="10" fill="gray" />
+
+  <circle id="art-007" cx="100" cy="400" r="12" fill="gray" />
+  <circle id="art-008" cx="100" cy="500" r="12" fill="gray" />
+  <circle id="art-009" cx="300" cy="500" r="10" fill="gray" />
+
+  <circle id="art-010" cx="480" cy="450" r="10" fill="gray" />
+  <circle id="art-011" cx="600" cy="450" r="10" fill="gray" />
+  <circle id="art-012" cx="720" cy="450" r="10" fill="gray" />
 </svg>
