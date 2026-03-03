@@ -1,6 +1,5 @@
 <script setup lang="ts">
     import { ref, onMounted, nextTick, onBeforeUnmount, computed } from 'vue'
-    import Card from './Card.vue'
     import type { genericArtwork } from './utilsMap';
     import { config } from './utilsMap'
     /*

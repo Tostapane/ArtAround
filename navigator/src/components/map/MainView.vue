@@ -2,6 +2,7 @@
     import { ref, computed } from 'vue' 
     import Map from './Map.vue'
     import Card from './Card.vue'
+    import OptionsBar from './OptionsBar.vue';
     import type { genericArtwork } from './utilsMap';
     import { config } from './utilsMap'
 
@@ -11,7 +12,7 @@
         if (currentIndex.value === null) return null;
         return artworks.value[currentIndex.value] || null;
     })
-    
+
     function navigate(direction: string) {
        if (currentIndex.value != null)  {
             if (direction === 'next') currentIndex.value = (currentIndex.value + 1) % artworks.value.length;
@@ -23,9 +24,14 @@
 
 <template>
     <Map @select="(index) => currentIndex = index"/>
-    <Card v-if="currentArtwork"
-    :title="currentArtwork.title"
-    :info="currentArtwork.info"
-    @navigation="navigate"
-    />
+    
+    <div v-if="currentArtwork">
+        <Card
+        :title="currentArtwork.title"
+        :info="currentArtwork.info"
+        @navigation="navigate"
+        />
+        <OptionsBar/>
+    </div>
+
 </template>

@@ -1,0 +1,34 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+*.local
+
+# Cypress / Testing
+cypress/videos/
+cypress/screenshots/
+__screenshots__/
+
+# Vite
+*.timestamp-*-*.mjs
