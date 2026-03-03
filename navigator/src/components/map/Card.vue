@@ -29,11 +29,9 @@
           </svg>
         </button>
       </div>
-      
       <p class="text-base text-gray-600 mb-6">
         {{ info }}
       </p>
-
       <div class="flex justify-between mt-4 pt-4 border-t border-gray-100">
         <button 
           @click="emit('navigation', 'prev')"
