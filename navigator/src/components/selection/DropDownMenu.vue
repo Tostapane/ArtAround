@@ -14,7 +14,7 @@
     <div>
       <MenuButton class="menu-btn">
         {{ label }}
-        <svg class="ml-2 -mr-1 h-5 w-5 text-blue-200 hover:text-blue-100" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <svg class="ml-2 -mr-1 h-5 w-5 text-gray-400 hover:text-gray-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
         </svg>
       </MenuButton>
@@ -33,7 +33,7 @@
           <MenuItem v-for="item in items" :key="item" v-slot="{ active }">
             <button 
             @click="emit('selected', item)"
-            :class="[active ? 'bg-blue-500 text-white' : 'text-gray-900', 'group flex w-full items-center rounded-md px-2 py-2 text-sm']">
+            :class="[active ? 'bg-black text-white' : 'text-gray-900', 'group flex w-full items-center rounded-md px-2 py-2 text-sm']">
               {{ item }}
             </button>
           </MenuItem>
@@ -47,6 +47,6 @@
 @reference "../../assets/main.css";
 
 .menu-btn {
-  @apply inline-flex w-full justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75;
+  @apply inline-flex w-full justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/75;
 }
 </style>

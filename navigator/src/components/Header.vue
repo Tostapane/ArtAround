@@ -17,7 +17,7 @@ const navigation = [
       <div class="flex lg:flex-1">
         <a href="#" class="-m-1.5 p-1.5 flex items-center gap-2">
           <span class="sr-only">ArtAround</span>
-          <div class="h-8 w-8 rounded-full bg-linear-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-sm">A</div>
+          <div class="h-8 w-8 rounded-full bg-black flex items-center justify-center text-white font-bold shadow-sm">A</div>
           <span class="font-bold text-xl tracking-tight text-gray-900">ArtAround</span>
         </a>
       </div>
@@ -30,10 +30,10 @@ const navigation = [
         </button>
       </div>
       <div class="hidden lg:flex lg:gap-x-12">
-        <a v-for="item in navigation" :key="item.name" :href="item.href" class="text-sm font-semibold leading-6 text-gray-900 hover:text-purple-600 transition-colors">{{ item.name }}</a>
+        <a v-for="item in navigation" :key="item.name" :href="item.href" class="text-sm font-semibold leading-6 text-gray-900 hover:text-gray-500 transition-colors">{{ item.name }}</a>
       </div>
       <div class="hidden lg:flex lg:flex-1 lg:justify-end">
-        <a href="#" class="text-sm font-semibold leading-6 text-gray-900 hover:text-purple-600 transition-colors">Log in <span aria-hidden="true">&rarr;</span></a>
+        <a href="#" class="text-sm font-semibold leading-6 text-gray-900 hover:text-gray-500 transition-colors">Log in <span aria-hidden="true">&rarr;</span></a>
       </div>
     </nav>
     <Dialog as="div" class="lg:hidden" @close="mobileMenuOpen = false" :open="mobileMenuOpen">
@@ -42,7 +42,7 @@ const navigation = [
         <div class="flex items-center justify-between">
           <a href="#" class="-m-1.5 p-1.5 flex items-center gap-2">
             <span class="sr-only">ArtAround</span>
-            <div class="h-8 w-8 rounded-full bg-linear-to-br from-purple-600 to-blue-500 flex items-center justify-center text-white font-bold shadow-sm">A</div>
+            <div class="h-8 w-8 rounded-full bg-black flex items-center justify-center text-white font-bold shadow-sm">A</div>
             <span class="font-bold text-xl tracking-tight text-gray-900">ArtAround</span>
           </a>
           <button type="button" class="-m-2.5 rounded-md p-2.5 text-gray-700" @click="mobileMenuOpen = false">

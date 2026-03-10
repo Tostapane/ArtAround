@@ -19,7 +19,7 @@
       </h3>
       <button 
         @click="emit('navigation', 'close')"
-        class="p-1 text-gray-400 rounded hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="p-1 text-gray-400 rounded hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900"
         aria-label="Close information card"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -33,13 +33,13 @@
     <div class="flex justify-between mt-4 pt-4 border-t border-gray-100">
       <button 
         @click="emit('navigation', 'prev')"
-        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900"
       >
         Previous
       </button>
       <button 
         @click="emit('navigation', 'next')"
-        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900"
       >
         Next
       </button>

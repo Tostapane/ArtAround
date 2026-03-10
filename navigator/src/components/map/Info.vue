@@ -35,11 +35,11 @@
 <template>
   <div :class="containerClasses" aria-live="polite">
     <div class="flex items-start justify-between mb-2">
-      <h4 class="text-xs font-bold tracking-wider text-blue-600 uppercase">
+      <h4 class="text-xs font-bold tracking-wider text-black uppercase">
         {{ request }}
       </h4>
       <button 
-        class="p-1 -mt-1 -mr-1 text-gray-400 rounded-md hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="p-1 -mt-1 -mr-1 text-gray-400 rounded-md hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900"
         aria-label="Close"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

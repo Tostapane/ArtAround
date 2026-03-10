@@ -53,11 +53,21 @@
 </template>
 
 <style lang="css" scoped>
+.svg-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
 .svg-wrapper :deep(svg) {
     width: 100%;
-    max-width: 600px;
-    background-color: white;
-    border: 1px solid #ccc;
+    max-width: 800px;
+    height: auto;
+    background-color: transparent;
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.05));
 }
 
 .svg-wrapper :deep(.interactive-node) {
@@ -68,13 +78,13 @@
 
 .svg-wrapper :deep(.interactive-node:hover),
 .svg-wrapper :deep(.interactive-node:focus) {
-    fill: red;
-    stroke: yellow;
-    stroke-width: 4px;
+    fill: #f3f4f6;
+    stroke: #000000;
+    stroke-width: 2px;
 }
 
 .info-panel { 
     margin-top: 20px; 
     padding: 15px; background: #f9f9f9; 
-    border-left: 4px solid blue; }
+    border-left: 4px solid black; }
 </style>

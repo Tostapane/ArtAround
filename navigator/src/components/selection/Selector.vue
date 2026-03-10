@@ -16,8 +16,8 @@
 </script>
 
 <template>
-  <div class="w-full max-w-md mx-auto bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-    <h2 class="textp-xl font-bold text-gray-900 mb-6">Personalizza la tua visita</h2>
+  <div class="w-full p-6">
+    <h2 class="text-xl font-bold text-gray-900 mb-6">Personalizza la tua visita</h2>
 
     <div class="space-y-5">
       <div class="flex flex-col gap-2">
@@ -43,7 +43,7 @@
 
     <div class="mt-6 pt-4 border-t border-gray-100">
       <p class="text-sm text-gray-500">
-        Tempo stimato: <span class="font-semibold text-blue-600">{{ filters.duration }} min</span>
+        Tempo stimato: <span class="font-semibold text-black">{{ filters.duration }} min</span>
       </p>
     </div>
   </div>
