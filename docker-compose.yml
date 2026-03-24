@@ -1,6 +1,6 @@
 services:
   mongodb:
-    image: mongo:8.0
+    image: mongo:7.0
     environment:
       MONGO_INITDB_ROOT_USERNAME: localuser
       MONGO_INITDB_ROOT_PASSWORD: localpassword
@@ -8,14 +8,7 @@ services:
       - "27017:27017"
     volumes:
       - db_data:/data/db
-    security_opt:
-      - seccomp:unconfined
-    ulimits:
-      memlock: -1
-      nofile:
-        soft: 64000
-        hard: 64000
-    restart: always
+
   node_app:
     image: node:22
     working_dir: /app
@@ -32,7 +25,7 @@ services:
       sh -c "npm install --prefix navigator &&
               npm install --prefix server &&
               (npm run dev --prefix navigator -- --host &) &&
-              sleep 5 &&
               npm run start --prefix server"
+
 volumes:
   db_data:
