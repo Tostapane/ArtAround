@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ArtAround - Marketplace & Editor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" src="/dist/frontend/app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+
+<body class="bg-slate-50 text-slate-900 font-sans antialiased text-left">
+
+  <div x-data="appData()" class="min-h-screen flex flex-col">
+
+    <!-- NAVBAR -->
+    <header class="bg-white shadow-sm p-4 flex justify-between items-center sticky top-0 z-50 border-b border-slate-200"
+      x-show="currentUser !== null">
+      <div class="flex items-center space-x-4 text-left">
+        <h1 class="text-2xl font-black text-blue-600 tracking-tighter italic cursor-pointer" @click="museumSelection()">
+          ArtAround</h1>
+        <span
+          class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100"
+          x-show="currentMuseum">
+          📍 <span x-text="currentMuseum"></span>
+        </span>
+      </div>
+
+      <nav class="flex space-x-8 font-bold text-xs uppercase tracking-widest">
+        <template x-if="currentUserType === 'visitatore'">
+          <div class="flex space-x-8">
+            <button @click="currentView = 'dashboard'"
+              :class="currentView === 'dashboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'">Marketplace</button>
+            <button @click="currentView = 'my_collection'"
+              :class="currentView === 'my_collection' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-400'">La
+              mia Collezione</button>
+            <button @click="apriEditor()"
+              :class="currentView === 'editor' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'">Crea
+              Percorso</button>
+          </div>
+        </template>
+        <template x-if="currentUserType === 'autore'">
+          <div class="flex space-x-8">
+            <button @click="currentView = 'my_works'"
+              :class="currentView === 'my_works' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'">I miei
+              Lavori</button>
+            <button @click="apriEditor()"
+              :class="currentView === 'editor' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'">Nuovo
+              Contenuto</button>
+          </div>
+        </template>
+      </nav>
+
+      <div class="flex items-center space-x-6">
+        <div class="bg-slate-900 text-white px-4 py-2 rounded-2xl flex items-center space-x-2 shadow-lg">
+          <span class="text-[10px] uppercase font-black text-slate-400 italic">Budget</span>
+          <span class="font-black text-lg" x-text="'€ ' + wallet.toFixed(2)"></span>
+        </div>
+        <template x-if="currentView === 'my_works'">
+          <button @click="museumSelection()"
+            class="text-gray-400 hover:text-blue-600 front-black text-xs uppercase border-l border-slate-100 pl-6">Cambia
+            Museo</button>
+        </template>
+        <button @click="logout()"
+          class="text-red-500 hover:text-red-700 font-black text-xs uppercase border-l border-slate-100 pl-6">Esci</button>
+      </div>
+    </header>
+
+    <main class="flex-grow container mx-auto p-8 text-left">
+
+      <!-- VISTA BENVENUTO -->
+      <section x-show="currentView === 'welcome'" class="flex flex-col items-center justify-center mt-20 text-center">
+        <h2 class="text-7xl font-black text-slate-900 mb-4 tracking-tighter">ArtAround<span
+            class="text-blue-600">.</span></h2>
+        <p class="text-slate-400 text-xl tracking-[0.2em] uppercase mb-16 font-light">Management & Discovery</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-5xl w-full">
+          <div @click="currentView = 'login_autore'"
+            class="group bg-white p-16 rounded-[3rem] shadow-xl hover:shadow-2xl border-4 border-transparent hover:border-blue-500 transition-all cursor-pointer">
+            <div class="text-8xl mb-8 group-hover:scale-110 transition duration-500 font-bold text-blue-600 italic">🖋️
+            </div>
+            <h3 class="text-4xl font-black text-slate-900 mb-4">Autore</h3>
+            <p class="text-slate-400 font-medium">Crea e vendi i tuoi contenuti.</p>
+          </div>
+          <div @click="currentView = 'login_visitatore'"
+            class="group bg-white p-16 rounded-[3rem] shadow-xl hover:shadow-2xl border-4 border-transparent hover:border-emerald-500 transition-all cursor-pointer">
+            <div class="text-8xl mb-8 group-hover:scale-110 transition duration-500 text-emerald-600">👤</div>
+            <h3 class="text-4xl font-black text-slate-900 mb-4 tracking-tight text-emerald-600">Visitatore</h3>
+            <p class="text-slate-400 font-medium">Acquista e crea i tuoi percorsi.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA LOGIN -->
+      <section x-show="['login_autore', 'login_visitatore'].includes(currentView)"
+        class="flex flex-col items-center justify-center mt-10">
+        <div class="bg-white p-12 rounded-[2.5rem] shadow-2xl max-w-md w-full text-center border border-slate-100">
+          <button @click="currentView = 'welcome'"
+            class="text-slate-300 hover:text-slate-600 mb-8 flex items-center text-[10px] font-black uppercase tracking-widest">←
+            Indietro</button>
+          <h2 class="text-4xl font-black mb-10 text-slate-900 tracking-tight text-center"
+            x-text="currentView === 'login_autore' ? 'Autore' : 'Visitatore'"></h2>
+          <form @submit.prevent="effettuaLogin(currentView === 'login_autore' ? 'autore' : 'visitatore')"
+            class="space-y-5 text-left">
+            <input type="text" x-model="formLogin.username" required placeholder="Username"
+              class="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[1.5rem] outline-none transition font-bold shadow-inner">
+            <input type="password" x-model="formLogin.password" required placeholder="Password"
+              class="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[1.5rem] outline-none transition font-bold shadow-inner">
+            <button type="submit"
+              :class="currentView === 'login_autore' ? 'bg-blue-600 shadow-blue-100' : 'bg-emerald-600 shadow-emerald-100'"
+              class="w-full text-white py-5 rounded-[1.5rem] font-black text-xl shadow-2xl transition transform active:scale-95">Accedi</button>
+          </form>
+          <button @click="preparaRegistrazione(currentView === 'login_autore' ? 'autore' : 'visitatore')"
+            class="w-full mt-8 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-blue-600 transition">Registrati
+            ora</button>
+        </div>
+      </section>
+
+      <!-- VISTA REGISTRAZIONE -->
+      <section x-show="currentView === 'register'" class="flex flex-col items-center justify-center mt-10">
+        <div class="bg-white p-12 rounded-[2.5rem] shadow-2xl max-w-lg w-full">
+          <button @click="currentView = 'welcome'"
+            class="text-slate-300 hover:text-slate-600 mb-8 flex items-center text-[10px] font-black uppercase tracking-widest">←
+            Indietro</button>
+          <h2 class="text-4xl font-black mb-10 text-slate-900 tracking-tight text-center leading-none">Nuovo Profilo
+            <span x-text="formReg.tipo"></span>
+          </h2>
+          <form @submit.prevent="concludiRegistrazione" class="space-y-5 text-left">
+            <input type="text" x-model="formReg.username" required placeholder="Scegli Username"
+              class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold text-left shadow-inner">
+            <input type="password" x-model="formReg.password" required placeholder="Scegli Password"
+              class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold text-left shadow-inner">
+            <input type="password" x-model="formReg.conferma" required placeholder="Conferma Password"
+              class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold text-left shadow-inner">
+            <button type="submit"
+              class="w-full bg-gray-900 text-white py-5 rounded-[1.5rem] font-black text-xl shadow-2xl hover:bg-blue-600 transition mt-6">Crea
+              Account</button>
+          </form>
+          <button @click="currentView = 'login_' + formReg.tipo"
+            class="w-full mt-8 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-blue-600 transition">
+            Hai già un account? Accedi ora
+          </button>
+        </div>
+      </section>
+
+      <!-- VISTA SELEZIONE MUSEO -->
+      <section x-show="currentView === 'museum_selection'" class="mt-10 text-center">
+        <h2 class="text-5xl font-black mb-16 text-slate-900 tracking-tighter leading-none text-center">In quale museo
+          sei?</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-6xl mx-auto">
+          <template x-for="m in museums" :key="m">
+            <div @click="selectMuseum(m)"
+              class="group bg-white p-12 rounded-[3.5rem] shadow-lg hover:shadow-2xl cursor-pointer border-4 border-transparent hover:border-blue-500 transition-all transform hover:-translate-y-2 text-center">
+              <div class="text-7xl mb-8 group-hover:rotate-12 transition">🏛️</div>
+              <h3 class="text-2xl font-black text-slate-800 text-center leading-tight" x-text="m"></h3>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- VISTA CATALOGO AUTORE -->
+      <section x-show="currentView === 'my_works'" class="text-left animate-in fade-in duration-500">
+        <div class="flex justify-between items-end mb-12 text-left">
+          <div>
+            <h2 class="text-6xl font-black text-slate-900 tracking-tighter mb-2 leading-none">I miei Lavori</h2>
+            <p class="text-gray-400 text-lg font-medium italic">Catalogo per <span
+                class="text-blue-600 font-black not-italic" x-text="currentMuseum"></span></p>
+          </div>
+          <button @click="apriEditor()"
+            class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-700 transition">+
+            Nuovo Contenuto</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-10 text-left">
+          <template x-for="item in mieiLavori()" :key="item.id">
+            <div
+              class="bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all flex flex-col group relative">
+              <div class="absolute top-6 right-6 z-10"><span
+                  class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest border border-blue-100"
+                  x-text="item.tipo"></span></div>
+              <div class="h-56 bg-slate-100 flex items-center justify-center overflow-hidden rounded-t-[3rem]">
+                <img x-show="item.immagine" :src="item.immagine"
+                  class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
+                <div x-show="!item.immagine" class="text-7xl group-hover:scale-105 transition duration-500"
+                  x-text="item.tipo === 'Item' ? '🖼️' : '🗺️'"></div>
+              </div>
+              <div class="p-8">
+                <h3 class="text-2xl font-black text-slate-900 leading-tight mb-6 tracking-tight text-left"
+                  x-text="item.titolo"></h3>
+                <div class="flex space-x-3 mt-auto">
+                  <button @click="apriDettaglio(item)"
+                    class="flex-grow bg-slate-900 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition shadow-lg text-center">Anteprima</button>
+                  <button @click="modificaOpera(item)"
+                    class="bg-amber-100 text-amber-600 px-4 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-amber-200 transition">✏️</button>
+                  <button @click="eliminaOpera(item)"
+                    class="bg-red-100 text-red-600 px-4 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-red-200 transition">🗑️</button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- VISTA MARKETPLACE VISITATORE -->
+      <section x-show="currentView === 'dashboard'" class="text-left text-left">
+        <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-8 text-left">
+          <div>
+            <h2 class="text-6xl font-black text-gray-900 tracking-tighter mb-2 leading-none text-left">Marketplace</h2>
+            <p class="text-gray-400 text-lg font-medium italic text-left">Scopri <span
+                class="text-blue-600 font-black underline" x-text="currentMuseum"></span></p>
+          </div>
+          <div class="relative group w-full md:w-auto text-left">
+            <input type="text" x-model="ricerca" placeholder="Cerca opera o tour..."
+              class="pl-14 pr-6 py-5 bg-white border border-gray-200 rounded-[2rem] w-full md:w-96 shadow-sm focus:ring-8 focus:ring-blue-50 outline-none transition font-medium text-left">
+            <span class="absolute left-6 top-5.5 text-2xl">🔍</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 text-left">
+          <template x-for="item in contenutiFiltrati()" :key="item.id">
+            <div
+              class="bg-white rounded-[3rem] shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl transition-all flex flex-col group relative text-left">
+              <div class="absolute top-6 left-6 z-10"><span
+                  class="bg-gray-900 text-white px-4 py-2 rounded-2xl font-black text-[10px] uppercase shadow-lg tracking-widest"
+                  x-text="item.prezzo === 0 ? 'Gratis' : '€ ' + item.prezzo.toFixed(2)"></span></div>
+              <div class="h-64 bg-slate-100 flex items-center justify-center overflow-hidden rounded-t-[3rem]">
+                <img x-show="item.immagine" :src="item.immagine"
+                  class="w-full h-full object-contain group-hover:scale-105 transition duration-700">
+                <div x-show="!item.immagine" class="text-8xl group-hover:scale-105 transition duration-700"
+                  x-text="item.tipo === 'Item' ? '🖼️' : '🗺️'"></div>
+              </div>
+              <div class="p-10 flex-grow flex flex-col text-left">
+                <div class="flex justify-between items-start mb-4 text-left">
+                  <h3 class="text-3xl font-black text-slate-900 tracking-tight leading-tight mb-4 text-left"
+                    x-text="item.titolo"></h3>
+                  <span :class="item.tipo === 'Visita' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'"
+                    class="text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest ml-4"
+                    x-text="item.tipo"></span>
+                </div>
+                <p class="text-slate-400 text-[10px] font-black mb-8 uppercase tracking-widest italic text-left">
+                  Curatore: <span class="text-slate-800 not-italic uppercase font-bold" x-text="item.autore"></span></p>
+                <div class="mt-auto flex space-x-4">
+                  <button @click="apriDettaglio(item)"
+                    class="flex-grow bg-gray-50 text-gray-900 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition border border-gray-100 shadow-sm text-center">Dettagli</button>
+                  <template x-if="haIlPossesso(item)">
+                    <div
+                      class="flex-grow bg-emerald-50 text-emerald-600 py-4 rounded-[1.5rem] font-black text-[10px] uppercase text-center border border-emerald-100">
+                      Posseduto ✅</div>
+                  </template>
+                  <template x-if="!haIlPossesso(item)">
+                    <button @click="compraOra(item)"
+                      class="flex-grow bg-blue-600 text-white py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition shadow-xl shadow-blue-100 text-center">Sblocca</button>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- VISTA LA MIA COLLEZIONE -->
+      <section x-show="currentView === 'my_collection'" class="text-left">
+        <h2 class="text-6xl font-black text-slate-900 tracking-tighter mb-4 leading-none text-left">La mia Collezione
+        </h2>
+        <p class="text-gray-400 text-lg mb-12 font-medium italic text-left">Contenuti acquistati per <span
+            class="text-emerald-600 font-black not-italic" x-text="currentMuseum"></span></p>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+          <template x-for="item in miaCollezione()" :key="item.id">
+            <div @click="apriDettaglio(item)"
+              class="group bg-white p-10 rounded-[3rem] shadow-sm border border-emerald-50 flex flex-col items-center text-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden">
+              <img x-show="item.immagine" :src="item.immagine"
+                class="w-24 h-24 rounded-2xl object-contain bg-slate-50 mb-6 group-hover:scale-110 transition">
+              <div x-show="!item.immagine" class="text-6xl mb-6 text-center"
+                x-text="item.tipo === 'Item' ? '🖼️' : '🗺️'"></div>
+              <h3 class="text-xl font-black text-slate-900 text-center font-bold" x-text="item.titolo"></h3>
+              <p class="text-gray-400 text-[10px] font-black uppercase mt-2 tracking-[0.2em]" x-text="item.tipo"></p>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- VISTA EDITOR -->
+      <section x-show="currentView === 'editor'" class="max-w-5xl mx-auto text-left animate-in zoom-in duration-300">
+        <div class="bg-white p-16 rounded-[4rem] shadow-2xl border border-slate-100 relative text-left">
+          <button @click="tornaHome()"
+            class="absolute top-10 right-10 text-slate-300 hover:text-slate-600 text-4xl">&times;</button>
+          <h2 class="text-5xl font-black mb-2 text-slate-900 tracking-tight text-left"
+            x-text="currentUserType === 'autore' ? 'Editor' : 'Crea Percorso'"></h2>
+          <p class="text-slate-400 mb-12 text-lg font-medium italic text-left leading-none">Lavorando in: <strong
+              class="text-slate-800" x-text="currentMuseum"></strong></p>
+
+          <form @submit.prevent="salvaOpera" class="space-y-12 text-left">
+            <div x-show="currentUserType === 'autore'"
+              class="flex bg-slate-100 p-2 rounded-[2rem] w-fit shadow-inner mb-8">
+              <button type="button" @click="nuovaOpera.tipo = 'Item'"
+                :class="nuovaOpera.tipo === 'Item' ? 'bg-white shadow-md text-blue-600' : 'text-slate-400'"
+                class="px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition">🖼️
+                Item</button>
+              <button type="button" @click="nuovaOpera.tipo = 'Visita'"
+                :class="nuovaOpera.tipo === 'Visita' ? 'bg-white shadow-md text-purple-600' : 'text-slate-400'"
+                class="px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition">🗺️
+                Visita</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
+              <div class="col-span-2 text-left">
+                <label
+                  class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2 italic text-left">Titolo
+                  del Contenuto</label>
+                <input type="text" x-model="nuovaOpera.titolo" required placeholder="Es: Il David di Michelangelo"
+                  class="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[2rem] outline-none transition font-bold text-2xl shadow-inner text-left">
+              </div>
+              <div x-show="currentUserType === 'autore'" class="text-left">
+                <label
+                  class="block text-[10px] font-black uppercase mb-3 tracking-widest text-slate-400 ml-2 italic text-left">Prezzo
+                  (€)</label>
+                <input type="number" step="0.10" x-model="nuovaOpera.prezzo"
+                  class="w-full p-5 bg-slate-50 rounded-[1.5rem] outline-none font-black text-xl shadow-inner border-2 border-transparent focus:border-blue-500 text-left">
+              </div>
+              <div x-show="nuovaOpera.tipo === 'Item'" class="text-left">
+                <label
+                  class="block text-[10px] font-black uppercase mb-3 tracking-widest text-slate-400 ml-2 italic text-left">URL
+                  Immagine</label>
+                <input type="url" x-model="nuovaOpera.immagine" placeholder="https://..."
+                  class="w-full p-5 bg-slate-50 rounded-[1.5rem] outline-none font-bold shadow-inner border-2 border-transparent focus:border-blue-500 text-left">
+              </div>
+              <div x-show="nuovaOpera.tipo === 'Item'" class="text-left">
+                <label
+                  class="block text-[10px] font-black uppercase mb-3 tracking-widest text-slate-400 ml-2 italic text-left">ID
+                  Wikidata</label>
+                <div class="flex space-x-2">
+                  <input type="text" x-model="nuovaOpera.id_oper_universale" placeholder="Es: Q123456"
+                    class="flex-grow p-5 bg-slate-50 rounded-[1.5rem] outline-none font-bold uppercase tracking-widest shadow-inner border-2 border-transparent focus:border-blue-500 text-left">
+                  <button type="button" @click="cercaImmagineWikidata()"
+                    class="bg-blue-100 text-blue-600 px-6 py-2 rounded-2xl font-black text-[10px] uppercase hover:bg-blue-200 transition">Cerca
+                    Foto</button>
+                </div>
+              </div>
+            </div>
+
+            <div x-show="nuovaOpera.tipo === 'Visita'" class="pt-12 border-t border-slate-100 text-left">
+              <h3 class="text-3xl font-black text-slate-900 tracking-tight leading-none mb-10 text-left">Costruzione
+                Timeline</h3>
+              <div class="bg-slate-100 p-10 rounded-[3rem] mb-12 border-2 border-dashed border-slate-200 text-left">
+                <p
+                  class="text-[10px] font-black uppercase text-slate-400 mb-8 tracking-[0.2em] text-center italic leading-none">
+                  IL TUO INVENTARIO (Clicca per aggiungere):</p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                  <template x-for="op in listaOpereSelezionabili()" :key="op.id">
+                    <button type="button" @click="aggiungiTappa('item', op.id)"
+                      class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-purple-500 hover:scale-105 transition-all text-center group active:scale-95">
+                      <div class="text-4xl mb-3 group-hover:rotate-12 transition">🖼️</div>
+                      <p class="text-xs font-black uppercase truncate leading-none mb-1 text-slate-800 text-center"
+                        x-text="op.titolo"></p>
+                      <p class="text-[8px] text-purple-400 font-bold uppercase tracking-widest">Aggiungi +</p>
+                    </button>
+                  </template>
+                </div>
+                <div x-show="listaOpereSelezionabili().length === 0"
+                  class="text-center py-6 text-red-400 font-bold uppercase text-xs">Nessuna opera posseduta in questo
+                  museo.</div>
+                <div class="mt-10 pt-10 border-t border-slate-200 text-center">
+                  <button type="button" @click="aggiungiTappa('logistica')"
+                    class="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition shadow-xl shadow-slate-200 italic leading-none">+
+                    Aggiungi Nota Logistica</button>
+                </div>
+              </div>
+              <div class="space-y-6 text-left">
+                <template x-for="(tappa, index) in nuovaOpera.percorso" :key="index">
+                  <div class="flex items-center space-x-6 animate-in slide-in-from-left duration-300 text-left">
+                    <div
+                      class="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-black text-lg shadow-inner text-center"
+                      x-text="index + 1"></div>
+                    <div
+                      class="flex-grow p-8 rounded-[2.5rem] border-2 flex items-center justify-between transition-all shadow-sm"
+                      :class="tappa.tipo === 'item' ? 'bg-white border-purple-100 shadow-md' : 'bg-slate-50 border-slate-200 border-dashed'">
+                      <div x-show="tappa.tipo === 'item'" class="flex items-center space-x-6 text-left">
+                        <div class="text-3xl">🖼️</div>
+                        <div class="text-left">
+                          <p
+                            class="text-[10px] font-black uppercase text-purple-400 tracking-widest mb-1 leading-none text-left">
+                            Opera</p>
+                          <p class="text-2xl font-black text-slate-800 leading-tight text-left"
+                            x-text="trovaNomeItem(tappa.id_item)"></p>
+                        </div>
+                      </div>
+                      <div x-show="tappa.tipo === 'logistica'" class="flex-grow flex items-center space-x-6 text-left">
+                        <div class="text-3xl">🏃‍♂️</div>
+                        <div class="flex-grow text-left">
+                          <p
+                            class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1 italic leading-none text-left">
+                            Direzione</p>
+                          <input type="text" x-model="tappa.indicazione" placeholder="Es: Gira a destra..."
+                            class="bg-transparent font-bold text-slate-700 outline-none w-full text-2xl border-b-2 border-slate-100 focus:border-blue-500 transition-all italic text-left">
+                        </div>
+                      </div>
+                      <button type="button" @click="rimuoviTappa(index)"
+                        class="ml-6 text-red-300 hover:text-red-600 text-4xl font-black transition-all hover:rotate-90 text-center">&times;</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div x-show="nuovaOpera.tipo === 'Item'" class="pt-12 border-t border-slate-100 text-left">
+              <div class="flex justify-between items-center mb-8">
+                <h3 class="text-3xl font-black text-slate-900 tracking-tight leading-none text-left">Varianti Audioguida
+                </h3>
+                <button type="button" @click="aggiungiDescrizione"
+                  class="bg-gray-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-2xl hover:bg-blue-600 transition shadow-blue-100">+
+                  Nuova</button>
+              </div>
+              <template x-for="(desc, index) in nuovaOpera.descrizioni" :key="index">
+                <div
+                  class="p-10 bg-blue-50/30 rounded-[3rem] mb-8 relative border-2 border-blue-50 shadow-inner text-left">
+                  <button type="button" @click="rimuoviDescrizione(index)"
+                    class="absolute -top-4 -right-4 bg-white text-red-500 w-12 h-12 rounded-full shadow-2xl border-2 border-red-50 flex items-center justify-center font-black transition-all hover:rotate-90 text-center">&times;</button>
+                  <div class="grid grid-cols-2 gap-6 mb-6 text-left">
+                    <select x-model="desc.tono"
+                      class="p-4 bg-white border border-blue-100 rounded-xl font-bold outline-none shadow-sm focus:ring-4 focus:ring-blue-100 text-left">
+                      <option value="infantile">👶 Bambini</option>
+                      <option value="semplice">🧑‍🎓 Semplice</option>
+                      <option value="medio">🧐 Appassionato</option>
+                      <option value="avanzato">🎓 Esperto</option>
+                    </select>
+                    <select x-model="desc.lunghezza"
+                      class="p-4 bg-white border border-blue-100 rounded-xl font-bold outline-none shadow-sm focus:ring-4 focus:ring-blue-100 text-left">
+                      <option value="3s">3s</option>
+                      <option value="15s">15s</option>
+                      <option value="40s">40s</option>
+                    </select>
+                  </div>
+                  <textarea x-model="desc.testo" required rows="4"
+                    class="w-full p-6 bg-white border border-blue-100 rounded-2xl outline-none font-medium shadow-sm text-left text-xl"
+                    placeholder="Testo audioguida..."></textarea>
+                </div>
+              </template>
+            </div>
+
+            <div class="flex justify-end pt-12 border-t border-slate-100 text-left">
+              <button type="submit"
+                class="bg-blue-600 text-white px-16 py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:scale-105 transition-all transform active:scale-95 tracking-tighter">Pubblica
+                sul Marketplace</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- DETTAGLIO MODALE -->
+    <div x-show="modalDettaglio"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-md text-left"
+      x-transition.opacity>
+      <div
+        class="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 text-left"
+        @click.away="modalDettaglio = false">
+        <div class="h-40 bg-blue-600 flex items-end p-10 relative shadow-inner">
+          <button @click="modalDettaglio = false"
+            class="absolute top-6 right-6 text-white/50 hover:text-white text-4xl">&times;</button>
+          <h2 class="text-4xl font-black text-white leading-tight tracking-tight text-left italic"
+            x-text="itemSelezionato?.titolo"></h2>
+        </div>
+        <div class="p-10 space-y-6 text-left">
+          <img x-show="itemSelezionato?.immagine" :src="itemSelezionato?.immagine"
+            class="w-full h-64 object-contain bg-slate-100 rounded-3xl shadow-lg mb-6">
+          <div x-show="itemSelezionato?.tipo === 'Item'">
+            <h4 class="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest text-left">Varianti Vocali
+            </h4>
+            <template x-for="desc in itemSelezionato?.descrizioni">
+              <div
+                class="p-4 bg-slate-50 rounded-2xl mb-2 flex justify-between items-center border border-gray-100 text-left">
+                <span class="font-black text-gray-700 capitalize text-sm text-left" x-text="desc.tono"></span>
+                <span class="text-gray-400 text-[10px] font-medium italic truncate max-w-[250px] text-left"
+                  x-text="haIlPossesso(itemSelezionato) ? desc.testo : 'Contenuto Protetto 🔒'"></span>
+              </div>
+            </template>
+          </div>
+          <div x-show="itemSelezionato?.tipo === 'Visita'">
+            <h4 class="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest text-left font-bold">
+              Timeline Percorso</h4>
+            <template x-for="(t, i) in itemSelezionato?.percorso">
+              <div
+                class="flex items-center space-x-4 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-left shadow-sm">
+                <span
+                  class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black italic"
+                  x-text="i+1"></span>
+                <span class="text-sm font-bold text-slate-700 text-left"
+                  x-text="t.tipo === 'item' ? '🖼️ ' + trovaNomeItem(t.id_item) : '🏃‍♂️ ' + t.indicazione"></span>
+              </div>
+            </template>
+          </div>
+          <div class="pt-6 border-t flex justify-between items-center text-left font-bold">
+            <span class="text-gray-400 font-black text-[10px] uppercase tracking-widest italic leading-none">Curatore:
+              <span class="text-slate-800 uppercase font-bold not-italic"
+                x-text="itemSelezionato?.autore"></span></span>
+            <template x-if="currentUserType === 'visitatore' && !haIlPossesso(itemSelezionato)">
+              <button @click="compraOra(itemSelezionato)"
+                class="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition">Sblocca
+                per € <span x-text="itemSelezionato?.prezzo.toFixed(2)"></span></button>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="p-10 text-center text-slate-300 text-[10px] uppercase font-black tracking-[0.5em] mt-auto">ArtAround
+      Suite &copy; 2026</footer>
+  </div>
+</body>
+
+</html>
