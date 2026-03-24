@@ -8,7 +8,8 @@ const app = express();
 const PORT = 8000;
 
 const MONGO_URI =
-  process.env.MONGO_URI || "mongodb://localuser:localpassword@mongodb:27017/artaround?authSource=admin";
+  process.env.MONGO_URI ||
+  "mongodb://localuser:localpassword@mongodb:27017/artaround?authSource=admin";
 
 const connectWithRetry = () => {
   console.log("Attempting to connect to MongoDB...");

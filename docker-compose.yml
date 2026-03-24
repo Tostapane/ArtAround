@@ -1,6 +1,7 @@
 services:
   mongodb:
     image: mongo:7.0
+    container_name: mongo-con
     environment:
       MONGO_INITDB_ROOT_USERNAME: localuser
       MONGO_INITDB_ROOT_PASSWORD: localpassword
@@ -11,6 +12,7 @@ services:
 
   node_app:
     image: node:22
+    container_name: node-con
     working_dir: /app
     ports:
       - "8000:8000"
