@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 const MONGO_URI =
   "mongodb://localuser:localpassword@mongodb:27017/?authSource=admin";
 
-async function runTest() {
+async function runTestDB() {
   try {
     await mongoose.connect(MONGO_URI, { dbName: "bookstore" });
     console.log("test connected!");
@@ -42,5 +42,3 @@ async function runTest() {
     console.error("test error", err);
   }
 }
-
-runTest();
