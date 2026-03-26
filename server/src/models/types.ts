@@ -29,6 +29,8 @@ export interface Item extends Document {
 }
 
 // La Visita è una sequenza (ItemList) di Item e indicazioni logistiche
+// nota: la visit aimmagazzina solo gli id degli item, non gli item stessi!
+//
 export interface Visit extends Document {
   "@context": string;
   "@type": string;
@@ -37,8 +39,8 @@ export interface Visit extends Document {
   name: string;
   price?: number;
 
-  // La sequenza ordinata di descrizioni
-  itemListElement: Item[];
+  // La sequenza di id degli item selezionati
+  itemListElement: string[];
   // La sequenza ordinata di indicazioni
   logistics: string[];
 }
@@ -80,7 +82,7 @@ const visitSchema = new Schema<Visit>({
   name: { type: String, required: true },
   price: { type: Number },
 
-  itemListElement: [itemSchema],
+  itemListElement: [String],
   logistics: [String],
 });
 

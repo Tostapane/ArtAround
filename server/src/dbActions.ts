@@ -26,6 +26,17 @@ export async function insertArtwork(currUri: string) {
     console.error(`Errore di inserimento di ${currUri}:`, err);
   }
 }
+
+export async function deleteArtwork(currUri: string) {
+  try {
+    const result = await ArtworkModel.deleteOne({ wikiDataUri: currUri });
+    if (result.deletedCount === 0)
+      console.log("No artwork found with that URI");
+    else console.log("Successfully deleted");
+  } catch (err) {
+    console.error("Error during deletion", err);
+  }
+}
 // storia diversa per gli item, che possono essere sia forniti
 // dal file iniziale che attraverso la piattaforma, lascio a te
 // l'onore
