@@ -23,7 +23,7 @@ export async function insertArtwork(currUri: string) {
       author: data.author,
       style: data.style,
     });
-    console.log("Inserito correttamente:", currUri);
+    console.log("Artwork nserito correttamente:", currUri);
   } catch (err) {
     console.error(`Errore di inserimento di ${currUri}:`, err);
   }
@@ -34,15 +34,27 @@ export async function deleteArtwork(currUri: string) {
     const result = await ArtworkModel.deleteOne({ wikiDataUri: currUri });
     if (result.deletedCount === 0)
       console.log("No artwork found with that URI");
-    else console.log("Successfully deleted");
+    else console.log("Artwork successfully deleted");
   } catch (err) {
-    console.error("Error during deletion", err);
+    console.error("Error during deletion of the artwork", err);
   }
 }
 // storia diversa per gli item, che possono essere sia forniti
 // dal file iniziale che attraverso la piattaforma
 
-export async function insertItem() {}
+export async function insertItem(
+  atworkUri: string,
+  level: string,
+  duration: number,
+  author: string,
+) {
+  try {
+    const id = atworkUri + "-" + level + "-" + duration;
+    const artwork = await ArtworkModel.findOne({});
+  } catch (err) {
+    console.error(`Errow while inserting the item`, err);
+  }
+}
 
 // stessa storia per la visita, possibile reperirle sia dal file iniziale
 // che crearne personalizzate direttamente dai customers!

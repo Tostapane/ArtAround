@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import path from "path";
-import { Expertise, ItemModel } from "../models/item";
+import { ItemModel } from "../models/item";
 import { insertArtwork } from "../dbActions";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
