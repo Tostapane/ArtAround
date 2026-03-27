@@ -1,4 +1,6 @@
-import { ArtworkModel, ItemModel, VisitModel } from "./models/types";
+import { ArtworkModel } from "./models/artwork";
+import { ItemModel } from "./models/item";
+import { VisitModel } from "./models/visit";
 import { fetchArtwork } from "./services/wikidata";
 
 // il vantaggio di usare una lista di opere e' che il museo
@@ -38,8 +40,7 @@ export async function deleteArtwork(currUri: string) {
   }
 }
 // storia diversa per gli item, che possono essere sia forniti
-// dal file iniziale che attraverso la piattaforma, lascio a te
-// l'onore
+// dal file iniziale che attraverso la piattaforma
 
 export async function insertItem() {}
 

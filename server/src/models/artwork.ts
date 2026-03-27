@@ -1,0 +1,30 @@
+import { Schema, model, Document, Types } from "mongoose";
+
+export interface Artwork extends Document {
+  // saranno necessari?
+  "@context": string;
+  "@type": string;
+  "@id": string; // uri interno
+  wikiDataUri: string;
+  name?: string;
+  image?: string;
+  author?: string;
+  style?: string;
+  lastUpdated?: Date;
+}
+
+// --- Mongoose Schemas ---
+const artworkSchema = new Schema<Artwork>({
+  "@context": { type: String, default: "https://schema.org" },
+  "@type": { type: String, default: "VisualArtwork" },
+  "@id": { type: String, required: true, unique: true },
+  wikiDataUri: { type: String, required: true },
+  name: String,
+  image: String,
+  author: String,
+  style: String,
+  lastUpdated: { type: Date, default: Date.now }, // Date.now?
+});
+
+// Esportazione dei Modelli
+export const ArtworkModel = model<Artwork>("Artwork", artworkSchema);
