@@ -7,7 +7,7 @@ import { fetchArtwork } from "./services/wikidata";
 // deve solo fornire gli uri delle loro opere
 // runnundo una volta uno script init verra riempito tutto il
 // database
-export async function insertArtwork(currUri: string, museum: string = "Ignoto") {
+export async function insertArtwork(currUri: string) {
   try {
     const data = await fetchArtwork(currUri);
     if (!data) {
@@ -22,7 +22,6 @@ export async function insertArtwork(currUri: string, museum: string = "Ignoto") 
       name: data.name,
       author: data.author,
       style: data.style,
-      museum: museum,
     });
     console.log("Artwork nserito correttamente:", currUri);
   } catch (err) {

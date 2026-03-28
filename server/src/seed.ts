@@ -9,10 +9,10 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://localuser:localpassword@lo
 
 // Lista di QID di opere famose per il test
 const testArtworks = [
-  { qid: 'Q12418', museum: 'MAMbo' },      // Gioconda (Test)
-  { qid: 'Q155025', museum: 'MAMbo' },     // David (Test)
-  { qid: 'Q185382', museum: 'Pinacoteca' }, // Guernica (Test)
-  { qid: 'Q175036', museum: 'Pinacoteca' }  // La nascita di Venere (Test)
+  'Q12418', // Gioconda
+  'Q155025', // David
+  'Q185382', // Guernica
+  'Q175036'  // La nascita di Venere
 ];
 
 async function seed() {
@@ -25,28 +25,27 @@ async function seed() {
     // await ArtworkModel.deleteMany({});
     // console.log('Database pulito.');
 
-    for (const item of testArtworks) {
-      const existing = await ArtworkModel.findOne({ wikiDataUri: item.qid });
+    for (const qid of testArtworks) {
+      const existing = await ArtworkModel.findOne({ wikiDataUri: qid });
       
       if (existing) {
-        console.log(`L'opera ${item.qid} esiste già. Salto...`);
+        console.log(`L'opera ${qid} esiste già. Salto...`);
         continue;
       }
 
-      console.log(`Recupero dati per ${item.qid} da Wikidata...`);
-      const meta = await fetchArtwork(item.qid);
+      console.log(`Recupero dati per ${qid} da Wikidata...`);
+      const meta = await fetchArtwork(qid);
 
       if (meta) {
         await ArtworkModel.create({
-          "@id": `uri:${item.qid}`,
-          wikiDataUri: item.qid,
+          "@id": `uri:${qid}`,
+          wikiDataUri: qid,
           name: meta.name,
           author: meta.author,
           image: meta.image,
-          style: meta.style,
-          museum: item.museum
+          style: meta.style
         });
-        console.log(`✅ Opera inserita: ${meta.name} (${item.museum})`);
+        console.log(`✅ Opera inserita: ${meta.name}`);
       }
     }
 

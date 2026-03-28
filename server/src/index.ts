@@ -15,9 +15,12 @@ app.use(express.json());
 
 // Servire i file statici del marketplace
 // Root: serve la cartella public del marketplace
-app.use(express.static(path.join(__dirname, '../../marketplace/public')));
+app.use(express.static(path.join(__dirname, "../../marketplace/public")));
 // /dist: serve la cartella dist del marketplace (dove si trovano gli script compilati)
-app.use('/dist', express.static(path.join(__dirname, '../../marketplace/dist')));
+app.use(
+  "/dist",
+  express.static(path.join(__dirname, "../../marketplace/dist")),
+);
 
 const MONGO_URI =
   process.env.MONGO_URI ||
@@ -38,24 +41,21 @@ connectWithRetry();
 
 /**
  * API GET: Recupera la lista delle opere.
- * Supporta il filtro per museo (?museo=...) richiesto dal Marketplace.
  * Converte i modelli interni (Item, Visit) nel formato 'Contenuto' (Opera | Visita) atteso dal frontend.
  */
-app.get('/api/opere', async (req, res) => {
+app.get("/api/opere", async (req, res) => {
   try {
-    const museo = req.query.museo as string;
-    const query = museo ? { museum: museo } : {};
-
-    const items = await ItemModel.find(query).populate('about');
-    const visits = await VisitModel.find(query);
+    const items = await ItemModel.find({}).populate("about");
+    const visits = await VisitModel.find({});
 
     // Trasformazione ITEMS in 'Opera' del Marketplace
     // Raggruppiamo i singoli Item (CreativeWork) per Opera (Artwork) + Autore
     const groupedItems = new Map();
-    items.forEach(item => {
+    items.forEach((item) => {
       const artwork = item.about as any;
       // Chiave univoca basata su Artwork (WikiData ID o internal ID) e Autore
-      const artworkId = artwork?.wikiDataUri || artwork?._id?.toString() || "unknown";
+      const artworkId =
+        artwork?.wikiDataUri || artwork?._id?.toString() || "unknown";
       const key = `${artworkId}-${item.author}`;
 
       if (!groupedItems.has(key)) {
@@ -63,41 +63,39 @@ app.get('/api/opere', async (req, res) => {
           id: key,
           titolo: artwork?.name || "Senza titolo",
           autore: item.author,
-          museo: item.museum || artwork?.museum || "Ignoto",
           prezzo: item.price || 0,
           tipo: "Item",
           immagine: artwork?.image || "",
           id_oper_universale: artwork?.wikiDataUri || "",
-          descrizioni: []
+          descrizioni: [],
         });
       }
       const opera = groupedItems.get(key);
       opera.descrizioni.push({
         tono: item.educationalLevel,
         lunghezza: item.timeRequired,
-        testo: item.text || ""
+        testo: item.text || "",
       });
     });
 
     // Trasformazione VISITS
-    const transformedVisits = visits.map(v => {
-      const items: any[] = v.itemListElement.map(id => ({
+    const transformedVisits = visits.map((v) => {
+      const items: any[] = v.itemListElement.map((id) => ({
         tipo: "item",
-        id_item: id
+        id_item: id,
       }));
-      const logistics: any[] = v.logistics.map(l => ({
+      const logistics: any[] = v.logistics.map((l) => ({
         tipo: "logistica",
-        indicazione: l
+        indicazione: l,
       }));
-      
+
       return {
         id: v["@id"] || v._id.toString(),
         titolo: v.name,
         autore: v.author || "Sistema",
-        museo: v.museum || "Ignoto",
         prezzo: v.price || 0,
         tipo: "Visita",
-        percorso: [...items, ...logistics]
+        percorso: [...items, ...logistics],
       };
     });
 
@@ -112,7 +110,7 @@ app.get('/api/opere', async (req, res) => {
  * API POST: Registra un nuovo contenuto.
  * Gestisce sia il formato Schema.org che quello 'Marketplace'.
  */
-app.post('/api/opere', async (req, res) => {
+app.post("/api/opere", async (req, res) => {
   try {
     const payload = req.body;
 
@@ -124,36 +122,37 @@ app.post('/api/opere', async (req, res) => {
         if (payload.id_oper_universale) {
           artwork = await ArtworkModel.findOneAndUpdate(
             { wikiDataUri: payload.id_oper_universale },
-            { 
+            {
               "@id": `uri:${payload.id_oper_universale}`,
               wikiDataUri: payload.id_oper_universale,
               name: payload.titolo,
               image: payload.immagine,
-              museum: payload.museo
             },
-            { upsert: true, new: true }
+            { upsert: true, new: true },
           );
         } else {
           // Opera non universale
           artwork = await ArtworkModel.findOneAndUpdate(
-            { name: payload.titolo, museum: payload.museo },
-            { 
+            { name: payload.titolo },
+            {
               "@id": `uri:local:${Date.now()}`,
               wikiDataUri: "N/A",
               name: payload.titolo,
               image: payload.immagine,
-              museum: payload.museo
             },
-            { upsert: true, new: true }
+            { upsert: true, new: true },
           );
         }
 
         // 2. Creare o aggiornare gli Item (CreativeWork) per ogni descrizione
         // ATTENZIONE: per semplicità rimpiazziamo i precedenti per questo autore/opera
-        await ItemModel.deleteMany({ about: artwork._id, author: payload.autore });
-        
+        await ItemModel.deleteMany({
+          about: artwork._id,
+          author: payload.autore,
+        });
+
         for (const desc of payload.descrizioni) {
-          const itemId = `${artwork.wikiDataUri || 'local'}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
+          const itemId = `${artwork.wikiDataUri || "local"}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
           await ItemModel.create({
             "@id": itemId,
             about: artwork._id,
@@ -161,8 +160,7 @@ app.post('/api/opere', async (req, res) => {
             educationalLevel: desc.tono,
             author: payload.autore,
             price: payload.prezzo,
-            museum: payload.museo,
-            text: desc.testo
+            text: desc.testo,
           });
         }
       } else {
@@ -173,12 +171,17 @@ app.post('/api/opere', async (req, res) => {
             "@id": payload.id,
             name: payload.titolo,
             price: payload.prezzo,
-            museum: payload.museo,
             author: payload.autore,
-            itemListElement: payload.percorso?.filter((t: any) => t.tipo === 'item').map((t: any) => t.id_item) || [],
-            logistics: payload.percorso?.filter((t: any) => t.tipo === 'logistics').map((t: any) => t.indicazione) || []
+            itemListElement:
+              payload.percorso
+                ?.filter((t: any) => t.tipo === "item")
+                .map((t: any) => t.id_item) || [],
+            logistics:
+              payload.percorso
+                ?.filter((t: any) => t.tipo === "logistics")
+                .map((t: any) => t.indicazione) || [],
           },
-          { upsert: true }
+          { upsert: true },
         );
       }
     } else {
@@ -187,11 +190,11 @@ app.post('/api/opere', async (req, res) => {
         await VisitModel.create(payload);
       } else {
         const artworkData = payload.about;
-        if (artworkData && typeof artworkData === 'object') {
+        if (artworkData && typeof artworkData === "object") {
           const artwork = await ArtworkModel.findOneAndUpdate(
             { "@id": artworkData["@id"] },
             artworkData,
-            { upsert: true, new: true }
+            { upsert: true, new: true },
           );
           payload.about = artwork._id;
         }
@@ -208,7 +211,10 @@ app.post('/api/opere', async (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ message: "Unified Backend running", node_version: process.version });
+  res.json({
+    message: "Unified Backend running",
+    node_version: process.version,
+  });
 });
 
 app.listen(PORT, () => {
