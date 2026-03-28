@@ -17,6 +17,7 @@ export interface Item extends Document {
   educationalLevel: string;
   author: string;
   license: string;
+  price?: number;
 }
 
 const itemSchema = new Schema<Item>({
@@ -32,6 +33,7 @@ const itemSchema = new Schema<Item>({
     type: String,
     default: "https://creativecommons.org/licenses/by/4.0/",
   },
+  price: { type: Number, default: 0 },
 });
 
 export const ItemModel = model<Item>("Item", itemSchema);
