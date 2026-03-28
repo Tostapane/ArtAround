@@ -9,6 +9,8 @@ export interface Visit extends Document {
 
   name: string;
   price?: number;
+  museum?: string;
+  author?: string;
 
   // La sequenza di id degli item selezionati
   itemListElement: string[];
@@ -23,6 +25,8 @@ const visitSchema = new Schema<Visit>({
 
   name: { type: String, required: true },
   price: { type: Number },
+  museum: { type: String, index: true },
+  author: String,
 
   itemListElement: [String],
   logistics: [String],

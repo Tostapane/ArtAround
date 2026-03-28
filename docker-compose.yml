@@ -14,6 +14,8 @@ services:
     image: node:22
     container_name: node-con
     working_dir: /app
+    environment:
+      - MONGO_URI=mongodb://localuser:localpassword@mongodb:27017/artaround?authSource=admin
     ports:
       - "8000:8000"
       - "5173:5173"
