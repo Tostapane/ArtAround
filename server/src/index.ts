@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "path";
+import cors from "cors";
 import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
 import { ArtworkModel } from "./models/artwork";
@@ -11,6 +12,7 @@ dotenv.config();
 const app = express();
 const PORT = 8000;
 
+app.use(cors());
 app.use(express.json());
 
 // Servire i file statici del marketplace
@@ -41,12 +43,8 @@ connectWithRetry();
 
 app.get("/api/artworks", async (req, res) => {
   try {
-    const museum = req.query.museum;
-    console.log(`[BACKEND] Chiamata GET /api/artworks?museum=${museum}`);
-    if (!museum) {
-      return res.status(400).json({ error: "Missing museum query parameter" });
-    }
-    const artworks = await ArtworkModel.find({ museum: museum });
+    console.log(`[BACKEND] Chiamata GET /api/artworks`);
+    const artworks = await ArtworkModel.find({});
     res.json(artworks);
   } catch (error: any) {
     console.error(error);
@@ -60,15 +58,11 @@ app.get("/api/artworks", async (req, res) => {
  */
 app.get("/api/opere", async (req, res) => {
   try {
-    const museum = req.query.museum;
-    console.log(`[BACKEND] Chiamata GET /api/opere?museum=${museum}`);
-    if (!museum) {
-      return res.status(400).json({ error: "Missing museum query parameter" });
-    }
+    console.log(`[BACKEND] Chiamata GET /api/opere`);
 
-    // 1. Trova tutti gli artwork per il museo specificato
-    const artworksInMuseum = await ArtworkModel.find({ museum: museum }).select('_id');
-    const artworkIds = artworksInMuseum.map(a => a._id);
+    // 1. Trova tutti gli artwork
+    const artworks = await ArtworkModel.find({}).select('_id');
+    const artworkIds = artworks.map(a => a._id);
 
     // 2. Trova tutti gli item che si riferiscono a quegli artwork
     const items = await ItemModel.find({ about: { $in: artworkIds } }).populate("about");

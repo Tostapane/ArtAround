@@ -36,11 +36,9 @@ export async function createDescription(
       model: "gemma-3-27b-it",
       contents: request,
     });
-    console.log(response.text);
+    // console.log(response.text);
     return response.text;
   } catch (err) {
     console.error("Error during the request", err);
   }
 }
-
-createDescription("Mona Lisa", "Intermedio", 20);

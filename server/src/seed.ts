@@ -33,9 +33,8 @@ async function seed() {
     await VisitModel.deleteMany({});
     console.log("Database pulito.");
 
-    const museumName = "galleria-specchi";
     for (const qid of testArtworks) {
-      await insertArtwork(qid, museumName);
+      await insertArtwork(qid);
       for (const level of levels) {
         for (const duration of durations) {
           await insertItem(qid, level, duration);
@@ -44,6 +43,9 @@ async function seed() {
     }
   } catch (err) {
     console.error("Errore durante il test", err);
+  } finally {
+    await mongoose.disconnect();
+    console.log("Connessione chiusa. Uscita...");
   }
 }
 

@@ -1,10 +1,11 @@
 import { Schema, model, Document, Types } from "mongoose";
 import { Artwork } from "./artwork";
+import { BaseItem } from "../../../shared/types";
 
 // export type Expertise = "infantile" | "elementare" | "medio" | "specialistico";
 
 // L'Item rappresenta un testo descrittivo (CreativeWork) su un soggetto
-export interface Item extends Document {
+export interface Item extends Omit<BaseItem, "about">, Document {
   "@context": string; // uri schema.org
   "@type": string; // CreativeWork
 
@@ -18,7 +19,7 @@ export interface Item extends Document {
   author: string;
   license: string;
   price?: number;
-  text?: string;
+  text: string;
 }
 
 const itemSchema = new Schema<Item>({
