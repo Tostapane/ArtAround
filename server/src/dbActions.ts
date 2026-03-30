@@ -2,6 +2,7 @@ import { ArtworkModel } from "./models/artwork";
 import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
 import { fetchArtwork } from "./services/wikidata";
+import { createDescription } from "./services/llm";
 
 // il vantaggio di usare una lista di opere e' che il museo
 // deve solo fornire gli uri delle loro opere
@@ -15,8 +16,6 @@ export async function insertArtwork(currUri: string) {
       return;
     }
     await ArtworkModel.create({
-      "@context": "https://schema.org",
-      "@type": "VisualArtwork",
       "@id": `uri:${currUri}`,
       wikiDataUri: currUri,
       name: data.name,
@@ -41,21 +40,47 @@ export async function deleteArtwork(currUri: string) {
 }
 // storia diversa per gli item, che possono essere sia forniti
 // dal file iniziale che attraverso la piattaforma
-
+// se non viene specificato autore e descrizione, se ne occupa l'ai
 export async function insertItem(
   atworkUri: string,
   level: string,
   duration: number,
-  author: string,
+  itemAuthor?: string,
+  itemPrice?: number,
+  description?: string,
 ) {
   try {
-    const id = atworkUri + "-" + level + "-" + duration;
-    const artwork = await ArtworkModel.findOne({});
+    const artwork = await ArtworkModel.findOne({ wikiDataUri: atworkUri });
+    if (!itemAuthor && !description) {
+      description = await createDescription(artwork.name, level, duration);
+      itemAuthor = "gemini";
+    }
+    const id = atworkUri + "-" + level + "-" + duration + "-" + itemAuthor;
+
+    await ItemModel.create({
+      // come tratto l'about?
+      "@id": id,
+      about: artwork._id,
+      timeRequired: duration,
+      educationalLevel: level,
+      author: itemAuthor,
+      price: itemPrice,
+      text: description,
+    });
+    console.log("Item inserito correttamente");
   } catch (err) {
     console.error(`Errow while inserting the item`, err);
   }
 }
-
+export async function deleteItem(itemUri: string) {
+  try {
+    const result = await ItemModel.deleteOne({ id: itemUri });
+    if (result.deletedCount === 0) console.log("No item found with that URI");
+    else console.log("Item successfully deleted");
+  } catch (err) {
+    console.error("Error during deletion of the Item", err);
+  }
+}
 // stessa storia per la visita, possibile reperirle sia dal file iniziale
 // che crearne personalizzate direttamente dai customers!
 
