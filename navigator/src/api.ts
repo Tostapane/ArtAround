@@ -4,5 +4,6 @@ const API_BASE = "http://localhost:8000/api";
 
 export async function getArtworks(): Promise<BaseArtwork[]> {
   const res = await fetch(`${API_BASE}/artworks`);
-  return res.json();
+  const data = await res.json();
+  return data;
 }

@@ -56,6 +56,10 @@ export async function insertItem(
       return;
     }
 
+    console.log(`-------------------------------------------`);
+    console.log(` Genero ${artwork.name} ${level} ${duration} `);
+    console.log(`-------------------------------------------`);
+
     if (!itemAuthor && !description) {
       description = await createDescription(artwork.name, level, duration);
       itemAuthor = "sistema";

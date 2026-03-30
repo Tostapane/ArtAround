@@ -14,13 +14,25 @@ const levels = ["Infantile", "Principiante", "Intermedio", "Avanzato"];
 const durations = [5, 30, 60];
 // Lista di QID di opere famose per il test
 const testArtworks = [
-  "Q12418", // Mona Lisa (Leonardo da Vinci)
-  "Q45585", // The Starry Night (Vincent van Gogh)
-  "Q128907", // The Last Supper (Leonardo da Vinci)
-  "Q184707", // The Scream (Edvard Munch)
-  "Q185372", // Girl with a Pearl Earring (Johannes Vermeer)
+  "Q12418",
+  "Q45585",
+  "Q185372",
+  "Q18891156",
+  "Q128910",
+  "Q175036",
+  "Q151047",
+  "Q208758",
+  "Q219831",
+  "Q328523",
+  "Q321303",
+  "Q29530",
+  "Q220859",
+  // "Q152124",
+  // "Q30343",
+  // "Q5110738",
+  // "Q2712211",
+  // "Q1452140",
 ];
-
 async function seed() {
   try {
     console.log("Connessione a MongoDB...");
@@ -47,6 +59,14 @@ async function seed() {
     await mongoose.disconnect();
     console.log("Connessione chiusa. Uscita...");
   }
+}
+async function printStored() {
+  await mongoose.connect(MONGO_URI);
+  const artworks = await ArtworkModel.find();
+  for (const artwork of artworks) {
+    console.log(`${artwork.wikiDataUri}`);
+  }
+  await mongoose.disconnect();
 }
 
 seed();
