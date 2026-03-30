@@ -33,8 +33,9 @@ async function seed() {
     await VisitModel.deleteMany({});
     console.log("Database pulito.");
 
+    const museumName = "galleria-specchi";
     for (const qid of testArtworks) {
-      await insertArtwork(qid);
+      await insertArtwork(qid, museumName);
       for (const level of levels) {
         for (const duration of durations) {
           await insertItem(qid, level, duration);

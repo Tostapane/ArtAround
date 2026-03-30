@@ -10,6 +10,7 @@ export interface Artwork extends Document {
   image?: string;
   author?: string;
   style?: string;
+  museum?: string;
   lastUpdated?: Date;
 }
 
@@ -23,6 +24,7 @@ const artworkSchema = new Schema<Artwork>({
   image: String,
   author: String,
   style: String,
+  museum: String,
   lastUpdated: { type: Date, default: Date.now }, // Date.now?
 });
 

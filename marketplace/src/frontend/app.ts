@@ -1,4 +1,4 @@
-import { UserRole } from '../shared/types.js';
+import { UserRole } from '../../../shared/types.js';
 import { state } from './state.js';
 
 /**

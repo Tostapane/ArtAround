@@ -1,12 +1,19 @@
-import { Contenuto } from '../shared/types.js';
+import { Contenuto, Artwork } from '../../../shared/types.js';
 
 /**
  * Servizio per la comunicazione con il server (Network Layer)
  */
 export const ArtAPI = {
+  // Recupera la lista di tutte le opere di un museo
+  async fetchArtworks(museo: string): Promise<Artwork[]> {
+    const response = await fetch(`/api/artworks?museum=${encodeURIComponent(museo)}`);
+    if (!response.ok) throw new Error('Errore caricamento artworks');
+    return response.json();
+  },
+
   // Recupera i contenuti dal backend filtrati per museo
   async fetchOpere(museo: string): Promise<Contenuto[]> {
-    const response = await fetch(`/api/opere?museo=${encodeURIComponent(museo)}`);
+    const response = await fetch(`/api/opere?museum=${encodeURIComponent(museo)}`);
     if (!response.ok) throw new Error('Errore caricamento opere');
     // ritorna il risultato di fetch in formato json 
     return response.json();
@@ -19,6 +26,9 @@ export const ArtAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(opera)
     });
-    if (!response.ok) throw new Error('Errore durante la pubblicazione');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Errore durante la pubblicazione');
+    }
   }
 };

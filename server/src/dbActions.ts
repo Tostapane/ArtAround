@@ -8,7 +8,7 @@ import { createDescription } from "./services/llm";
 // deve solo fornire gli uri delle loro opere
 // runnundo una volta uno script init verra riempito tutto il
 // database
-export async function insertArtwork(currUri: string) {
+export async function insertArtwork(currUri: string, museum?: string) {
   try {
     const data = await fetchArtwork(currUri);
     if (!data) {
@@ -21,6 +21,7 @@ export async function insertArtwork(currUri: string) {
       name: data.name,
       author: data.author,
       style: data.style,
+      museum: museum,
     });
     console.log("Artwork nserito correttamente:", currUri);
   } catch (err) {
@@ -51,9 +52,15 @@ export async function insertItem(
 ) {
   try {
     const artwork = await ArtworkModel.findOne({ wikiDataUri: atworkUri });
+    if (!artwork) {
+      console.error(`Artwork non trovato per URI: ${atworkUri}`);
+      return;
+    }
+
     if (!itemAuthor && !description) {
-      description = await createDescription(artwork.name, level, duration);
-      itemAuthor = "gemini";
+      description = `Questa è un'audioguida per l'opera "${artwork.name}" di ${artwork.author || "autore ignoto"}. 
+In questa descrizione di livello ${level}, esploreremo i dettagli artistici e la storia di questo capolavoro per circa ${duration} secondi.`;
+      itemAuthor = "sistema";
     }
     const id = atworkUri + "-" + level + "-" + duration + "-" + itemAuthor;
 

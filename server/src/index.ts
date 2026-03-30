@@ -39,21 +39,45 @@ const connectWithRetry = () => {
 
 connectWithRetry();
 
+app.get("/api/artworks", async (req, res) => {
+  try {
+    const museum = req.query.museum;
+    console.log(`[BACKEND] Chiamata GET /api/artworks?museum=${museum}`);
+    if (!museum) {
+      return res.status(400).json({ error: "Missing museum query parameter" });
+    }
+    const artworks = await ArtworkModel.find({ museum: museum });
+    res.json(artworks);
+  } catch (error: any) {
+    console.error(error);
+    res.status(500).json({ error: error.message || "Errore nel caricamento delle opere" });
+  }
+});
+
 /**
  * API GET: Recupera la lista delle opere.
  * Converte i modelli interni (Item, Visit) nel formato 'Contenuto' (Opera | Visita) atteso dal frontend.
  */
 app.get("/api/opere", async (req, res) => {
   try {
-    const items = await ItemModel.find({}).populate("about");
-    const visits = await VisitModel.find({});
+    const museum = req.query.museum;
+    console.log(`[BACKEND] Chiamata GET /api/opere?museum=${museum}`);
+    if (!museum) {
+      return res.status(400).json({ error: "Missing museum query parameter" });
+    }
+
+    // 1. Trova tutti gli artwork per il museo specificato
+    const artworksInMuseum = await ArtworkModel.find({ museum: museum }).select('_id');
+    const artworkIds = artworksInMuseum.map(a => a._id);
+
+    // 2. Trova tutti gli item che si riferiscono a quegli artwork
+    const items = await ItemModel.find({ about: { $in: artworkIds } }).populate("about");
+    const visits = await VisitModel.find({}); // Le visite per ora non sono filtrate per museo
 
     // Trasformazione ITEMS in 'Opera' del Marketplace
-    // Raggruppiamo i singoli Item (CreativeWork) per Opera (Artwork) + Autore
     const groupedItems = new Map();
     items.forEach((item) => {
       const artwork = item.about as any;
-      // Chiave univoca basata su Artwork (WikiData ID o internal ID) e Autore
       const artworkId =
         artwork?.wikiDataUri || artwork?._id?.toString() || "unknown";
       const key = `${artworkId}-${item.author}`;
@@ -100,59 +124,36 @@ app.get("/api/opere", async (req, res) => {
     });
 
     res.json([...Array.from(groupedItems.values()), ...transformedVisits]);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    res.status(500).json({ error: "Errore nel caricamento delle opere" });
+    res.status(500).json({ error: error.message || "Errore nel caricamento delle opere" });
   }
 });
 
 /**
  * API POST: Registra un nuovo contenuto.
- * Gestisce sia il formato Schema.org che quello 'Marketplace'.
  */
 app.post("/api/opere", async (req, res) => {
   try {
     const payload = req.body;
+    console.log("[BACKEND] Ricevuto payload POST /api/opere:", JSON.stringify(payload, null, 2));
 
-    // Riconoscimento formato Marketplace (campo 'tipo' invece di '@type')
+    // Formato Marketplace
     if (payload.tipo === "Item" || payload.tipo === "Visita") {
       if (payload.tipo === "Item") {
-        // 1. Assicurarsi che l'Artwork esista nel database
-        let artwork;
-        if (payload.id_oper_universale) {
-          artwork = await ArtworkModel.findOneAndUpdate(
-            { wikiDataUri: payload.id_oper_universale },
-            {
-              "@id": `uri:${payload.id_oper_universale}`,
-              wikiDataUri: payload.id_oper_universale,
-              name: payload.titolo,
-              image: payload.immagine,
-            },
-            { upsert: true, new: true },
-          );
-        } else {
-          // Opera non universale
-          artwork = await ArtworkModel.findOneAndUpdate(
-            { name: payload.titolo },
-            {
-              "@id": `uri:local:${Date.now()}`,
-              wikiDataUri: "N/A",
-              name: payload.titolo,
-              image: payload.immagine,
-            },
-            { upsert: true, new: true },
-          );
+        if (!payload.id_oper_universale) {
+          return res.status(400).json({ error: "id_oper_universale is required" });
+        }
+        
+        const artwork = await ArtworkModel.findOne({ wikiDataUri: payload.id_oper_universale });
+        if (!artwork) {
+          return res.status(400).json({ error: "Artwork not found in database." });
         }
 
-        // 2. Creare o aggiornare gli Item (CreativeWork) per ogni descrizione
-        // ATTENZIONE: per semplicità rimpiazziamo i precedenti per questo autore/opera
-        await ItemModel.deleteMany({
-          about: artwork._id,
-          author: payload.autore,
-        });
+        await ItemModel.deleteMany({ about: artwork._id, author: payload.autore });
 
         for (const desc of payload.descrizioni) {
-          const itemId = `${artwork.wikiDataUri || "local"}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
+          const itemId = `${artwork.wikiDataUri}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
           await ItemModel.create({
             "@id": itemId,
             about: artwork._id,
@@ -164,7 +165,6 @@ app.post("/api/opere", async (req, res) => {
           });
         }
       } else {
-        // Visita (Percorso)
         await VisitModel.findOneAndUpdate(
           { "@id": payload.id },
           {
@@ -172,49 +172,52 @@ app.post("/api/opere", async (req, res) => {
             name: payload.titolo,
             price: payload.prezzo,
             author: payload.autore,
-            itemListElement:
-              payload.percorso
-                ?.filter((t: any) => t.tipo === "item")
-                .map((t: any) => t.id_item) || [],
-            logistics:
-              payload.percorso
-                ?.filter((t: any) => t.tipo === "logistics")
-                .map((t: any) => t.indicazione) || [],
+            itemListElement: payload.percorso?.filter((t: any) => t.tipo === "item").map((t: any) => t.id_item) || [],
+            logistics: payload.percorso?.filter((t: any) => t.tipo === "logistics").map((t: any) => t.indicazione) || [],
           },
-          { upsert: true },
+          { upsert: true }
         );
       }
     } else {
-      // Formato Schema.org nativo (già presente nel server originale)
+      // Formato Schema.org
       if (payload["@type"] === "ItemList") {
         await VisitModel.create(payload);
-      } else {
-        const artworkData = payload.about;
-        if (artworkData && typeof artworkData === "object") {
-          const artwork = await ArtworkModel.findOneAndUpdate(
-            { "@id": artworkData["@id"] },
-            artworkData,
-            { upsert: true, new: true },
-          );
-          payload.about = artwork._id;
+      } else { 
+        // CreativeWork (Item)
+        let artworkIdString = "";
+        if (payload.about && typeof payload.about === "object" && payload.about["@id"]) {
+          artworkIdString = payload.about["@id"];
+        } else if (typeof payload.about === "string") {
+          artworkIdString = payload.about;
         }
+
+        if (!artworkIdString) {
+          return res.status(400).json({ error: "Property 'about' is required and must contain an @id." });
+        }
+
+        const artwork = await ArtworkModel.findOne({ "@id": artworkIdString });
+        if (!artwork) {
+          return res.status(400).json({ error: `Artwork with @id '${artworkIdString}' not found in database.` });
+        }
+
+        // Sostituisco il riferimento stringa con l'ObjectId di MongoDB
+        payload.about = artwork._id;
+        
+        // Salvataggio
         await ItemModel.create(payload);
       }
     }
 
-    console.log(`[BACKEND] Nuovo contenuto salvato`);
+    console.log(`[BACKEND] Nuovo contenuto salvato correttamente`);
     res.status(201).send({ message: "Pubblicazione avvenuta con successo" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Errore durante il salvataggio" });
+  } catch (error: any) {
+    console.error("[BACKEND ERROR] Errore durante il salvataggio:", error);
+    res.status(500).json({ error: error.message || "Errore interno del server" });
   }
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({
-    message: "Unified Backend running",
-    node_version: process.version,
-  });
+  res.json({ message: "Unified Backend running", node_version: process.version });
 });
 
 app.listen(PORT, () => {
