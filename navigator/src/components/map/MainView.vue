@@ -22,10 +22,7 @@ const currentArtwork = computed(() => {
   if (!art) return null;
 
   currentOption.value = "";
-  return {
-    title: art.name || "Senza Titolo",
-    info: `${art.author || "Autore Ignoto"}. ${art.style || ""}`,
-  };
+  return art;
 });
 // blocca lo scroll quando un'opera è selezionata
 watch(currentArtwork, (newVal) => {
@@ -58,11 +55,7 @@ function navigationHandler(direction: string) {
     v-if="currentArtwork"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md"
   >
-    <Card
-      :title="currentArtwork.title"
-      :info="currentArtwork.info"
-      @navigation="navigationHandler"
-    />
+    <Card :artwork="currentArtwork" @navigation="navigationHandler" />
     <OptionsBar @action="actionHandler" />
     <Info v-if="currentOption" :request="currentOption" />
   </div>

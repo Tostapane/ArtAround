@@ -52,7 +52,7 @@ async function seed() {
       for (const level of levels) {
         for (const duration of durations) {
           await insertItem(qid, level, duration);
-          await delay(700);
+          await delay(300);
         }
       }
     }

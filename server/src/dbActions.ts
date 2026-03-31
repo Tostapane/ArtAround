@@ -20,6 +20,7 @@ export async function insertArtwork(currUri: string, location: string) {
       wikiDataUri: currUri,
       name: data.name,
       author: data.author,
+      image: data.image,
       style: data.style,
       locationId: location,
     });

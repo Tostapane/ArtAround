@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, onBeforeUnmount, computed } from "vue";
-import type { genericArtwork } from "./utilsMap";
-import { config } from "./utilsMap";
-import { artworks } from "../../state";
+import { artworks, loadArtworks } from "../../state";
 /*
         POTREBBE ESSERE MALEVOLO!
     */
@@ -15,17 +13,38 @@ const emit = defineEmits<{
 
 const listeners: { element: Element; type: string; handler: EventListener }[] =
   [];
-
+loadArtworks();
 onMounted(async () => {
+  await loadArtworks();
   await nextTick();
-  artworks.value.forEach((art) => {
+  artworks.value.forEach((art, index) => {
     const element = document.getElementById(art.locationId);
     if (element) {
       element.setAttribute("data-db-id", art["@id"]);
+      element.setAttribute("tabindex", "0");
+      element.setAttribute("role", "button");
+
       element.classList.add("active-artwork"); // for CSS styling
       element.setAttribute("aria-label", art.name);
+      //click classico
+      const clickHandler = () => {
+        emit("select", index);
+      };
+      element.addEventListener("click", clickHandler);
+      listeners.push({ element, type: "click", handler: clickHandler });
+      const keyHandler = (e: KeyboardEvent) => {
+        if (e.key === "Enter") emit("select", index);
+      };
+      // click tastiera
+      element.addEventListener("keyup", keyHandler as EventListener);
+      listeners.push({
+        element,
+        type: "keyup",
+        handler: keyHandler as EventListener,
+      });
     }
   });
+
   /*
         config.forEach((item, index) => {
             const element = document.querySelector(`#${item.svgId}`)
