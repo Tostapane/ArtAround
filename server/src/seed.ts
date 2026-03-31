@@ -33,6 +33,7 @@ const testArtworks = [
   // "Q2712211",
   // "Q1452140",
 ];
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function seed() {
   try {
     console.log("Connessione a MongoDB...");
@@ -44,12 +45,14 @@ async function seed() {
     await ItemModel.deleteMany({});
     await VisitModel.deleteMany({});
     console.log("Database pulito.");
-
+    var cont = 1;
     for (const qid of testArtworks) {
-      await insertArtwork(qid);
+      await insertArtwork(qid, `art-${cont}`);
+      cont++;
       for (const level of levels) {
         for (const duration of durations) {
           await insertItem(qid, level, duration);
+          await delay(700);
         }
       }
     }

@@ -4,9 +4,9 @@ import Map from "./Map.vue";
 import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
 import Info from "./Info.vue";
-import { config } from "./utilsMap";
+import { artworks, loadArtworks } from "./../../state";
 
-const artworks = config;
+loadArtworks();
 let currentIndex = ref<number | null>(null);
 
 // gestione delle opzioni
@@ -17,13 +17,16 @@ function actionHandler(option: string) {
 
 // gestione dell'opera selezionata
 const currentArtwork = computed(() => {
-  if (currentIndex.value === null) {
-    return null;
-  }
-  currentOption.value = "";
-  return artworks[currentIndex.value] || null;
-});
+  if (currentIndex.value === null) return null;
+  const art = artworks.value[currentIndex.value];
+  if (!art) return null;
 
+  currentOption.value = "";
+  return {
+    title: art.name || "Senza Titolo",
+    info: `${art.author || "Autore Ignoto"}. ${art.style || ""}`,
+  };
+});
 // blocca lo scroll quando un'opera è selezionata
 watch(currentArtwork, (newVal) => {
   if (newVal) {
@@ -41,9 +44,9 @@ onUnmounted(() => {
 function navigationHandler(direction: string) {
   if (currentIndex.value != null) {
     if (direction === "next")
-      currentIndex.value = (currentIndex.value + 1) % artworks.length;
+      currentIndex.value = (currentIndex.value + 1) % artworks.value.length;
     else if (direction === "prev")
-      currentIndex.value = (currentIndex.value - 1) % artworks.length;
+      currentIndex.value = (currentIndex.value - 1) % artworks.value.length;
     else currentIndex.value = null;
   }
 }
@@ -65,4 +68,3 @@ function navigationHandler(direction: string) {
   </div>
   <Speech />
 </template>
-

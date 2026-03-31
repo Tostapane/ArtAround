@@ -1,23 +1,32 @@
 <script setup lang="ts">
-    import { ref, onMounted, nextTick, onBeforeUnmount, computed } from 'vue'
-    import type { genericArtwork } from './utilsMap';
-    import { config } from './utilsMap'
-    /*
+import { ref, onMounted, nextTick, onBeforeUnmount, computed } from "vue";
+import type { genericArtwork } from "./utilsMap";
+import { config } from "./utilsMap";
+import { artworks } from "../../state";
+/*
         POTREBBE ESSERE MALEVOLO!
     */
-    import mapSVG from './map.svg?raw'
+import mapSVG from "./map.svg?raw";
 
-    const emit = defineEmits<{
-        select: [value: number]
-    }>()
-    const artworks = ref<genericArtwork[]>([]);
-    // let currentIndex = ref<number | null>(null)
-    
-    const listeners: { element: Element, type: string, handler: EventListener }[] = []
-    
-    
-    onMounted(async () => {
-        await nextTick();
+const emit = defineEmits<{
+  select: [value: number];
+}>();
+// let currentIndex = ref<number | null>(null)
+
+const listeners: { element: Element; type: string; handler: EventListener }[] =
+  [];
+
+onMounted(async () => {
+  await nextTick();
+  artworks.value.forEach((art) => {
+    const element = document.getElementById(art.locationId);
+    if (element) {
+      element.setAttribute("data-db-id", art["@id"]);
+      element.classList.add("active-artwork"); // for CSS styling
+      element.setAttribute("aria-label", art.name);
+    }
+  });
+  /*
         config.forEach((item, index) => {
             const element = document.querySelector(`#${item.svgId}`)
             artworks.value.push({ svgId: item.svgId, title: item.title, info: item.info });
@@ -38,43 +47,45 @@
                 listeners.push({ element, type: 'keyup', handler: keyHandler as EventListener})
             }
         })
-    })
-    // cleanup
-    onBeforeUnmount(() => {
-        listeners.forEach(({ element, type, handler }) => {
-            element.removeEventListener(type, handler);
-        })
-    })
-    
+        */
+});
+// cleanup
+onBeforeUnmount(() => {
+  listeners.forEach(({ element, type, handler }) => {
+    element.removeEventListener(type, handler);
+  });
+});
 </script>
 
 <template>
-    <div class="svg-wrapper" v-html="mapSVG"></div>
+  <div class="svg-wrapper" v-html="mapSVG"></div>
 </template>
 
 <style lang="css" scoped>
 .svg-wrapper :deep(svg) {
-    width: 100%;
-    max-width: 600px;
-    background-color: white;
-    border: 1px solid #ccc;
+  width: 100%;
+  max-width: 600px;
+  background-color: white;
+  border: 1px solid #ccc;
 }
 
 .svg-wrapper :deep(.interactive-node) {
-    cursor: pointer;
-    transition: all 0.2s ease;
-    outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
 }
 
 .svg-wrapper :deep(.interactive-node:hover),
 .svg-wrapper :deep(.interactive-node:focus) {
-    fill: red;
-    stroke: yellow;
-    stroke-width: 4px;
+  fill: red;
+  stroke: yellow;
+  stroke-width: 4px;
 }
 
-.info-panel { 
-    margin-top: 20px; 
-    padding: 15px; background: #f9f9f9; 
-    border-left: 4px solid blue; }
+.info-panel {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f9f9f9;
+  border-left: 4px solid blue;
+}
 </style>

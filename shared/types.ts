@@ -1,11 +1,12 @@
 export interface BaseArtwork {
   "@id": string; // URI o QID
   wikiDataUri: string;
-  name?: string;
-  image?: string;
-  author?: string;
-  style?: string;
-  lastUpdated?: Date;
+  name: string;
+  image: string;
+  author: string;
+  style: string;
+  locationId: string;
+  lastUpdated: Date;
 }
 
 /**

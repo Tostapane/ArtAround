@@ -7,11 +7,12 @@ export interface Artwork extends BaseArtwork, Document {
   "@type": string;
   "@id": string; // uri interno
   wikiDataUri: string;
-  name?: string;
-  image?: string;
-  author?: string;
-  style?: string;
-  lastUpdated?: Date;
+  name: string;
+  image: string;
+  author: string;
+  style: string;
+  lastUpdated: Date;
+  locationId: string;
 }
 
 // --- Mongoose Schemas ---
@@ -25,6 +26,7 @@ const artworkSchema = new Schema<Artwork>({
   author: String,
   style: String,
   lastUpdated: { type: Date, default: Date.now }, // Date.now?
+  locationId: String,
 });
 
 // Esportazione dei Modelli
