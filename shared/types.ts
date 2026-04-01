@@ -2,6 +2,7 @@ export interface BaseArtwork {
   "@id": string; // URI o QID
   wikiDataUri: string;
   name: string;
+  imageUri: string;
   image: string;
   author: string;
   style: string;

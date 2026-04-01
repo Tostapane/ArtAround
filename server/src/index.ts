@@ -16,6 +16,7 @@ const PORT = 8000;
 app.use(cors());
 app.use(express.json());
 
+app.use(express.static(path.join(__dirname, "../public")));
 // Servire i file statici del marketplace
 // Root: serve la cartella public del marketplace
 app.use(express.static(path.join(__dirname, "../../marketplace/public")));
@@ -47,7 +48,10 @@ app.use("/api/artworks", artworkRoutes);
 app.use("/api/opere", opereRoutes);
 
 app.get("/api/health", (req, res) => {
-  res.json({ message: "Unified Backend running", node_version: process.version });
+  res.json({
+    message: "Unified Backend running",
+    node_version: process.version,
+  });
 });
 
 app.listen(PORT, () => {

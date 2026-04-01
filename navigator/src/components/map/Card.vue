@@ -17,7 +17,7 @@ const emit = defineEmits<{
     <!-- Artwork Image -->
     <div v-if="artwork.image" class="w-full h-48 bg-gray-100 overflow-hidden">
       <img
-        :src="artwork.image"
+        :src="'http://localhost:8000' + artwork.image"
         :alt="'Immagine dell\'opera: ' + artwork.name"
         class="w-full h-full object-cover"
       />

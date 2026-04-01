@@ -3,7 +3,7 @@ import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
 import { fetchArtwork } from "./services/wikidata";
 import { createDescription } from "./services/llm";
-
+import { downloadImage } from "./services/imageDownloader";
 // il vantaggio di usare una lista di opere e' che il museo
 // deve solo fornire gli uri delle loro opere
 // runnundo una volta uno script init verra riempito tutto il
@@ -15,12 +15,14 @@ export async function insertArtwork(currUri: string, location: string) {
       console.log("No data found for", currUri);
       return;
     }
+    const path = await downloadImage(data.image, `${currUri}`);
     await ArtworkModel.create({
       "@id": `uri:${currUri}`,
       wikiDataUri: currUri,
       name: data.name,
       author: data.author,
-      image: data.image,
+      imageUri: data.image,
+      image: path,
       style: data.style,
       locationId: location,
     });

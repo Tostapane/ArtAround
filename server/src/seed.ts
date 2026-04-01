@@ -4,6 +4,8 @@ import { ArtworkModel } from "./models/artwork";
 import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
 import { insertArtwork, insertItem } from "./dbActions";
+import { downloadImage } from "./services/imageDownloader";
+
 dotenv.config();
 
 const MONGO_URI =
@@ -71,5 +73,18 @@ async function printStored() {
   }
   await mongoose.disconnect();
 }
+async function seedDownload() {
+  console.log("Connessione a MongoDB...");
+  await mongoose.connect(MONGO_URI);
+  console.log("Connesso!");
 
-seed();
+  const artworks = await ArtworkModel.find().lean();
+  for (const artwork of artworks) {
+    console.log(`Downloading ${artwork.name}`);
+    await downloadImage(artwork.image, `${artwork.wikiDataUri}`);
+    await delay(5000); // 1-second delay between requests
+  }
+  await mongoose.disconnect();
+}
+
+seedDownload();

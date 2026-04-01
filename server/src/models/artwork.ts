@@ -8,6 +8,7 @@ export interface Artwork extends BaseArtwork, Document {
   "@id": string; // uri interno
   wikiDataUri: string;
   name: string;
+  imageUri: string;
   image: string;
   author: string;
   style: string;
@@ -22,6 +23,7 @@ const artworkSchema = new Schema<Artwork>({
   "@id": { type: String, required: true, unique: true },
   wikiDataUri: { type: String, required: true },
   name: String,
+  imageUri: String,
   image: String,
   author: String,
   style: String,
