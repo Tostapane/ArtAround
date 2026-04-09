@@ -7,7 +7,8 @@ import cors from "cors";
 // Routes
 import artworkRoutes from "./routes/artworks";
 import opereRoutes from "./routes/opere";
-
+import llmRoutes from "./routes/llm";
+import itemRoutes from "./routes/items";
 dotenv.config();
 
 const app = express();
@@ -46,7 +47,8 @@ connectWithRetry();
 // API Routes
 app.use("/api/artworks", artworkRoutes);
 app.use("/api/opere", opereRoutes);
-
+app.use("/api/llm", llmRoutes);
+app.use("/api/items", itemRoutes);
 app.get("/api/health", (req, res) => {
   res.json({
     message: "Unified Backend running",

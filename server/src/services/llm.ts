@@ -27,7 +27,7 @@ export async function createDescription(
   duration: number,
 ) {
   try {
-    const request = ` Rispondi in plain text, niente simboli
+    const request = ` Rispondi in plain text, niente simboli,
                       Non parlare di musei.
                     Descrivi ${name} 
                         in linguaggio ${level} in modo che 
@@ -37,6 +37,22 @@ export async function createDescription(
       contents: request,
     });
     // console.log(response.text);
+    return response.text;
+  } catch (err) {
+    console.error("Error during the request", err);
+  }
+}
+
+export async function additionalDescription(previous: string, userReq: string) {
+  try {
+    const request = ` Sei un generatore di testo per guide di un museo,
+                        non usare simboli.
+                        L'utente dopo aver letto ${previous} richiede ${userReq}.
+                        Rispondi in modo consono.`;
+    const response = await ai.models.generateContent({
+      model: "gemma-3-27b-it",
+      contents: request,
+    });
     return response.text;
   } catch (err) {
     console.error("Error during the request", err);
