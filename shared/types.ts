@@ -24,6 +24,13 @@ export interface BaseItem {
   price?: number; // Prezzo nel marketplace
 }
 
+/*
+ * Rappresenta l'unione tra item selezionati e il corrispettivo artwork
+ */
+export interface Match {
+  artwork: BaseArtwork;
+  item: BaseItem;
+}
 /**
  * Rappresenta un percorso/lista di item (ItemList su Schema.org)
  */

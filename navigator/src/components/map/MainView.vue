@@ -1,12 +1,28 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed, watch, onUnmounted, watchEffect } from "vue";
 import Map from "./Map.vue";
 import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
 import Info from "./Info.vue";
 import { artworks, loadArtworks } from "./../../state";
+import { items, loadItems } from "./../../state";
 
+// il corretto approccio e' di matchare in state e qui importare solamente
+// l'interfaccia Match
+const ids = [
+  "Q12418-Infantile-5-sistema",
+  "Q18891156-Infantile-60-sistema",
+  "Q219831-Infantile-5-sistema",
+];
 loadArtworks();
+loadItems(ids);
+
+watchEffect(() => {
+  if (items.value.length > 0) {
+    console.log("Items loaded reactively:", items.value);
+  }
+});
+
 let currentIndex = ref<number | null>(null);
 
 // gestione delle opzioni
@@ -63,5 +79,4 @@ function navigationHandler(direction: string) {
       @close="currentOption = ''"
     />
   </div>
-  <Speech />
 </template>

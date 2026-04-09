@@ -7,7 +7,7 @@ router.post("/batch", async (req, res) => {
   try {
     console.log(`[BACKEND] Chiamata POST /api/items/batch`);
     const idsArray = req.body.ids;
-    const items = await ItemModel.find({ _id: { $in: idsArray } });
+    const items = await ItemModel.find({ "@id": { $in: idsArray } });
     res.json(items);
   } catch (error: any) {
     console.error(error);
