@@ -4,11 +4,11 @@ import Header from "./components/Header.vue";
 import Selector from "./components/selection/Selector.vue";
 import MainView from "./components/map/MainView.vue";
 import { getArtworks } from "./api";
-import { artworks, isLoaded } from "./state";
+import { artworks, artworksLoaded } from "./state";
 
 onMounted(async () => {
   artworks.value = await getArtworks();
-  isLoaded.value = true;
+  artworksLoaded.value = true;
 });
 </script>
 

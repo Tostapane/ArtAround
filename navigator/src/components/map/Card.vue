@@ -15,11 +15,11 @@ const emit = defineEmits<{
     aria-live="polite"
   >
     <!-- Artwork Image -->
-    <div v-if="artwork.image" class="w-full h-48 bg-gray-100 overflow-hidden">
+    <div v-if="artwork.image" class="w-full bg-gray-100 flex justify-center">
       <img
         :src="'http://localhost:8000' + artwork.image"
         :alt="'Immagine dell\'opera: ' + artwork.name"
-        class="w-full h-full object-cover"
+        class="w-full max-h-72 object-contain"
       />
     </div>
 

@@ -57,7 +57,11 @@ function navigationHandler(direction: string) {
   >
     <Card :artwork="currentArtwork" @navigation="navigationHandler" />
     <OptionsBar @action="actionHandler" />
-    <Info v-if="currentOption" :request="currentOption" />
+    <Info
+      v-if="currentOption"
+      :request="currentOption"
+      @close="currentOption = ''"
+    />
   </div>
   <Speech />
 </template>

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import type { BaseArtwork } from "../../../../shared/types";
 const props = defineProps<{
   request: string;
+  // artwork: BaseArtwork;
 }>();
 /*
       AGGIUNGERE SPIEGAZIONI!
@@ -10,27 +12,27 @@ const props = defineProps<{
 const responseText = computed(() => {
   switch (props.request) {
     case "Non ho capito":
-      return "1";
+      return "Non ho capito";
     case "Sintetizza":
-      return "2";
+      return "Sintetizza";
     case "Approfondisci":
-      return "3";
+      return "Approfondisci";
     case "Semplifica":
-      return "4";
+      return "Semplifica";
     case "Chi e' l'autore?":
-      return "5";
+      return "Chi e' l'autore?";
     case "Che stile e?":
-      return "6";
+      return "Che stile e'?";
     case "Dove esco?":
-      return "7";
+      return "Dove esco?";
     case "Dove e il bagno?":
-      return "8";
+      return "Dove e' il bagno?";
     case "Dove e il bar?":
-      return "9";
+      return "Dove e' il bar?";
     case "Dove e lo shop?":
-      return "10";
+      return "Dove e' lo shop?";
     case "Ci sono ostacoli?":
-      return "10";
+      return "Ci sono ostacoli?";
     default:
       return "";
   }
@@ -51,6 +53,7 @@ const containerClasses = [
       </h4>
       <button
         class="p-1 -mt-1 -mr-1 text-gray-400 rounded-md hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900"
+        @click="$emit('close')"
         aria-label="Close"
       >
         <svg
@@ -73,4 +76,3 @@ const containerClasses = [
     </p>
   </div>
 </template>
-
