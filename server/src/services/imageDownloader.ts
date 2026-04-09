@@ -8,6 +8,7 @@ export async function downloadImage(
   fileName: string,
 ): Promise<string> {
   if (!url) return "";
+  if (url.startsWith("/")) return url;
   try {
     // e' necessario recursive?
     if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR, { recursive: true });
@@ -19,7 +20,13 @@ export async function downloadImage(
       return `/images/artworks/${localFileName}`;
     }
 
-    const response = await fetch(url, {
+    // Append width parameter to Wikimedia Commons URLs to reduce image size
+    let fetchUrl = url;
+    if (url.includes("Special:FilePath")) {
+      fetchUrl = url.includes("?") ? `${url}&width=800` : `${url}?width=800`;
+    }
+
+    const response = await fetch(fetchUrl, {
       headers: {
         "User-Agent":
           "ArtAroundBot/1.0 (university project; bunougo@gmail.com)",

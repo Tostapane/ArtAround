@@ -81,7 +81,7 @@ async function seedDownload() {
   const artworks = await ArtworkModel.find().lean();
   for (const artwork of artworks) {
     console.log(`Downloading ${artwork.name}`);
-    await downloadImage(artwork.image, `${artwork.wikiDataUri}`);
+    await downloadImage(artwork.imageUri, `${artwork.wikiDataUri}`);
     await delay(5000); // 1-second delay between requests
   }
   await mongoose.disconnect();
