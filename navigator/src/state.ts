@@ -1,14 +1,9 @@
 import { ref } from "vue";
-import type {
-  BaseArtwork,
-  BaseItem,
-  BaseVisit,
-  Match,
-} from "../../shared/types";
+import type { Artwork, Item, Visit, Match } from "../../shared/types";
 import { getArtworks, getItems } from "./api";
 
-export const artworks = ref<BaseArtwork[]>([]);
-export const items = ref<BaseItem[]>([]);
+export const artworks = ref<Artwork[]>([]);
+export const items = ref<Item[]>([]);
 export const artworksLoaded = ref(false);
 export const itemsLoaded = ref(false);
 export const matchedContent = ref<Match[]>([]);
@@ -51,7 +46,7 @@ export async function loadItems(itemList: string[]) {
   return itemsLoadingPromise;
 }
 
-export async function match(items: BaseItem[], artworks: BaseArtwork[]) {
+export async function match(items: Item[], artworks: Artwork[]) {
   const results: Match[] = [];
   for (const item of items) {
     const matchingArt = artworks.find((art) => {

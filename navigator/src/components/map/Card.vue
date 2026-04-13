@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { BaseArtwork } from "../../../../shared/types";
+import type { Artwork } from "../../../../shared/types";
 
 defineProps<{
-  artwork: BaseArtwork;
+  artwork: Artwork;
 }>();
 const emit = defineEmits<{
   navigation: [value: string];

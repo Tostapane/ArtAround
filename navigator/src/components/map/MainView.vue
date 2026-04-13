@@ -6,16 +6,19 @@ import OptionsBar from "./OptionsBar.vue";
 import Info from "./Info.vue";
 import { artworks, loadArtworks } from "./../../state";
 import { items, loadItems } from "./../../state";
+import { match, matchedContent } from "./../../state";
 
 // il corretto approccio e' di matchare in state e qui importare solamente
 // l'interfaccia Match
 const ids = [
-  "Q12418-Infantile-5-sistema",
-  "Q18891156-Infantile-60-sistema",
-  "Q219831-Infantile-5-sistema",
+  "Q12418-Intermedio-5-sistema",
+  "Q18891156-Intermedio-60-sistema",
+  "Q219831-Intermedio-5-sistema",
 ];
-loadArtworks();
-loadItems(ids);
+
+Promise.all([loadArtworks(), loadItems(ids)]).then(() => {
+  match(items.value, artworks.value);
+});
 
 watchEffect(() => {
   if (items.value.length > 0) {

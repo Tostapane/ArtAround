@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { BaseArtwork } from "../../../../shared/types";
+import type { Artwork } from "../../../../shared/types";
 const props = defineProps<{
   request: string;
-  // artwork: BaseArtwork;
+  // artwork: Artwork;
 }>();
 /*
       AGGIUNGERE SPIEGAZIONI!
