@@ -1,7 +1,7 @@
 import { Schema, model, Document, Types } from "mongoose";
-import { BaseArtwork } from "../../../shared/types";
+import { Artwork as SharedArtwork } from "../../../shared/types";
 
-export interface Artwork extends BaseArtwork, Document {
+export interface Artwork extends SharedArtwork, Document {
   // saranno necessari?
   "@context": string;
   "@type": string;

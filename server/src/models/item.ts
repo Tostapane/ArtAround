@@ -1,11 +1,11 @@
 import { Schema, model, Document, Types } from "mongoose";
 import { Artwork } from "./artwork";
-import { BaseItem } from "../../../shared/types";
+import { Item as SharedItem } from "../../../shared/types";
 
 // export type Expertise = "infantile" | "elementare" | "medio" | "specialistico";
 
 // L'Item rappresenta un testo descrittivo (CreativeWork) su un soggetto
-export interface Item extends Omit<BaseItem, "about">, Document {
+export interface Item extends Omit<SharedItem, "about">, Document {
   "@context": string; // uri schema.org
   "@type": string; // CreativeWork
 

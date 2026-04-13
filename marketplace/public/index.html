@@ -21,9 +21,8 @@
         <h1 class="text-2xl font-black text-blue-600 tracking-tighter italic cursor-pointer" @click="tornaHome()">
           ArtAround</h1>
         <span
-          class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100"
-          x-show="currentMuseum">
-          📍 <span x-text="currentMuseum"></span>
+          class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
+          📍 Global Database
         </span>
       </div>
 
@@ -145,29 +144,30 @@
         <div class="flex justify-between items-end mb-12">
           <div>
             <h2 class="text-6xl font-black text-slate-900 tracking-tighter mb-2 leading-none">I miei Lavori</h2>
-            <p class="text-gray-400 text-lg font-medium italic">Catalogo per <span
-                class="text-blue-600 font-black not-italic" x-text="currentMuseum"></span></p>
+            <p class="text-gray-400 text-lg font-medium italic">Gestione contenuti per <span
+                class="text-blue-600 font-black not-italic">Tutte le Opere</span></p>
           </div>
           <button @click="apriEditor()"
             class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-700 transition">+
             Nuovo Contenuto</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-          <template x-for="item in mieiLavori()" :key="item['@id']">
+          <template x-for="item in mieOpere" :key="item._id || item['@id']">
             <div class="bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all flex flex-col group relative">
               <div class="absolute top-6 right-6 z-10">
                 <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest border border-blue-100"
                   x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></span>
               </div>
               <div class="h-56 bg-slate-100 flex items-center justify-center overflow-hidden rounded-t-[3rem]">
-                <img x-show="item['@type'] === 'CreativeWork' && item.about.image" :src="item.about.image"
+                <!-- Se l'item ha l'artwork popolato (about) -->
+                <img x-show="item.about && item.about.image" :src="'/images/artworks/' + item.about.image"
                   class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
-                <div x-show="item['@type'] === 'ItemList' || !item.about.image" class="text-7xl"
+                <div x-show="!item.about || !item.about.image" class="text-7xl"
                   x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
               </div>
               <div class="p-8">
                 <h3 class="text-2xl font-black text-slate-900 leading-tight mb-6 tracking-tight"
-                  x-text="item['@type'] === 'ItemList' ? item.name : item.about.name"></h3>
+                  x-text="item['@type'] === 'ItemList' ? item.name : (item.about ? item.about.name : 'Opera Sconosciuta')"></h3>
                 <div class="flex space-x-3 mt-auto">
                   <button @click="apriDettaglio(item)"
                     class="flex-grow bg-slate-900 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition shadow-lg">Anteprima</button>
@@ -183,32 +183,29 @@
         <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-8">
           <div>
             <h2 class="text-6xl font-black text-gray-900 tracking-tighter mb-2 leading-none">Marketplace</h2>
-            <p class="text-gray-400 text-lg font-medium italic">Scopri <span
-                class="text-blue-600 font-black underline" x-text="currentMuseum"></span></p>
+            <p class="text-gray-400 text-lg font-medium italic">Scopri i tour disponibili</p>
           </div>
           <div class="relative group w-full md:w-auto">
-            <input type="text" x-model="ricerca" placeholder="Cerca opera o tour..."
+            <input type="text" x-model="ricerca" placeholder="Cerca tour..."
               class="pl-14 pr-6 py-5 bg-white border border-gray-200 rounded-[2rem] w-full md:w-96 shadow-sm focus:ring-8 focus:ring-blue-50 outline-none transition font-medium">
             <span class="absolute left-6 top-5.5 text-2xl">🔍</span>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-          <template x-for="item in contenutiFiltrati()" :key="item['@id']">
+          <template x-for="item in contenutiFiltrati()" :key="item._id || item['@id']">
             <div class="bg-white rounded-[3rem] shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl transition-all flex flex-col group relative">
               <div class="absolute top-6 left-6 z-10">
                 <span class="bg-gray-900 text-white px-4 py-2 rounded-2xl font-black text-[10px] uppercase shadow-lg tracking-widest"
                   x-text="(!item.price || item.price === 0) ? 'Gratis' : '€ ' + item.price.toFixed(2)"></span>
               </div>
               <div class="h-64 bg-slate-100 flex items-center justify-center overflow-hidden rounded-t-[3rem]">
-                <img x-show="item['@type'] === 'CreativeWork' && item.about.image" :src="item.about.image"
-                  class="w-full h-full object-contain group-hover:scale-105 transition duration-700">
-                <div x-show="item['@type'] === 'ItemList' || !item.about.image" class="text-8xl"
+                <div class="text-8xl"
                   x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
               </div>
               <div class="p-10 flex-grow flex flex-col">
                 <div class="flex justify-between items-start mb-4">
                   <h3 class="text-3xl font-black text-slate-900 tracking-tight leading-tight mb-4"
-                    x-text="item['@type'] === 'ItemList' ? item.name : item.about.name"></h3>
+                    x-text="item['@type'] === 'ItemList' ? item.name : (item.about ? item.about.name : 'Senza Titolo')"></h3>
                   <span :class="item['@type'] === 'ItemList' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'"
                     class="text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest ml-4"
                     x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></span>
@@ -264,27 +261,27 @@
 
           <form @submit.prevent="salvaOpera" class="space-y-12">
             <div x-show="currentUserType === 'autore'" class="flex bg-slate-100 p-2 rounded-[2rem] w-fit shadow-inner mb-8">
-              <button type="button" @click="nuovaOpera.type = 'CreativeWork'"
-                :class="nuovaOpera.type === 'CreativeWork' ? 'bg-white shadow-md text-blue-600' : 'text-slate-400'"
+              <button type="button" @click="cambiaTipoEditor('Item')"
+                :class="nuovaOpera.type === 'Item' ? 'bg-white shadow-md text-blue-600' : 'text-slate-400'"
                 class="px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition">🖼️ Item</button>
-              <button type="button" @click="nuovaOpera.type = 'ItemList'"
-                :class="nuovaOpera.type === 'ItemList' ? 'bg-white shadow-md text-purple-600' : 'text-slate-400'"
+              <button type="button" @click="cambiaTipoEditor('Visita')"
+                :class="nuovaOpera.type === 'Visita' ? 'bg-white shadow-md text-purple-600' : 'text-slate-400'"
                 class="px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition">🗺️ Visita</button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div class="col-span-2" x-show="nuovaOpera.type === 'ItemList'">
+              <div class="col-span-2" x-show="nuovaOpera.type === 'Visita'">
                 <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2 italic">Titolo Visita</label>
-                <input type="text" x-model="nuovaOpera.name" placeholder="Es: I capolavori del Rinascimento"
+                <input type="text" x-model="nuovaOpera.titolo" placeholder="Es: I capolavori del Rinascimento"
                   class="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[2rem] outline-none transition font-bold text-2xl shadow-inner">
               </div>
-              <div class="col-span-2" x-show="nuovaOpera.type === 'CreativeWork'">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2 italic">Seleziona Opera</label>
-                <select x-model="nuovaOpera.selectedArtworkId" required
+              <div class="col-span-2" x-show="nuovaOpera.type === 'Item'">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2 italic">Seleziona Opera dal Database</label>
+                <select x-model="nuovaOpera.selectedArtworkUri" required
                   class="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[2rem] outline-none transition font-bold text-2xl shadow-inner appearance-none cursor-pointer">
                   <option value="" disabled>Scegli un'opera...</option>
-                  <template x-for="art in availableArtworks" :key="art['@id']">
-                    <option :value="art['@id']" x-text="art.name"></option>
+                  <template x-for="art in availableArtworks" :key="art.wikiDataUri">
+                    <option :value="art.wikiDataUri" x-text="art.name"></option>
                   </template>
                 </select>
               </div>
@@ -295,43 +292,56 @@
               </div>
             </div>
 
-            <!-- Editor Audioguida per Item -->
-            <div x-show="nuovaOpera.type === 'CreativeWork'" class="pt-12 border-t border-slate-100">
-                <div class="grid grid-cols-2 gap-6 mb-8">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase mb-3 tracking-widest text-slate-400 italic">Livello</label>
-                        <select x-model="nuovaOpera.educationalLevel" class="w-full p-4 bg-slate-50 rounded-xl font-bold border-2 border-transparent focus:border-blue-500">
-                            <option value="infantile">👶 Infantile</option>
-                            <option value="semplice">🧑‍🎓 Semplice</option>
-                            <option value="medio">🧐 Medio</option>
-                            <option value="avanzato">🎓 Avanzato</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black uppercase mb-3 tracking-widest text-slate-400 italic">Durata</label>
-                        <input type="text" x-model="nuovaOpera.timeRequired" placeholder="Es: 15s" class="w-full p-4 bg-slate-50 rounded-xl font-bold border-2 border-transparent focus:border-blue-500">
-                    </div>
+            <!-- Editor Audioguida per Item (Solo Autore) -->
+            <div x-show="nuovaOpera.type === 'Item'" class="pt-12 border-t border-slate-100">
+                <div class="grid grid-cols-1 gap-12">
+                    <template x-for="tono in ['infantile', 'semplice', 'medio', 'avanzato']">
+                        <div class="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200">
+                            <div class="flex justify-between items-center mb-6">
+                                <h4 class="text-xl font-black uppercase tracking-tighter" :class="{
+                                    'text-pink-500': tono === 'infantile',
+                                    'text-emerald-500': tono === 'semplice',
+                                    'text-blue-500': tono === 'medio',
+                                    'text-purple-500': tono === 'avanzato'
+                                }">
+                                    <span x-text="tono === 'infantile' ? '👶 ' : (tono === 'semplice' ? '🧑‍🎓 ' : (tono === 'medio' ? '🧐 ' : '🎓 '))"></span>
+                                    <span x-text="tono"></span>
+                                </h4>
+                                <div class="flex items-center space-x-2">
+                                    <label class="text-[10px] font-black uppercase text-slate-400">Durata (sec)</label>
+                                    <input type="number" x-model="nuovaOpera.descrizioni[tono].durata" class="w-20 p-2 rounded-xl font-bold border-2 border-transparent focus:border-blue-500 text-center">
+                                </div>
+                            </div>
+                            <textarea x-model="nuovaOpera.descrizioni[tono].testo" :placeholder="'Scrivi qui la descrizione ' + tono + '...'" rows="4" 
+                                class="w-full p-6 bg-white rounded-2xl outline-none font-medium shadow-inner border-2 border-transparent focus:border-blue-500 text-lg"></textarea>
+                        </div>
+                    </template>
                 </div>
-                <label class="block text-[10px] font-black uppercase mb-3 tracking-widest text-slate-400 italic">Testo Audioguida</label>
-                <textarea x-model="nuovaOpera.text" rows="6" class="w-full p-6 bg-slate-50 rounded-[2rem] outline-none font-medium shadow-inner border-2 border-transparent focus:border-blue-500 text-xl"></textarea>
             </div>
 
-            <!-- Editor Timeline per Visite -->
-            <div x-show="nuovaOpera.type === 'ItemList'" class="pt-12 border-t border-slate-100">
-                <h3 class="text-3xl font-black text-slate-900 mb-8">Timeline Percorso</h3>
+            <!-- Editor Timeline per Visite (Autore e Visitatore) -->
+            <div x-show="nuovaOpera.type === 'Visita'" class="pt-12 border-t border-slate-100">
+                <h3 class="text-3xl font-black text-slate-900 mb-8">Percorso della Visita</h3>
+                
                 <div class="bg-slate-100 p-8 rounded-[3rem] mb-8 border-2 border-dashed border-slate-200">
-                    <p class="text-[10px] font-black uppercase text-slate-400 mb-6 text-center italic">Aggiungi Item dalla tua collezione:</p>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <template x-for="op in listaOpereSelezionabili()" :key="op['@id']">
-                            <button type="button" @click="aggiungiTappa('item', op['@id'])"
-                              class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-purple-500 transition-all text-center">
-                              <p class="text-[10px] font-black truncate" x-text="op.about.name"></p>
-                              <p class="text-[8px] text-purple-400 font-bold uppercase">+ Aggiungi</p>
+                    <p class="text-[10px] font-black uppercase text-slate-400 mb-6 text-center italic">Aggiungi contenuti dalla tua libreria:</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <template x-for="op in listaOpereSelezionabili()" :key="op._id || op['@id']">
+                            <button type="button" @click="aggiungiTappa('item', op['@id'] || op._id)"
+                              class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-purple-500 transition-all text-left flex items-center space-x-3">
+                              <span class="text-xl">🖼️</span>
+                              <div>
+                                <p class="text-[10px] font-black leading-none" x-text="trovaNomeItem(op['@id'] || op._id)"></p>
+                                <p class="text-[8px] text-purple-400 font-bold uppercase mt-1">+ Aggiungi</p>
+                              </div>
                             </button>
                         </template>
                     </div>
-                    <div class="mt-8 text-center">
-                        <button type="button" @click="aggiungiTappa('logistica')" class="bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition"> + Nota Logistica</button>
+                    <div x-show="listaOpereSelezionabili().length === 0" class="text-center p-4">
+                        <p class="text-slate-400 text-xs italic">Nessun contenuto disponibile. <span x-show="currentUserType === 'visitatore'">Acquista qualcosa nel marketplace!</span></p>
+                    </div>
+                    <div class="mt-8 text-center border-t border-slate-200 pt-6">
+                        <button type="button" @click="aggiungiTappa('logistica')" class="bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition"> + Aggiungi Nota Logistica (Sosta, Direzione...)</button>
                     </div>
                 </div>
 
@@ -347,7 +357,7 @@
                                     <input type="text" x-model="tappa.value" placeholder="Es: Gira a destra dopo la statua..." class="w-full bg-transparent font-bold text-slate-600 outline-none italic">
                                 </template>
                             </div>
-                            <button type="button" @click="rimuoviTappa(index)" class="text-red-300 hover:text-red-500 text-2xl">&times;</button>
+                            <button type="button" @click="rimuoviTappa(index)" class="text-red-300 hover:text-red-500 text-2xl font-black">&times;</button>
                         </div>
                     </template>
                 </div>
@@ -355,7 +365,8 @@
 
             <div class="flex justify-end pt-12 border-t border-slate-100">
               <button type="submit"
-                class="bg-blue-600 text-white px-16 py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:scale-105 transition-all tracking-tighter">Pubblica sul Marketplace</button>
+                class="bg-blue-600 text-white px-16 py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:scale-105 transition-all tracking-tighter"
+                x-text="currentUserType === 'autore' ? 'Pubblica sul Marketplace' : 'Salva nei miei Percorsi'"></button>
             </div>
           </form>
         </div>

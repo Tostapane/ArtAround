@@ -1,4 +1,6 @@
-export interface BaseArtwork {
+export type UserRole = 'autore' | 'visitatore';
+
+export interface Artwork {
   "@id": string; // URI o QID
   wikiDataUri: string;
   name: string;
@@ -13,9 +15,9 @@ export interface BaseArtwork {
 /**
  * Rappresenta il contenuto creativo/audioguida (CreativeWork su Schema.org)
  */
-export interface BaseItem {
+export interface Item {
   "@id": string; // ID unico generato (es. QID-Level-Time)
-  about: string | BaseArtwork; // ID dell'artwork o oggetto popolato
+  about: string | Artwork; // ID dell'artwork o oggetto popolato
   text: string;
   timeRequired: string; // Durata (es. "30s")
   educationalLevel: string;
@@ -28,13 +30,13 @@ export interface BaseItem {
  * Rappresenta l'unione tra item selezionati e il corrispettivo artwork
  */
 export interface Match {
-  artwork: BaseArtwork;
-  item: BaseItem;
+  artwork: Artwork;
+  item: Item;
 }
 /**
  * Rappresenta un percorso/lista di item (ItemList su Schema.org)
  */
-export interface BaseVisit {
+export interface Visit {
   "@id": string;
   name: string;
   price?: number;
@@ -43,13 +45,15 @@ export interface BaseVisit {
   author?: string;
 }
 
+export type EducationalLevel = 'infantile' | 'semplice' | 'medio' | 'avanzato' | string;
+
 // Unione per il Marketplace
-export type Contenuto = BaseItem | BaseVisit;
+export type Contenuto = Item | Visit;
 
 // Profilo utente (esteso)
 export interface User {
   username: string;
-  role: string;
+  role: UserRole;
   wallet: number;
   collezione: string[]; // ID degli item/visit acquistati
 }

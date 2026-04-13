@@ -1,9 +1,9 @@
 import { Schema, model, Document, Types } from "mongoose";
-import { BaseVisit } from "../../../shared/types";
+import { Visit as SharedVisit } from "../../../shared/types";
 
 // La Visita è una sequenza (ItemList) di Item e indicazioni logistiche
 // nota: la visit aimmagazzina solo gli id degli item, non gli item stessi!
-export interface Visit extends BaseVisit, Document {
+export interface Visit extends SharedVisit, Document {
   "@context": string;
   "@type": string;
   "@id": string; // Identificativo univoco (URI) della Visita
