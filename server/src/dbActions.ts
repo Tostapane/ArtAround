@@ -1,5 +1,5 @@
-import { ArtworkModel } from "./models/artwork";
-import { ItemModel } from "./models/item";
+import { Artwork, ArtworkModel } from "./models/artwork";
+import { Item, ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
 import { fetchArtwork } from "./services/wikidata";
 import { createDescription } from "./services/llm";
@@ -8,91 +8,22 @@ import { downloadImage } from "./services/imageDownloader";
 // deve solo fornire gli uri delle loro opere
 // runnundo una volta uno script init verra riempito tutto il
 // database
-export async function insertArtwork(currUri: string, location: string) {
-  try {
-    const data = await fetchArtwork(currUri);
-    if (!data) {
-      console.log("No data found for", currUri);
-      return;
-    }
-    const path = await downloadImage(data.image, `${currUri}`);
-    await ArtworkModel.create({
-      "@id": `uri:${currUri}`,
-      wikiDataUri: currUri,
-      name: data.name,
-      author: data.author,
-      imageUri: data.image,
-      image: path,
-      style: data.style,
-      locationId: location,
-    });
-    console.log("Artwork nserito correttamente:", currUri);
-  } catch (err) {
-    console.error(`Errore di inserimento di ${currUri}:`, err);
-  }
+
+export async function insertArtwork(artwork: Partial<Artwork>) {
+  return await ArtworkModel.create(artwork);
 }
 
-export async function deleteArtwork(currUri: string) {
-  try {
-    const result = await ArtworkModel.deleteOne({ wikiDataUri: currUri });
-    if (result.deletedCount === 0)
-      console.log("No artwork found with that URI");
-    else console.log("Artwork successfully deleted");
-  } catch (err) {
-    console.error("Error during deletion of the artwork", err);
-  }
+export async function deleteArtwork(uri: string) {
+  const result = await ArtworkModel.deleteOne({ wikiDataUri: uri });
+  if (result.deletedCount === 0) throw new Error("No artwork with that URI");
 }
-// storia diversa per gli item, che possono essere sia forniti
-// dal file iniziale che attraverso la piattaforma
-// se non viene specificato autore e descrizione, se ne occupa l'ai
-export async function insertItem(
-  atworkUri: string,
-  level: string,
-  duration: number,
-  itemAuthor?: string,
-  itemPrice?: number,
-  description?: string,
-) {
-  try {
-    const artwork = await ArtworkModel.findOne({ wikiDataUri: atworkUri });
-    if (!artwork) {
-      console.error(`Artwork non trovato per URI: ${atworkUri}`);
-      return;
-    }
 
-    console.log(`-------------------------------------------`);
-    console.log(` Genero ${artwork.name} ${level} ${duration} `);
-    console.log(`-------------------------------------------`);
-
-    if (!itemAuthor && !description) {
-      description = await createDescription(artwork.name, level, duration);
-      itemAuthor = "sistema";
-    }
-    const id = atworkUri + "-" + level + "-" + duration + "-" + itemAuthor;
-
-    await ItemModel.create({
-      // come tratto l'about?
-      "@id": id,
-      about: artwork._id,
-      timeRequired: duration,
-      educationalLevel: level,
-      author: itemAuthor,
-      price: itemPrice,
-      text: description,
-    });
-    console.log("Item inserito correttamente");
-  } catch (err) {
-    console.error(`Errow while inserting the item`, err);
-  }
+export async function insertItem(item: Partial<Item>) {
+  return await ItemModel.create(item);
 }
 export async function deleteItem(itemUri: string) {
-  try {
-    const result = await ItemModel.deleteOne({ id: itemUri });
-    if (result.deletedCount === 0) console.log("No item found with that URI");
-    else console.log("Item successfully deleted");
-  } catch (err) {
-    console.error("Error during deletion of the Item", err);
-  }
+  const result = await ItemModel.deleteOne({ "@id": itemUri });
+  if (result.deletedCount === 0) throw new Error("No item found with that URI");
 }
 // stessa storia per la visita, possibile reperirle sia dal file iniziale
 // che crearne personalizzate direttamente dai customers!

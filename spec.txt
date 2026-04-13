@@ -1,0 +1,57 @@
+divisione progetto
+
+marketplace -> autori e visitatori
+navigator -> visitatori
+server
+
+marketplace
+il marketplace serve a programmare visite (turisti) e publicare descrizioni (autori)
+
+navigator 
+fornisce una mappa e un servizio di guida virtuale, rende visibili le opere e descrizioni. 
+
+server/
+
+models/
+contiene le strutture dati che vengono utilizzate da tutta l'applicazione.
+contiene i modelli di mongoose che vengono storati dentro il database.
+
+routes/
+espone i servizi erogati dal server al frontend:
+chiamate GET
+- ritornare TUTTI gli artworks
+- ritornare tutt gli item associati ad un artworks
+- ritornare tutti gli item di uno specifico autore
+- ritornare tutte le visite presenti nel database
+chiamate POST
+- ritornare gli item elencati in un array
+- ritornare una descrizione di uno specifico artwork, chiamabile durante una visita in navigator/
+- salvare o aggiornare un item
+- salvare o aggiornare una visita
+
+services/
+contiene i servizi utili al funzionamento e popolamento del server
+- imageDownloader 
+  - downloadImage(link, nomeFile) serve a scaricare una foto da wikimedia
+- llm 
+  - createDescription(nome, difficolta, durata) ritorna la descrizione (solo testuale) di una opera secondo le richieste durata e difficiolta
+  - additionalDescription(testo, richiesta) ritorna una descrizione (solo testuale) dell'opera al momento visualizzata dall'utente, secondo una sua specifica richiesta (riassumi etc)
+- wikidata
+  - interfacia ArtworkMetadata per farla ritornare a fetchArtwork
+  - fetchArtwork(uri) fa una query sparQL, chiedendo nome, imamgine, autore e stile.
+
+dbActions.ts
+fanno una sola cosa e la fanno bene 
+- insertArtwork(artork)
+- deleteArtwork(uri)
+- insertItem(item) 
+- deleteItem(uri) 
+- insertVisit() da implementare
+
+manager.ts 
+permette funzioni che wrappano il fetch, download e inserimento nel database di artwork e items 
+- populateArtwork(uri, location) usa fetchArtwork, downloadImage e insertArtwork
+- populateItem(tante cose) usa createDescription e insertItem
+
+seed.ts 
+contiene le funzioni per popolare database e cartella delle immagine

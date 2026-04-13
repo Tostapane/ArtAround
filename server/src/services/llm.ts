@@ -33,7 +33,7 @@ export async function createDescription(
                         in linguaggio ${level} in modo che 
                         sia leggibile in ${duration} secondi`;
     const response = await ai.models.generateContent({
-      model: "gemma-3-27b-it",
+      model: "gemma-3-1b-it",
       contents: request,
     });
     // console.log(response.text);

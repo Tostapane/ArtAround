@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import { ArtworkModel } from "./models/artwork";
 import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
-import { insertArtwork, insertItem } from "./dbActions";
+import { populateArtwork, populateItem } from "./manager";
 import { downloadImage } from "./services/imageDownloader";
 
 dotenv.config();
@@ -12,7 +12,7 @@ const MONGO_URI =
   process.env.MONGO_URI ||
   "mongodb://localuser:localpassword@localhost:27017/artaround?authSource=admin";
 
-const levels = ["Infantile", "Principiante", "Intermedio", "Avanzato"];
+const levels = ["Intermedio", "Avanzato"];
 const durations = [5, 30, 60];
 // Lista di QID di opere famose per il test
 const testArtworks = [
@@ -49,12 +49,12 @@ async function seed() {
     console.log("Database pulito.");
     var cont = 1;
     for (const qid of testArtworks) {
-      await insertArtwork(qid, `art-${cont}`);
+      await populateArtwork(qid, `art-${cont}`);
       cont++;
       for (const level of levels) {
         for (const duration of durations) {
-          await insertItem(qid, level, duration);
-          await delay(300);
+          await populateItem(qid, level, duration);
+          await delay(1200);
         }
       }
     }
@@ -82,9 +82,9 @@ async function seedDownload() {
   for (const artwork of artworks) {
     console.log(`Downloading ${artwork.name}`);
     await downloadImage(artwork.imageUri, `${artwork.wikiDataUri}`);
-    await delay(5000); // 1-second delay between requests
+    await delay(2000); // 1-second delay between requests
   }
   await mongoose.disconnect();
 }
 
-seedDownload();
+seed();
