@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { Artwork } from "../../../../shared/types";
-
+import type { Artwork, Match } from "../../../../shared/types";
 defineProps<{
-  artwork: Artwork;
+  content: Match;
 }>();
 const emit = defineEmits<{
   navigation: [value: string];
@@ -15,10 +14,13 @@ const emit = defineEmits<{
     aria-live="polite"
   >
     <!-- Artwork Image -->
-    <div v-if="artwork.image" class="w-full bg-gray-100 flex justify-center">
+    <div
+      v-if="content.artwork.image"
+      class="w-full bg-gray-100 flex justify-center"
+    >
       <img
-        :src="'http://localhost:8000' + artwork.image"
-        :alt="'Immagine dell\'opera: ' + artwork.name"
+        :src="'http://localhost:8000' + content.artwork.image"
+        :alt="'Immagine dell\'opera: ' + content.artwork.name"
         class="w-full max-h-72 object-contain"
       />
     </div>
@@ -26,7 +28,7 @@ const emit = defineEmits<{
     <div class="p-6">
       <div class="flex items-start justify-between mb-4">
         <h3 class="text-xl font-bold leading-tight text-gray-900">
-          {{ artwork.name }}
+          {{ content.artwork.name }}
         </h3>
         <button
           @click="emit('navigation', 'close')"
@@ -50,7 +52,8 @@ const emit = defineEmits<{
       </div>
 
       <p class="text-base text-gray-600 mb-6">
-        {{ artwork.author }}
+        {{ content.artwork.author }}
+        {{ content.item.text }}
       </p>
 
       <div class="flex justify-between mt-4 pt-4 border-t border-gray-100">

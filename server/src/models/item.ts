@@ -13,7 +13,7 @@ export interface Item extends Omit<SharedItem, "about">, Document {
   // Q12418-Principiante-5 = Mona Lisa, livello principiante, 5 secondi
   "@id": string;
 
-  about: Types.ObjectId | Artwork;
+  about: string;
   timeRequired: string; // Lunghezza (es. "3s", "15s", "PT1M")
   educationalLevel: string;
   author: string;
@@ -26,7 +26,7 @@ const itemSchema = new Schema<Item>({
   "@context": { type: String, default: "https://schema.org" },
   "@type": { type: String, default: "CreativeWork" },
   "@id": { type: String, required: true },
-  about: { type: Schema.Types.ObjectId, ref: "Artwork", required: true },
+  about: { type: String, required: true },
 
   timeRequired: { type: String, required: true },
   educationalLevel: { type: String, required: true },

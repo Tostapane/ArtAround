@@ -53,10 +53,13 @@ export async function match(items: Item[], artworks: Artwork[]) {
       return art["@id"] == item.about;
     });
     if (matchingArt) {
+      console.log("trovato");
       results.push({
         artwork: matchingArt,
         item: item,
       });
+    } else {
+      console.log("non trovato");
     }
   }
   matchedContent.value = results;

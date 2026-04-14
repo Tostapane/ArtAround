@@ -43,7 +43,7 @@ export async function populateItem(
 
   await insertItem({
     "@id": id,
-    about: artwork._id,
+    about: artwork["@id"],
     timeRequired: duration.toString(),
     educationalLevel: level,
     author: itemAuthor,
