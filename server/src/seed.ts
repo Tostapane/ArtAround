@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import { ArtworkModel } from "./models/artwork";
 import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
-import { populateArtwork, populateItem } from "./manager";
+import { populateArtwork, populateItem, populateVisit } from "./manager";
 import { downloadImage } from "./services/imageDownloader";
 
 dotenv.config();
@@ -56,6 +56,15 @@ async function seed() {
           await populateItem(qid, level, duration);
           await delay(1200);
         }
+      }
+    }
+    for (const level of levels) {
+      for (const duration of durations) {
+        const items = await ItemModel.find({
+          timeRequired: `${duration}`,
+          educationalLevel: `${level}`,
+        });
+        await populateVisit(`${level}-${duration}`, items.map(item => item["@id"]), []);
       }
     }
   } catch (err) {

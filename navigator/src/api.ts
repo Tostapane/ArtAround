@@ -2,13 +2,16 @@ import type { Artwork, Item, Visit } from "../../shared/types";
 
 const API_BASE = "http://localhost:8000/api";
 
+// ritorna tutti gli artworks nel database
 export async function getArtworks(): Promise<Artwork[]> {
   const res = await fetch(`${API_BASE}/artworks`);
+  if (!res.ok) throw new Error(`Failed to fetch artworks: ${res.statusText}`);
   const data = await res.json();
-  console.log("successfully  fetched artworks");
+  console.log("successfully fetched artworks");
   return data;
 }
 
+// ritorna gli items specificati nell'array
 export async function getItems(itemIds: string[]): Promise<Item[]> {
   const res = await fetch(`${API_BASE}/items/batch`, {
     method: "POST", // Changed from GET to POST
@@ -23,5 +26,14 @@ export async function getItems(itemIds: string[]): Promise<Item[]> {
   }
 
   const data = await res.json();
+  return data;
+}
+
+// ritorna la visita con l'id richiesto
+export async function getVisit(id: string): Promise<Visit> {
+  const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Failed to fetch visit: ${res.statusText}`);
+  const data = await res.json();
+  console.log("successfully fetched the desired visit");
   return data;
 }

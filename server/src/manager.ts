@@ -1,10 +1,13 @@
 import { fetchArtwork } from "./services/wikidata";
 import { downloadImage } from "./services/imageDownloader";
-import { insertArtwork } from "./dbActions";
+import { insertArtwork, insertItem, insertVisit } from "./dbActions";
 import { ArtworkModel } from "./models/artwork";
-import { insertItem } from "./dbActions";
 import { createDescription } from "./services/llm";
 
+/** funzione che si occupa ti ottenere le informazioni da wikidata,
+ * scaricare l'immagine,
+ * inserire l'immagine nel database
+ */
 export async function populateArtwork(uri: string, location: string) {
   const data = await fetchArtwork(uri);
   if (!data) throw new Error("Artwork non trovato");
@@ -19,6 +22,11 @@ export async function populateArtwork(uri: string, location: string) {
   });
   console.log("Artwork inserito correttamente");
 }
+/*
+ * funzione che si occupa di creare la descrizione per un'opera
+ * secondo i parametri specificati
+ * aggiunge l'opera al database
+ */
 
 export async function populateItem(
   atworkUri: string,
@@ -51,4 +59,26 @@ export async function populateItem(
     text: description,
   });
   console.log("Item inserito correttamente");
+}
+
+/*
+ * funzione che si occupa di inserire nel database una visita, da ampliare?
+ */
+export async function populateVisit(
+  name: string,
+  items: string[],
+  logist: string[],
+  visitPrice?: number,
+  visitAuthor?: string,
+) {
+  const id = "visit" + "-" + name;
+  await insertVisit({
+    "@id": id,
+    name: name,
+    price: visitPrice,
+    author: visitAuthor,
+    itemListElement: items,
+    logistics: logist,
+  });
+  console.log("Visit inserita correttamente");
 }

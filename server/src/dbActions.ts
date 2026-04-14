@@ -1,6 +1,6 @@
 import { Artwork, ArtworkModel } from "./models/artwork";
 import { Item, ItemModel } from "./models/item";
-import { VisitModel } from "./models/visit";
+import { Visit, VisitModel } from "./models/visit";
 import { fetchArtwork } from "./services/wikidata";
 import { createDescription } from "./services/llm";
 import { downloadImage } from "./services/imageDownloader";
@@ -28,4 +28,6 @@ export async function deleteItem(itemUri: string) {
 // stessa storia per la visita, possibile reperirle sia dal file iniziale
 // che crearne personalizzate direttamente dai customers!
 
-export async function insertVisit() {}
+export async function insertVisit(visit: Partial<Visit>) {
+  return await VisitModel.create(visit);
+}

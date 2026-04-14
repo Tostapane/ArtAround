@@ -24,7 +24,7 @@ const visitSchema = new Schema<Visit>({
   "@id": { type: String, required: true },
 
   name: { type: String, required: true },
-  price: { type: Number },
+  price: Number,
   author: String,
 
   itemListElement: [String],
