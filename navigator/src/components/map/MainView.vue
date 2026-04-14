@@ -1,43 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, watchEffect } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted, watchEffect } from "vue";
 import Map from "./Map.vue";
 import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
 import Info from "./Info.vue";
-import { artworks, loadArtworks } from "./../../state";
-import { items, loadItems } from "./../../state";
-import { match, matchedContent } from "./../../state";
+import { loadArtworks } from "./../../state";
+import { loadItems } from "./../../state";
+import { visit, loadVisit } from "./../../state";
+import { matchedContent } from "./../../state";
 
 // il corretto approccio e' di matchare in state e qui importare solamente
 // l'interfaccia Match
-const ids = [
-  "Q12418-Intermedio-30-sistema",
-  "Q45585-Intermedio-30-sistema",
-  "Q185372-Intermedio-30-sistema",
-  "Q18891156-Intermedio-30-sistema",
-  "Q128910-Intermedio-30-sistema",
-  "Q175036-Intermedio-30-sistema",
-  "Q151047-Intermedio-30-sistema",
-  "Q208758-Intermedio-30-sistema",
-  "Q219831-Intermedio-30-sistema",
-  "Q328523-Intermedio-30-sistema",
-  "Q321303-Intermedio-30-sistema",
-  "Q29530-Intermedio-30-sistema",
-  "Q220859-Intermedio-30-sistema",
-];
-Promise.all([loadArtworks(), loadItems(ids)]).then(() => {
-  console.log(artworks.value.length);
-  console.log(items.value.length);
-  match(items.value, artworks.value);
-});
-console.log("content matchato: ");
-console.log(matchedContent.value);
-watchEffect(() => {
-  if (items.value.length > 0) {
-    console.log("Items loaded reactively:", items.value);
+onMounted(async () => {
+  await loadVisit("visit-Avanzato-30");
+  if (visit.value && visit.value.itemListElement) {
+    const ids = visit.value.itemListElement;
+    await Promise.all([loadArtworks(), loadItems(ids)]);
+    console.log("content matchato: ");
+  } else {
+    console.error("Failed to load visit");
   }
 });
-
 let currentIndex = ref<number | null>(null);
 
 // gestione delle opzioni
@@ -72,9 +55,11 @@ onUnmounted(() => {
 function navigationHandler(direction: string) {
   if (currentIndex.value != null) {
     if (direction === "next")
-      currentIndex.value = (currentIndex.value + 1) % artworks.value.length;
+      currentIndex.value =
+        (currentIndex.value + 1) % matchedContent.value.length;
     else if (direction === "prev")
-      currentIndex.value = (currentIndex.value - 1) % artworks.value.length;
+      currentIndex.value =
+        (currentIndex.value - 1) % matchedContent.value.length;
     else currentIndex.value = null;
   }
 }

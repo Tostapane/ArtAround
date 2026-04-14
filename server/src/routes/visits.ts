@@ -29,7 +29,7 @@ router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`[BACKEND] Chiamata GET /api/visits/${id}`);
-    const visit = await VisitModel.find({ "@id": id });
+    const visit = await VisitModel.findOne({ "@id": id });
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
     res.json(visit);
   } catch (err: any) {

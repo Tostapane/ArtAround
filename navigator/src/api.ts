@@ -14,11 +14,11 @@ export async function getArtworks(): Promise<Artwork[]> {
 // ritorna gli items specificati nell'array
 export async function getItems(itemIds: string[]): Promise<Item[]> {
   const res = await fetch(`${API_BASE}/items/batch`, {
-    method: "POST", // Changed from GET to POST
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ ids: itemIds }), // The array goes securely in the body
+    body: JSON.stringify({ ids: itemIds }),
   });
 
   if (!res.ok) {
@@ -35,5 +35,6 @@ export async function getVisit(id: string): Promise<Visit> {
   if (!res.ok) throw new Error(`Failed to fetch visit: ${res.statusText}`);
   const data = await res.json();
   console.log("successfully fetched the desired visit");
+  console.log(data);
   return data;
 }

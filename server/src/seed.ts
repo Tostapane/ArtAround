@@ -64,7 +64,11 @@ async function seed() {
           timeRequired: `${duration}`,
           educationalLevel: `${level}`,
         });
-        await populateVisit(`${level}-${duration}`, items.map(item => item["@id"]), []);
+        await populateVisit(
+          `${level}-${duration}`,
+          items.map((item) => item["@id"]),
+          [],
+        );
       }
     }
   } catch (err) {
@@ -96,4 +100,4 @@ async function seedDownload() {
   await mongoose.disconnect();
 }
 
-seed();
+printStored();
