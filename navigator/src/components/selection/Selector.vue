@@ -1,8 +1,8 @@
 <script setup lang="ts">
     import { ref } from 'vue'
     import DropDownMenu from './DropDownMenu.vue';
-    let levels: string[] = ['Principiante', 'Intermedio', 'Esperto']
-    let durations: number[] = [15, 30, 45, 60]
+    const levels: string[] = ['Principiante', 'Intermedio', 'Esperto']
+    const durations: number[] = [15, 30, 45, 60]
 
     interface State {
     level: string;

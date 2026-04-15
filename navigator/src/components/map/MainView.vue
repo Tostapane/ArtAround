@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, watchEffect } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import Map from "./Map.vue";
 import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
@@ -21,12 +21,14 @@ onMounted(async () => {
     console.error("Failed to load visit");
   }
 });
-let currentIndex = ref<number | null>(null);
+const currentIndex = ref<number | null>(null);
 
 // gestione delle opzioni
-let currentOption = ref<string>("");
+const currentOption = ref<string>("");
+const showOptions = ref(false);
 function actionHandler(option: string) {
-  if (currentOption) currentOption.value = option;
+  currentOption.value = option;
+  showOptions.value = false;
 }
 
 // gestione dell'opera selezionata
@@ -35,11 +37,12 @@ const currentArtwork = computed(() => {
   const art = matchedContent.value[currentIndex.value];
   if (!art) return null;
 
-  currentOption.value = "";
   return art;
 });
 // blocca lo scroll quando un'opera è selezionata
 watch(currentArtwork, (newVal) => {
+  currentOption.value = "";
+  showOptions.value = false;
   if (newVal) {
     document.body.classList.add("overflow-hidden");
   } else {
@@ -69,13 +72,19 @@ function navigationHandler(direction: string) {
   <Map @select="(index: number) => (currentIndex = index)" />
   <div
     v-if="currentArtwork"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-md"
   >
-    <Card :content="currentArtwork" @navigation="navigationHandler" />
-    <OptionsBar @action="actionHandler" />
+    <Card
+      :content="currentArtwork"
+      @navigation="navigationHandler"
+      @toggleOptions="showOptions = !showOptions"
+    />
+    <OptionsBar v-if="showOptions" @action="actionHandler" />
     <Info
       v-if="currentOption"
       :request="currentOption"
+      :about="currentArtwork"
+      ,
       @close="currentOption = ''"
     />
   </div>

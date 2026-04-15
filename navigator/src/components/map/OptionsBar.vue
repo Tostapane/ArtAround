@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { options } from "./utilsMap";
-const emit = defineEmits<{
+defineEmits<{
   action: [value: string];
 }>();
 const containerClasses = [

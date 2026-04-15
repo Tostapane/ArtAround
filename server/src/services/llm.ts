@@ -27,11 +27,13 @@ export async function createDescription(
   duration: number,
 ) {
   try {
-    const request = ` Rispondi in plain text, niente simboli,
-                      Non parlare di musei.
-                    Descrivi ${name} 
-                        in linguaggio ${level} in modo che 
-                        sia leggibile in ${duration} secondi`;
+    const request = `
+                    Sei uno scrittore di guide per musei, 
+                    Rispondi in plain text, niente simboli,
+                    Non parlare di musei.
+                    Descrivi l'opera ${name} 
+                    in linguaggio ${level} in modo che 
+                    sia leggibile in ${duration} secondi`;
     const response = await ai.models.generateContent({
       model: "gemma-3-1b-it",
       contents: request,

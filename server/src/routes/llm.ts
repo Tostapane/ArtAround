@@ -3,11 +3,11 @@ import { additionalDescription } from "../services/llm";
 
 const router = Router();
 
-router.post("/addInfo", async (req, res) => {
+router.post("/newInfo", async (req, res) => {
   try {
     const { previous, userReq } = req.body;
     const newDescr = additionalDescription(previous, userReq);
-    res.json({ newDescr });
+    res.json(newDescr);
   } catch (err) {
     res.status(500).json({ error: "Failed to generate description" });
   }

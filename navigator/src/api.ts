@@ -35,6 +35,26 @@ export async function getVisit(id: string): Promise<Visit> {
   if (!res.ok) throw new Error(`Failed to fetch visit: ${res.statusText}`);
   const data = await res.json();
   console.log("successfully fetched the desired visit");
-  console.log(data);
+  return data;
+}
+
+// ritorna una nuova descrizione a partire da quella attuale, secondo la richiesta userReq
+export async function getInfo(
+  previous: string,
+  userReq: string,
+): Promise<string> {
+  const res = await fetch(`${API_BASE}/llm/newInfo`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ previous, userReq }),
+  });
+
+  if (!res.ok)
+    throw new Error(`Failed to fetch new description: ${res.statusText}`);
+
+  const data = await res.json();
+  console.log(`Successfully fetched the new description for: ${userReq}`);
   return data;
 }

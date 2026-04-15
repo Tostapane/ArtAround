@@ -1,42 +1,30 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import type { Artwork } from "../../../../shared/types";
+import { computed, ref, watch } from "vue";
+import { getInfo } from "@/api";
+import type { Artwork, Match } from "../../../../shared/types";
 const props = defineProps<{
   request: string;
+  about: Match;
   // artwork: Artwork;
 }>();
 /*
       AGGIUNGERE SPIEGAZIONI!
   */
+const responseText = ref("Loading...");
 
-const responseText = computed(() => {
-  switch (props.request) {
-    case "Non ho capito":
-      return "Non ho capito";
-    case "Sintetizza":
-      return "Sintetizza";
-    case "Approfondisci":
-      return "Approfondisci";
-    case "Semplifica":
-      return "Semplifica";
-    case "Chi e' l'autore?":
-      return "Chi e' l'autore?";
-    case "Che stile e?":
-      return "Che stile e'?";
-    case "Dove esco?":
-      return "Dove esco?";
-    case "Dove e il bagno?":
-      return "Dove e' il bagno?";
-    case "Dove e il bar?":
-      return "Dove e' il bar?";
-    case "Dove e lo shop?":
-      return "Dove e' lo shop?";
-    case "Ci sono ostacoli?":
-      return "Ci sono ostacoli?";
-    default:
-      return "";
-  }
-});
+// This watches for changes and updates responseText automatically
+watch(
+  () => [props.request, props.about],
+  async () => {
+    responseText.value = "Loading...";
+    try {
+      responseText.value = await getInfo(props.about.item.text, props.request);
+    } catch (e) {
+      responseText.value = "Error loading information.";
+    }
+  },
+  { immediate: true }, // Run it once on mount
+);
 const containerClasses = [
   "absolute z-30 p-4 bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl",
   "w-[calc(100%-2rem)] max-w-md",
