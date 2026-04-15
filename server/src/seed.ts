@@ -100,4 +100,4 @@ async function seedDownload() {
   await mongoose.disconnect();
 }
 
-printStored();
+seed();

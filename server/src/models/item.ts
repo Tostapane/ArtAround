@@ -1,33 +1,21 @@
-import { Schema, model, Document, Types } from "mongoose";
-import { Artwork } from "./artwork";
+import { Schema, model } from "mongoose";
 import { Item as SharedItem } from "../../../shared/types";
 
-// export type Expertise = "infantile" | "elementare" | "medio" | "specialistico";
-
-// L'Item rappresenta un testo descrittivo (CreativeWork) su un soggetto
-export interface Item extends Omit<SharedItem, "about">, Document {
-  "@context": string; // uri schema.org
-  "@type": string; // CreativeWork
-
-  // uri opera + difficolta + tempo richiesto
-  // Q12418-Principiante-5 = Mona Lisa, livello principiante, 5 secondi
-  "@id": string;
-
-  about: string;
-  timeRequired: string; // Lunghezza (es. "3s", "15s", "PT1M")
-  educationalLevel: string;
-  author: string;
-  license: string;
-  price?: number;
-  text: string;
+/**
+ * Interface representing the Item (CreativeWork) document in Mongoose.
+ * Extends SharedItem but forces 'about' to be a string (Artwork ID) for DB storage.
+ */
+export interface IItem extends Omit<SharedItem, "about"> {
+  "@context": string;
+  "@type": string;
+  about: string; // Stored as reference ID
 }
 
-const itemSchema = new Schema<Item>({
+const itemSchema = new Schema<IItem>({
   "@context": { type: String, default: "https://schema.org" },
   "@type": { type: String, default: "CreativeWork" },
   "@id": { type: String, required: true },
   about: { type: String, required: true },
-
   timeRequired: { type: String, required: true },
   educationalLevel: { type: String, required: true },
   author: { type: String, required: true },
@@ -39,4 +27,4 @@ const itemSchema = new Schema<Item>({
   text: String,
 });
 
-export const ItemModel = model<Item>("Item", itemSchema);
+export const ItemModel = model<IItem>("Item", itemSchema);

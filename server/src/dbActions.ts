@@ -1,6 +1,6 @@
-import { Artwork, ArtworkModel } from "./models/artwork";
-import { Item, ItemModel } from "./models/item";
-import { Visit, VisitModel } from "./models/visit";
+import { IArtwork, ArtworkModel } from "./models/artwork";
+import { IItem, ItemModel } from "./models/item";
+import { IVisit, VisitModel } from "./models/visit";
 import { fetchArtwork } from "./services/wikidata";
 import { createDescription } from "./services/llm";
 import { downloadImage } from "./services/imageDownloader";
@@ -9,7 +9,7 @@ import { downloadImage } from "./services/imageDownloader";
 // runnundo una volta uno script init verra riempito tutto il
 // database
 
-export async function insertArtwork(artwork: Partial<Artwork>) {
+export async function insertArtwork(artwork: Partial<IArtwork>) {
   return await ArtworkModel.create(artwork);
 }
 
@@ -18,7 +18,7 @@ export async function deleteArtwork(uri: string) {
   if (result.deletedCount === 0) throw new Error("No artwork with that URI");
 }
 
-export async function insertItem(item: Partial<Item>) {
+export async function insertItem(item: Partial<IItem>) {
   return await ItemModel.create(item);
 }
 export async function deleteItem(itemUri: string) {
@@ -28,6 +28,6 @@ export async function deleteItem(itemUri: string) {
 // stessa storia per la visita, possibile reperirle sia dal file iniziale
 // che crearne personalizzate direttamente dai customers!
 
-export async function insertVisit(visit: Partial<Visit>) {
+export async function insertVisit(visit: Partial<IVisit>) {
   return await VisitModel.create(visit);
 }
