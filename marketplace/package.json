@@ -3,9 +3,15 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "tsc"
+    "build": "npm run build:ts && npm run build:css",
+    "build:ts": "tsc",
+    "build:css": "tailwindcss -i ./src/frontend/style.css -o ./dist/style.css --minify",
+    "watch:css": "tailwindcss -i ./src/frontend/style.css -o ./dist/style.css --watch"
   },
   "dependencies": {
+    "@headlessui/tailwindcss": "^0.2.2",
+    "@tailwindcss/cli": "^4.2.2",
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
