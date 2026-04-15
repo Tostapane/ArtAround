@@ -160,12 +160,13 @@
               </div>
               <div class="h-56 bg-slate-100 flex items-center justify-center overflow-hidden rounded-t-[3rem]">
                 <!-- Se l'item ha l'artwork popolato (about) -->
-                <img x-show="item.about && item.about.image" :src="'/images/artworks/' + item.about.image"
+                <img x-show="item.about && item.about.image" :src="item.about.image"
                   class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
                 <div x-show="!item.about || !item.about.image" class="text-7xl"
                   x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
               </div>
               <div class="p-8">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2 italic" x-text="item.educationalLevel"></p>
                 <h3 class="text-2xl font-black text-slate-900 leading-tight mb-6 tracking-tight"
                   x-text="item['@type'] === 'ItemList' ? item.name : (item.about ? item.about.name : 'Opera Sconosciuta')"></h3>
                 <div class="flex space-x-3 mt-auto">
@@ -234,8 +235,7 @@
       <section x-show="currentView === 'my_collection'" class="text-left">
         <h2 class="text-6xl font-black text-slate-900 tracking-tighter mb-4 leading-none text-left">La mia Collezione
         </h2>
-        <p class="text-gray-400 text-lg mb-12 font-medium italic text-left">Contenuti acquistati per <span
-            class="text-emerald-600 font-black not-italic" x-text="currentMuseum"></span></p>
+        <p class="text-gray-400 text-lg mb-12 font-medium italic text-left">Contenuti acquistati</p>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
           <template x-for="item in miaCollezione()" :key="item['@id']">
             <div @click="apriDettaglio(item)"
@@ -257,7 +257,7 @@
           <button @click="tornaHome()" class="absolute top-10 right-10 text-slate-300 hover:text-slate-600 text-4xl">&times;</button>
           <h2 class="text-5xl font-black mb-2 text-slate-900 tracking-tight"
             x-text="currentUserType === 'autore' ? 'Editor Contenuto' : 'Crea Percorso'"></h2>
-          <p class="text-slate-400 mb-12 text-lg font-medium italic">In: <strong class="text-slate-800" x-text="currentMuseum"></strong></p>
+          <p class="text-slate-400 mb-12 text-lg font-medium italic">Gestore Contenuti</p>
 
           <form @submit.prevent="salvaOpera" class="space-y-12">
             <div x-show="currentUserType === 'autore'" class="flex bg-slate-100 p-2 rounded-[2rem] w-fit shadow-inner mb-8">
@@ -328,7 +328,8 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <template x-for="op in listaOpereSelezionabili()" :key="op._id || op['@id']">
                             <button type="button" @click="aggiungiTappa('item', op['@id'] || op._id)"
-                              class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-purple-500 transition-all text-left flex items-center space-x-3">
+                              class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-purple-500 transition-all text-left flex items-center space-x-3 relative overflow-hidden">
+                              <span class="absolute top-1 right-2 text-[7px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-100" x-text="op.educationalLevel"></span>
                               <span class="text-xl">🖼️</span>
                               <div>
                                 <p class="text-[10px] font-black leading-none" x-text="trovaNomeItem(op['@id'] || op._id)"></p>
@@ -387,7 +388,11 @@
           <div x-show="itemSelezionato?.['@type'] === 'CreativeWork'">
             <div class="flex justify-between items-center mb-4">
                 <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-black text-[10px] uppercase" x-text="itemSelezionato?.educationalLevel"></span>
-                <span class="text-slate-400 font-bold text-xs" x-text="itemSelezionato?.timeRequired"></span>
+                <span class="text-slate-400 font-bold text-xs">
+                  <span class="mr-1">⏱️</span>
+                  <span>Tempo di lettura: </span>
+                  <span x-text="itemSelezionato?.timeRequired + ' sec'"></span>
+                </span>
             </div>
             <p class="text-slate-700 leading-relaxed text-lg" x-text="haIlPossesso(itemSelezionato) ? itemSelezionato?.text : 'Contenuto Protetto. Sbloccalo per leggere la descrizione.'"></p>
           </div>
@@ -415,6 +420,11 @@
     </div>
 
     <footer class="p-10 text-center text-slate-300 text-[10px] uppercase font-black tracking-[0.5em] mt-auto">ArtAround Suite &copy; 2026</footer>
+  </div>
+</body>
+
+</html>
+te &copy; 2026</footer>
   </div>
 </body>
 

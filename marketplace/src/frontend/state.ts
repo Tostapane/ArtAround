@@ -41,7 +41,8 @@ export class AppState {
       console.log("[FRONTEND] Inizializzazione dati globali dal database...");
 
       // 1. Carichiamo sempre gli Artwork disponibili (quelli caricati dal seed)
-      this.availableArtworks = await ArtAPI.fetchArtworks();
+      const arts = await ArtAPI.fetchArtworks();
+      this.availableArtworks = arts.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
       // 2. Carichiamo le Visite (Tour) del Marketplace
       this.contenuti = await ArtAPI.fetchVisite();

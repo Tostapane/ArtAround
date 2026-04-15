@@ -11,7 +11,13 @@ const router = Router();
 router.get("/author/:authorName", async (req, res) => {
   try {
     const { authorName } = req.params;
-    const items = await ItemModel.find({ author: authorName }).populate("about");
+    const items = await ItemModel.find({ author: authorName }).populate({
+      path: "about",
+      model: "Artwork",
+      foreignField: "@id",
+      localField: "about",
+      justOne: true
+    });
     res.json(items);
   } catch (error: any) {
     console.error(error);
@@ -34,13 +40,13 @@ router.post("/", async (req, res) => {
       if (!artwork) return res.status(400).json({ error: "Artwork non trovato nel database." });
 
       // Elimino versioni precedenti dello stesso autore per quell'opera per aggiornamento
-      await ItemModel.deleteMany({ about: artwork._id, author: payload.autore });
+      await ItemModel.deleteMany({ about: artwork["@id"], author: payload.autore });
 
       for (const desc of payload.descrizioni) {
         const itemId = `${artwork.wikiDataUri}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
         await ItemModel.create({
           "@id": itemId,
-          about: artwork._id,
+          about: artwork["@id"],
           timeRequired: desc.lunghezza,
           educationalLevel: desc.tono,
           author: payload.autore,
@@ -55,7 +61,7 @@ router.post("/", async (req, res) => {
       const artwork = await ArtworkModel.findOne({ $or: [{ wikiDataUri: artworkIdString }, { "@id": artworkIdString }] });
       if (!artwork) return res.status(400).json({ error: "Artwork non trovato." });
 
-      payload.about = artwork._id;
+      payload.about = artwork["@id"];
       await ItemModel.create(payload);
     }
 
