@@ -10,6 +10,7 @@ export const visit = ref<Visit>();
 // le funzioni per item e artworks
 export const matchedContent = computed<Match[]>(() => {
   const results: Match[] = [];
+  //console.log(items.value);
   for (const item of items.value) {
     const matchingArt = artworks.value.find((art) => {
       return art["@id"] == item.about;
@@ -23,6 +24,7 @@ export const matchedContent = computed<Match[]>(() => {
       console.log("matching non trovato");
     }
   }
+  console.log(results);
   return results;
 });
 
@@ -51,16 +53,13 @@ export async function loadArtworks() {
 // funzione che ritorna gli items i cui "@id" sono presenti dentro l'array itemList
 // effettua una chiamata al server
 export async function loadItems(itemList: string[]) {
-  // Check if we already have all requested items
-  const missingItems = itemList.filter(id => !items.value.some(item => item["@id"] === id));
-  if (missingItems.length === 0) return;
-  
   if (itemsLoadingPromise) return itemsLoadingPromise;
 
   itemsLoadingPromise = (async () => {
     try {
-      const newItems = await getItems(missingItems);
+      const newItems = await getItems(itemList);
       items.value = [...items.value, ...newItems];
+      console.log(items.value);
     } catch (err) {
       console.error("Errore durante il caricamento degli item", err);
     } finally {

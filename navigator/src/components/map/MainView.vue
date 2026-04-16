@@ -12,7 +12,7 @@ import { matchedContent } from "./../../state";
 // il corretto approccio e' di matchare in state e qui importare solamente
 // l'interfaccia Match
 onMounted(async () => {
-  await loadVisit("visit-Avanzato-30");
+  await loadVisit("visit-Avanzato-5");
   if (visit.value && visit.value.itemListElement) {
     const ids = visit.value.itemListElement;
     await Promise.all([loadArtworks(), loadItems(ids)]);
@@ -72,20 +72,29 @@ function navigationHandler(direction: string) {
   <Map @select="(index: number) => (currentIndex = index)" />
   <div
     v-if="currentArtwork"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-md"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto"
   >
-    <Card
-      :content="currentArtwork"
-      @navigation="navigationHandler"
-      @toggleOptions="showOptions = !showOptions"
-    />
-    <OptionsBar v-if="showOptions" @action="actionHandler" />
-    <Info
-      v-if="currentOption"
-      :request="currentOption"
-      :about="currentArtwork"
-      ,
-      @close="currentOption = ''"
-    />
+    <div
+      class="flex flex-col md:flex-row items-center md:items-stretch gap-4 w-full max-w-5xl justify-center h-auto md:h-[90vh]"
+    >
+      <Card
+        :content="currentArtwork"
+        @navigation="navigationHandler"
+        @toggleOptions="showOptions = !showOptions"
+        class="h-full shrink-0 md:shrink"
+      />
+      <div
+        v-if="showOptions || currentOption"
+        class="flex flex-col gap-4 w-full md:w-80 shrink-0 h-auto md:h-full md:overflow-y-auto pb-4 md:pb-0"
+      >
+        <OptionsBar v-if="showOptions" @action="actionHandler" />
+        <Info
+          v-if="currentOption"
+          :request="currentOption"
+          :about="currentArtwork"
+          @close="currentOption = ''"
+        />
+      </div>
+    </div>
   </div>
 </template>

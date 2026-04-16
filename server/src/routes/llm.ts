@@ -6,7 +6,7 @@ const router = Router();
 router.post("/newInfo", async (req, res) => {
   try {
     const { previous, userReq } = req.body;
-    const newDescr = additionalDescription(previous, userReq);
+    const newDescr = await additionalDescription(previous, userReq);
     res.json(newDescr);
   } catch (err) {
     res.status(500).json({ error: "Failed to generate description" });

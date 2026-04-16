@@ -47,11 +47,16 @@ export async function populateItem(
   if (!artwork) throw new Error(`Artwork non trovato per QID: ${atworkQid}`);
 
   if (!itemAuthor && !description) {
-    description = await createDescription(artwork.name, level, duration);
+    description = await createDescription(
+      artwork.name,
+      artwork.author.name,
+      level,
+      duration,
+    );
     itemAuthor = "sistema";
   }
 
-  const id = `https://www.wikidata.org/wiki/${atworkQid}`;
+  const id = `${atworkQid}-${level}-${duration}`;
 
   await insertItem({
     "@id": id,

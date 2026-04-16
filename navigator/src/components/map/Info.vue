@@ -15,10 +15,48 @@ const responseText = ref("Loading...");
 // This watches for changes and updates responseText automatically
 watch(
   () => [props.request, props.about],
+
   async () => {
+    let request = "no";
+    switch (props.request) {
+      case "Non ho capito":
+        request = "Spiegalo con parole diverese";
+        break;
+      case "Sintetizza":
+        request = "Riassumi in meno parole il testo";
+        break;
+      case "Approfondisci":
+        request = "Approfondisci";
+        break;
+      case "Semplifica":
+        request = "Spiegalo in maniera piu' semplice";
+        break;
+      case "Chi e' l'autore?":
+        request = "Dimmi di piu' su l'autore, e la sua vita";
+        break;
+      case "Che stile e?":
+        request = "Raccontami di piu' sullo stile di cui questa opera fa parte";
+        break;
+      case "Dove esco?":
+        request = "no";
+        break;
+      case "Dove e il bagno?":
+        request = "no";
+        break;
+      case "Dove e il bar?":
+        request = "no";
+        break;
+      case "Dove e lo shop?":
+        request = "no";
+        break;
+      case "Ci sono ostacoli?":
+        request = "no";
+        break;
+    }
+
     responseText.value = "Loading...";
     try {
-      responseText.value = await getInfo(props.about.item.text, props.request);
+      responseText.value = await getInfo(props.about.item.text, request);
     } catch (e) {
       responseText.value = "Error loading information.";
     }
@@ -26,10 +64,7 @@ watch(
   { immediate: true }, // Run it once on mount
 );
 const containerClasses = [
-  "absolute z-30 p-4 bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl",
-  "w-[calc(100%-2rem)] max-w-md",
-  "top-6 left-1/2 -translate-x-1/2",
-  "md:top-8",
+  "flex flex-col p-4 bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl w-full shrink-0",
 ].join(" ");
 </script>
 
