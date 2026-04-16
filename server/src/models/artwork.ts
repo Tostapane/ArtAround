@@ -12,14 +12,20 @@ export interface IArtwork extends SharedArtwork {
 
 const artworkSchema = new Schema<IArtwork>({
   "@context": { type: String, default: "https://schema.org" },
-  "@type": { type: String, default: "VisualArtwork" },
+  "@type": { type: String, default: "https://schema.org/VisualArtwork" },
   "@id": { type: String, required: true, unique: true },
-  wikiDataUri: { type: String, required: true },
+  qid: { type: String, required: true },
   name: String,
   imageUri: String,
-  image: String,
-  author: String,
-  style: String,
+  imagePath: String,
+  author: {
+    name: String,
+    qid: String,
+  },
+  style: {
+    name: String,
+    qid: String,
+  },
   lastUpdated: { type: Date, default: Date.now },
   locationId: String,
 });

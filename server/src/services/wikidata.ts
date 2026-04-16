@@ -7,19 +7,27 @@ export interface ArtworkMetadata {
   name: string;
   image: string;
   author: string;
+  author_qid: string;
   style: string;
+  style_qids: string;
 }
 
 export async function fetchArtwork(
   wikiDataUri: string,
 ): Promise<ArtworkMetadata> {
   const sparqlQuery = `
-    SELECT ?itemLabel ?authorLabel ?image (GROUP_CONCAT(DISTINCT ?styleLabel; separator=", ") AS ?styles) WHERE {
+    SELECT ?itemLabel ?authorLabel ?authorQid ?image (GROUP_CONCAT(DISTINCT ?styleLabel; separator=", ") AS ?styles) (GROUP_CONCAT(DISTINCT ?styleQid; separator=", ") AS ?styleQids) WHERE {
       BIND(wd:${wikiDataUri} AS ?item)
       
-      OPTIONAL { ?item wdt:P170 ?author . }
+      OPTIONAL { 
+        ?item wdt:P170 ?author . 
+        BIND(STRAFTER(STR(?author), "http://www.wikidata.org/entity/") AS ?authorQid)
+      }
       OPTIONAL { ?item wdt:P18 ?image . }
-      OPTIONAL { ?item wdt:P135 ?style . }
+      OPTIONAL { 
+        ?item wdt:P135 ?style . 
+        BIND(STRAFTER(STR(?style), "http://www.wikidata.org/entity/") AS ?styleQid)
+      }
       
       SERVICE wikibase:label { 
         bd:serviceParam wikibase:language "it,en,fr". 
@@ -27,7 +35,7 @@ export async function fetchArtwork(
         ?author rdfs:label ?authorLabel .
         ?style rdfs:label ?styleLabel .
       }
-    } GROUP BY ?itemLabel ?authorLabel ?image LIMIT 1
+    } GROUP BY ?itemLabel ?authorLabel ?authorQid ?image LIMIT 1
   `;
 
   const url =
@@ -53,6 +61,8 @@ export async function fetchArtwork(
     name: binding.itemLabel?.value || "",
     image: binding.image?.value || "",
     author: binding.authorLabel?.value || "Unknown",
+    author_qid: binding.authorQid?.value || "",
     style: binding.styles?.value || "Unknown",
+    style_qids: binding.styleQids?.value || "",
   };
 }

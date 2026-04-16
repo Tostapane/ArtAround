@@ -16,7 +16,7 @@ router.get("/author/:authorName", async (req, res) => {
       model: "Artwork",
       foreignField: "@id",
       localField: "about",
-      justOne: true
+      justOne: true,
     });
     res.json(items);
   } catch (error: any) {
@@ -32,18 +32,29 @@ router.get("/author/:authorName", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
-    console.log("[BACKEND] Ricevuto payload POST /api/items:", JSON.stringify(payload, null, 2));
+    console.log(
+      "[BACKEND] Ricevuto payload POST /api/items:",
+      JSON.stringify(payload, null, 2),
+    );
 
     // Supporto formato Marketplace (tipo: "Item")
     if (payload.tipo === "Item") {
-      const artwork = await ArtworkModel.findOne({ wikiDataUri: payload.id_oper_universale });
-      if (!artwork) return res.status(400).json({ error: "Artwork non trovato nel database." });
+      const artwork = await ArtworkModel.findOne({
+        wikiDataUri: payload.id_oper_universale,
+      });
+      if (!artwork)
+        return res
+          .status(400)
+          .json({ error: "Artwork non trovato nel database." });
 
       // Elimino versioni precedenti dello stesso autore per quell'opera per aggiornamento
-      await ItemModel.deleteMany({ about: artwork["@id"], author: payload.autore });
+      await ItemModel.deleteMany({
+        about: artwork["@id"],
+        author: payload.autore,
+      });
 
       for (const desc of payload.descrizioni) {
-        const itemId = `${artwork.wikiDataUri}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
+        const itemId = `${artwork.qid}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
         await ItemModel.create({
           "@id": itemId,
           about: artwork["@id"],
@@ -54,12 +65,18 @@ router.post("/", async (req, res) => {
           text: desc.testo,
         });
       }
-    } 
+    }
     // Supporto formato Schema.org (CreativeWork)
     else if (payload["@type"] === "CreativeWork") {
-      let artworkIdString = typeof payload.about === "object" ? payload.about["@id"] : payload.about;
-      const artwork = await ArtworkModel.findOne({ $or: [{ wikiDataUri: artworkIdString }, { "@id": artworkIdString }] });
-      if (!artwork) return res.status(400).json({ error: "Artwork non trovato." });
+      let artworkIdString =
+        typeof payload.about === "object"
+          ? payload.about["@id"]
+          : payload.about;
+      const artwork = await ArtworkModel.findOne({
+        $or: [{ wikiDataUri: artworkIdString }, { "@id": artworkIdString }],
+      });
+      if (!artwork)
+        return res.status(400).json({ error: "Artwork non trovato." });
 
       payload.about = artwork["@id"];
       await ItemModel.create(payload);

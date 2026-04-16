@@ -82,7 +82,7 @@ async function printStored() {
   await mongoose.connect(MONGO_URI);
   const artworks = await ArtworkModel.find();
   for (const artwork of artworks) {
-    console.log(`${artwork.wikiDataUri}`);
+    console.log(`${artwork.qid}`);
   }
   await mongoose.disconnect();
 }
@@ -94,7 +94,7 @@ async function seedDownload() {
   const artworks = await ArtworkModel.find().lean();
   for (const artwork of artworks) {
     console.log(`Downloading ${artwork.name}`);
-    await downloadImage(artwork.imageUri, `${artwork.wikiDataUri}`);
+    await downloadImage(artwork.imageUri, `${artwork.qid}`);
     await delay(2000); // 1-second delay between requests
   }
   await mongoose.disconnect();

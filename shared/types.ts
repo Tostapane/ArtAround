@@ -1,13 +1,23 @@
-export type UserRole = 'autore' | 'visitatore';
+export type UserRole = "autore" | "visitatore";
+
+export interface Author {
+  name: string;
+  qid: string;
+}
+
+export interface Style {
+  name: string;
+  qid: string;
+}
 
 export interface Artwork {
-  "@id": string; // URI o QID
-  wikiDataUri: string;
+  "@id": string; // link a wikidata
+  qid: string; // QXXXXXXX
   name: string;
-  imageUri: string;
-  image: string;
-  author: string;
-  style: string;
+  imageUri: string; // link all'immagine di wikidata
+  imagePath: string; // percorso dell'immagine dentro il server
+  author: Author;
+  style: Style;
   locationId: string;
   lastUpdated: Date;
 }
@@ -45,7 +55,12 @@ export interface Visit {
   author?: string;
 }
 
-export type EducationalLevel = 'infantile' | 'semplice' | 'medio' | 'avanzato' | string;
+export type EducationalLevel =
+  | "infantile"
+  | "semplice"
+  | "medio"
+  | "avanzato"
+  | string;
 
 // Unione per il Marketplace
 export type Contenuto = Item | Visit;

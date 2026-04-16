@@ -14,7 +14,7 @@ export async function insertArtwork(artwork: Partial<IArtwork>) {
 }
 
 export async function deleteArtwork(uri: string) {
-  const result = await ArtworkModel.deleteOne({ wikiDataUri: uri });
+  const result = await ArtworkModel.deleteOne({ qid: uri });
   if (result.deletedCount === 0) throw new Error("No artwork with that URI");
 }
 

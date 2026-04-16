@@ -4,54 +4,58 @@ import { insertArtwork, insertItem, insertVisit } from "./dbActions";
 import { ArtworkModel } from "./models/artwork";
 import { createDescription } from "./services/llm";
 
-/** funzione che si occupa ti ottenere le informazioni da wikidata,
- * scaricare l'immagine,
- * inserire l'immagine nel database
+/**
+ * Popola un artwork nel database ottenendo dati da Wikidata.
  */
-export async function populateArtwork(uri: string, location: string) {
-  const data = await fetchArtwork(uri);
+export async function populateArtwork(qid: string, location: string) {
+  const data = await fetchArtwork(qid);
   if (!data) throw new Error("Artwork non trovato");
-  const imagePath = await downloadImage(data.image, `${uri}`);
+
+  const imagePath = await downloadImage(data.image, `${qid}`);
+
   await insertArtwork({
-    ...data,
+    qid: qid,
+    name: data.name,
+    author: {
+      name: data.author,
+      qid: data.author_qid,
+    },
+    style: {
+      name: data.style,
+      qid: data.style_qids,
+    },
     imageUri: data.image,
-    image: imagePath,
-    "@id": `uri:${uri}`,
-    wikiDataUri: uri,
+    imagePath: imagePath,
+    "@id": `http://www.wikidata.org/entity/${qid}`,
     locationId: location,
   });
-  console.log("Artwork inserito correttamente");
+  console.log(`Artwork ${qid} inserito correttamente`);
 }
-/*
- * funzione che si occupa di creare la descrizione per un'opera
- * secondo i parametri specificati
- * aggiunge l'opera al database
- */
 
+/**
+ * Crea e inserisce un Item (descrizione) associato a un artwork.
+ */
 export async function populateItem(
-  atworkUri: string,
+  atworkQid: string,
   level: string,
   duration: number,
   itemAuthor?: string,
   itemPrice?: number,
   description?: string,
 ) {
-  const artwork = await ArtworkModel.findOne({ wikiDataUri: atworkUri });
-  if (!artwork) {
-    throw new Error(`Artwork non trovato per URI: ${atworkUri}`);
-  }
-
-  console.log(` Genero ${artwork.name} ${level} ${duration} `);
+  const artwork = await ArtworkModel.findOne({ qid: atworkQid });
+  if (!artwork) throw new Error(`Artwork non trovato per QID: ${atworkQid}`);
 
   if (!itemAuthor && !description) {
     description = await createDescription(artwork.name, level, duration);
     itemAuthor = "sistema";
   }
-  const id = atworkUri + "-" + level + "-" + duration + "-" + itemAuthor;
+
+  const id = `https://www.wikidata.org/wiki/${atworkQid}`;
 
   await insertItem({
     "@id": id,
-    about: artwork["@id"],
+    about: artwork["@id"], // Full Wikidata URL
     timeRequired: duration.toString(),
     educationalLevel: level,
     author: itemAuthor,
@@ -61,8 +65,8 @@ export async function populateItem(
   console.log("Item inserito correttamente");
 }
 
-/*
- * funzione che si occupa di inserire nel database una visita, da ampliare?
+/**
+ * Inserisce una visita (percorso) nel database.
  */
 export async function populateVisit(
   name: string,
@@ -71,7 +75,7 @@ export async function populateVisit(
   visitPrice?: number,
   visitAuthor?: string,
 ) {
-  const id = "visit" + "-" + name;
+  const id = `visit-${name}`;
   await insertVisit({
     "@id": id,
     name: name,

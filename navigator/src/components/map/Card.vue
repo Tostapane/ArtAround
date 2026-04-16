@@ -16,11 +16,11 @@ const emit = defineEmits<{
   >
     <!-- Artwork Image -->
     <div
-      v-if="content.artwork.image"
+      v-if="content.artwork.imagePath"
       class="w-full bg-gray-100 flex justify-center shrink-0"
     >
       <img
-        :src="'http://localhost:8000' + content.artwork.image"
+        :src="'http://localhost:8000' + content.artwork.imagePath"
         :alt="'Immagine dell\'opera: ' + content.artwork.name"
         class="w-full h-48 sm:h-64 object-contain"
       />
@@ -53,7 +53,8 @@ const emit = defineEmits<{
       </div>
 
       <p class="text-base text-gray-600 mb-6">
-        {{ content.artwork.author }}
+        {{ content.artwork.author.name }}
+        <br />
         {{ content.item.text }}
       </p>
 
