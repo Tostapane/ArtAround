@@ -74,16 +74,20 @@ export async function populateItem(
  * Inserisce una visita (percorso) nel database.
  */
 export async function populateVisit(
-  name: string,
+  level: string,
+  duration: number,
   items: string[],
   logist: string[],
   visitPrice?: number,
   visitAuthor?: string,
 ) {
+  const name = `${level}-${duration}`;
   const id = `visit-${name}`;
   await insertVisit({
     "@id": id,
     name: name,
+    level: level,
+    duration: duration,
     price: visitPrice,
     author: visitAuthor,
     itemListElement: items,

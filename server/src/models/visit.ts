@@ -14,6 +14,8 @@ const visitSchema = new Schema<IVisit>({
   "@type": { type: String, default: "ItemList" },
   "@id": { type: String, required: true },
   name: { type: String, required: true },
+  level: { type: String, required: true },
+  duration: { type: Number, required: true },
   price: Number,
   author: String,
   itemListElement: [String],

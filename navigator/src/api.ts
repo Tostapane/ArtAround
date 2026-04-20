@@ -38,6 +38,14 @@ export async function getVisit(id: string): Promise<Visit> {
   return data;
 }
 
+export async function getVisits() {
+  const res = await fetch(`${API_BASE}/visits`);
+  if (!res.ok) throw new Error(`Failed to fetch visits: ${res.statusText}`);
+  const data = await res.json();
+  console.log("succesfully fetched all the visits");
+  return data;
+}
+
 // ritorna una nuova descrizione a partire da quella attuale, secondo la richiesta userReq
 export async function getInfo(
   previous: string,

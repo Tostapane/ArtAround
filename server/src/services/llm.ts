@@ -35,7 +35,8 @@ export async function createDescription(
                     Descrivi l'opera ${name} 
                     realizzata da ${author}.
                     Usa un linguaggio ${level} in modo che 
-                    sia leggibile in ${duration} secondi`;
+                    sia leggibile in ${duration} secondi.
+                    NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
     const response = await ai.models.generateContent({
       model: "gemma-3-1b-it",
       contents: request,

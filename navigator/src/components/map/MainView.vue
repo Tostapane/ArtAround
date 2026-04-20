@@ -4,23 +4,47 @@ import Map from "./Map.vue";
 import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
 import Info from "./Info.vue";
-import { loadArtworks } from "./../../state";
-import { loadItems } from "./../../state";
-import { visit, loadVisit } from "./../../state";
-import { matchedContent } from "./../../state";
+import {
+  loadArtworks,
+  loadItems,
+  visit,
+  loadVisit,
+  matchedContent,
+  clearItems,
+} from "./../../state";
 
-// il corretto approccio e' di matchare in state e qui importare solamente
-// l'interfaccia Match
-onMounted(async () => {
-  await loadVisit("visit-Avanzato-5");
-  if (visit.value && visit.value.itemListElement) {
-    const ids = visit.value.itemListElement;
-    await Promise.all([loadArtworks(), loadItems(ids)]);
-    console.log("content matchato: ");
-  } else {
-    console.error("Failed to load visit");
-  }
-});
+// la visita scelta dal selector
+const props = defineProps<{
+  currVisit: string;
+}>();
+
+// ativato ogni volta che viene cambiata una visita, anche se non dovrebbe
+// essere cambiabile a runtime?
+watch(
+  () => props.currVisit,
+  async (newVisitId) => {
+    if (!newVisitId) return;
+
+    // Svuotiamo gli item precedenti prima di caricare la nuova visita
+    clearItems();
+
+    console.log("Caricamento visita:", newVisitId);
+    await loadVisit(newVisitId);
+
+    if (visit.value && visit.value.itemListElement) {
+      const ids = visit.value.itemListElement;
+      console.log("ID item da caricare:", ids);
+      // Carichiamo artworks e nuovi items in parallelo
+      await Promise.all([loadArtworks(), loadItems(ids)]);
+      console.log("Contenuto caricato e matchato");
+    } else {
+      console.error(
+        "Errore nel caricamento della visita o itemListElement vuoto",
+      );
+    }
+  },
+  { immediate: true },
+);
 const currentIndex = ref<number | null>(null);
 
 // gestione delle opzioni

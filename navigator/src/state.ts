@@ -50,6 +50,11 @@ export async function loadArtworks() {
   return artworksLoadingPromise;
 }
 
+// funzione che svuota la lista degli item (per cambiare visita)
+export function clearItems() {
+  items.value = [];
+}
+
 // funzione che ritorna gli items i cui "@id" sono presenti dentro l'array itemList
 // effettua una chiamata al server
 export async function loadItems(itemList: string[]) {

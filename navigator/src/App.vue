@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { ref } from "vue";
 import Header from "./components/Header.vue";
 import Selector from "./components/selection/Selector.vue";
 import MainView from "./components/map/MainView.vue";
+
+const choice = ref<string>("");
 </script>
 
 <template>
@@ -13,11 +15,11 @@ import MainView from "./components/map/MainView.vue";
       <aside
         class="w-full lg:w-80 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 flex-shrink-0 z-10 overflow-y-auto"
       >
-        <Selector />
+        <Selector @currVisit="(visit) => (choice = visit)" />
       </aside>
 
       <main class="flex-1 relative bg-gray-50 overflow-hidden">
-        <MainView />
+        <MainView :currVisit="choice" />
       </main>
     </div>
   </div>

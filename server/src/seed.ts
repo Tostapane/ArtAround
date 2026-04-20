@@ -5,15 +5,13 @@ import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
 import { populateArtwork, populateItem, populateVisit } from "./manager";
 import { downloadImage } from "./services/imageDownloader";
-
+import { educationalLevels, secPerArt } from "../../shared/constants";
 dotenv.config();
 
 const MONGO_URI =
   process.env.MONGO_URI ||
   "mongodb://localuser:localpassword@localhost:27017/artaround?authSource=admin";
 
-const levels = ["Intermedio", "Avanzato"];
-const durations = [5, 30, 60];
 // Lista di QID di opere famose per il test
 const testArtworks = [
   "Q12418",
@@ -51,21 +49,22 @@ async function seed() {
     for (const qid of testArtworks) {
       await populateArtwork(qid, `art-${cont}`);
       cont++;
-      for (const level of levels) {
-        for (const duration of durations) {
+      for (const level of educationalLevels) {
+        for (const duration of secPerArt) {
           await populateItem(qid, level, duration);
           await delay(1200);
         }
       }
     }
-    for (const level of levels) {
-      for (const duration of durations) {
+    for (const level of educationalLevels) {
+      for (const duration of secPerArt) {
         const items = await ItemModel.find({
           timeRequired: `${duration}`,
           educationalLevel: `${level}`,
         });
         await populateVisit(
-          `${level}-${duration}`,
+          level,
+          duration,
           items.map((item) => item["@id"]),
           [],
         );

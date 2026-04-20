@@ -49,18 +49,13 @@ export interface Match {
 export interface Visit {
   "@id": string;
   name: string;
+  level: string;
+  duration: number;
   price?: number;
   itemListElement: string[]; // Array di ID di Item
   logistics: string[]; // Indicazioni testuali
   author?: string;
 }
-
-export type EducationalLevel =
-  | "infantile"
-  | "semplice"
-  | "medio"
-  | "avanzato"
-  | string;
 
 // Unione per il Marketplace
 export type Contenuto = Item | Visit;
