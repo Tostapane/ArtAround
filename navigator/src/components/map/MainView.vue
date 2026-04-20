@@ -12,14 +12,13 @@ import {
   matchedContent,
   clearItems,
 } from "./../../state";
-
+import AudioRecorder from "./speech/AudioRecorder.vue";
 // la visita scelta dal selector
 const props = defineProps<{
   currVisit: string;
 }>();
-
 // ativato ogni volta che viene cambiata una visita, anche se non dovrebbe
-// essere cambiabile a runtime?
+// essere cambiabile a runtime? per ora testing
 watch(
   () => props.currVisit,
   async (newVisitId) => {
@@ -28,15 +27,15 @@ watch(
     // Svuotiamo gli item precedenti prima di caricare la nuova visita
     clearItems();
 
-    console.log("Caricamento visita:", newVisitId);
+    // console.log("Caricamento visita:", newVisitId);
     await loadVisit(newVisitId);
 
     if (visit.value && visit.value.itemListElement) {
       const ids = visit.value.itemListElement;
-      console.log("ID item da caricare:", ids);
+      // console.log("ID item da caricare:", ids);
       // Carichiamo artworks e nuovi items in parallelo
       await Promise.all([loadArtworks(), loadItems(ids)]);
-      console.log("Contenuto caricato e matchato");
+      // console.log("Contenuto caricato e matchato");
     } else {
       console.error(
         "Errore nel caricamento della visita o itemListElement vuoto",
@@ -121,4 +120,5 @@ function navigationHandler(direction: string) {
       </div>
     </div>
   </div>
+  <AudioRecorder />
 </template>
