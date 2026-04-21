@@ -1,12 +1,11 @@
+import "./env";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import { ArtworkModel } from "./models/artwork";
 import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
 import { populateArtwork, populateItem, populateVisit } from "./manager";
 import { downloadImage } from "./services/imageDownloader";
 import { educationalLevels, secPerArt } from "../../shared/constants";
-dotenv.config();
 
 const MONGO_URI =
   process.env.MONGO_URI ||

@@ -72,8 +72,9 @@ export async function sendAudioToBackend(audioBlob: Blob): Promise<any> {
   formData.append("audioFile", audioBlob, "recording.webm");
   const res = await fetch(`${API_BASE}/speech`, {
     method: "POST",
-    body: audioBlob,
+    body: formData,
   });
   if (!res.ok) throw new Error("Failed to send Audio");
+  console.log(res);
   return await res.json();
 }

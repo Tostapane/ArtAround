@@ -1,6 +1,6 @@
+import "./env";
 import express from "express";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import path from "path";
 import cors from "cors";
 
@@ -10,7 +10,6 @@ import visitsRoutes from "./routes/visits";
 import speechRoutes from "./routes/speech";
 import llmRoutes from "./routes/llm";
 import itemRoutes from "./routes/items";
-dotenv.config();
 
 const app = express();
 const PORT = 8000;
