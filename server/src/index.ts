@@ -7,6 +7,7 @@ import cors from "cors";
 // Routes
 import artworkRoutes from "./routes/artworks";
 import visitsRoutes from "./routes/visits";
+import speechRoutes from "./routes/speech";
 import llmRoutes from "./routes/llm";
 import itemRoutes from "./routes/items";
 dotenv.config();
@@ -47,6 +48,7 @@ connectWithRetry();
 // API Routes
 app.use("/api/artworks", artworkRoutes);
 app.use("/api/visits", visitsRoutes);
+app.use("/api/speech", speechRoutes);
 app.use("/api/llm", llmRoutes);
 app.use("/api/items", itemRoutes);
 app.get("/api/health", (req, res) => {

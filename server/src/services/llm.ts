@@ -31,10 +31,13 @@ export async function createDescription(
     const request = `
                     Sei uno scrittore di guide per musei, 
                     Rispondi in plain text, niente simboli,
-                    Non parlare di musei.
+                    Non parlare di musei, Non interagire con l'utente.
+                    Scrivi SOLO in plain text.
+                    Esaudisci ESATTAMENTE la richiesta rispettando la difficolta'
+                    e il limite di tempo di lettura fornito.
                     Descrivi l'opera ${name} 
                     realizzata da ${author}.
-                    Usa un linguaggio ${level} in modo che 
+                    L'utente e' di livello ${level} e vuole cheil testo da te prodotto 
                     sia leggibile in ${duration} secondi.
                     NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
     const response = await ai.models.generateContent({

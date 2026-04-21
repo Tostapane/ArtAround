@@ -20,11 +20,11 @@ export async function getItems(itemIds: string[]): Promise<Item[]> {
     },
     body: JSON.stringify({ ids: itemIds }),
   });
-
+  console.log("successfully fetched items");
   if (!res.ok) {
     throw new Error(`Failed to fetch items: ${res.statusText}`);
   }
-
+  console.log();
   const data = await res.json();
   return data;
 }
@@ -65,4 +65,15 @@ export async function getInfo(
   const data = await res.json();
   console.log(`Successfully fetched the new description for: ${userReq}`);
   return data;
+}
+
+export async function sendAudioToBackend(audioBlob: Blob): Promise<any> {
+  const formData = new FormData();
+  formData.append("audioFile", audioBlob, "recording.webm");
+  const res = await fetch(`${API_BASE}/speech`, {
+    method: "POST",
+    body: audioBlob,
+  });
+  if (!res.ok) throw new Error("Failed to send Audio");
+  return await res.json();
 }

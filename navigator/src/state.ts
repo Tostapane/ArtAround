@@ -24,7 +24,6 @@ export const matchedContent = computed<Match[]>(() => {
       console.log("matching non trovato");
     }
   }
-  console.log(results);
   return results;
 });
 
@@ -64,7 +63,6 @@ export async function loadItems(itemList: string[]) {
     try {
       const newItems = await getItems(itemList);
       items.value = [...items.value, ...newItems];
-      console.log(items.value);
     } catch (err) {
       console.error("Errore durante il caricamento degli item", err);
     } finally {
@@ -93,26 +91,3 @@ export async function loadVisit(id: string) {
 
   return visitLoadingPromise;
 }
-
-// funzione sincrona, viene usata solo una volta ottenute le risorse
-// promossa a computed
-/*
-export function match(items: Item[], artworks: Artwork[]) {
-  const results: Match[] = [];
-  for (const item of items) {
-    const matchingArt = artworks.find((art) => {
-      return art["@id"] == item.about;
-    });
-    if (matchingArt) {
-      console.log("trovato");
-      results.push({
-        artwork: matchingArt,
-        item: item,
-      });
-    } else {
-      console.log("non trovato");
-    }
-  }
-  matchedContent.value = results;
-}
-*/

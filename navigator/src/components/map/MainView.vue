@@ -23,19 +23,11 @@ watch(
   () => props.currVisit,
   async (newVisitId) => {
     if (!newVisitId) return;
-
-    // Svuotiamo gli item precedenti prima di caricare la nuova visita
     clearItems();
-
-    // console.log("Caricamento visita:", newVisitId);
     await loadVisit(newVisitId);
-
     if (visit.value && visit.value.itemListElement) {
       const ids = visit.value.itemListElement;
-      // console.log("ID item da caricare:", ids);
-      // Carichiamo artworks e nuovi items in parallelo
       await Promise.all([loadArtworks(), loadItems(ids)]);
-      // console.log("Contenuto caricato e matchato");
     } else {
       console.error(
         "Errore nel caricamento della visita o itemListElement vuoto",

@@ -1,65 +1,14 @@
 <script setup lang="ts">
+import { sendAudioToBackend } from "@/api";
 import { ref, onUnmounted } from "vue";
-
-const isRecording = ref(false);
-const audioUrl = ref<string | null>(null);
-const errorMsg = ref<string | null>(null);
-
-let mediaRecorder: MediaRecorder | null = null;
-let audioChunks: Blob[] = [];
-
-const startRecording = async () => {
-  errorMsg.value = null;
-  audioChunks = [];
-
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    errorMsg.value = "Your browser does not support audio recording.";
-    return;
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    // Use webm for wider cross-browser compatibility with MediaRecorder
-    // Safari might fallback to mp4 depending on version, MediaRecorder handles it mostly.
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        audioChunks.push(event.data);
-      }
-    };
-
-    mediaRecorder.onstop = () => {
-      // Create the final audio blob
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" }); // WebM is common, but you could omit the type to let the browser decide
-
-      // Cleanup old URL
-      if (audioUrl.value) {
-        URL.revokeObjectURL(audioUrl.value);
-      }
-
-      // Create a new URL for the audio player (salvato nel browser per ora)
-      audioUrl.value = URL.createObjectURL(audioBlob);
-
-      // Stop all tracks to release the microphone completely
-      stream.getTracks().forEach((track) => track.stop());
-    };
-
-    mediaRecorder.start();
-    isRecording.value = true;
-  } catch (err: any) {
-    console.error("Error accessing microphone:", err);
-    errorMsg.value = "Microphone access denied or unavailable.";
-  }
-};
-
-const stopRecording = () => {
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.stop();
-    isRecording.value = false;
-  }
-};
+import {
+  isRecording,
+  finalBlob,
+  audioUrl,
+  startRecording,
+  stopRecording,
+  errorMsg,
+} from "./useMediaRecorder";
 
 const toggleRecording = () => {
   if (isRecording.value) {
@@ -69,15 +18,18 @@ const toggleRecording = () => {
   }
 };
 
-// Ensure we clean up if the component is destroyed while recording
-onUnmounted(() => {
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.stop();
+// aggiungerre onUnmounted
+
+const handleSend = async () => {
+  if (!finalBlob.value) return;
+  try {
+    console.log("Sending...");
+    const result = await sendAudioToBackend(finalBlob.value);
+    console.log("Backend response: ", result);
+  } catch (err) {
+    console.error("Error sending the audio ", err);
   }
-  if (audioUrl.value) {
-    URL.revokeObjectURL(audioUrl.value);
-  }
-});
+};
 </script>
 
 <template>
@@ -115,6 +67,7 @@ onUnmounted(() => {
         controls
         class="w-full max-w-xs outline-none"
       ></audio>
+      <button @click="handleSend">Send Audio</button>
     </div>
   </div>
 </template>

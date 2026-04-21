@@ -12,7 +12,6 @@ const emit = defineEmits<{
 const visits = ref<Visit[]>();
 onMounted(async () => {
   visits.value = await getVisits();
-  console.log(visits.value);
 });
 
 interface State {
