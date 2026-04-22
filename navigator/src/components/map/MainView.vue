@@ -13,6 +13,7 @@ import {
   clearItems,
 } from "./../../state";
 import AudioRecorder from "./speech/AudioRecorder.vue";
+
 // la visita scelta dal selector
 const props = defineProps<{
   currVisit: string;
@@ -112,5 +113,4 @@ function navigationHandler(direction: string) {
       </div>
     </div>
   </div>
-  <AudioRecorder />
 </template>

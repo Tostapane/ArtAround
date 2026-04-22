@@ -10,6 +10,10 @@ import {
   errorMsg,
 } from "./useMediaRecorder";
 
+const emit = defineEmits<{
+  action: [value: string];
+}>();
+
 const toggleRecording = () => {
   if (isRecording.value) {
     stopRecording();
@@ -25,6 +29,10 @@ const handleSend = async () => {
   try {
     console.log("Sending...");
     const result = await sendAudioToBackend(finalBlob.value);
+    // Access mappedTranscript from the response JSON
+    if (result.mappedTranscript) {
+      emit("action", result.mappedTranscript);
+    }
     console.log("Backend response: ", result);
   } catch (err) {
     console.error("Error sending the audio ", err);

@@ -13,7 +13,7 @@ const emit = defineEmits<{
 <template>
   <Menu as="div" class="relative inline-block text-left">
     <div>
-      <MenuButton class="menu-btn">
+      <MenuButton class="inline-flex w-full justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/75">
         {{ label }}
         <svg
           class="ml-2 -mr-1 h-5 w-5 text-gray-400 hover:text-gray-300"
@@ -58,11 +58,3 @@ const emit = defineEmits<{
     </transition>
   </Menu>
 </template>
-
-<style scoped>
-@reference "../../assets/main.css";
-
-.menu-btn {
-  @apply inline-flex w-full justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/75;
-}
-</style>
