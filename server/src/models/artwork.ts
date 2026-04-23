@@ -26,6 +26,7 @@ const artworkSchema = new Schema<IArtwork>({
     name: String,
     qid: String,
   },
+  ofMuseum: String,
   lastUpdated: { type: Date, default: Date.now },
   locationId: String,
 });

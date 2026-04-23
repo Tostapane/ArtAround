@@ -18,6 +18,7 @@ export interface Artwork {
   imagePath: string; // percorso dell'immagine dentro il server
   author: Author;
   style: Style;
+  ofMuseum: string; // indica il museo
   locationId: string;
   lastUpdated: Date;
 }
@@ -52,6 +53,7 @@ export interface Visit {
   level: string;
   duration: number;
   price?: number;
+  ofMuseum: string; // indica il museo a cui appartiene
   itemListElement: string[]; // Array di ID di Item
   logistics: string[]; // Indicazioni testuali
   author?: string;
@@ -66,4 +68,13 @@ export interface User {
   role: UserRole;
   wallet: number;
   collezione: string[]; // ID degli item/visit acquistati
+}
+
+export interface Museum {
+  "@id": string;
+  qid: string; // uri di wikidata QXXXXXXX
+  name: string;
+  created: string;
+  location: string;
+  mapPath: string;
 }

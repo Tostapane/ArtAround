@@ -33,16 +33,15 @@ router.get("/:id", async (req, res) => {
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
     res.json(visit);
   } catch (err: any) {
-    res
-      .status(500)
-      .json({
-        err: err.message || "Errore nel caricamento della visita richiesta",
-      });
+    res.status(500).json({
+      err: err.message || "Errore nel caricamento della visita richiesta",
+    });
   }
 });
 /**
  * POST /api/visits
  * Salva o aggiorna una visita (tour).
+ * DA AGGIUSTARE
  */
 router.post("/", async (req, res) => {
   try {

@@ -18,6 +18,7 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/artworks/:qid/items: Recupera tutti i contenuti associati a un QID.
+ * DA AGGIUSTARE
  */
 router.get("/:qid/items", async (req, res) => {
   try {
@@ -29,7 +30,7 @@ router.get("/:qid/items", async (req, res) => {
     }
 
     const items = await ItemModel.find({ about: artwork["@id"] });
-    
+
     const groupedByAuthor = new Map();
     items.forEach((item: any) => {
       if (!groupedByAuthor.has(item.author)) {

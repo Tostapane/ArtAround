@@ -3,7 +3,13 @@ import mongoose from "mongoose";
 import { ArtworkModel } from "./models/artwork";
 import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
-import { populateArtwork, populateItem, populateVisit } from "./manager";
+import { MuseumModel } from "./models/museum";
+import {
+  populateArtwork,
+  populateItem,
+  populateVisit,
+  populateMuseum,
+} from "./manager";
 import { downloadImage } from "./services/imageDownloader";
 import { educationalLevels, secPerArt } from "../../shared/constants";
 
@@ -32,6 +38,8 @@ const testArtworks = [
   // "Q2712211",
   // "Q1452140",
 ];
+const testMuseums = ["Q19675", "Q6373", "Q160236"];
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function seed() {
   try {
@@ -46,12 +54,12 @@ async function seed() {
     console.log("Database pulito.");
     var cont = 1;
     for (const qid of testArtworks) {
-      await populateArtwork(qid, `art-${cont}`);
+      await populateArtwork(qid, "museo-prova", `art-${cont}`);
       cont++;
       for (const level of educationalLevels) {
         for (const duration of secPerArt) {
           await populateItem(qid, level, duration);
-          await delay(1200);
+          await delay(1000);
         }
       }
     }
@@ -64,6 +72,7 @@ async function seed() {
         await populateVisit(
           level,
           duration,
+          "museo-prova",
           items.map((item) => item["@id"]),
           [],
         );
@@ -76,6 +85,7 @@ async function seed() {
     console.log("Connessione chiusa. Uscita...");
   }
 }
+
 async function printStored() {
   await mongoose.connect(MONGO_URI);
   const artworks = await ArtworkModel.find();
@@ -84,6 +94,7 @@ async function printStored() {
   }
   await mongoose.disconnect();
 }
+
 async function seedDownload() {
   console.log("Connessione a MongoDB...");
   await mongoose.connect(MONGO_URI);
@@ -96,6 +107,24 @@ async function seedDownload() {
     await delay(2000); // 1-second delay between requests
   }
   await mongoose.disconnect();
+}
+
+async function seedMuseums() {
+  try {
+    console.log("Connessione a MongoDB...");
+    await mongoose.connect(MONGO_URI);
+    console.log("Connesso!");
+
+    await MuseumModel.deleteMany({});
+    for (const qid of testMuseums) {
+      await populateMuseum(qid);
+    }
+  } catch (err) {
+    console.error("Errore durante il seed museum", err);
+  } finally {
+    await mongoose.disconnect();
+    console.log("Connessione chiusa. Uscita...");
+  }
 }
 
 seed();

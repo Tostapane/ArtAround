@@ -31,6 +31,7 @@ const handleSend = async () => {
     const result = await sendAudioToBackend(finalBlob.value);
     // Access mappedTranscript from the response JSON
     if (result.mappedTranscript) {
+      // console.log("AAAAAAAAAAAAAAAAAAAAAA", result.mappedTranscript);
       emit("action", result.mappedTranscript);
     }
     console.log("Backend response: ", result);

@@ -1,13 +1,22 @@
-import { fetchArtwork } from "./services/wikidata";
+import { fetchArtwork, fetchMuseum } from "./services/wikidata";
 import { downloadImage } from "./services/imageDownloader";
-import { insertArtwork, insertItem, insertVisit } from "./dbActions";
-import { ArtworkModel } from "./models/artwork";
+import {
+  insertArtwork,
+  insertItem,
+  insertVisit,
+  intertMuseum,
+} from "./dbActions";
 import { createDescription } from "./services/llm";
+import { ArtworkModel } from "./models/artwork";
 
 /**
  * Popola un artwork nel database ottenendo dati da Wikidata.
  */
-export async function populateArtwork(qid: string, location: string) {
+export async function populateArtwork(
+  qid: string,
+  museum: string,
+  location: string,
+) {
   const data = await fetchArtwork(qid);
   if (!data) throw new Error("Artwork non trovato");
 
@@ -27,6 +36,7 @@ export async function populateArtwork(qid: string, location: string) {
     imageUri: data.image,
     imagePath: imagePath,
     "@id": `http://www.wikidata.org/entity/${qid}`,
+    ofMuseum: museum,
     locationId: location,
   });
   console.log(`Artwork ${qid} inserito correttamente`);
@@ -76,6 +86,7 @@ export async function populateItem(
 export async function populateVisit(
   level: string,
   duration: number,
+  museum: string,
   items: string[],
   logist: string[],
   visitPrice?: number,
@@ -90,8 +101,22 @@ export async function populateVisit(
     duration: duration,
     price: visitPrice,
     author: visitAuthor,
+    ofMuseum: museum,
     itemListElement: items,
     logistics: logist,
   });
   console.log("Visit inserita correttamente");
+}
+
+export async function populateMuseum(qid: string) {
+  const data = await fetchMuseum(qid);
+  if (!data) throw new Error("Museum non trovato");
+  await intertMuseum({
+    "@id": `http://www.wikidata.org/entity/${qid}`,
+    qid: qid,
+    name: data.name,
+    created: data.created,
+    location: data.location,
+    mapPath: "",
+  });
 }

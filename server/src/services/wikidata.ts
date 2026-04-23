@@ -1,8 +1,3 @@
-/*
- * data una lista di uri, ad uno ad uno assegnare un oggetto, popolare i dati
- * e inserirlo nel database.
- */
-
 export interface ArtworkMetadata {
   name: string;
   image: string;
@@ -11,6 +6,17 @@ export interface ArtworkMetadata {
   style: string;
   style_qids: string;
 }
+
+export interface MuseumMetadata {
+  name: string;
+  created: string;
+  location: string;
+}
+
+/*
+ * dato un uri di wikidata QXXXXXX,
+ * ritorna le informazioni di ArtworkMetadata raccogliendole da wikidata
+ */
 
 export async function fetchArtwork(
   wikiDataUri: string,
@@ -64,5 +70,48 @@ export async function fetchArtwork(
     author_qid: binding.authorQid?.value || "",
     style: binding.styles?.value || "Unknown",
     style_qids: binding.styleQids?.value || "",
+  };
+}
+
+export async function fetchMuseum(
+  wikiDataUri: string,
+): Promise<MuseumMetadata> {
+  const sparqlQuery = `
+    SELECT ?itemLabel ?created ?locationLabel WHERE {
+      BIND(wd:${wikiDataUri} AS ?item)
+      
+      OPTIONAL { ?item wdt:P571 ?created . }
+      OPTIONAL { ?item wdt:P131 ?location . }
+      
+      SERVICE wikibase:label { 
+        bd:serviceParam wikibase:language "it,en,fr". 
+        ?item rdfs:label ?itemLabel .
+        ?location rdfs:label ?locationLabel .
+      }
+    } LIMIT 1
+  `;
+
+  const url =
+    "https://query.wikidata.org/sparql?query=" +
+    encodeURIComponent(sparqlQuery);
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/sparql-results+json",
+      "User-Agent": "ArtAroundMuseumApp",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Wikidata error: \${response.statusText}\ `);
+  }
+
+  const data = await response.json();
+  const binding = data.results.bindings[0];
+
+  if (!binding) return null;
+  return {
+    name: binding.itemLabel?.value || "",
+    created: binding.created?.value || "Unknown",
+    location: binding.locationLabel?.value || "Unknown",
   };
 }

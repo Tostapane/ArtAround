@@ -18,7 +18,9 @@ watch(
 
   async () => {
     let request = "no";
-    switch (props.request) {
+    // rimuove spazi in eccesso e \n
+    const cleanRequest = props.request.trim();
+    switch (cleanRequest) {
       case "Non ho capito":
         request = "Spiegalo con parole diverese";
         break;
@@ -26,7 +28,7 @@ watch(
         request = "Riassumi in meno parole il testo";
         break;
       case "Approfondisci":
-        request = "Approfondisci";
+        request = "Approfondisci ";
         break;
       case "Semplifica":
         request = "Spiegalo in maniera piu' semplice";
@@ -56,6 +58,7 @@ watch(
 
     responseText.value = "Loading...";
     try {
+      console.log("ci passo", request);
       responseText.value = await getInfo(props.about.item.text, request);
     } catch (e) {
       responseText.value = "Error loading information.";

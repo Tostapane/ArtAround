@@ -42,8 +42,10 @@ const currentIndex = ref<number | null>(null);
 // gestione delle opzioni
 const currentOption = ref<string>("");
 const showOptions = ref(false);
+
 function actionHandler(option: string) {
   currentOption.value = option;
+  // console.log("dentro actionhandler: ", currentOption.value);
   showOptions.value = false;
 }
 

@@ -32,5 +32,12 @@ const buttonClasses = [
       {{ option.label }}
     </button>
   </div>
-  <AudioRecorder @action="(a) => $emit('action', a)" />
+  <AudioRecorder
+    @action="
+      (a) => {
+        $emit('action', a);
+        // console.log('dentro optionsbar: ', a);
+      }
+    "
+  />
 </template>
