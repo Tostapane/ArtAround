@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, onBeforeUnmount, computed } from "vue";
-import { artworks, loadArtworks } from "../../state";
+import {
+  ref,
+  onMounted,
+  nextTick,
+  onBeforeUnmount,
+  computed,
+  watch,
+} from "vue";
+import { artworks, loadArtworks, matchedContent } from "../../state";
 /*
         POTREBBE ESSERE MALEVOLO!
     */
@@ -13,11 +20,23 @@ const emit = defineEmits<{
 
 const listeners: { element: Element; type: string; handler: EventListener }[] =
   [];
-loadArtworks();
-onMounted(async () => {
-  await loadArtworks();
-  await nextTick();
-  artworks.value.forEach((art, index) => {
+
+function setupListeners() {
+  // Clean up old listeners
+  listeners.forEach(({ element, type, handler }) => {
+    element.removeEventListener(type, handler);
+  });
+  listeners.length = 0;
+
+  // Clear previous active states
+  document.querySelectorAll(".active-artwork").forEach((el) => {
+    el.classList.remove("active-artwork");
+    el.removeAttribute("tabindex");
+    el.removeAttribute("role");
+  });
+
+  matchedContent.value.forEach((match, index) => {
+    const art = match.artwork;
     const element = document.getElementById(art.locationId);
     if (element) {
       element.setAttribute("data-db-id", art["@id"]);
@@ -44,8 +63,25 @@ onMounted(async () => {
       });
     }
   });
+}
 
-  /*
+onMounted(async () => {
+  await loadArtworks();
+  await nextTick();
+  setupListeners();
+});
+
+watch(
+  matchedContent,
+  () => {
+    nextTick(() => {
+      setupListeners();
+    });
+  },
+  { deep: true },
+);
+
+/*
         config.forEach((item, index) => {
             const element = document.querySelector(`#${item.svgId}`)
             artworks.value.push({ svgId: item.svgId, title: item.title, info: item.info });
@@ -67,7 +103,6 @@ onMounted(async () => {
             }
         })
         */
-});
 // cleanup
 onBeforeUnmount(() => {
   listeners.forEach(({ element, type, handler }) => {

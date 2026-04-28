@@ -36,7 +36,6 @@ const buttonClasses = [
     @action="
       (a) => {
         $emit('action', a);
-        // console.log('dentro optionsbar: ', a);
       }
     "
   />

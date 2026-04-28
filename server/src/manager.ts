@@ -88,12 +88,13 @@ export async function populateVisit(
   level: string,
   duration: number,
   museum: string,
+  museumUri: string,
   items: string[],
   logist: string[],
   visitPrice?: number,
   visitAuthor?: string,
 ) {
-  const name = `${level}-${duration}`;
+  const name = `${museum}-${level}-${duration}`;
   const id = `visit-${name}`;
   await insertVisit({
     "@id": id,
@@ -102,7 +103,7 @@ export async function populateVisit(
     duration: duration,
     price: visitPrice,
     author: visitAuthor,
-    ofMuseum: museum,
+    ofMuseum: museumUri,
     itemListElement: items,
     logistics: logist,
   });

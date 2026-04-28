@@ -39,7 +39,6 @@ const testArtworks = [
   // "Q2712211",
   // "Q1452140",
 ];
-const museum = museums.louvreab;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function seed() {
@@ -53,34 +52,37 @@ async function seed() {
     await ItemModel.deleteMany({});
     await VisitModel.deleteMany({});
     console.log("Database pulito.");
-    var cont = 1;
-    for (const qid of museum.artworks) {
-      await populateArtwork(
-        qid,
-        `http://www.wikidata.org/entity${museum.qid}`,
-        `art-${cont}`,
-      );
-      cont++;
-      for (const level of educationalLevels) {
-        for (const duration of secPerArt) {
-          await populateItem(qid, level, duration);
-          await delay(1000);
+    for (const museum of Object.values(museums)) {
+      var cont = 1;
+      for (const qid of museum.artworks) {
+        await populateArtwork(
+          qid,
+          `http://www.wikidata.org/entity${museum.qid}`,
+          `art-${cont}`,
+        );
+        cont++;
+        for (const level of educationalLevels) {
+          for (const duration of secPerArt) {
+            await populateItem(qid, level, duration);
+            await delay(1000);
+          }
         }
       }
-    }
-    for (const level of educationalLevels) {
-      for (const duration of secPerArt) {
-        const items = await ItemModel.find({
-          timeRequired: `${duration}`,
-          educationalLevel: `${level}`,
-        });
-        await populateVisit(
-          level,
-          duration,
-          `http://www.wikidata.org/entity${museum.qid}`,
-          items.map((item) => item["@id"]),
-          [],
-        );
+      for (const level of educationalLevels) {
+        for (const duration of secPerArt) {
+          const items = await ItemModel.find({
+            timeRequired: `${duration}`,
+            educationalLevel: `${level}`,
+          });
+          await populateVisit(
+            level,
+            duration,
+            `${museum.qid}`,
+            `http://www.wikidata.org/entity${museum.qid}`,
+            items.map((item) => item["@id"]),
+            [],
+          );
+        }
       }
     }
   } catch (err) {
@@ -132,8 +134,8 @@ async function seedMuseums() {
   }
 }
 async function completeSeed() {
+  await seedMuseums();
   await seed();
   await seedDownload();
 }
-
-seedMuseums();
+completeSeed();

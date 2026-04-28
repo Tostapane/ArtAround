@@ -58,7 +58,6 @@ watch(
 
     responseText.value = "Loading...";
     try {
-      console.log("ci passo", request);
       responseText.value = await getInfo(props.about.item.text, request);
     } catch (e) {
       responseText.value = "Error loading information.";

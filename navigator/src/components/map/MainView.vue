@@ -23,9 +23,11 @@ const props = defineProps<{
 watch(
   () => props.currVisit,
   async (newVisitId) => {
+    console.log("visita:", newVisitId);
     if (!newVisitId) return;
     clearItems();
-    await loadVisit(newVisitId);
+    // necessaria revisione
+    await loadVisit("visit-Q6373-Principiante-60");
     if (visit.value && visit.value.itemListElement) {
       const ids = visit.value.itemListElement;
       await Promise.all([loadArtworks(), loadItems(ids)]);
@@ -45,7 +47,7 @@ const showOptions = ref(false);
 
 function actionHandler(option: string) {
   currentOption.value = option;
-  // console.log("dentro actionhandler: ", currentOption.value);
+  console.log("dentro actionhandler: ", currentOption.value);
   showOptions.value = false;
 }
 

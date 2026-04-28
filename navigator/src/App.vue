@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import Header from "./components/Header.vue";
 import Selector from "./components/selection/Selector.vue";
 import MainView from "./components/map/MainView.vue";
+import { loadMuseum } from "./state";
+
+onMounted(() => {
+  // sara da ricercare nei parametri dell'url
+  const museumId = "Q6373";
+  if (museumId) loadMuseum(museumId);
+  else console.error("Nessun museo specificato");
+});
 
 const choice = ref<string>("");
 </script>
