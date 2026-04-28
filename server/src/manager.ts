@@ -8,6 +8,7 @@ import {
 } from "./dbActions";
 import { createDescription } from "./services/llm";
 import { ArtworkModel } from "./models/artwork";
+import { generateMuseumConfig } from "./services/museumConfig";
 
 /**
  * Popola un artwork nel database ottenendo dati da Wikidata.
@@ -108,15 +109,19 @@ export async function populateVisit(
   console.log("Visit inserita correttamente");
 }
 
-export async function populateMuseum(qid: string) {
+/**
+ * Fetcha il museo, ne crea il file di configurazione e inseirsce i suoi dati nel database
+ */
+export async function populateMuseum(qid: string, artworks: readonly string[]) {
   const data = await fetchMuseum(qid);
   if (!data) throw new Error("Museum non trovato");
+  generateMuseumConfig(qid, data, `${data.name}`, artworks);
   await intertMuseum({
     "@id": `http://www.wikidata.org/entity/${qid}`,
     qid: qid,
     name: data.name,
     created: data.created,
     location: data.location,
-    mapPath: "",
+    mapPath: `/map/${data.name}`,
   });
 }

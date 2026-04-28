@@ -5,7 +5,7 @@ const router = Router();
 
 /**
  * GET /api/visits
- * Recupera la lista di tutte le visite disponibili nel marketplace.
+ * Recupera la lista di tutte le visite disponibili nel marketplace (quella ufficiali).
  */
 router.get("/", async (req, res) => {
   try {

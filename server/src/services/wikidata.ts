@@ -108,10 +108,17 @@ export async function fetchMuseum(
   const data = await response.json();
   const binding = data.results.bindings[0];
 
-  if (!binding) return null;
+  if (!binding) return null as any;
+
+  let createdYear = binding.created?.value || "Unknown";
+  if (createdYear.includes("-")) {
+    // Wikidata dates are often formatted as ISO 8601 strings (e.g. 1581-01-01T00:00:00Z)
+    createdYear = createdYear.split("-")[0];
+  }
+
   return {
     name: binding.itemLabel?.value || "",
-    created: binding.created?.value || "Unknown",
+    created: createdYear,
     location: binding.locationLabel?.value || "Unknown",
   };
 }

@@ -12,6 +12,7 @@ import {
 } from "./manager";
 import { downloadImage } from "./services/imageDownloader";
 import { educationalLevels, secPerArt } from "../../shared/constants";
+import { museums } from "./data/museumContent";
 
 const MONGO_URI =
   process.env.MONGO_URI ||
@@ -38,7 +39,7 @@ const testArtworks = [
   // "Q2712211",
   // "Q1452140",
 ];
-const testMuseums = ["Q19675", "Q6373", "Q160236"];
+const museum = museums.louvreab;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function seed() {
@@ -53,8 +54,12 @@ async function seed() {
     await VisitModel.deleteMany({});
     console.log("Database pulito.");
     var cont = 1;
-    for (const qid of testArtworks) {
-      await populateArtwork(qid, "museo-prova", `art-${cont}`);
+    for (const qid of museum.artworks) {
+      await populateArtwork(
+        qid,
+        `http://www.wikidata.org/entity${museum.qid}`,
+        `art-${cont}`,
+      );
       cont++;
       for (const level of educationalLevels) {
         for (const duration of secPerArt) {
@@ -72,7 +77,7 @@ async function seed() {
         await populateVisit(
           level,
           duration,
-          "museo-prova",
+          `http://www.wikidata.org/entity${museum.qid}`,
           items.map((item) => item["@id"]),
           [],
         );
@@ -116,8 +121,8 @@ async function seedMuseums() {
     console.log("Connesso!");
 
     await MuseumModel.deleteMany({});
-    for (const qid of testMuseums) {
-      await populateMuseum(qid);
+    for (const museum of Object.values(museums)) {
+      await populateMuseum(museum.qid, museum.artworks);
     }
   } catch (err) {
     console.error("Errore durante il seed museum", err);
@@ -126,5 +131,9 @@ async function seedMuseums() {
     console.log("Connessione chiusa. Uscita...");
   }
 }
+async function completeSeed() {
+  await seed();
+  await seedDownload();
+}
 
-seed();
+seedMuseums();

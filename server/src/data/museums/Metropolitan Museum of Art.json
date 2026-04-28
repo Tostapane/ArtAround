@@ -1,0 +1,22 @@
+{
+  "qid": "Q160236",
+  "name": "Metropolitan Museum of Art",
+  "location": "Manhattan",
+  "created": "1870",
+  "mapPath": "/maps/Metropolitan Museum of Art.svg",
+  "activeArtworks": [
+    "Q185838",
+    "Q606662",
+    "Q1603141",
+    "Q251147",
+    "Q2316682",
+    "Q609292",
+    "Q582103",
+    "Q248101",
+    "Q217796",
+    "Q2324840",
+    "Q152509",
+    "Q2351239",
+    "Q1246609"
+  ]
+}

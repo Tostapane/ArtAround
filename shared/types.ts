@@ -1,3 +1,12 @@
+/*
+ * TODO:
+ * - definire il passaggio di visite custom tra marketplace e navigator
+ * - definire un modo per assegnare piu' item allo stesso artwork
+ * - definire un modo per selezionare il museo nel navigator via file di configurazione
+ * - implementare la gestione di mappe svg lato server, definendo routes e api per servire il navigator
+ * - debloatare alcune routes
+ */
+
 export type UserRole = "autore" | "visitatore";
 
 export interface Author {
@@ -44,8 +53,11 @@ export interface Match {
   artwork: Artwork;
   item: Item;
 }
+
 /**
- * Rappresenta un percorso/lista di item (ItemList su Schema.org)
+ * Rappresenta un percorso/lista di item
+ * NOTA: aggiungere un identificativo per distinguere
+ * le visite fornite dal museo e quelle personalizzate
  */
 export interface Visit {
   "@id": string;

@@ -1,0 +1,22 @@
+{
+  "qid": "Q19675",
+  "name": "Museo del Louvre",
+  "location": "Saint-Germain-l'Auxerrois",
+  "created": "1793",
+  "mapPath": "/maps/Museo del Louvre.svg",
+  "activeArtworks": [
+    "Q151050",
+    "Q199392",
+    "Q728973",
+    "Q154336",
+    "Q210161",
+    "Q1053759",
+    "Q2344133",
+    "Q2626554",
+    "Q2247953",
+    "Q2266515",
+    "Q797909",
+    "Q275454",
+    "Q2266521"
+  ]
+}

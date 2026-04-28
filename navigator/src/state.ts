@@ -8,6 +8,7 @@ export const visit = ref<Visit>();
 
 // computed in modo da non aver bisogno di fare feth in mainview, bastera chiamare solo
 // le funzioni per item e artworks
+// PROBLEMA: piu item dovrebbero poter essere associati allo stesso artwork
 export const matchedContent = computed<Match[]>(() => {
   const results: Match[] = [];
   //console.log(items.value);
@@ -88,6 +89,5 @@ export async function loadVisit(id: string) {
       visitLoadingPromise = null;
     }
   })();
-
   return visitLoadingPromise;
 }

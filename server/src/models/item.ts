@@ -13,7 +13,7 @@ export interface IItem extends Omit<SharedItem, "about"> {
 
 const itemSchema = new Schema<IItem>({
   "@context": { type: String, default: "https://schema.org" },
-  "@type": { type: String, default: "CreativeWork" },
+  "@type": { type: String, default: "https://schema.org/CreativeWork" },
   "@id": { type: String, required: true },
   about: { type: String, required: true },
   timeRequired: { type: String, required: true },
