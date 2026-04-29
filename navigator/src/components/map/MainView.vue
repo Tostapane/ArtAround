@@ -23,11 +23,9 @@ const props = defineProps<{
 watch(
   () => props.currVisit,
   async (newVisitId) => {
-    console.log("visita:", newVisitId);
     if (!newVisitId) return;
     clearItems();
-    // necessaria revisione
-    await loadVisit("visit-Q6373-Principiante-60");
+    await loadVisit(newVisitId);
     if (visit.value && visit.value.itemListElement) {
       const ids = visit.value.itemListElement;
       await Promise.all([loadArtworks(), loadItems(ids)]);

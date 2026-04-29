@@ -7,11 +7,7 @@ import {
   computed,
   watch,
 } from "vue";
-import { artworks, loadArtworks, matchedContent } from "../../state";
-/*
-        POTREBBE ESSERE MALEVOLO!
-    */
-import mapSVG from "./map.svg?raw";
+import { map, artworks, loadArtworks, matchedContent } from "../../state";
 
 const emit = defineEmits<{
   select: [value: number];
@@ -66,7 +62,11 @@ function setupListeners() {
 }
 
 onMounted(async () => {
-  await loadArtworks();
+  await nextTick();
+  setupListeners();
+});
+
+watch(map, async () => {
   await nextTick();
   setupListeners();
 });
@@ -112,7 +112,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="svg-wrapper" v-html="mapSVG"></div>
+  <div class="svg-wrapper" v-html="map"></div>
 </template>
 
 <style lang="css" scoped>

@@ -55,6 +55,8 @@ const emit = defineEmits<{
       <p class="text-base text-gray-600 mb-6">
         {{ content.artwork.author.name }}
         <br />
+        {{ content.artwork.ofMuseum }}
+        <br />
         {{ content.item.text }}
       </p>
 

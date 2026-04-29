@@ -2,6 +2,7 @@ services:
   mongodb:
     image: mongo:7.0
     container_name: mongo-con
+    command: mongod --quiet --logpath /dev/null
     environment:
       MONGO_INITDB_ROOT_USERNAME: localuser
       MONGO_INITDB_ROOT_PASSWORD: localpassword

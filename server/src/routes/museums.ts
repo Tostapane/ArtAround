@@ -44,9 +44,7 @@ router.get("/:id/artworks", async (req, res) => {
     const { id } = req.params;
     console.log(`[BACKEND] Chiamata GET /api/museums/${id}`);
     const museumId = `http://www.wikidata.org/entity${id}`;
-    console.log(museumId);
     const artworks = await ArtworkModel.find({ ofMuseum: museumId });
-    console.log(artworks);
     res.json(artworks);
   } catch (err: any) {
     res.status(500).json({

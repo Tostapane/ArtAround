@@ -1,0 +1,30 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
+  <rect x="10" y="10" width="780" height="580" fill="#fff9f0" stroke="#333" stroke-width="4" />
+  
+  <!-- Wings -->
+  <rect x="50" y="50" width="200" height="500" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
+  <rect x="300" y="50" width="200" height="500" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
+  <rect x="550" y="50" width="200" height="500" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
+
+  <!-- Connector -->
+  <line x1="50" y1="300" x2="750" y2="300" stroke="#333" stroke-width="6" />
+
+  <!-- Nodes in Wing 1 -->
+  <circle id="art-1" class="interactive-node" cx="150" cy="100" r="12" fill="gray" />
+  <circle id="art-2" class="interactive-node" cx="150" cy="200" r="12" fill="gray" />
+  <circle id="art-3" class="interactive-node" cx="150" cy="400" r="12" fill="gray" />
+  <circle id="art-4" class="interactive-node" cx="150" cy="500" r="12" fill="gray" />
+
+  <!-- Nodes in Wing 2 (Center) -->
+  <rect id="art-5" class="interactive-node" x="385" y="150" width="30" height="30" fill="#555" />
+  <circle id="art-6" class="interactive-node" cx="400" cy="300" r="15" fill="#333" />
+  <rect id="art-7" class="interactive-node" x="385" y="420" width="30" height="30" fill="#555" />
+
+  <!-- Nodes in Wing 3 -->
+  <circle id="art-8" class="interactive-node" cx="650" cy="100" r="10" fill="gray" />
+  <circle id="art-9" class="interactive-node" cx="650" cy="180" r="10" fill="gray" />
+  <circle id="art-10" class="interactive-node" cx="650" cy="260" r="10" fill="gray" />
+  <circle id="art-11" class="interactive-node" cx="650" cy="340" r="10" fill="gray" />
+  <circle id="art-12" class="interactive-node" cx="650" cy="420" r="10" fill="gray" />
+  <circle id="art-13" class="interactive-node" cx="650" cy="500" r="10" fill="gray" />
+</svg>

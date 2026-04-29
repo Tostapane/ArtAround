@@ -3,7 +3,7 @@
 
 export const educationalLevels = ["Principiante", "Avanzato"];
 
-export const secPerArt = [60];
+export const secPerArt = [15, 60];
 
 export const options = [
   { group: "Contenuto", id: "Non ho capito", label: "Non ho capito" },

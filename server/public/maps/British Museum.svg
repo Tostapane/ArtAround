@@ -1,0 +1,29 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
+  <rect x="10" y="10" width="780" height="580" fill="#e8eef2" stroke="#333" stroke-width="4" />
+  
+  <!-- Central Hall -->
+  <circle cx="400" cy="300" r="120" fill="white" stroke="#333" stroke-width="3" />
+  
+  <!-- Radial corridors -->
+  <line x1="400" y1="180" x2="400" y2="50" stroke="#333" stroke-width="4" />
+  <line x1="400" y1="420" x2="400" y2="550" stroke="#333" stroke-width="4" />
+  <line x1="280" y1="300" x2="50" y2="300" stroke="#333" stroke-width="4" />
+  <line x1="520" y1="300" x2="750" y2="300" stroke="#333" stroke-width="4" />
+
+  <!-- Nodes -->
+  <circle id="art-1" class="interactive-node" cx="400" cy="300" r="15" fill="#555" />
+  <circle id="art-2" class="interactive-node" cx="400" cy="100" r="10" fill="gray" />
+  <circle id="art-3" class="interactive-node" cx="400" cy="500" r="10" fill="gray" />
+  <circle id="art-4" class="interactive-node" cx="100" cy="300" r="10" fill="gray" />
+  <circle id="art-5" class="interactive-node" cx="700" cy="300" r="10" fill="gray" />
+  
+  <rect id="art-6" class="interactive-node" x="150" y="100" width="25" height="25" fill="gray" />
+  <rect id="art-7" class="interactive-node" x="625" y="100" width="25" height="25" fill="gray" />
+  <rect id="art-8" class="interactive-node" x="150" y="475" width="25" height="25" fill="gray" />
+  <rect id="art-9" class="interactive-node" x="625" y="475" width="25" height="25" fill="gray" />
+  
+  <circle id="art-10" class="interactive-node" cx="250" cy="200" r="10" fill="gray" />
+  <circle id="art-11" class="interactive-node" cx="550" cy="200" r="10" fill="gray" />
+  <circle id="art-12" class="interactive-node" cx="250" cy="400" r="10" fill="gray" />
+  <circle id="art-13" class="interactive-node" cx="550" cy="400" r="10" fill="gray" />
+</svg>

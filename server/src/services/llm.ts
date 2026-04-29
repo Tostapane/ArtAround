@@ -27,17 +27,22 @@ export async function createDescription(
   duration: number,
 ) {
   try {
+    let wordNo;
+    if (duration == 60) wordNo = 100;
+    else if (duration == 30) wordNo = 50;
+    else if (duration == 15) wordNo = 25;
+    else wordNo = 5;
     const request = `
                     Sei uno scrittore di guide per musei, 
-                    Rispondi in plain text, niente simboli,
+                    Rispondi in plain text, niente simboli o asterischi,
                     Non parlare di musei, Non interagire con l'utente.
                     Scrivi SOLO in plain text.
                     Esaudisci ESATTAMENTE la richiesta rispettando la difficolta'
-                    e il limite di tempo di lettura fornito.
+                    e il limite di parole fornito.
                     Descrivi l'opera ${name} 
                     realizzata da ${author}.
-                    L'utente e' di livello ${level} e vuole cheil testo da te prodotto 
-                    sia leggibile in ${duration} secondi.
+                    L'utente e' di livello ${level}, 
+                    produci una spiegazione in circa ${wordNo} parole.
                     NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
     const response = await ai.models.generateContent({
       model: "gemma-3-1b-it",

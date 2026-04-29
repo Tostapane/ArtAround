@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from "vue";
 import DropDownMenu from "./DropDownMenu.vue";
 import { getVisits } from "./../../api.ts";
 import type { Visit } from "../../../../shared/types";
+import { museum } from "@/state.ts";
 
 const emit = defineEmits<{
   currVisit: [id: string];
@@ -20,7 +21,7 @@ interface State {
 }
 
 // default placeholder
-const filters = ref<State>({ level: "Principiante", duration: 30 });
+const filters = ref<State>({ level: "Principiante", duration: 60 });
 
 // tutti i possibili livelli (delle visite inserite dentro il database)
 const availableLevels = computed(() => {
@@ -38,12 +39,20 @@ const availableDurations = computed(() => {
 
 function emitMatchingVisit() {
   if (!visits.value) return;
+  const currMuseum = museum.value;
+  if (!currMuseum) return;
+
   const match = visits.value.find(
     (v) =>
-      v.level === filters.value.level && v.duration === filters.value.duration,
+      v.ofMuseum === `http://www.wikidata.org/entity${currMuseum.qid}` &&
+      v.level === filters.value.level &&
+      v.duration === filters.value.duration,
   );
+
   if (match) {
     emit("currVisit", match["@id"]);
+  } else {
+    emit("currVisit", "");
   }
 }
 
