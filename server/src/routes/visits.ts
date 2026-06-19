@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { VisitModel } from "../models/visit";
+import { ItemModel } from "../models/item";
 
 const router = Router();
 
@@ -38,6 +39,38 @@ router.get("/:id", async (req, res) => {
     });
   }
 });
+/**
+ * GET /api/visits/:id/items
+ * Ritorna gli item della visita con il rispettivo artwork (`about`) gia' popolato,
+ * preservando l'ordine definito in itemListElement.
+ * Evita il join lato client nel navigator.
+ */
+router.get("/:id/items", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const visit = await VisitModel.findOne({ "@id": id });
+    if (!visit) return res.status(404).json({ error: "Visita non trovata" });
+
+    const ids = visit.itemListElement || [];
+    const items = await ItemModel.find({ "@id": { $in: ids } }).populate({
+      path: "about",
+      model: "Artwork",
+      foreignField: "@id",
+      localField: "about",
+      justOne: true,
+    });
+
+    // ripristina l'ordine di itemListElement (find con $in non lo garantisce)
+    const byId = new Map(items.map((it: any) => [it["@id"], it]));
+    const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
+    res.json(ordered);
+  } catch (err: any) {
+    res.status(500).json({
+      error: err.message || "Errore nel caricamento degli item della visita",
+    });
+  }
+});
+
 /**
  * POST /api/visits
  * Salva o aggiorna una visita (tour).

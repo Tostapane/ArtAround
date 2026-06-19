@@ -17,42 +17,26 @@ router.get("/", async (req, res) => {
 });
 
 /**
- * GET /api/artworks/:qid/items: Recupera tutti i contenuti associati a un QID.
- * DA AGGIUSTARE
+ * GET /api/artworks/:qid/items: Recupera gli Item associati a un artwork (per QID).
+ * Filtri opzionali: ?level=<educationalLevel>&duration=<timeRequired>
+ * Ritorna un Item[] canonico (niente formati ad-hoc / bilingue).
  */
 router.get("/:qid/items", async (req, res) => {
   try {
     const { qid } = req.params;
-    const artwork = await ArtworkModel.findOne({ qid });
+    const { level, duration } = req.query;
 
+    const artwork = await ArtworkModel.findOne({ qid });
     if (!artwork) {
       return res.status(404).json({ error: "Artwork non trovato" });
     }
 
-    const items = await ItemModel.find({ about: artwork["@id"] });
+    const filter: Record<string, unknown> = { about: artwork["@id"] };
+    if (level) filter.educationalLevel = level;
+    if (duration) filter.timeRequired = String(duration);
 
-    const groupedByAuthor = new Map();
-    items.forEach((item: any) => {
-      if (!groupedByAuthor.has(item.author)) {
-        groupedByAuthor.set(item.author, {
-          "@context": "https://schema.org",
-          "@type": "CreativeWork",
-          "@id": item["@id"],
-          autore: item.author,
-          author: item.author,
-          prezzo: item.price || 0,
-          price: item.price || 0,
-          descrizioni: [],
-        });
-      }
-      groupedByAuthor.get(item.author).descrizioni.push({
-        educationalLevel: item.educationalLevel,
-        timeRequired: item.timeRequired,
-        text: item.text || "",
-      });
-    });
-
-    res.json(Array.from(groupedByAuthor.values()));
+    const items = await ItemModel.find(filter);
+    res.json(items);
   } catch (error: any) {
     res.status(500).json({ error: "Errore nel recupero degli item" });
   }

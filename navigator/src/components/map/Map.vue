@@ -7,7 +7,7 @@ import {
   computed,
   watch,
 } from "vue";
-import { map, artworks, loadArtworks, matchedContent } from "../../state";
+import { map, matchedContent } from "../../state";
 
 const emit = defineEmits<{
   select: [value: number];

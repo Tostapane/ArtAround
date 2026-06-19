@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, watch, computed } from "vue";
 import DropDownMenu from "./DropDownMenu.vue";
-import { getVisits } from "./../../api.ts";
+import { getVisitsByMuseum } from "./../../api.ts";
 import type { Visit } from "../../../../shared/types";
 import { museum } from "@/state.ts";
 
@@ -9,11 +9,15 @@ const emit = defineEmits<{
   currVisit: [id: string];
 }>();
 
-// carico tutte le visite del database
+// carico le visite del museo corrente (appena il museo e' disponibile)
 const visits = ref<Visit[]>();
-onMounted(async () => {
-  visits.value = await getVisits();
-});
+watch(
+  museum,
+  async (m) => {
+    if (m) visits.value = await getVisitsByMuseum(m.qid);
+  },
+  { immediate: true },
+);
 
 interface State {
   level: string;
@@ -44,7 +48,7 @@ function emitMatchingVisit() {
 
   const match = visits.value.find(
     (v) =>
-      v.ofMuseum === `http://www.wikidata.org/entity${currMuseum.qid}` &&
+      v.ofMuseum === `http://www.wikidata.org/entity/${currMuseum.qid}` &&
       v.level === filters.value.level &&
       v.duration === filters.value.duration,
   );

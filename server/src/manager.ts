@@ -40,7 +40,6 @@ export async function populateArtwork(
     ofMuseum: museum,
     locationId: location,
   });
-  console.log(`Artwork ${qid} inserito correttamente`);
 }
 
 /**
@@ -67,7 +66,7 @@ export async function populateItem(
     itemAuthor = "sistema";
   }
 
-  const id = `${atworkQid}-${level}-${duration}`;
+  const id = `${atworkQid}-${itemAuthor}-${level}-${duration}`;
 
   await insertItem({
     "@id": id,
@@ -78,7 +77,6 @@ export async function populateItem(
     price: itemPrice,
     text: description,
   });
-  console.log("Item inserito correttamente");
 }
 
 /**
@@ -107,7 +105,6 @@ export async function populateVisit(
     itemListElement: items,
     logistics: logist,
   });
-  console.log("Visit inserita correttamente");
 }
 
 /**
@@ -123,6 +120,6 @@ export async function populateMuseum(qid: string, artworks: readonly string[]) {
     name: data.name,
     created: data.created,
     location: data.location,
-    mapPath: `/map/${data.name}`,
+    mapPath: `/maps/${data.name}.svg`,
   });
 }

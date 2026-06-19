@@ -5,11 +5,19 @@ import { insertArtwork } from "../dbActions";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// Modello usato dal server (cambiare qui per tutti gli usi).
+// NOTA disponibilita': "gemini-3.1-flash" NON esiste su questa key (404); la
+// variante flash 3.1 disponibile e' "gemini-3.1-flash-lite" (veloce, ~0.8s/chiamata).
+// Attenzione ai limiti free (RPM): se il seed va in 429, aumentare il delay nel
+// seed oppure aggiungere un retry/backoff sulle chiamate.
+const MODEL = "gemini-3.1-flash-lite";
+const MODEL_LIGHT = "gemini-3.1-flash-lite";
+
 // funzione di test
 async function AIRequest() {
   try {
     const response = await ai.models.generateContent({
-      model: "gemma-3-27b-it",
+      model: MODEL,
       contents: "hello world",
     });
     console.log(response.text);
@@ -45,7 +53,7 @@ export async function createDescription(
                     produci una spiegazione in circa ${wordNo} parole.
                     NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
     const response = await ai.models.generateContent({
-      model: "gemma-3-1b-it",
+      model: MODEL_LIGHT,
       contents: request,
     });
     return response.text;
@@ -66,7 +74,7 @@ export async function additionalDescription(previous: string, userReq: string) {
                         L'utente dopo aver letto ${previous} richiede ${userReq}.
                         Rispondi in modo consono.`;
     const response = await ai.models.generateContent({
-      model: "gemma-3-27b-it",
+      model: MODEL_LIGHT,
       contents: request,
     });
     console.log(response.text);
@@ -87,7 +95,7 @@ export async function mapRequest(transcript: string) {
                     rispondi con l'esatta richiesta senza modificarla.
                     Se la richiesta dell'utente risulta vuota, rispondi con l'opzione altro.`;
     const response = await ai.models.generateContent({
-      model: "gemma-3-27b-it",
+      model: MODEL_LIGHT,
       contents: request,
     });
     console.log(response.text);

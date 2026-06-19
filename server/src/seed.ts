@@ -52,39 +52,80 @@ async function seed() {
     await ItemModel.deleteMany({});
     await VisitModel.deleteMany({});
     console.log("Database pulito.");
-    for (const museum of Object.values(museums)) {
-      var cont = 1;
+
+    // Totali e contatori per il progresso
+    const museumList = Object.values(museums);
+    const totalMuseums = museumList.length;
+    const itemsPerArtwork = educationalLevels.length * secPerArt.length;
+    const totalArtworks = museumList.reduce((s, m) => s + m.artworks.length, 0);
+    const totalItems = totalArtworks * itemsPerArtwork;
+    let artworkCount = 0;
+    let itemCount = 0;
+    const startTime = Date.now();
+    const fmt = (s: number) =>
+      `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, "0")}s`;
+
+    console.log(
+      `Seed: ${totalMuseums} musei, ${totalArtworks} opere, ${totalItems} item da generare (~3s/item).`,
+    );
+
+    let museumIdx = 0;
+    for (const museum of museumList) {
+      museumIdx++;
+      let artworkIdx = 0;
       for (const qid of museum.artworks) {
+        artworkIdx++;
+        artworkCount++;
+        console.log(
+          `\n[Museo ${museumIdx}/${totalMuseums} ${museum.qid}] [Opera ${artworkIdx}/${museum.artworks.length} ${qid}]  (opera ${artworkCount}/${totalArtworks})`,
+        );
         await populateArtwork(
           qid,
-          `http://www.wikidata.org/entity${museum.qid}`,
-          `art-${cont}`,
+          `http://www.wikidata.org/entity/${museum.qid}`,
+          `art-${artworkIdx}`,
         );
-        cont++;
+        let itemIdx = 0;
         for (const level of educationalLevels) {
           for (const duration of secPerArt) {
+            itemIdx++;
+            itemCount++;
             await populateItem(qid, level, duration);
-            await delay(1000);
+            await delay(2300);
+            const elapsed = (Date.now() - startTime) / 1000;
+            const eta = (totalItems - itemCount) * (elapsed / itemCount);
+            console.log(
+              `   - Item ${itemIdx}/${itemsPerArtwork} (${level}/${duration}s)  ·  ${itemCount}/${totalItems} item totali  ·  ETA ~${fmt(eta)}`,
+            );
           }
         }
       }
+
+      // gli @id degli artwork di QUESTO museo: una visita deve contenere solo
+      // item che descrivono opere del proprio museo (non di altri musei)
+      const aboutIds = museum.artworks.map(
+        (q) => `http://www.wikidata.org/entity/${q}`,
+      );
+      console.log(`[Museo ${museumIdx}/${totalMuseums}] genero le visite...`);
       for (const level of educationalLevels) {
         for (const duration of secPerArt) {
           const items = await ItemModel.find({
             timeRequired: `${duration}`,
             educationalLevel: `${level}`,
+            about: { $in: aboutIds },
           });
           await populateVisit(
             level,
             duration,
             `${museum.qid}`,
-            `http://www.wikidata.org/entity${museum.qid}`,
+            `http://www.wikidata.org/entity/${museum.qid}`,
             items.map((item) => item["@id"]),
             [],
           );
         }
       }
     }
+
+    console.log(`\nSeed completato in ${fmt((Date.now() - startTime) / 1000)}.`);
   } catch (err) {
     console.error("Errore durante il test", err);
   } finally {

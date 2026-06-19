@@ -4,36 +4,19 @@ import Map from "./Map.vue";
 import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
 import Info from "./Info.vue";
-import {
-  loadArtworks,
-  loadItems,
-  visit,
-  loadVisit,
-  matchedContent,
-  clearItems,
-} from "./../../state";
-import AudioRecorder from "./speech/AudioRecorder.vue";
+import { loadVisit, loadVisitContent, matchedContent } from "./../../state";
 
 // la visita scelta dal selector
 const props = defineProps<{
   currVisit: string;
 }>();
-// ativato ogni volta che viene cambiata una visita, anche se non dovrebbe
-// essere cambiabile a runtime? per ora testing
+// attivato ogni volta che viene cambiata la visita selezionata
 watch(
   () => props.currVisit,
   async (newVisitId) => {
     if (!newVisitId) return;
-    clearItems();
     await loadVisit(newVisitId);
-    if (visit.value && visit.value.itemListElement) {
-      const ids = visit.value.itemListElement;
-      await Promise.all([loadArtworks(), loadItems(ids)]);
-    } else {
-      console.error(
-        "Errore nel caricamento della visita o itemListElement vuoto",
-      );
-    }
+    await loadVisitContent(newVisitId);
   },
   { immediate: true },
 );
@@ -80,7 +63,8 @@ function navigationHandler(direction: string) {
         (currentIndex.value + 1) % matchedContent.value.length;
     else if (direction === "prev")
       currentIndex.value =
-        (currentIndex.value - 1) % matchedContent.value.length;
+        (currentIndex.value - 1 + matchedContent.value.length) %
+        matchedContent.value.length;
     else currentIndex.value = null;
   }
 }

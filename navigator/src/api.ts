@@ -1,41 +1,6 @@
-import type { Artwork, Item, Museum, Visit } from "../../shared/types";
+import type { Item, Museum, Visit } from "../../shared/types";
 
 const API_BASE = "http://localhost:8000/api";
-
-// ============================================================================
-//                                Artworks
-// ============================================================================
-
-// ritorna tutti gli artworks nel database
-export async function getAllArtworks(): Promise<Artwork[]> {
-  const res = await fetch(`${API_BASE}/artworks`);
-  if (!res.ok) throw new Error(`Failed to fetch artworks: ${res.statusText}`);
-  const data = await res.json();
-  console.log("successfully fetched artworks");
-  return data;
-}
-
-// ============================================================================
-//                                 Items
-// ============================================================================
-
-// ritorna gli items specificati nell'array
-export async function getItems(itemIds: string[]): Promise<Item[]> {
-  const res = await fetch(`${API_BASE}/items/batch`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ ids: itemIds }),
-  });
-  console.log("successfully fetched items");
-  if (!res.ok) {
-    throw new Error(`Failed to fetch items: ${res.statusText}`);
-  }
-  console.log();
-  const data = await res.json();
-  return data;
-}
 
 // ============================================================================
 //                                 Visits
@@ -45,17 +10,24 @@ export async function getItems(itemIds: string[]): Promise<Item[]> {
 export async function getVisit(id: string): Promise<Visit> {
   const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`Failed to fetch visit: ${res.statusText}`);
-  const data = await res.json();
-  console.log("successfully fetched the desired visit");
-  return data;
+  return res.json();
 }
 
-export async function getVisits() {
-  const res = await fetch(`${API_BASE}/visits`);
-  if (!res.ok) throw new Error(`Failed to fetch visits: ${res.statusText}`);
-  const data = await res.json();
-  console.log("succesfully fetched all the visits");
-  return data;
+// ritorna gli item della visita, gia' uniti al rispettivo artwork (`about` popolato)
+export async function getVisitItems(id: string): Promise<Item[]> {
+  const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(id)}/items`);
+  if (!res.ok) throw new Error(`Failed to fetch visit items: ${res.statusText}`);
+  return res.json();
+}
+
+// ritorna tutte le visite di uno specifico museo
+export async function getVisitsByMuseum(qid: string): Promise<Visit[]> {
+  const res = await fetch(
+    `${API_BASE}/museums/${encodeURIComponent(qid)}/visits`,
+  );
+  if (!res.ok)
+    throw new Error(`Failed to fetch museum visits: ${res.statusText}`);
+  return res.json();
 }
 
 // ============================================================================
@@ -63,29 +35,11 @@ export async function getVisits() {
 // ============================================================================
 
 // ritorna uno specifico museo in base al suo qid
-export async function getMuseum(id: string): Promise<Museum> {
-  console.log(`${API_BASE}/museums/${encodeURIComponent(id)}`);
-  const res = await fetch(`${API_BASE}/museums/${encodeURIComponent(id)}`);
-  console.log(res);
+export async function getMuseum(qid: string): Promise<Museum> {
+  const res = await fetch(`${API_BASE}/museums/${encodeURIComponent(qid)}`);
   if (!res.ok)
     throw new Error(`Failed to fetch the desired museum: ${res.statusText}`);
-  const data = await res.json();
-  console.log("successfully fetched the desired museum");
-  return data;
-}
-
-// ritoena tutte le opere che fanno parte del museo specificato
-export async function getArtworksByMuseum(
-  museumId: string,
-): Promise<Artwork[]> {
-  const res = await fetch(
-    `${API_BASE}/museums/${encodeURIComponent(museumId)}/artworks`,
-  );
-  if (!res.ok)
-    throw new Error(`Failed to fetch arts: ${res.statusText} of ${museumId}`);
-  const data = await res.json();
-  console.log(`successfully fetched artworks of ${museumId}`);
-  return data;
+  return res.json();
 }
 
 // ============================================================================
@@ -106,9 +60,7 @@ export async function getInfo(
   });
   if (!res.ok)
     throw new Error(`Failed to fetch new description: ${res.statusText}`);
-  const data = await res.json();
-  console.log(`Successfully fetched the new description for: ${userReq}`);
-  return data;
+  return res.json();
 }
 
 // ============================================================================
@@ -124,6 +76,5 @@ export async function sendAudioToBackend(audioBlob: Blob): Promise<any> {
     body: formData,
   });
   if (!res.ok) throw new Error("Failed to send Audio");
-  console.log(res);
-  return await res.json();
+  return res.json();
 }
