@@ -1,36 +1,105 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import Header from "./components/Header.vue";
+import Footer from "./components/Footer.vue";
 import Selector from "./components/selection/Selector.vue";
 import MainView from "./components/map/MainView.vue";
 import { loadMuseum } from "./state";
+import { useAnnouncer } from "./composables/useAnnouncer";
+
+const { message, announce } = useAnnouncer();
 
 onMounted(() => {
-    // sara da ricercare nei parametri dell'url
-    const museumId = "Q6373";
-    if (museumId) loadMuseum(museumId);
-    else console.error("Nessun museo specificato");
+  // sara da ricercare nei parametri dell'url
+  const museumId = "Q6373";
+  if (museumId) loadMuseum(museumId);
+  else console.error("Nessun museo specificato");
 });
 
+// la visita scelta (id) e la fase corrente: prima si sceglie, poi si visita
 const choice = ref<string>("");
+const started = ref(false);
+const summary = ref<{ level: string; duration: number } | null>(null);
+
+function onStart(info: { level: string; duration: number }) {
+  if (!choice.value) return;
+  summary.value = info;
+  started.value = true;
+  announce("Visita avviata");
+}
+
+function goBack() {
+  started.value = false;
+  announce("Selezione della visita");
+}
 </script>
 
 <template>
-    <div class="min-h-screen flex flex-col bg-white">
-        <Header class="shrink-0 z-20 relative" />
+  <div class="flex min-h-screen flex-col bg-bg text-text">
+    <!-- Salta direttamente al contenuto (utile per chi naviga da tastiera) -->
+    <a
+      href="#contenuto"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-on-accent"
+    >
+      Salta al contenuto
+    </a>
 
-        <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-            <aside
-                class="w-full lg:w-80 bg-white border-b lg:border-b-0 lg:border-r border-gray-200 flex-shrink-0 z-10 overflow-y-auto"
+    <Header class="relative z-20 shrink-0" />
+
+    <main
+      id="contenuto"
+      tabindex="-1"
+      class="relative flex flex-1 flex-col overflow-hidden bg-surface-2"
+      aria-label="Contenuto principale"
+    >
+      <!-- Fase 1: scelta di livello e durata -->
+      <div
+        v-if="!started"
+        class="flex flex-1 items-start justify-center overflow-y-auto p-4 sm:items-center"
+      >
+        <Selector
+          class="w-full max-w-md"
+          @currVisit="(visit) => (choice = visit)"
+          @start="onStart"
+        />
+      </div>
+
+      <!-- Fase 2: mappa e opere -->
+      <template v-else>
+        <div
+          class="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2.5"
+        >
+          <button
+            type="button"
+            @click="goBack"
+            class="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface-2"
+          >
+            <svg
+              class="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
             >
-                <Selector @currVisit="(visit) => (choice = visit)" />
-            </aside>
-
-            <main class="flex-1 relative bg-gray-50 overflow-hidden">
-                <MainView :currVisit="choice" />
-            </main>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Cambia visita
+          </button>
+          <span v-if="summary" class="text-sm text-muted">
+            {{ summary.level }} · {{ summary.duration }} min
+          </span>
         </div>
-    </div>
-</template>
 
-<style scoped></style>
+        <div class="relative flex-1 overflow-hidden">
+          <MainView :currVisit="choice" />
+        </div>
+      </template>
+    </main>
+
+    <Footer v-if="!started" class="shrink-0" />
+
+    <!-- Live region globale: annunci di stato per screen reader -->
+    <p class="sr-only" role="status" aria-live="polite">{{ message }}</p>
+  </div>
+</template>

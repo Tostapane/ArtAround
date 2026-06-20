@@ -12,7 +12,7 @@ export const startRecording = async () => {
   audioChunks = [];
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    errorMsg.value = "Your browser does not support audio recording.";
+    errorMsg.value = "Il browser non supporta la registrazione audio.";
     return;
   }
 
@@ -49,7 +49,7 @@ export const startRecording = async () => {
     isRecording.value = true;
   } catch (err: any) {
     console.error("Error accessing microphone:", err);
-    errorMsg.value = "Microphone access denied or unavailable.";
+    errorMsg.value = "Accesso al microfono negato o non disponibile.";
   }
 };
 

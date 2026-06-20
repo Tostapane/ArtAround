@@ -1,2 +1,107 @@
 @import "tailwindcss";
 @plugin "@headlessui/tailwindcss";
+
+/*
+  Dark mode pilotato da una classe `.dark` su <html> (vedi useTheme).
+  Il valore iniziale viene impostato da uno script anti-FOUC in index.html.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Token semantici. Usiamo `@theme inline` cosi' le utility Tailwind
+  (es. bg-bg, text-text, border-border, bg-accent) puntano alle CSS var:
+  cambiando le var in `.dark` cambia tutto il tema a runtime.
+  Palette "Swiss minimal": grigi neutri + un singolo accento blu.
+*/
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-focus: var(--focus);
+  --color-danger: var(--danger);
+
+  --font-sans:
+    "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Tema chiaro (default) — contrasti verificati >= WCAG AA */
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #fafafa;
+  --text: #111113;
+  --muted: #5b5b62;
+  --border: #e3e3e6;
+  --accent: #1f4fd6;
+  --on-accent: #ffffff;
+  --focus: #1f4fd6;
+  --danger: #c12626;
+  color-scheme: light;
+}
+
+/* Tema scuro */
+.dark {
+  --bg: #0c0c0e;
+  --surface: #151517;
+  --surface-2: #1b1b1e;
+  --text: #f2f2f3;
+  --muted: #a8a8b0;
+  --border: #2a2a2e;
+  --accent: #5f82ff;
+  --on-accent: #0a0a0c;
+  --focus: #5f82ff;
+  --danger: #ff6b6b;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+  }
+
+  /* Focus visibile e ad alto contrasto su qualsiasi elemento interattivo */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Rispetta la preferenza "riduci animazioni" */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Nasconde visivamente ma resta leggibile dagli screen reader */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}

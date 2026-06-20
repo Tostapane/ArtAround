@@ -1,97 +1,85 @@
 <script setup lang="ts">
 import { sendAudioToBackend } from "@/api";
-import { ref, onUnmounted } from "vue";
+import { ref, watch, onUnmounted } from "vue";
 import {
   isRecording,
   finalBlob,
-  audioUrl,
+  errorMsg,
   startRecording,
   stopRecording,
-  errorMsg,
 } from "./useMediaRecorder";
+import { useAnnouncer } from "@/composables/useAnnouncer";
 
 const emit = defineEmits<{
   action: [value: string];
 }>();
 
-const toggleRecording = () => {
+const { announce } = useAnnouncer();
+const isProcessing = ref(false);
+
+const toggle = async () => {
   if (isRecording.value) {
     stopRecording();
   } else {
-    startRecording();
+    await startRecording();
+    if (isRecording.value) announce("Registrazione avviata");
   }
 };
 
-// aggiungerre onUnmounted
-
-const handleSend = async () => {
-  if (!finalBlob.value) return;
+// invio automatico al server appena la registrazione produce un audio
+watch(finalBlob, async (blob) => {
+  if (!blob) return;
+  isProcessing.value = true;
+  announce("Invio del comando vocale in corso");
   try {
-    console.log("Sending...");
-    const result = await sendAudioToBackend(finalBlob.value);
-    // Access mappedTranscript from the response JSON
+    const result = await sendAudioToBackend(blob);
     if (result.mappedTranscript) {
+      announce("Comando riconosciuto: " + result.mappedTranscript);
       emit("action", result.mappedTranscript);
+    } else {
+      announce("Comando non riconosciuto");
     }
-    console.log("Backend response: ", result);
   } catch (err) {
-    console.error("Error sending the audio ", err);
+    announce("Errore nell'invio del comando vocale");
+  } finally {
+    isProcessing.value = false;
   }
-};
+});
+
+onUnmounted(() => {
+  if (isRecording.value) stopRecording();
+});
 </script>
 
 <template>
-  <div
-    class="flex flex-col items-center gap-4 p-4 bg-white rounded-lg shadow-sm border border-gray-100"
-  >
+  <div class="flex flex-col gap-2 border-t border-border pt-4">
     <button
-      @click="toggleRecording"
-      :class="[
-        'px-6 py-3 rounded-full font-semibold text-white transition-all shadow-md',
-        isRecording
-          ? 'bg-red-500 hover:bg-red-600 animate-pulse ring-4 ring-red-200'
-          : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95',
-      ]"
+      type="button"
+      @click="toggle"
+      :disabled="isProcessing"
+      :aria-pressed="isRecording"
+      class="inline-flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition-opacity hover:opacity-90 disabled:opacity-60"
     >
-      {{ isRecording ? "Stop Recording" : "Start Recording" }}
+      <span
+        v-if="isRecording"
+        class="h-2.5 w-2.5 rounded-full bg-current motion-safe:animate-pulse"
+        aria-hidden="true"
+      ></span>
+      {{
+        isRecording
+          ? "Interrompi e invia"
+          : isProcessing
+            ? "Elaborazione…"
+            : "Comando vocale"
+      }}
     </button>
 
-    <div
+    <p
       v-if="errorMsg"
-      class="text-red-500 text-sm font-medium bg-red-50 px-3 py-2 rounded-md"
+      class="rounded-md bg-surface-2 px-3 py-2 text-sm text-danger"
+      role="alert"
     >
       {{ errorMsg }}
-    </div>
-
-    <div
-      v-if="audioUrl"
-      class="flex flex-col items-center gap-2 w-full mt-2 animate-fade-in"
-    >
-      <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold"
-        >Preview</span
-      >
-      <audio
-        :src="audioUrl"
-        controls
-        class="w-full max-w-xs outline-none"
-      ></audio>
-      <button @click="handleSend">Send Audio</button>
-    </div>
+    </p>
   </div>
 </template>
-
-<style scoped>
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-</style>

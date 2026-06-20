@@ -47,14 +47,17 @@ function setupListeners() {
       };
       element.addEventListener("click", clickHandler);
       listeners.push({ element, type: "click", handler: clickHandler });
+      // attivazione da tastiera: Invio o Spazio (come un vero button)
       const keyHandler = (e: KeyboardEvent) => {
-        if (e.key === "Enter") emit("select", index);
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+          e.preventDefault();
+          emit("select", index);
+        }
       };
-      // click tastiera
-      element.addEventListener("keyup", keyHandler as EventListener);
+      element.addEventListener("keydown", keyHandler as EventListener);
       listeners.push({
         element,
-        type: "keyup",
+        type: "keydown",
         handler: keyHandler as EventListener,
       });
     }
@@ -112,34 +115,89 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="svg-wrapper" v-html="map"></div>
+  <div class="flex h-full flex-col gap-6 overflow-y-auto p-4 sm:p-6 lg:flex-row lg:items-start lg:gap-8">
+    <!-- Mappa visiva del museo -->
+    <section
+      class="flex justify-center lg:flex-1"
+      aria-label="Mappa del museo"
+    >
+      <div class="svg-wrapper w-full max-w-xl" v-html="map"></div>
+    </section>
+
+    <!-- Elenco accessibile delle opere: percorso non spaziale per tastiera/screen reader -->
+    <section
+      v-if="matchedContent.length"
+      class="w-full lg:w-80 lg:shrink-0"
+      aria-labelledby="opere-title"
+    >
+      <h2
+        id="opere-title"
+        class="mb-3 text-sm font-semibold uppercase tracking-wider text-muted"
+      >
+        Opere della visita ({{ matchedContent.length }})
+      </h2>
+      <ul class="flex flex-col gap-2">
+        <li
+          v-for="(match, i) in matchedContent"
+          :key="match.artwork['@id']"
+        >
+          <button
+            type="button"
+            @click="emit('select', i)"
+            class="flex w-full items-baseline gap-3 rounded-md border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-2"
+          >
+            <span
+              class="text-sm font-semibold tabular-nums text-accent"
+              aria-hidden="true"
+              >{{ i + 1 }}</span
+            >
+            <span class="flex flex-col">
+              <span class="font-medium text-text">{{ match.artwork.name }}</span>
+              <span class="text-sm text-muted">{{
+                match.artwork.author.name
+              }}</span>
+            </span>
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Stato vuoto: nessuna visita selezionata -->
+    <p
+      v-else
+      class="self-center text-sm text-muted lg:w-80 lg:shrink-0"
+    >
+      Seleziona livello e durata per avviare una visita: le opere appariranno
+      qui e sulla mappa.
+    </p>
+  </div>
 </template>
 
 <style lang="css" scoped>
+@reference "../../assets/main.css";
+
 .svg-wrapper :deep(svg) {
   width: 100%;
-  max-width: 600px;
-  background-color: white;
-  border: 1px solid #ccc;
+  height: auto;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
-.svg-wrapper :deep(.interactive-node) {
+/* Nodi-opera selezionabili sulla mappa (la classe applicata da setupListeners) */
+.svg-wrapper :deep(.active-artwork) {
   cursor: pointer;
-  transition: all 0.2s ease;
+  fill: var(--accent);
+  transition: fill 0.15s ease, stroke 0.15s ease;
+}
+
+.svg-wrapper :deep(.active-artwork:hover) {
+  fill: var(--text);
+}
+
+.svg-wrapper :deep(.active-artwork:focus-visible) {
   outline: none;
-}
-
-.svg-wrapper :deep(.interactive-node:hover),
-.svg-wrapper :deep(.interactive-node:focus) {
-  fill: red;
-  stroke: yellow;
-  stroke-width: 4px;
-}
-
-.info-panel {
-  margin-top: 20px;
-  padding: 15px;
-  background: #f9f9f9;
-  border-left: 4px solid blue;
+  stroke: var(--focus);
+  stroke-width: 3px;
 }
 </style>

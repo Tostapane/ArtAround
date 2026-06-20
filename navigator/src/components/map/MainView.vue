@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
+import { Dialog, DialogPanel } from "@headlessui/vue";
 import Map from "./Map.vue";
 import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
@@ -53,24 +54,19 @@ const currentArtwork = computed(() => {
 
   return art;
 });
-// blocca lo scroll quando un'opera è selezionata
+
+// quando si cambia o si chiude l'opera: reset opzioni e stop lettura.
+// (lo scroll-lock e il focus-trap sono gestiti dal Dialog headless)
 watch(currentArtwork, (newVal) => {
   currentOption.value = "";
   showOptions.value = false;
-  tts.stop(); // interrompe la lettura quando si cambia o si chiude l'opera
-  if (newVal) {
-    document.body.classList.add("overflow-hidden");
-    // lettura automatica predisposta per un futuro toggle (ora disattivata)
-    if (tts.autoRead.value) tts.speak(newVal.item.text);
-  } else {
-    document.body.classList.remove("overflow-hidden");
-  }
+  tts.stop();
+  // lettura automatica predisposta per un futuro toggle (ora disattivata)
+  if (newVal && tts.autoRead.value) tts.speak(newVal.item.text);
 });
 
-// pulizia allo smontaggio del componente
 onUnmounted(() => {
   tts.stop();
-  document.body.classList.remove("overflow-hidden");
 });
 
 function navigationHandler(direction: string) {
@@ -89,31 +85,45 @@ function navigationHandler(direction: string) {
 
 <template>
   <Map @select="(index: number) => (currentIndex = index)" />
-  <div
-    v-if="currentArtwork"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto"
+
+  <!--
+    Dialog headless: focus-trap, chiusura con Esc, ripristino del focus
+    sull'elemento di partenza e aria-modal automatici.
+  -->
+  <Dialog
+    :open="!!currentArtwork"
+    @close="navigationHandler('close')"
+    class="relative z-50"
   >
-    <div
-      class="flex flex-col md:flex-row items-center md:items-stretch gap-4 w-full max-w-5xl justify-center h-auto md:h-[90vh]"
-    >
-      <Card
-        :content="currentArtwork"
-        @navigation="navigationHandler"
-        @toggleOptions="showOptions = !showOptions"
-        class="h-full shrink-0 md:shrink"
-      />
-      <div
-        v-if="showOptions || currentOption"
-        class="flex flex-col gap-4 w-full md:w-80 shrink-0 h-auto md:h-full md:overflow-y-auto pb-4 md:pb-0"
-      >
-        <OptionsBar v-if="showOptions" @action="actionHandler" />
-        <Info
-          v-if="currentOption"
-          :request="currentOption"
-          :about="currentArtwork"
-          @close="currentOption = ''"
-        />
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+
+    <div class="fixed inset-0 overflow-y-auto p-4 sm:p-6">
+      <div class="flex min-h-full items-center justify-center">
+        <DialogPanel
+          v-if="currentArtwork"
+          aria-labelledby="card-title"
+          class="flex w-full max-w-5xl flex-col gap-4 md:flex-row md:items-stretch"
+        >
+          <Card
+            :content="currentArtwork"
+            @navigation="navigationHandler"
+            @toggleOptions="showOptions = !showOptions"
+            class="md:flex-1"
+          />
+          <div
+            v-if="showOptions || currentOption"
+            class="flex w-full flex-col gap-4 md:w-80 md:shrink-0 md:overflow-y-auto"
+          >
+            <OptionsBar v-if="showOptions" @action="actionHandler" />
+            <Info
+              v-if="currentOption"
+              :request="currentOption"
+              :about="currentArtwork"
+              @close="currentOption = ''"
+            />
+          </div>
+        </DialogPanel>
       </div>
     </div>
-  </div>
+  </Dialog>
 </template>

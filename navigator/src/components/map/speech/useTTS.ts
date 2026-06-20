@@ -14,6 +14,10 @@ const autoRead = ref(false);
 
 let audio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
+// identifica la richiesta di lettura piu' recente: ogni stop()/speak() la
+// incrementa, cosi' le richieste piu' vecchie (ancora in attesa dell'audio)
+// si annullano da sole invece di interrompere quella nuova.
+let requestId = 0;
 
 function cleanup() {
   if (currentUrl) {
@@ -24,6 +28,7 @@ function cleanup() {
 
 // ferma la lettura in corso e libera le risorse
 function stop() {
+  requestId++; // invalida eventuali speak() ancora in volo
   if (audio) {
     audio.pause();
     audio.removeAttribute("src");
@@ -37,19 +42,30 @@ async function speak(text: string) {
   const content = text?.trim();
   if (!content) return;
   stop();
+  const myId = requestId; // id di QUESTA richiesta
   try {
     const blob = await getSpeechAudio(content);
+    // se nel frattempo e' subentrato un altro speak()/stop(), abbandoniamo
+    if (myId !== requestId) return;
+
     if (!audio) audio = new Audio();
     currentUrl = URL.createObjectURL(blob);
     audio.src = currentUrl;
     audio.onended = () => {
-      cleanup();
-      isSpeaking.value = false;
+      if (myId === requestId) {
+        cleanup();
+        isSpeaking.value = false;
+      }
     };
     isSpeaking.value = true;
     await audio.play();
   } catch (e) {
-    stop();
+    // AbortError = play() interrotto da pause()/nuovo src: e' atteso, lo ignoriamo.
+    // Per ogni altro errore (o se siamo ancora la richiesta attiva) ripuliamo lo stato.
+    if ((e as DOMException)?.name !== "AbortError") {
+      if (myId === requestId) isSpeaking.value = false;
+      cleanup();
+    }
   }
 }
 
