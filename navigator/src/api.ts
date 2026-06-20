@@ -46,17 +46,19 @@ export async function getMuseum(qid: string): Promise<Museum> {
 //                                   LLM
 // ============================================================================
 
-// ritorna una nuova descrizione a partire da quella attuale, secondo la richiesta userReq
+// ritorna una nuova descrizione a partire da quella attuale, secondo la richiesta userReq.
+// `language` e' il nome della lingua in cui l'LLM deve rispondere (es. "English").
 export async function getInfo(
   previous: string,
   userReq: string,
+  language: string,
 ): Promise<string> {
   const res = await fetch(`${API_BASE}/llm/newInfo`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ previous, userReq }),
+    body: JSON.stringify({ previous, userReq, language }),
   });
   if (!res.ok)
     throw new Error(`Failed to fetch new description: ${res.statusText}`);
@@ -67,10 +69,15 @@ export async function getInfo(
 //                                   Speech To Text
 // ============================================================================
 
-// invia l'audio registrato al server per ottenere la sua trascrizione
-export async function sendAudioToBackend(audioBlob: Blob): Promise<any> {
+// invia l'audio registrato al server per ottenere la sua trascrizione.
+// `lang` e' il codice BCP-47 della lingua in cui parla l'utente (per lo STT).
+export async function sendAudioToBackend(
+  audioBlob: Blob,
+  lang: string,
+): Promise<any> {
   const formData = new FormData();
   formData.append("audioFile", audioBlob, "recording.webm");
+  formData.append("lang", lang);
   const res = await fetch(`${API_BASE}/speech`, {
     method: "POST",
     body: formData,
@@ -83,15 +90,41 @@ export async function sendAudioToBackend(audioBlob: Blob): Promise<any> {
 //                                   Text To Speech
 // ============================================================================
 
-// ritorna l'audio (MP3) della sintesi vocale del testo fornito
-export async function getSpeechAudio(text: string): Promise<Blob> {
+// ritorna l'audio (MP3) della sintesi vocale del testo fornito.
+// `lang` e' il codice BCP-47 della lingua in cui sintetizzare la voce.
+export async function getSpeechAudio(
+  text: string,
+  lang: string,
+): Promise<Blob> {
   const res = await fetch(`${API_BASE}/speech/tts`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, lang }),
   });
   if (!res.ok) throw new Error("Failed to synthesize speech");
   return res.blob();
+}
+
+// ============================================================================
+//                                 Translation
+// ============================================================================
+
+// traduce una lista di testi (dall'italiano) nella lingua `target`.
+// `target` e' il codice per Google Translate (es. "fr", "zh-CN").
+export async function translateTexts(
+  texts: string[],
+  target: string,
+): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/translate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ texts, target }),
+  });
+  if (!res.ok) throw new Error("Failed to translate text");
+  const data = await res.json();
+  return data.translations;
 }

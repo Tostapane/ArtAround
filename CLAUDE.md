@@ -19,7 +19,7 @@ The repo is a monorepo of three independently-built parts that all import `share
 - **`server/`** — Node + Express + Mongoose (port **8000**). Entry `src/index.ts`. Also serves
   the marketplace's static files (`/` → `marketplace/public`, `/dist` → `marketplace/dist`).
   Routes under `/api` in `src/routes/`; external integrations in `src/services/`
-  (Gemini LLM via `@google/genai`, Google Cloud STT, Wikidata).
+  (Gemini LLM via `@google/genai`, Google Cloud STT/TTS/Translation, Wikidata).
 - **`navigator/`** — Vue 3 + Vite + Tailwind (port **5173**), the visitor app. Runs on its own
   dev server. Global reactive state in `src/state.ts`; API wrappers in `src/api.ts`.
 - **`marketplace/`** — Alpine.js + vanilla TS + Tailwind, the author/visitor hub. **No framework

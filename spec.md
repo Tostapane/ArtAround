@@ -67,8 +67,8 @@ shared/                 # shared TS types + constants used by ALL three parts
   constants.ts          # educationalLevels, secPerArt, voice-command `options`
 server/                 # Node/Express/Mongoose backend (port 8000)
   src/index.ts          # app entry: mounts routes, serves marketplace static files
-  src/routes/           # artworks, items, visits, museums, llm, speech
-  src/services/         # llm (Gemini), speech (Google STT), wikidata, imageDownloader, museumConfig
+  src/routes/           # artworks, items, visits, museums, llm, speech (STT+TTS), translate
+  src/services/         # llm (Gemini), stt (Google STT), tts (Google TTS), translate (Google Translation), wikidata, imageDownloader, museumConfig
   src/models/           # mongoose schemas: artwork, item, visit, museum
   src/data/museums/     # per-museum JSON config files (the "config file" deliverable)
   src/seed.ts           # DB seeding
@@ -134,14 +134,22 @@ Base path `/api`. All mounted in `server/src/index.ts`.
   - `GET /` → all. `GET /:id` → museum by **qid**. `GET /:id/artworks` → artworks where
     `ofMuseum === "http://www.wikidata.org/entity" + id` (⚠️ note: **no `/` before qid**).
 - **LLM** `/api/llm`
-  - `POST /newInfo` → `{previous, userReq}` → enriched description (Gemini). (NOT `/addInfo`.)
+  - `POST /newInfo` → `{previous, userReq, language}` → enriched description (Gemini), generated
+    **directly in `language`** (the language's display name, e.g. `"English"`). (NOT `/addInfo`.)
 - **Speech** `/api/speech`
-  - `POST /` (multipart `audioFile`) → Google STT transcript → `mapRequest` LLM mapping to
-    a controlled command → `{mappedTranscript}`.
+  - `POST /` (multipart `audioFile` + `lang` BCP-47) → Google STT (in `lang`) transcript →
+    `mapRequest` LLM mapping to a controlled command → `{mappedTranscript}`.
+  - `POST /tts` `{text, lang}` (`lang` = BCP-47) → MP3 synthesized in that language.
+- **Translate** `/api/translate`
+  - `POST /` `{texts:string[], target}` (`target` = Google Translate code, e.g. `fr`, `zh-CN`)
+    → `{translations:string[]}`. Google Cloud Translation, in-memory cached by `target+text`.
+    Source language is always Italian (`SOURCE_LANG` in `shared/constants.ts`).
 - `GET /api/health`.
 
-External services: **Gemini** (`@google/genai`, models `gemma-3-*`) and **Google Cloud
-Speech** (STT). Keys in `server/.env` (`GEMINI_API_KEY`, `GOOGLE_API_KEY`).
+External services: **Gemini** (`@google/genai`, model `gemini-3.1-flash-lite`) and **Google
+Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under one
+`GOOGLE_API_KEY` (its API restrictions must allow each of the three APIs). Keys in
+`server/.env` (`GEMINI_API_KEY`, `GOOGLE_API_KEY`).
 
 ---
 
@@ -160,13 +168,38 @@ Speech** (STT). Keys in `server/.env` (`GEMINI_API_KEY`, `GOOGLE_API_KEY`).
   `museums.ts:47`; `Selector` levels/durations are now derived dynamically from the visits in
   the DB (`availableLevels`/`availableDurations`) instead of hardcoded "Principiante/Avanzato".
 - **Text-to-speech (sintesi vocale del contenuto)** — satisfies the 18-24 base requirement,
-  cross-platform. Synthesis is **server-side** (Google Cloud TTS, it-IT Neural2, reuses
-  `GOOGLE_API_KEY`): `services/tts.ts` + `POST /api/speech/tts` returns MP3; the client only plays
-  it back (`useTTS.ts` composable), so it works on any browser/OS. Controlled-vocab commands
-  `"Leggi"` / `"Ferma lettura"` in `shared/constants.ts` drive both the on-screen buttons
-  (`OptionsBar.vue`) and the STT voice vocabulary (`mapRequest`); they read the artwork's
-  `item.text` (`MainView.actionHandler`), and a read button in `Info.vue` reads LLM answers too.
-  Manual play for now; a `autoRead` flag is in place for a future on/off toggle.
+  cross-platform. Synthesis is **server-side** (Google Cloud TTS, reuses `GOOGLE_API_KEY`):
+  `services/tts.ts` + `POST /api/speech/tts {text, lang}` returns MP3 in the requested BCP-47
+  voice; the client only plays it back (`useTTS.ts` composable), so it works on any browser/OS.
+  `useTTS.speak` is **pure synthesis — it does NOT translate**: callers always pass text already
+  in the chosen language (translated static fields, or natively-generated LLM answers). Controlled-
+  vocab commands `"Leggi"` / `"Ferma lettura"` (`shared/constants.ts`) drive both the on-screen
+  buttons (`OptionsBar.vue`) and the STT voice vocabulary (`mapRequest`); `"Leggi"` reads the
+  artwork's already-translated description (`MainView.translatedFields`), and a read button in
+  `Info.vue` reads the LLM answer. Manual play for now; an `autoRead` flag is in place for a
+  future on/off toggle.
+- **Real-time translation (18-33 LLM extension)** — the visitor picks a language in a searchable
+  panel (`selection/LanguageSelector.vue`, wired into `Selector.vue`); the choice is global +
+  persisted (`state.ts` `language`/`setLanguage`, localStorage). **Two content sources, two
+  strategies:**
+  - **Static DB content (stays Italian)** is translated **live** via Google Cloud Translation.
+    Title/author/description are translated in `MainView` (`translatedFields`, the `useTranslation`
+    composable → `POST /api/translate`) and passed down to `Card.vue`. The translation lives in
+    MainView (not Card) so the `"Leggi"` command reuses it without re-translating. Server-side
+    cache keyed by `target+text` (whole-string, not per-word), shared across visitors, kept for the
+    process lifetime.
+  - **LLM answers are NOT translated** — Gemini is asked to **answer directly in the chosen
+    language** (`additionalDescription(previous, userReq, language)`), so `Info.vue` displays the
+    raw response. Switching language re-asks the LLM (the `Info` watcher depends on `language`),
+    guarded by a request-id token so a late response can't overwrite a newer one.
+  Audio: `useTTS.speak` is **pure synthesis** (no translation) — it voices the already-in-language
+  text with the language's TTS code. Voice commands are recognized in the user's language
+  (`AudioRecorder` sends the STT code; `mapRequest` still maps onto the Italian command vocabulary —
+  the one remaining Italian-anchored link, bridged by the LLM). The supported list lives in
+  `shared/constants.ts` (`languages`: name + translate/tts/stt codes) — only fully-supported
+  languages are offered. **Requires the `Cloud Translation` API enabled on the `GOOGLE_API_KEY`
+  project (and the key's API restrictions must allow it), and `@google-cloud/translate` installed
+  server-side.**
 
 **Missing / broken (priority order)**
 1. 🟠 **Item publish is broken:** `routes/items.ts` looks up `ArtworkModel.findOne({wikiDataUri:…})`

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { getInfo } from "@/api";
 import { useTTS } from "./speech/useTTS";
+import { language } from "@/state";
 import type { Match } from "../../../../shared/types";
 
 const tts = useTTS();
@@ -14,6 +15,8 @@ defineEmits<{ close: [] }>();
 const LOADING = "Caricamento…";
 const ERROR = "Errore nel caricamento delle informazioni.";
 
+// risposta dell'LLM, gia' generata nella lingua scelta dall'utente
+// (nessuna traduzione automatica); LOADING/ERROR fanno da sentinelle
 const responseText = ref(LOADING);
 const isLoading = computed(() => responseText.value === LOADING);
 // la risposta e' leggibile solo quando c'e' un testo reale
@@ -21,9 +24,15 @@ const canRead = computed(
   () => responseText.value !== LOADING && responseText.value !== ERROR,
 );
 
-// traduce il comando controllato in una richiesta per l'LLM
+// identifica la richiesta LLM piu' recente: una risposta vecchia che arriva in
+// ritardo (es. dopo un rapido cambio di lingua) non sovrascrive quella nuova.
+let requestId = 0;
+
+// traduce il comando controllato in una richiesta per l'LLM.
+// Dipende anche dalla lingua: cambiandola, si richiede una nuova risposta
+// direttamente nella nuova lingua (l'LLM la genera, non la traduciamo).
 watch(
-  () => [props.request, props.about],
+  () => [props.request, props.about, language.value],
   async () => {
     let request = "no";
     const cleanRequest = props.request.trim();
@@ -55,10 +64,19 @@ watch(
         break;
     }
 
+    const myId = ++requestId; // id di QUESTA richiesta
     responseText.value = LOADING;
     try {
-      responseText.value = await getInfo(props.about.item.text, request);
+      const text = await getInfo(
+        props.about.item.text,
+        request,
+        language.value.name,
+      );
+      // se nel frattempo e' partita una richiesta piu' recente, abbandoniamo
+      if (myId !== requestId) return;
+      responseText.value = text;
     } catch (e) {
+      if (myId !== requestId) return;
       responseText.value = ERROR;
     }
   },

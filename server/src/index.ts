@@ -11,6 +11,7 @@ import speechRoutes from "./routes/speech";
 import llmRoutes from "./routes/llm";
 import itemRoutes from "./routes/items";
 import museumRoutes from "./routes/museums";
+import translateRoutes from "./routes/translate";
 
 const app = express();
 const PORT = 8000;
@@ -52,6 +53,7 @@ app.use("/api/speech", speechRoutes);
 app.use("/api/llm", llmRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/museums", museumRoutes);
+app.use("/api/translate", translateRoutes);
 app.get("/api/health", (req, res) => {
   res.json({
     message: "Unified Backend running",

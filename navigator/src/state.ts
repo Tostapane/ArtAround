@@ -1,10 +1,37 @@
 import { ref } from "vue";
 import type { Artwork, Visit, Museum, Match } from "../../shared/types";
+import { languages, type Language } from "../../shared/constants";
 import { getMuseum, getVisit, getVisitItems } from "./api";
 
 export const visit = ref<Visit>();
 export const museum = ref<Museum>();
 export const map = ref<string>("");
+
+// Lingua scelta dall'utente: tutti i contenuti (titolo, autore, testo, risposte
+// LLM) vengono tradotti e sintetizzati live in questa lingua. Default: italiano
+// (la lingua di partenza dei contenuti nel DB). La scelta e' persistita.
+const STORAGE_KEY = "artaround-lang";
+
+function defaultLanguage(): Language {
+  const first = languages[0];
+  if (!first) throw new Error("Nessuna lingua configurata");
+  return first;
+}
+
+function loadLanguage(): Language {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  for (const l of languages) {
+    if (l.translate === saved) return l;
+  }
+  return defaultLanguage();
+}
+
+export const language = ref<Language>(loadLanguage());
+
+export function setLanguage(lang: Language) {
+  language.value = lang;
+  localStorage.setItem(STORAGE_KEY, lang.translate);
+}
 
 // Popolato dal server (GET /api/visits/:id/items, con `about` gia' espanso).
 // Niente piu' join lato client tra item e artwork.

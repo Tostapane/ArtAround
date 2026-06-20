@@ -6,6 +6,7 @@ import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
 import Info from "./Info.vue";
 import { useTTS } from "./speech/useTTS";
+import { useTranslation } from "@/composables/useTranslation";
 import { loadVisit, loadVisitContent, matchedContent } from "./../../state";
 
 const tts = useTTS();
@@ -33,7 +34,7 @@ const showOptions = ref(false);
 function actionHandler(option: string) {
   // comandi di lettura (TTS): intercettati prima del percorso LLM/Info
   if (option === "Leggi") {
-    tts.speak(currentArtwork.value?.item.text ?? "");
+    tts.speak(translatedFields.value[2]);
     showOptions.value = false;
     return;
   }
@@ -55,6 +56,15 @@ const currentArtwork = computed(() => {
   return art;
 });
 
+// traduzione live di titolo, autore e descrizione dell'opera corrente.
+// Vive qui (non dentro Card) cosi' anche il comando "Leggi" puo' leggere la
+// descrizione gia' tradotta senza ritradurla. translatedFields = [titolo, autore, testo]
+const translatedFields = useTranslation(() => {
+  const art = currentArtwork.value;
+  if (!art) return [];
+  return [art.artwork.name, art.artwork.author.name, art.item.text];
+});
+
 // quando si cambia o si chiude l'opera: reset opzioni e stop lettura.
 // (lo scroll-lock e il focus-trap sono gestiti dal Dialog headless)
 watch(currentArtwork, (newVal) => {
@@ -62,7 +72,7 @@ watch(currentArtwork, (newVal) => {
   showOptions.value = false;
   tts.stop();
   // lettura automatica predisposta per un futuro toggle (ora disattivata)
-  if (newVal && tts.autoRead.value) tts.speak(newVal.item.text);
+  if (newVal && tts.autoRead.value) tts.speak(translatedFields.value[2]);
 });
 
 onUnmounted(() => {
@@ -106,6 +116,7 @@ function navigationHandler(direction: string) {
         >
           <Card
             :content="currentArtwork"
+            :fields="translatedFields"
             @navigation="navigationHandler"
             @toggleOptions="showOptions = !showOptions"
             class="md:flex-1"

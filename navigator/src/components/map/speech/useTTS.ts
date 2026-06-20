@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { getSpeechAudio } from "@/api";
+import { language } from "@/state";
 
 // Composable singleton per la sintesi vocale (TTS).
 // L'audio viene generato lato server (Google Cloud TTS) e riprodotto qui:
@@ -37,14 +38,20 @@ function stop() {
   isSpeaking.value = false;
 }
 
-// legge ad alta voce il testo fornito (interrompe un'eventuale lettura precedente)
-async function speak(text: string) {
-  const content = text?.trim();
+// legge ad alta voce il testo fornito (interrompe un'eventuale lettura precedente).
+// Il testo deve gia' essere nella lingua scelta dall'utente: la traduzione
+// avviene a monte (contenuti statici tradotti a schermo, risposte LLM generate
+// direttamente nella lingua scelta), qui ci limitiamo a sintetizzarlo con la
+// voce corrispondente (lang.tts).
+async function speak(text: string | undefined) {
+  let content = "";
+  if (text) content = text.trim();
   if (!content) return;
   stop();
   const myId = requestId; // id di QUESTA richiesta
+  const lang = language.value;
   try {
-    const blob = await getSpeechAudio(content);
+    const blob = await getSpeechAudio(content, lang.tts);
     // se nel frattempo e' subentrato un altro speak()/stop(), abbandoniamo
     if (myId !== requestId) return;
 

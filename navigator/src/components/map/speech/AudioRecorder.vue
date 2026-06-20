@@ -9,6 +9,7 @@ import {
   stopRecording,
 } from "./useMediaRecorder";
 import { useAnnouncer } from "@/composables/useAnnouncer";
+import { language } from "@/state";
 
 const emit = defineEmits<{
   action: [value: string];
@@ -32,7 +33,8 @@ watch(finalBlob, async (blob) => {
   isProcessing.value = true;
   announce("Invio del comando vocale in corso");
   try {
-    const result = await sendAudioToBackend(blob);
+    // invia anche la lingua in cui parla l'utente (per il riconoscimento vocale)
+    const result = await sendAudioToBackend(blob, language.value.stt);
     if (result.mappedTranscript) {
       announce("Comando riconosciuto: " + result.mappedTranscript);
       emit("action", result.mappedTranscript);

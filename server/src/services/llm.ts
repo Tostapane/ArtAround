@@ -63,7 +63,14 @@ export async function createDescription(
 }
 
 // funzione per richiedere una descrizione aggiuntiva
-export async function additionalDescription(previous: string, userReq: string) {
+// `language` e' il nome della lingua in cui rispondere (es. "English",
+// "Francais"): l'LLM genera direttamente nella lingua scelta dall'utente,
+// evitando una successiva traduzione automatica.
+export async function additionalDescription(
+  previous: string,
+  userReq: string,
+  language: string,
+) {
   try {
     const request = ` Sei un generatore di testo per guide di un museo,
                         non interagire con l'utente, sii impersonale,
@@ -72,7 +79,8 @@ export async function additionalDescription(previous: string, userReq: string) {
                         quello ricevuto.
                         Riceverai la descrizione di un'opera e una richiesta da parte dell'utente.
                         L'utente dopo aver letto ${previous} richiede ${userReq}.
-                        Rispondi in modo consono.`;
+                        Rispondi in modo consono.
+                        IMPORTANTE: scrivi la risposta ESCLUSIVAMENTE in lingua ${language}.`;
     const response = await ai.models.generateContent({
       model: MODEL_LIGHT,
       contents: request,

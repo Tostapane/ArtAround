@@ -2,8 +2,12 @@
 import type { Match } from "../../../../shared/types";
 import { useTTS } from "./speech/useTTS";
 
+// `fields` = [titolo, autore, testo] gia' tradotti nella lingua scelta:
+// la traduzione e' gestita dal componente padre (MainView) cosi' da essere
+// condivisa anche dal comando di lettura "Leggi".
 defineProps<{
   content: Match;
+  fields: string[];
 }>();
 const emit = defineEmits<{
   navigation: [value: string];
@@ -35,7 +39,7 @@ const tts = useTTS();
           id="card-title"
           class="text-xl font-bold leading-tight tracking-tight text-text"
         >
-          {{ content.artwork.name }}
+          {{ fields[0] }}
         </h2>
 
         <div class="flex shrink-0 items-center gap-1">
@@ -43,7 +47,7 @@ const tts = useTTS();
           <button
             v-if="!tts.isSpeaking.value"
             type="button"
-            @click="tts.speak(content.item.text)"
+            @click="tts.speak(fields[2])"
             class="rounded-md p-2 text-muted transition-colors hover:bg-surface-2 hover:text-text"
             aria-label="Leggi la descrizione ad alta voce"
           >
@@ -80,11 +84,11 @@ const tts = useTTS();
       </div>
 
       <p class="mb-4 text-sm font-medium text-muted">
-        {{ content.artwork.author.name }}
+        {{ fields[1] }}
       </p>
 
       <p class="text-base leading-relaxed text-text">
-        {{ content.item.text }}
+        {{ fields[2] }}
       </p>
 
       <div class="mt-6 flex gap-2 border-t border-border pt-4">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
 import DropDownMenu from "./DropDownMenu.vue";
+import LanguageSelector from "./LanguageSelector.vue";
 import { getVisitsByMuseum } from "./../../api.ts";
 import type { Visit } from "../../../../shared/types";
 import { museum } from "@/state.ts";
@@ -97,6 +98,9 @@ function start() {
     </p>
 
     <div class="mt-6 flex flex-col gap-5">
+      <!-- Lingua: i contenuti vengono tradotti e letti live nella lingua scelta -->
+      <LanguageSelector />
+
       <div class="flex flex-col gap-2">
         <span id="label-livello" class="text-sm font-medium text-text"
           >Livello di esperienza</span
