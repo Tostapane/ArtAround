@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { getInfo } from "@/api";
+import { useTTS } from "./speech/useTTS";
 import type { Artwork, Match } from "../../../../shared/types";
+
+const tts = useTTS();
 const props = defineProps<{
   request: string;
   about: Match;
@@ -11,6 +14,12 @@ const props = defineProps<{
       AGGIUNGERE SPIEGAZIONI!
   */
 const responseText = ref("Loading...");
+// la risposta e' leggibile solo quando il testo e' effettivamente disponibile
+const canRead = computed(
+  () =>
+    responseText.value !== "Loading..." &&
+    responseText.value !== "Error loading information.",
+);
 
 // This watches for changes and updates responseText automatically
 watch(
@@ -76,11 +85,35 @@ const containerClasses = [
       <h4 class="text-xs font-bold tracking-wider text-black uppercase">
         {{ request }}
       </h4>
-      <button
-        class="p-1 -mt-1 -mr-1 text-gray-400 rounded-md hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900"
-        @click="$emit('close')"
-        aria-label="Close"
-      >
+      <div class="flex items-center gap-1">
+        <button
+          v-if="!tts.isSpeaking.value"
+          :disabled="!canRead"
+          class="p-1 text-gray-400 rounded-md hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+          @click="tts.speak(responseText)"
+          aria-label="Leggi la risposta ad alta voce"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path
+              d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4.03v8.05A4.5 4.5 0 0016.5 12z"
+            ></path>
+          </svg>
+        </button>
+        <button
+          v-else
+          class="p-1 text-gray-700 rounded-md hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          @click="tts.stop()"
+          aria-label="Ferma la lettura"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 6h12v12H6z"></path>
+          </svg>
+        </button>
+        <button
+          class="p-1 -mt-1 -mr-1 text-gray-400 rounded-md hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          @click="$emit('close')"
+          aria-label="Close"
+        >
         <svg
           class="w-4 h-4"
           fill="none"
@@ -95,6 +128,7 @@ const containerClasses = [
           ></path>
         </svg>
       </button>
+      </div>
     </div>
     <p class="text-sm text-gray-800">
       {{ responseText }}

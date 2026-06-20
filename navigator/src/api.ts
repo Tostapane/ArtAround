@@ -78,3 +78,20 @@ export async function sendAudioToBackend(audioBlob: Blob): Promise<any> {
   if (!res.ok) throw new Error("Failed to send Audio");
   return res.json();
 }
+
+// ============================================================================
+//                                   Text To Speech
+// ============================================================================
+
+// ritorna l'audio (MP3) della sintesi vocale del testo fornito
+export async function getSpeechAudio(text: string): Promise<Blob> {
+  const res = await fetch(`${API_BASE}/speech/tts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error("Failed to synthesize speech");
+  return res.blob();
+}

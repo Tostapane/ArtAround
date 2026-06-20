@@ -90,7 +90,7 @@ async function seed() {
             itemIdx++;
             itemCount++;
             await populateItem(qid, level, duration);
-            await delay(2300);
+            await delay(2500);
             const elapsed = (Date.now() - startTime) / 1000;
             const eta = (totalItems - itemCount) * (elapsed / itemCount);
             console.log(
@@ -125,7 +125,9 @@ async function seed() {
       }
     }
 
-    console.log(`\nSeed completato in ${fmt((Date.now() - startTime) / 1000)}.`);
+    console.log(
+      `\nSeed completato in ${fmt((Date.now() - startTime) / 1000)}.`,
+    );
   } catch (err) {
     console.error("Errore durante il test", err);
   } finally {

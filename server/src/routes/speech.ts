@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { recognizeAudio } from "../services/speech";
+import { synthesizeSpeech } from "../services/tts";
 import { mapRequest } from "../services/llm";
 
 const router = Router();
@@ -21,6 +22,22 @@ router.post("/", upload.single("audioFile"), async (req, res) => {
     res.json({ mappedTranscript });
   } catch (err) {
     res.status(500).json({ error: "Server error processing audio" });
+  }
+});
+
+/**
+ * POST /api/speech/tts
+ * ritorna l'audio (MP3) della sintesi vocale del testo fornito
+ */
+router.post("/tts", async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "No text provided" });
+    const audio = await synthesizeSpeech(text);
+    res.set("Content-Type", "audio/mpeg").send(audio);
+  } catch (err) {
+    console.error("[BACKEND ERROR] Errore sintesi vocale (TTS):", err);
+    res.status(500).json({ error: "Server error synthesizing speech" });
   }
 });
 

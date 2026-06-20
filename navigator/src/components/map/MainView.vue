@@ -4,7 +4,10 @@ import Map from "./Map.vue";
 import Card from "./Card.vue";
 import OptionsBar from "./OptionsBar.vue";
 import Info from "./Info.vue";
+import { useTTS } from "./speech/useTTS";
 import { loadVisit, loadVisitContent, matchedContent } from "./../../state";
+
+const tts = useTTS();
 
 // la visita scelta dal selector
 const props = defineProps<{
@@ -27,8 +30,18 @@ const currentOption = ref<string>("");
 const showOptions = ref(false);
 
 function actionHandler(option: string) {
+  // comandi di lettura (TTS): intercettati prima del percorso LLM/Info
+  if (option === "Leggi") {
+    tts.speak(currentArtwork.value?.item.text ?? "");
+    showOptions.value = false;
+    return;
+  }
+  if (option === "Ferma lettura") {
+    tts.stop();
+    showOptions.value = false;
+    return;
+  }
   currentOption.value = option;
-  console.log("dentro actionhandler: ", currentOption.value);
   showOptions.value = false;
 }
 
@@ -44,8 +57,11 @@ const currentArtwork = computed(() => {
 watch(currentArtwork, (newVal) => {
   currentOption.value = "";
   showOptions.value = false;
+  tts.stop(); // interrompe la lettura quando si cambia o si chiude l'opera
   if (newVal) {
     document.body.classList.add("overflow-hidden");
+    // lettura automatica predisposta per un futuro toggle (ora disattivata)
+    if (tts.autoRead.value) tts.speak(newVal.item.text);
   } else {
     document.body.classList.remove("overflow-hidden");
   }
@@ -53,6 +69,7 @@ watch(currentArtwork, (newVal) => {
 
 // pulizia allo smontaggio del componente
 onUnmounted(() => {
+  tts.stop();
   document.body.classList.remove("overflow-hidden");
 });
 

@@ -35,9 +35,9 @@ The project grade maps to a band; each adds features on top of the base:
   missing items, map free-form voice commands to controlled ones, real-time translation,
   constraint-based visit generation). 18-33 is for groups of 2–3 and presented in person.
 
-> Current code reaches *toward* 18-33 (LLM + STT present) but **has not finished the 18-24
-> base** (TTS missing, logistics stubbed) and has none of the 18-27/18-33 extension
-> features (sync, quiz, QR/geo, teleport). **Recommendation: finish the 18-24 base first.**
+> Current code reaches *toward* 18-33 (LLM + STT + TTS present) but **has not finished the 18-24
+> base** (logistics stubbed, marketplace item-publish broken) and has none of the 18-27/18-33
+> extension features (sync, quiz, QR/geo, teleport). **Recommendation: finish the 18-24 base first.**
 
 ---
 
@@ -155,26 +155,32 @@ Speech** (STT). Keys in `server/.env` (`GEMINI_API_KEY`, `GOOGLE_API_KEY`).
   controlled vocab; on-screen buttons mirror voice commands (`OptionsBar.vue`, with aria-labels).
 - Marketplace: login/register, author "my works", visitor dashboard/collection, editor for
   items (4 tones×durations) and visits, in-memory wallet/purchase.
+- Visit-matching identifiers/format fixed: `ofMuseum` now uses canonical
+  `http://www.wikidata.org/entity/${qid}` (with `/`) consistently in `Selector.vue:51` and
+  `museums.ts:47`; `Selector` levels/durations are now derived dynamically from the visits in
+  the DB (`availableLevels`/`availableDurations`) instead of hardcoded "Principiante/Avanzato".
+- **Text-to-speech (sintesi vocale del contenuto)** — satisfies the 18-24 base requirement,
+  cross-platform. Synthesis is **server-side** (Google Cloud TTS, it-IT Neural2, reuses
+  `GOOGLE_API_KEY`): `services/tts.ts` + `POST /api/speech/tts` returns MP3; the client only plays
+  it back (`useTTS.ts` composable), so it works on any browser/OS. Controlled-vocab commands
+  `"Leggi"` / `"Ferma lettura"` in `shared/constants.ts` drive both the on-screen buttons
+  (`OptionsBar.vue`) and the STT voice vocabulary (`mapRequest`); they read the artwork's
+  `item.text` (`MainView.actionHandler`), and a read button in `Info.vue` reads LLM answers too.
+  Manual play for now; a `autoRead` flag is in place for a future on/off toggle.
 
 **Missing / broken (priority order)**
-1. 🔴 **No text-to-speech.** Base mandatory requirement "sintesi vocale del contenuto" is
-   absent (no `speechSynthesis` anywhere; `Card.vue` only renders text). **Blocker for 18-24.**
-2. 🟠 **Item publish is broken:** `routes/items.ts` looks up `ArtworkModel.findOne({wikiDataUri:…})`
+1. 🟠 **Item publish is broken:** `routes/items.ts` looks up `ArtworkModel.findOne({wikiDataUri:…})`
    but the Artwork schema has no `wikiDataUri` → never matches → items never created via marketplace.
-3. 🟠 **Logistics not wired:** `Info.vue` maps all positional commands ("Dove esco?", "Dove è il
+2. 🟠 **Logistics not wired:** `Info.vue` maps all positional commands ("Dove esco?", "Dove è il
    bagno?"…) to `"no"` (no answer); and `routes/visits.ts` filters `t.tipo === "logistics"` while
    the editor emits `"logistica"` → logistics steps dropped on save.
-4. 🟠 **Identifier/format mismatches to verify end-to-end:** `ofMuseum` string format
-   (`entity${qid}` without `/` in `Selector.vue:47` & `museums.ts:46`) vs canonical wikidata
-   form in seed; `Selector` filters by `level` "Principiante/Avanzato" while items use tones
-   "Infantile/Semplice/Medio/Avanzato". Confirm visit-matching actually returns results.
-5. 🟠 **Hardcoded env:** `App.vue` pins `museumId="Q6373"`; `navigator/src/api.ts` pins
+3. 🟠 **Hardcoded env:** `App.vue` pins `museumId="Q6373"`; `navigator/src/api.ts` pins
    `http://localhost:8000`. Both must be config/relative for the docker deploy.
-6. 🟡 **Marketplace persistence:** users hardcoded (only `autore1`/`visitatore1` — need
+4. 🟡 **Marketplace persistence:** users hardcoded (only `autore1`/`visitatore1` — need
    `autore2`/`visitatore2`); wallet/collection/purchases not saved to DB (reset on reload).
    License/adoptions/sales mgmt mostly absent (only `price`).
-7. 🟡 **Extensions not started:** teacher sync + quiz (18-27); QR/geo + teleport (18-33).
-8. 🟡 **Hygiene:** many `console.log`, dead imports (`AudioRecorder` in `MainView`,
+5. 🟡 **Extensions not started:** teacher sync + quiz (18-27); QR/geo + teleport (18-33).
+6. 🟡 **Hygiene:** many `console.log`, dead imports (`AudioRecorder` in `MainView`,
    `getAllArtworks` in `state.ts`), `navigationHandler` prev can go negative (`(idx-1)%len`),
    open TODOs at top of `shared/types.ts` (custom-visit handoff marketplace↔navigator, multiple
    items per artwork, museum-selection via config).

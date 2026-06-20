@@ -1,11 +1,13 @@
 // NOTA: modificare questi valori non cambia immediatamente il navigator,
 // vengono visualizzate le difficolta e tempi contenute dentro al database
 
-export const educationalLevels = ["Principiante", "Avanzato"];
+export const educationalLevels = ["Principiante"];
 
-export const secPerArt = [15, 60];
+export const secPerArt = [15];
 
 export const options = [
+  { group: "Lettura", id: "Leggi", label: "Leggi" },
+  { group: "Lettura", id: "Ferma lettura", label: "Ferma lettura" },
   { group: "Contenuto", id: "Non ho capito", label: "Non ho capito" },
   { group: "Contenuto", id: "Sintetizza", label: "Sintetizza" },
   { group: "Contenuto", id: "Approfondisci", label: "Approfondisci" },
