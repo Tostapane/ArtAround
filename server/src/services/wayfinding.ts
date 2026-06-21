@@ -3,9 +3,14 @@ import { GraphNode, GraphObstacle, MuseumGraph } from "./svgGraph";
 /*
  * Pathfinding sul grafo del museo (ricavato dalla mappa SVG).
  *
- * Produce una rappresentazione intermedia (RouteIR) deterministica: sequenza di
- * sale da attraversare e ostacoli. La fraseologia in linguaggio naturale e'
- * delegata all'LLM (services/llm.ts): qui garantiamo SOLO la correttezza del percorso.
+ * Il grafo navigabile e' fatto di SALE: i nodi (opere, POI) vivono dentro una
+ * sala e servono solo da estremi (partenza/destinazione); il percorso e' la
+ * sequenza di sale da attraversare. Le sale sono collegate da archi o porte,
+ * quindi una BFS basta: il percorso piu' breve e' quello che attraversa meno sale.
+ *
+ * Produce una rappresentazione intermedia (RouteIR) deterministica: la
+ * fraseologia in linguaggio naturale e' delegata all'LLM (services/llm.ts):
+ * qui garantiamo SOLO la correttezza del percorso.
  */
 
 export interface RouteIR {
@@ -42,16 +47,21 @@ export function computeDirections(
     };
   }
 
-  const { dist, prev } = dijkstra(graph, fromNode.id);
+  if (!fromNode.room) {
+    return unavailable("posizione corrente fuori da ogni sala");
+  }
 
-  // risoluzione del nodo di destinazione
+  const adj = buildAdjacency(graph);
+  const { dist, prev } = bfs(adj, fromNode.room);
+
+  // risoluzione della destinazione (e quindi della sua sala)
   let targetNode: GraphNode | null = null;
   const poiCandidates = graph.nodes.filter((n) => n.poiType === target);
   if (poiCandidates.length > 0) {
-    // POI piu' vicino del tipo richiesto
+    // POI piu' vicino del tipo richiesto (in numero di sale da attraversare)
     let best = Infinity;
     for (const c of poiCandidates) {
-      const d = dist.get(c.id);
+      const d = dist.get(c.room);
       if (d !== undefined && d < best) {
         best = d;
         targetNode = c;
@@ -67,16 +77,17 @@ export function computeDirections(
     return unavailable("destinazione non presente sulla mappa");
   }
 
-  const reachable = dist.get(targetNode.id);
-  if (reachable === undefined || reachable === Infinity) {
+  const reachable = dist.get(targetNode.room);
+  if (reachable === undefined) {
     return unavailable("destinazione non raggiungibile");
   }
 
-  const path = reconstructPath(prev, fromNode.id, targetNode.id, graph);
-  const steps = buildSteps(path);
+  // percorso = sale da attraversare; la prima e' quella di partenza.
+  const path = reconstructPath(prev, fromNode.room, targetNode.room);
+  const steps = path.slice(1);
   // ostacoli "sul percorso": quelli nelle sale effettivamente attraversate
   // (se il cammino evita una sala, i suoi ostacoli non si incontrano).
-  const traversedRooms = new Set(path.map((n) => n.room));
+  const traversedRooms = new Set(path);
   const obstacles = graph.obstacles.filter((o) => traversedRooms.has(o.room));
 
   return {
@@ -92,6 +103,7 @@ export function computeDirections(
   };
 }
 
+// costruisce un RouteIR di tipo "unavailable" con il motivo indicato.
 function unavailable(reason: string): RouteIR {
   return {
     kind: "unavailable",
@@ -103,108 +115,57 @@ function unavailable(reason: string): RouteIR {
   };
 }
 
-// Dijkstra a pesi euclidei: ritorna distanze e predecessori da `sourceId`.
-function dijkstra(
-  graph: MuseumGraph,
-  sourceId: string,
+// lista di adiacenza delle sale: nome -> nomi delle sale collegate.
+function buildAdjacency(graph: MuseumGraph): Map<string, string[]> {
+  const adj = new Map<string, string[]>();
+  for (const r of graph.regions) adj.set(r.name, r.neighbors);
+  return adj;
+}
+
+// BFS sulle sale: distanza (in numero di sale) e predecessore da `source`.
+function bfs(
+  adj: Map<string, string[]>,
+  source: string,
 ): { dist: Map<string, number>; prev: Map<string, string | null> } {
-  const adj = buildAdjacency(graph);
   const dist = new Map<string, number>();
   const prev = new Map<string, string | null>();
-  const visited = new Set<string>();
+  dist.set(source, 0);
+  prev.set(source, null);
 
-  for (const n of graph.nodes) {
-    dist.set(n.id, Infinity);
-    prev.set(n.id, null);
-  }
-  dist.set(sourceId, 0);
-
-  while (visited.size < graph.nodes.length) {
-    let u: string | null = null;
-    let best = Infinity;
-    for (const [id, d] of dist) {
-      if (!visited.has(id) && d < best) {
-        best = d;
-        u = id;
-      }
-    }
-    if (u === null) break;
-    visited.add(u);
-
-    const neighbors = adj.get(u);
-    if (!neighbors) continue;
+  const queue: string[] = [source];
+  let head = 0;
+  while (head < queue.length) {
+    const u = queue[head];
+    head++;
     const du = dist.get(u);
     if (du === undefined) continue;
-    for (const edge of neighbors) {
-      if (visited.has(edge.to)) continue;
-      const nd = du + edge.w;
-      const old = dist.get(edge.to);
-      if (old === undefined || nd < old) {
-        dist.set(edge.to, nd);
-        prev.set(edge.to, u);
-      }
+    const neighbors = adj.get(u);
+    if (!neighbors) continue;
+    for (const v of neighbors) {
+      if (dist.has(v)) continue;
+      dist.set(v, du + 1);
+      prev.set(v, u);
+      queue.push(v);
     }
   }
   return { dist, prev };
 }
 
-function buildAdjacency(
-  graph: MuseumGraph,
-): Map<string, { to: string; w: number }[]> {
-  const pos = new Map<string, GraphNode>();
-  for (const n of graph.nodes) pos.set(n.id, n);
-
-  const adj = new Map<string, { to: string; w: number }[]>();
-  for (const n of graph.nodes) adj.set(n.id, []);
-
-  for (const e of graph.edges) {
-    const a = pos.get(e.from);
-    const b = pos.get(e.to);
-    if (!a || !b) continue;
-    const w = Math.hypot(a.x - b.x, a.y - b.y);
-    adj.get(e.from)!.push({ to: e.to, w });
-    adj.get(e.to)!.push({ to: e.from, w });
-  }
-  return adj;
-}
-
+// ricostruisce il percorso (lista di sale) da `source` a `target` risalendo prev.
 function reconstructPath(
   prev: Map<string, string | null>,
-  sourceId: string,
-  targetId: string,
-  graph: MuseumGraph,
-): GraphNode[] {
-  const byId = new Map<string, GraphNode>();
-  for (const n of graph.nodes) byId.set(n.id, n);
-
-  const ids: string[] = [];
-  let cur: string | null = targetId;
+  source: string,
+  target: string,
+): string[] {
+  const rooms: string[] = [];
+  let cur: string | null = target;
   while (cur !== null) {
-    ids.push(cur);
-    if (cur === sourceId) break;
+    rooms.push(cur);
+    if (cur === source) break;
     const p = prev.get(cur);
     if (p === undefined) break;
     cur = p;
   }
-  ids.reverse();
-
-  const path: GraphNode[] = [];
-  for (const id of ids) {
-    const n = byId.get(id);
-    if (n) path.push(n);
-  }
-  return path;
-}
-
-// le sale da attraversare, in ordine, senza ripetizioni consecutive e senza
-// quella di partenza (gia' in `from.room`). I POI senza sala ricadono sull'etichetta.
-function buildSteps(path: GraphNode[]): string[] {
-  const rooms: string[] = [];
-  for (const n of path) {
-    let loc = n.room;
-    if (!loc) loc = n.label;
-    if (rooms.length === 0 || rooms[rooms.length - 1] !== loc) rooms.push(loc);
-  }
-  rooms.shift(); // la prima e' la sala di partenza
+  rooms.reverse();
   return rooms;
 }

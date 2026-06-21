@@ -19,7 +19,13 @@ import path from "path";
  *                    un'opera che e' essa stessa una sala)
  *  - nodo-POI     -> data-poi="exit|emergency_exit|toilet|bar|shop|elevator|stairs" [+ data-label]
  *  - ostacolo     -> data-obstacle="steps|door|chairs|object" + data-desc
- *  - arco         -> <line data-edge ...>; gli estremi vengono agganciati al nodo piu' vicino
+ *  - collegamento -> <line data-edge ...> tra due sale: ogni estremo viene
+ *                    risolto alla sala che lo CONTIENE (non al nodo piu' vicino).
+ *
+ * La connettivita' e' SOLO autorale (archi data-edge): nessuna adiacenza
+ * geometrica viene inferita. Ogni spazio percorribile deve essere una sala
+ * (data-room), corridoi e atri compresi, cosi' compare tra le sale da
+ * attraversare anche se non contiene opere.
  */
 
 export interface GraphNode {
@@ -33,9 +39,9 @@ export interface GraphNode {
   room: string;
 }
 
-export interface GraphEdge {
-  from: string;
-  to: string;
+export interface GraphRegion {
+  name: string;
+  neighbors: string[]; // nomi delle sale collegate (adiacenza simmetrica)
 }
 
 export interface GraphObstacle {
@@ -47,7 +53,7 @@ export interface GraphObstacle {
 
 export interface MuseumGraph {
   nodes: GraphNode[];
-  edges: GraphEdge[];
+  regions: GraphRegion[];
   obstacles: GraphObstacle[];
 }
 
@@ -56,11 +62,6 @@ type RegionShape =
   | { kind: "circle"; name: string; cx: number; cy: number; r: number }
   | { kind: "rect"; name: string; x: number; y: number; w: number; h: number }
   | { kind: "polygon"; name: string; pts: { x: number; y: number }[] };
-
-// distanza massima (in unita' del viewBox) entro cui un estremo di arco viene
-// agganciato a un nodo. Gli estremi sono authored sui centri dei nodi, quindi
-// e' di fatto ~0; il margine copre piccole imprecisioni del disegno.
-const SNAP_EPSILON = 25;
 
 // La cartella public e' server/public (questo file sta in server/src/services).
 const PUBLIC_DIR = path.join(__dirname, "..", "..", "public");
@@ -77,10 +78,12 @@ export function getMuseumGraph(mapPath: string): MuseumGraph {
   return graph;
 }
 
+// restituisce un grafo vuoto (usato in caso di errore).
 function emptyGraph(): MuseumGraph {
-  return { nodes: [], edges: [], obstacles: [] };
+  return { nodes: [], regions: [], obstacles: [] };
 }
 
+// legge il file SVG dal disco e lo converte in grafo; usa PUBLIC_DIR come base.
 function parseSvgFile(mapPath: string): MuseumGraph {
   const filePath = path.join(PUBLIC_DIR, mapPath);
   let svg = "";
@@ -198,8 +201,8 @@ export function parseSvg(svg: string): MuseumGraph {
     room: resolveRoom(regions, o.x, o.y),
   }));
 
-  const edges = snapEdges(rawEdges, nodes);
-  return { nodes, edges, obstacles };
+  const graphRegions = buildRegions(regions, rawEdges);
+  return { nodes, regions: graphRegions, obstacles };
 }
 
 // prima area (in ordine di documento) che contiene il punto; "" se nessuna.
@@ -267,6 +270,7 @@ function makeRegion(attrs: Record<string, string>): RegionShape | null {
   return null;
 }
 
+// converte la stringa "x1,y1 x2,y2 ..." dell'attributo SVG points in una lista di coordinate.
 function parsePoints(s: string): { x: number; y: number }[] {
   const pts: { x: number; y: number }[] = [];
   const tokens = s.trim().split(/\s+/);
@@ -297,42 +301,44 @@ function pointInPolygon(
   return inside;
 }
 
-// trasforma gli archi grezzi (coordinate) in archi tra id di nodi, agganciando
-// ogni estremo al nodo piu' vicino entro SNAP_EPSILON. Scarta self-loop e duplicati.
-function snapEdges(
+// costruisce il grafo delle sale: per ogni sala (nome) i nomi delle sale
+// collegate. La connettivita' e' autorale: archi <line data-edge>, ognuno
+// collega le sale che CONTENGONO i suoi due estremi. Nessuna adiacenza
+// geometrica viene inferita. Sale con lo stesso nome sono la stessa sala.
+function buildRegions(
+  regions: RegionShape[],
   rawEdges: { x1: number; y1: number; x2: number; y2: number }[],
-  nodes: GraphNode[],
-): GraphEdge[] {
-  const edges: GraphEdge[] = [];
-  const seen = new Set<string>();
+): GraphRegion[] {
+  const neighbors = new Map<string, Set<string>>();
+  for (const r of regions) {
+    if (!neighbors.has(r.name)) neighbors.set(r.name, new Set<string>());
+  }
+
   for (const e of rawEdges) {
-    const a = nearestNode(nodes, e.x1, e.y1);
-    const b = nearestNode(nodes, e.x2, e.y2);
-    if (!a || !b) continue;
-    if (a === b) continue;
-    const key = a < b ? `${a}|${b}` : `${b}|${a}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    edges.push({ from: a, to: b });
+    const a = resolveRoom(regions, e.x1, e.y1);
+    const b = resolveRoom(regions, e.x2, e.y2);
+    link(neighbors, a, b);
   }
-  return edges;
+
+  const result: GraphRegion[] = [];
+  for (const [name, set] of neighbors) {
+    result.push({ name, neighbors: Array.from(set) });
+  }
+  return result;
 }
 
-function nearestNode(nodes: GraphNode[], x: number, y: number): string | null {
-  let bestId: string | null = null;
-  let bestDist = SNAP_EPSILON;
-  for (const n of nodes) {
-    const dx = n.x - x;
-    const dy = n.y - y;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d <= bestDist) {
-      bestDist = d;
-      bestId = n.id;
-    }
-  }
-  return bestId;
+// aggiunge un collegamento simmetrico tra due sale (ignora vuoti e self-loop).
+function link(neighbors: Map<string, Set<string>>, a: string, b: string): void {
+  if (!a || !b) return;
+  if (a === b) return;
+  const sa = neighbors.get(a);
+  const sb = neighbors.get(b);
+  if (!sa || !sb) return;
+  sa.add(b);
+  sb.add(a);
 }
 
+// restituisce il centro geometrico dell'elemento SVG dagli attributi (cx/cy oppure x/y+w/h).
 function elementCenter(
   attrs: Record<string, string>,
 ): { x: number; y: number } | null {
@@ -352,6 +358,7 @@ function elementCenter(
   return null;
 }
 
+// estrae gli attributi nome="valore" da una stringa di attributi SVG grezzi.
 function parseAttrs(tag: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   const re = /([\w:-]+)\s*=\s*"([^"]*)"/g;
