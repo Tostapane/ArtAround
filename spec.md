@@ -144,6 +144,14 @@ Base path `/api`. All mounted in `server/src/index.ts`.
   - `POST /` `{texts:string[], target}` (`target` = Google Translate code, e.g. `fr`, `zh-CN`)
     → `{translations:string[]}`. Google Cloud Translation, in-memory cached by `target+text`.
     Source language is always Italian (`SOURCE_LANG` in `shared/constants.ts`).
+- **Wayfinding** `/api/wayfinding`
+  - `POST /` `{museumQid, from, target, language}` → `{directions}`. Loads the museum's SVG map
+    (by `mapPath`), parses it into a graph (`services/svgGraph.ts`, cached per map), runs Dijkstra
+    (`services/wayfinding.ts`) from the current artwork (`from` = its qid) to `target` (a POI type
+    `toilet|exit|bar|shop|emergency_exit|…`, the literal `"obstacles"`, or another artwork qid),
+    and verbalizes it via the LLM (`directionsFromRoute`, generated **directly** in `language`).
+    The graph guarantees the route (the sequence of rooms to cross) and the obstacles; the LLM
+    only phrases it.
 - `GET /api/health`.
 
 External services: **Gemini** (`@google/genai`, model `gemini-3.1-flash-lite`) and **Google
@@ -200,13 +208,37 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   languages are offered. **Requires the `Cloud Translation` API enabled on the `GOOGLE_API_KEY`
   project (and the key's API restrictions must allow it), and `@google-cloud/translate` installed
   server-side.**
+- **Wayfinding / logistic directions (18-33 georeferencing, QR/geo deferred)** — positional voice
+  commands & buttons ("Dove è il bagno?", "Dove esco?", "Ci sono ostacoli?") now answer with real
+  spoken+on-screen directions in the chosen language. **The SVG map is the single spatial source
+  of truth**: the curator enriches the map they already draw with `data-*` tags, the server parses
+  it into a graph and runs Dijkstra, and the LLM phrases the result (graph = correctness, LLM =
+  natural language). The deterministic output is the **sequence of rooms to cross** plus the
+  **obstacles** in them — rooms are *areas* and a node/obstacle's room is the area that contains it
+  (point-in-region), so an obstacle across a wall isn't reported. Pipeline: `services/svgGraph.ts`
+  (parse) → `services/wayfinding.ts` (route IR) → `services/llm.ts:directionsFromRoute` →
+  `routes/wayfinding.ts`; navigator calls it from `Info.vue` (`api.ts:getDirections`), current
+  position = the open artwork's qid. No museum-specific code; a new museum works by dropping in an
+  annotated SVG. **Not yet done:** QR/geo localization (would just change the source of "current
+  position"); drawing the route on the map.
+
+  **SVG annotation convention (curator contract)** — on the museum's SVG (`server/public/maps/*.svg`):
+  - room → a shape (circle/rect/polygon) with `data-room="Nome"` defining an **area**; a node's or
+    obstacle's room is the area that **contains** it (point-in-region, so walls/boundaries are
+    respected, not mere proximity). Areas are tested in document order — first containing area wins
+    (put more specific ones first). A shape may be both an area and a node (an artwork that is itself
+    a room).
+  - artwork node → `data-qid="Qxxx"` (center = position),
+  - POI node → `data-poi="exit|emergency_exit|toilet|bar|shop|elevator|stairs"` `[+ data-label]`,
+  - obstacle → `data-obstacle="steps|door|chairs|object"` + `data-desc`,
+  - edge → `<line data-edge …>` (reuse corridor lines); endpoints snap to the nearest node → adjacency.
 
 **Missing / broken (priority order)**
 1. 🟠 **Item publish is broken:** `routes/items.ts` looks up `ArtworkModel.findOne({wikiDataUri:…})`
    but the Artwork schema has no `wikiDataUri` → never matches → items never created via marketplace.
-2. 🟠 **Logistics not wired:** `Info.vue` maps all positional commands ("Dove esco?", "Dove è il
-   bagno?"…) to `"no"` (no answer); and `routes/visits.ts` filters `t.tipo === "logistics"` while
-   the editor emits `"logistica"` → logistics steps dropped on save.
+2. ✅ **Logistics — DONE:** positional commands now answer via the wayfinding pipeline (see
+   "Working / present"); `routes/visits.ts` `tipo` filter fixed to `"logistica"` so author-written
+   logistics persist (the *caricare* path) alongside the graph-generated directions (*creare*).
 3. 🟠 **Hardcoded env:** `App.vue` pins `museumId="Q6373"`; `navigator/src/api.ts` pins
    `http://localhost:8000`. Both must be config/relative for the docker deploy.
 4. 🟡 **Marketplace persistence:** users hardcoded (only `autore1`/`visitatore1` — need

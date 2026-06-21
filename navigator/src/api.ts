@@ -66,6 +66,32 @@ export async function getInfo(
 }
 
 // ============================================================================
+//                                 Wayfinding
+// ============================================================================
+
+// ritorna le indicazioni logistiche (in linguaggio naturale, nella lingua scelta)
+// dalla posizione `from` (qid dell'opera corrente) verso `target`: un tipo di POI
+// ("toilet"|"exit"|"bar"|"shop"|...), "obstacles", o il qid di un'altra opera.
+// Il percorso e' calcolato lato server sul grafo ricavato dalla mappa SVG.
+export async function getDirections(
+  museumQid: string,
+  from: string,
+  target: string,
+  language: string,
+): Promise<string> {
+  const res = await fetch(`${API_BASE}/wayfinding`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ museumQid, from, target, language }),
+  });
+  if (!res.ok) throw new Error(`Failed to fetch directions: ${res.statusText}`);
+  const data = await res.json();
+  return data.directions;
+}
+
+// ============================================================================
 //                                   Speech To Text
 // ============================================================================
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { getInfo } from "@/api";
+import { getInfo, getDirections } from "@/api";
 import { useTTS } from "./speech/useTTS";
-import { language } from "@/state";
+import { language, museum } from "@/state";
 import type { Match } from "../../../../shared/types";
 
 const tts = useTTS();
@@ -28,14 +28,50 @@ const canRead = computed(
 // ritardo (es. dopo un rapido cambio di lingua) non sovrascrive quella nuova.
 let requestId = 0;
 
+// comandi posizionali/logistici -> tipo di destinazione per il wayfinding.
+// Sono gestiti dal grafo ricavato dalla mappa, non dall'LLM sull'opera.
+const POSITIONAL: Record<string, string> = {
+  "Dove esco?": "exit",
+  "Dove e il bagno?": "toilet",
+  "Dove e il bar?": "bar",
+  "Dove e lo shop?": "shop",
+  "Ci sono ostacoli?": "obstacles",
+};
+
 // traduce il comando controllato in una richiesta per l'LLM.
 // Dipende anche dalla lingua: cambiandola, si richiede una nuova risposta
 // direttamente nella nuova lingua (l'LLM la genera, non la traduciamo).
 watch(
   () => [props.request, props.about, language.value],
   async () => {
-    let request = "no";
     const cleanRequest = props.request.trim();
+    const myId = ++requestId; // id di QUESTA richiesta
+    responseText.value = LOADING;
+
+    // comandi posizionali: indicazioni logistiche dal sistema di wayfinding.
+    const target = POSITIONAL[cleanRequest];
+    if (target) {
+      try {
+        let museumQid = "";
+        if (museum.value) museumQid = museum.value.qid;
+        const text = await getDirections(
+          museumQid,
+          props.about.artwork.qid,
+          target,
+          language.value.name,
+        );
+        if (myId !== requestId) return;
+        if (text) responseText.value = text;
+        else responseText.value = ERROR;
+      } catch (e) {
+        if (myId !== requestId) return;
+        responseText.value = ERROR;
+      }
+      return;
+    }
+
+    // altrimenti: richiesta all'LLM sul contenuto dell'opera.
+    let request = "no";
     switch (cleanRequest) {
       case "Non ho capito":
         request = "Spiegalo con parole diverese";
@@ -55,17 +91,8 @@ watch(
       case "Che stile e?":
         request = "Raccontami di piu' sullo stile di cui questa opera fa parte";
         break;
-      case "Dove esco?":
-      case "Dove e il bagno?":
-      case "Dove e il bar?":
-      case "Dove e lo shop?":
-      case "Ci sono ostacoli?":
-        request = "no";
-        break;
     }
 
-    const myId = ++requestId; // id di QUESTA richiesta
-    responseText.value = LOADING;
     try {
       const text = await getInfo(
         props.about.item.text,

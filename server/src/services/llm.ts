@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { options } from "../../../shared/constants";
 import { ItemModel } from "../models/item";
 import { insertArtwork } from "../dbActions";
+import { RouteIR } from "./wayfinding";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -86,6 +87,65 @@ export async function additionalDescription(
       contents: request,
     });
     console.log(response.text);
+    return response.text;
+  } catch (err) {
+    console.error("Error during the request", err);
+  }
+}
+
+// trasforma il percorso calcolato (RouteIR) in indicazioni parlate, nella lingua
+// scelta dall'utente. Il grafo garantisce il percorso; l'LLM lo rende naturale.
+// `language` e' il nome della lingua (es. "English"): l'LLM scrive direttamente
+// in quella lingua, evitando una traduzione successiva.
+export async function directionsFromRoute(route: RouteIR, language: string) {
+  try {
+    let body: string;
+
+    if (route.kind === "unavailable") {
+      body = `Non e' possibile calcolare il percorso (${route.reason}).
+              Comunica gentilmente all'utente che l'indicazione non e' disponibile.`;
+    } else if (route.kind === "obstacles") {
+      if (route.obstacles.length === 0) {
+        body = `L'utente si trova in "${route.from.room}" e chiede se ci sono ostacoli.
+                Non risultano ostacoli segnalati nelle vicinanze: rassicuralo.`;
+      } else {
+        const list = route.obstacles
+          .map((o) => `${o.description} (${o.type})`)
+          .join("; ");
+        body = `L'utente si trova in "${route.from.room}" e chiede se ci sono ostacoli.
+                Ostacoli segnalati: ${list}.
+                Elencali in modo chiaro e conciso.`;
+      }
+    } else {
+      let pathLine = "La destinazione e' nella stessa sala.";
+      if (route.steps.length > 0) {
+        pathLine = `Sale da attraversare, in ordine: ${route.steps.join(" -> ")}.`;
+      }
+      let obstacleLine = "";
+      if (route.obstacles.length > 0) {
+        const list = route.obstacles
+          .map((o) => `${o.description}`)
+          .join("; ");
+        obstacleLine = `Lungo il percorso fai attenzione a: ${list}.`;
+      }
+      let destination = route.to.label;
+      if (!destination) destination = route.to.room;
+      body = `L'utente si trova in "${route.from.room}" e vuole raggiungere "${destination}".
+              ${pathLine}
+              ${obstacleLine}
+              Genera indicazioni brevi e chiare seguendo ESATTAMENTE il percorso.
+              NON inventare sale o luoghi non elencati.`;
+    }
+
+    const request = `Sei una guida museale che fornisce indicazioni di orientamento.
+                    Non interagire con l'utente, sii impersonale, scrivi solo in plain text,
+                    niente simboli o asterischi.
+                    ${body}
+                    IMPORTANTE: scrivi la risposta ESCLUSIVAMENTE in lingua ${language}.`;
+    const response = await ai.models.generateContent({
+      model: MODEL_LIGHT,
+      contents: request,
+    });
     return response.text;
   } catch (err) {
     console.error("Error during the request", err);

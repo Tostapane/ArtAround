@@ -99,7 +99,7 @@ router.post("/", async (req, res) => {
           [],
         logistics:
           payload.percorso
-            ?.filter((t: any) => t.tipo === "logistics")
+            ?.filter((t: any) => t.tipo === "logistica")
             .map((t: any) => t.indicazione) ||
           payload.logistics ||
           [],
