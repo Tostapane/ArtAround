@@ -7,10 +7,13 @@ defineEmits<{
   action: [value: string];
 }>();
 
-// raggruppa i comandi per "group" mantenendo l'ordine di constants.ts
+// raggruppa i comandi per "group" mantenendo l'ordine di constants.ts.
+// Mostra solo i comandi con superficie "panel": quelli "card" (Prossimo/
+// Precedente) hanno il loro pulsante equivalente dentro la scheda dell'opera.
 const grouped = computed(() => {
   const map = new Map<string, typeof options>();
   for (const o of options) {
+    if (o.surface !== "panel") continue;
     if (!map.has(o.group)) map.set(o.group, []);
     map.get(o.group)!.push(o);
   }

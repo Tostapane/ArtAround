@@ -123,6 +123,11 @@ Base path `/api`. All mounted in `server/src/index.ts`.
 - **Artworks** `/api/artworks`
   - `GET /` → all artworks.
   - `GET /:qid/items` → items for a QID, grouped by author (marked "DA AGGIUSTARE").
+  - `GET /:qid/preview?level=<lvl>&duration=<sec>` → `{artwork, item}` (a `Match`) for a
+    **single** artwork even if it's **not in the current visit** (used by the QR scanner).
+    Picks the item matching level **and** duration, falling back to level-only then any; if the
+    artwork has **no** item, generates one via the LLM (`createDescription`) for that level+duration
+    and persists it as `@id = "<qid>-AI-<level>-<duration>"` (author `"AI"`).
 - **Items** `/api/items`
   - `GET /author/:authorName` → author's items (populates `about`).
   - `POST /` → upsert item. Accepts marketplace format (`tipo:"Item"`) **or** Schema.org
@@ -133,6 +138,9 @@ Base path `/api`. All mounted in `server/src/index.ts`.
 - **Museums** `/api/museums`
   - `GET /` → all. `GET /:id` → museum by **qid**. `GET /:id/artworks` → artworks where
     `ofMuseum === "http://www.wikidata.org/entity" + id` (⚠️ note: **no `/` before qid**).
+  - `GET /:qid/qrcodes` → **printable HTML** sheet with one QR per artwork (payload = the bare
+    artwork qid). The curator's "foglio di carta" for QR localization; fully generic (driven by
+    the museum's artworks). Uses the `qrcode` npm module server-side.
 - **LLM** `/api/llm`
   - `POST /newInfo` → `{previous, userReq, language}` → enriched description (Gemini), generated
     **directly in `language`** (the language's display name, e.g. `"English"`). (NOT `/addInfo`.)
@@ -212,15 +220,45 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   commands & buttons ("Dove è il bagno?", "Dove esco?", "Ci sono ostacoli?") now answer with real
   spoken+on-screen directions in the chosen language. **The SVG map is the single spatial source
   of truth**: the curator enriches the map they already draw with `data-*` tags, the server parses
-  it into a graph and runs Dijkstra, and the LLM phrases the result (graph = correctness, LLM =
-  natural language). The deterministic output is the **sequence of rooms to cross** plus the
+  it into a graph of **rooms** and runs a BFS (fewest rooms to cross), and the LLM phrases the
+  result (graph = correctness, LLM =
+  natural language). **QR localization is now implemented** (see below). The deterministic output is the **sequence of rooms to cross** plus the
   **obstacles** in them — rooms are *areas* and a node/obstacle's room is the area that contains it
   (point-in-region), so an obstacle across a wall isn't reported. Pipeline: `services/svgGraph.ts`
   (parse) → `services/wayfinding.ts` (route IR) → `services/llm.ts:directionsFromRoute` →
   `routes/wayfinding.ts`; navigator calls it from `Info.vue` (`api.ts:getDirections`), current
   position = the open artwork's qid. No museum-specific code; a new museum works by dropping in an
-  annotated SVG. **Not yet done:** QR/geo localization (would just change the source of "current
-  position"); drawing the route on the map.
+  annotated SVG. **Not yet done:** device geolocation (the "versione avanzata"); drawing the route
+  on the map.
+
+- **QR localization (18-33 "versione base") — DONE.** A QR beside each artwork simulates physical
+  presence near it (slides: *"simulare la presenza fisica vicino ad un oggetto"*). Design decided
+  with the user: the QR is **position-only**, scanned by an **in-app scanner** (no deep-link/reload,
+  so the in-progress visit/language/progress never leave memory), and the payload is the **bare
+  qid**. Pipeline: `composables/useQRScanner.ts` (getUserMedia + `jsqr`) → `components/map/QRScanner.vue`
+  (modal, tolerant qid extraction) → `MainView.onScan`. The scan only sets `currentArtwork`:
+  - **Selection model refactored** from an index into `matchedContent` to a `Match` object
+    (`MainView`: `currentArtwork` + `lastVisitIndex`), so an artwork **outside** the visit can be
+    shown. Out-of-visit artworks are fetched via `GET /api/artworks/:qid/preview` and flagged in
+    `Card.vue` with "Non fa parte di questa visita"; the visit's progress is untouched.
+  - **"Prossimo"/"Precedente" point to the REAL next/prev** relative to actual position: if in the
+    visit, the item after the current one (skips honored); on an off-visit detour, resume from
+    `lastVisitIndex`. Clamped at the ends (buttons disabled), no more modulo wrap.
+  - **Voice-ready without OptionsBar clutter:** `shared/constants.ts` options gained a
+    `surface: "panel"|"card"` tag. The controlled vocabulary stays single-source (so `mapRequest`
+    recognizes `"Prossimo"/"Precedente"`), but `OptionsBar` renders only `surface:"panel"` while the
+    Card's nav buttons (driven from the `surface:"card"` entries) are their on-screen equivalent.
+    `MainView.actionHandler` routes the nav voice commands into `navigationHandler`.
+  - **Curator QR sheet:** `GET /api/museums/:qid/qrcodes` returns a printable page (`qrcode` npm).
+  - **Deps:** `jsqr` (navigator) + `qrcode`/`@types/qrcode` (server) — installed and **verified
+    working** end-to-end. NB: `node_modules` is root-owned (docker), so future `npm install` must run
+    as root / via docker (see `[[node-modules-root-owned]]` note).
+  - ⚠️ **Camera needs a secure context:** `getUserMedia` only works on `localhost` or HTTPS — opening
+    the navigator via a LAN IP silently blocks the camera. The scanner requests the rear camera
+    (`facingMode: environment`) and falls back to any camera (laptops).
+  - **Testing note:** the seed puts **every** museum artwork into **every** visit of that museum
+    (`seed.ts`), so within one museum nothing is "out of visit". To exercise the preview path, scan a
+    QR from a **different** museum's sheet (e.g. a Q19675 code while in a Q6373 visit).
 
   **SVG annotation convention (curator contract)** — on the museum's SVG (`server/public/maps/*.svg`):
   - room → a shape (circle/rect/polygon) with `data-room="Nome"` defining an **area**; a node's or
@@ -231,7 +269,13 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   - artwork node → `data-qid="Qxxx"` (center = position),
   - POI node → `data-poi="exit|emergency_exit|toilet|bar|shop|elevator|stairs"` `[+ data-label]`,
   - obstacle → `data-obstacle="steps|door|chairs|object"` + `data-desc`,
-  - edge → `<line data-edge …>` (reuse corridor lines); endpoints snap to the nearest node → adjacency.
+  - edge → `<line data-edge …>` between two rooms; each endpoint resolves to the room that
+    **contains** it (not to the nearest node) → those two rooms are linked.
+
+  Connectivity is **authored only** (edges) — no geometric adjacency is inferred — so
+  **every walkable space must be a `data-room` region** (corridors and halls included), otherwise
+  it cannot appear among the rooms to cross. Single-floor maps only; multi-floor is one map per
+  floor (vertical links via `data-edge` are a future extension).
 
 **Missing / broken (priority order)**
 1. 🟠 **Item publish is broken:** `routes/items.ts` looks up `ArtworkModel.findOne({wikiDataUri:…})`
@@ -244,7 +288,8 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
 4. 🟡 **Marketplace persistence:** users hardcoded (only `autore1`/`visitatore1` — need
    `autore2`/`visitatore2`); wallet/collection/purchases not saved to DB (reset on reload).
    License/adoptions/sales mgmt mostly absent (only `price`).
-5. 🟡 **Extensions not started:** teacher sync + quiz (18-27); QR/geo + teleport (18-33).
+5. 🟡 **Extensions partially done:** teacher sync + quiz (18-27) not started; for 18-33, **QR
+   localization is done and working** (see §5 above), **teleport + device geolocation not started**.
 6. 🟡 **Hygiene:** many `console.log`, dead imports (`AudioRecorder` in `MainView`,
    `getAllArtworks` in `state.ts`), `navigationHandler` prev can go negative (`(idx-1)%len`),
    open TODOs at top of `shared/types.ts` (custom-visit handoff marketplace↔navigator, multiple

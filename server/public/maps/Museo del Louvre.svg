@@ -1,30 +1,100 @@
 <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
-  <rect x="10" y="10" width="780" height="580" fill="#f0f0f0" stroke="#333" stroke-width="4" />
+  <!-- Cornice / muro perimetrale dell'edificio -->
+  <rect x="10" y="10" width="780" height="580" fill="#fbfbf9" stroke="#333" stroke-width="4" />
 
-  <line x1="400" y1="10" x2="400" y2="250" stroke="#333" stroke-width="4" />
-  <line x1="400" y1="350" x2="400" y2="590" stroke="#333" stroke-width="4" />
+  <!-- Sale (AREE data-room): tre ali in alto, la Hall Napoleon (fascia centrale)
+       e due gallerie in basso. Tutte le ali si collegano alla Hall (hub). Ogni
+       area ha il suo colore; il nodo/ostacolo prende l'area che lo contiene. -->
+  <g pointer-events="none">
+    <rect data-room="Ala Richelieu"     x="10"  y="10"  width="260" height="250" fill="#d7e6fb" />
+    <rect data-room="Antichita Egizie"  x="270" y="10"  width="260" height="250" fill="#efd9b0" />
+    <rect data-room="Ala Denon"         x="530" y="10"  width="260" height="250" fill="#f6d9e6" />
+    <rect data-room="Hall Napoleon"     x="10"  y="260" width="780" height="80"  fill="#e6e2da" />
+    <rect data-room="Ala Sully"         x="10"  y="340" width="390" height="250" fill="#d6f0e0" />
+    <rect data-room="Galleria Apollo"   x="400" y="340" width="390" height="250" fill="#efe7c2" />
+  </g>
 
-  <line x1="10" y1="300" x2="150" y2="300" stroke="#333" stroke-width="4" />
-  <line x1="250" y1="300" x2="550" y2="300" stroke="#333" stroke-width="4" />
-  <line x1="650" y1="300" x2="790" y2="300" stroke="#333" stroke-width="4" />
+  <!-- Etichette delle sale -->
+  <g font-family="sans-serif" font-size="13" font-weight="600" fill="#5a5a5a" text-anchor="middle" pointer-events="none">
+    <text x="140" y="30">Ala Richelieu</text>
+    <text x="400" y="30">Antichita Egizie</text>
+    <text x="660" y="30">Ala Denon</text>
+    <text x="400" y="332">Hall Napoleon</text>
+    <text x="200" y="362">Ala Sully</text>
+    <text x="595" y="362">Galleria Apollo</text>
+  </g>
 
-  <line x1="600" y1="10" x2="600" y2="150" stroke="#333" stroke-width="2" />
-  <line x1="200" y1="450" x2="200" y2="590" stroke="#333" stroke-width="2" />
+  <!-- Muri interni: linee con un VARCO = porta tra due sale. -->
+  <g stroke="#333" stroke-width="4" stroke-linecap="square">
+    <!-- muro alto y=260 tra le ali e la Hall (varchi a x=140, x=400, x=660) -->
+    <line x1="10"  y1="260" x2="120" y2="260" />
+    <line x1="160" y1="260" x2="380" y2="260" />
+    <line x1="420" y1="260" x2="640" y2="260" />
+    <line x1="680" y1="260" x2="790" y2="260" />
+    <!-- muro basso y=340 tra la Hall e le gallerie (varchi a x=200, x=600) -->
+    <line x1="10"  y1="340" x2="180" y2="340" />
+    <line x1="220" y1="340" x2="580" y2="340" />
+    <line x1="620" y1="340" x2="790" y2="340" />
+    <!-- divisori verticali tra le ali in alto (muri pieni: si passa dalla Hall) -->
+    <line x1="270" y1="10" x2="270" y2="260" />
+    <line x1="530" y1="10" x2="530" y2="260" />
+    <!-- divisorio verticale tra le gallerie in basso -->
+    <line x1="400" y1="340" x2="400" y2="590" />
+  </g>
 
-  <circle id="art-1" class="interactive-node" cx="80" cy="80" r="10" fill="gray" />
-  <circle id="art-2" class="interactive-node" cx="300" cy="80" r="10" fill="gray" />
-  <circle id="art-3" class="interactive-node" cx="190" cy="180" r="15" fill="#555" />
-  
-  <rect id="art-4" class="interactive-node" x="450" y="50" width="30" height="30" fill="gray" />
-  <rect id="art-5" class="interactive-node" x="680" y="80" width="20" height="40" fill="gray" />
-  <circle id="art-6" class="interactive-node" cx="500" cy="200" r="10" fill="gray" />
+  <!-- Grafo di navigazione: ogni <line data-edge> collega una sala alla Hall
+       passando per un varco. Quasi invisibile. -->
+  <g id="nav-edges" stroke="#6b7c8a" stroke-width="1.5" stroke-dasharray="3,5" opacity="0.08">
+    <line data-edge x1="140" y1="230" x2="140" y2="300" /> <!-- Richelieu <-> Hall -->
+    <line data-edge x1="400" y1="230" x2="400" y2="300" /> <!-- Egizie <-> Hall -->
+    <line data-edge x1="660" y1="230" x2="660" y2="300" /> <!-- Denon <-> Hall -->
+    <line data-edge x1="200" y1="310" x2="200" y2="370" /> <!-- Hall <-> Sully -->
+    <line data-edge x1="600" y1="310" x2="600" y2="370" /> <!-- Hall <-> Apollo -->
+  </g>
 
-  <circle id="art-7" class="interactive-node" cx="100" cy="400" r="12" fill="gray" />
-  <circle id="art-8" class="interactive-node" cx="100" cy="500" r="12" fill="gray" />
-  <circle id="art-9" class="interactive-node" cx="300" cy="500" r="10" fill="gray" />
+  <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks e
+       data-qid col relativo qid. -->
+  <!-- Ala Richelieu -->
+  <circle id="art-1"  class="interactive-node" data-qid="Q151050"  cx="80"  cy="80"  r="11" fill="gray" />
+  <rect   id="art-2"  class="interactive-node" data-qid="Q199392"  x="178" y="68"  width="24" height="24" fill="gray" />
+  <circle id="art-3"  class="interactive-node" data-qid="Q728973"  cx="110" cy="180" r="11" fill="gray" />
+  <!-- Antichita Egizie -->
+  <circle id="art-4"  class="interactive-node" data-qid="Q154336"  cx="340" cy="95"  r="11" fill="gray" />
+  <circle id="art-5"  class="interactive-node" data-qid="Q210161"  cx="460" cy="175" r="11" fill="gray" />
+  <!-- Ala Denon -->
+  <circle id="art-6"  class="interactive-node" data-qid="Q1053759" cx="610" cy="95"  r="11" fill="gray" />
+  <rect   id="art-7"  class="interactive-node" data-qid="Q2344133" x="708" y="158" width="24" height="24" fill="#555" />
+  <!-- Hall Napoleon -->
+  <circle id="art-8"  class="interactive-node" data-qid="Q2626554" cx="250" cy="300" r="13" fill="#333" />
+  <!-- Ala Sully -->
+  <circle id="art-9"  class="interactive-node" data-qid="Q2247953" cx="90"  cy="430" r="11" fill="gray" />
+  <circle id="art-10" class="interactive-node" data-qid="Q2266515" cx="200" cy="520" r="11" fill="gray" />
+  <circle id="art-11" class="interactive-node" data-qid="Q797909"  cx="320" cy="440" r="11" fill="gray" />
+  <!-- Galleria Apollo -->
+  <circle id="art-12" class="interactive-node" data-qid="Q275454"  cx="520" cy="450" r="11" fill="gray" />
+  <circle id="art-13" class="interactive-node" data-qid="Q2266521" cx="680" cy="520" r="11" fill="gray" />
 
-  <circle id="art-10" class="interactive-node" cx="480" cy="450" r="10" fill="gray" />
-  <circle id="art-11" class="interactive-node" cx="600" cy="450" r="10" fill="gray" />
-  <circle id="art-12" class="interactive-node" cx="720" cy="450" r="10" fill="gray" />
-  <circle id="art-13" class="interactive-node" cx="750" cy="150" r="10" fill="gray" />
+  <!-- Punti di interesse (POI): data-poi = tipo, data-label = nome mostrato/letto. -->
+  <g id="pois" font-family="sans-serif" font-size="12" fill="#1d4ed8" text-anchor="middle">
+    <circle class="poi-node" data-poi="exit" data-label="Uscita" cx="740" cy="300" r="8" fill="#1d4ed8" />
+    <text x="740" y="320">Uscita</text>
+    <circle class="poi-node" data-poi="bar" data-label="Caffetteria" cx="70" cy="300" r="8" fill="#1d4ed8" />
+    <text x="70" y="320">Bar</text>
+    <circle class="poi-node" data-poi="elevator" data-label="Ascensore" cx="500" cy="300" r="8" fill="#1d4ed8" />
+    <text x="500" y="320">Lift</text>
+    <circle class="poi-node" data-poi="toilet" data-label="Toilette" cx="350" cy="560" r="8" fill="#1d4ed8" />
+    <text x="350" y="580">WC</text>
+    <circle class="poi-node" data-poi="shop" data-label="Librairie" cx="470" cy="560" r="8" fill="#1d4ed8" />
+    <text x="470" y="580">Shop</text>
+    <circle class="poi-node" data-poi="emergency_exit" data-label="Uscita di emergenza" cx="760" cy="35" r="8" fill="#16a34a" />
+    <text x="760" y="55" fill="#16a34a">SOS</text>
+  </g>
+
+  <!-- Ostacoli di accessibilita': data-obstacle = tipo, data-desc = descrizione.
+       La POSIZIONE del marker decide in quale sala (area) ricade. -->
+  <g id="obstacles" fill="#dc2626" opacity="0.85">
+    <rect class="obstacle-marker" data-obstacle="object" data-desc="una grande statua egizia che ingombra il centro della sala" x="294" y="164" width="12" height="12" />
+    <rect class="obstacle-marker" data-obstacle="steps" data-desc="due gradini tra la Hall Napoleon e l'Ala Sully" x="185" y="360" width="12" height="12" />
+    <rect class="obstacle-marker" data-obstacle="chairs" data-desc="alcune sedute al centro della Galleria Apollo" x="554" y="454" width="12" height="12" />
+  </g>
 </svg>

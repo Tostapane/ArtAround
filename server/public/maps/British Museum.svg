@@ -1,89 +1,92 @@
 <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
-  <rect x="10" y="10" width="780" height="580" fill="#e8eef2" stroke="#333" stroke-width="4" />
+  <!-- Cornice / muro perimetrale dell'edificio -->
+  <rect x="10" y="10" width="780" height="580" fill="#fbfbf9" stroke="#333" stroke-width="4" />
 
-  <!-- Sala Centrale: l'AREA del cerchio. Le sale sono regioni (data-room): la sala
-       di un nodo/ostacolo e' quella la cui area lo contiene. -->
-  <circle data-room="Sala Centrale" cx="400" cy="300" r="120" fill="white" stroke="#333" stroke-width="3" />
-
-  <!-- Aree delle ali: fasce (rect) attorno alla Sala Centrale, allineate ai gruppi
-       di nodi. Invisibili: servono solo a definire le sale. Valutate dopo la Sala
-       Centrale, che quindi vince al centro (prima area che contiene il punto). -->
-  <g fill="none" stroke="none" pointer-events="none">
-    <rect data-room="Ala Nord"  x="10"  y="10"  width="780" height="240" />
-    <rect data-room="Ala Sud"   x="10"  y="350" width="780" height="240" />
-    <rect data-room="Ala Ovest" x="10"  y="250" width="280" height="100" />
-    <rect data-room="Ala Est"   x="510" y="250" width="280" height="100" />
+  <!-- Sale (AREE data-room): la Sala Centrale rettangolare al centro, quattro ali
+       intorno. Ogni area ha il suo colore; il nodo/ostacolo prende la sala la cui
+       area lo contiene. Le aree si toccano senza sovrapporsi. -->
+  <g pointer-events="none">
+    <rect data-room="Sala Centrale" x="280" y="220" width="240" height="160" fill="#fdf6e3" />
+    <rect data-room="Ala Nord"      x="10"  y="10"  width="780" height="210" fill="#dceefb" />
+    <rect data-room="Ala Sud"       x="10"  y="380" width="780" height="210" fill="#dcf5e3" />
+    <rect data-room="Ala Ovest"     x="10"  y="220" width="270" height="160" fill="#fde7d2" />
+    <rect data-room="Ala Est"       x="520" y="220" width="270" height="160" fill="#f8dde6" />
   </g>
 
-  <!-- Radial corridors (decorativi) -->
-  <line x1="400" y1="180" x2="400" y2="50" stroke="#333" stroke-width="4" />
-  <line x1="400" y1="420" x2="400" y2="550" stroke="#333" stroke-width="4" />
-  <line x1="280" y1="300" x2="50" y2="300" stroke="#333" stroke-width="4" />
-  <line x1="520" y1="300" x2="750" y2="300" stroke="#333" stroke-width="4" />
-
-  <!-- Grafo di navigazione: ogni <line data-edge> collega due nodi (estremi = centri dei nodi).
-       Il parser ne aggancia gli estremi al nodo piu' vicino per ricavare l'adiacenza. -->
-  <g id="nav-edges" stroke="#b9c4cc" stroke-width="2" stroke-dasharray="4,4" opacity="0.6">
-    <line data-edge x1="400" y1="300" x2="400" y2="100" />
-    <line data-edge x1="400" y1="300" x2="400" y2="500" />
-    <line data-edge x1="400" y1="300" x2="100" y2="300" />
-    <line data-edge x1="400" y1="300" x2="700" y2="300" />
-    <line data-edge x1="400" y1="100" x2="250" y2="200" />
-    <line data-edge x1="400" y1="100" x2="550" y2="200" />
-    <line data-edge x1="250" y1="200" x2="162.5" y2="112.5" />
-    <line data-edge x1="550" y1="200" x2="637.5" y2="112.5" />
-    <line data-edge x1="400" y1="500" x2="250" y2="400" />
-    <line data-edge x1="400" y1="500" x2="550" y2="400" />
-    <line data-edge x1="250" y1="400" x2="162.5" y2="487.5" />
-    <line data-edge x1="550" y1="400" x2="637.5" y2="487.5" />
-    <line data-edge x1="100" y1="300" x2="250" y2="200" />
-    <line data-edge x1="100" y1="300" x2="250" y2="400" />
-    <line data-edge x1="700" y1="300" x2="550" y2="200" />
-    <line data-edge x1="700" y1="300" x2="550" y2="400" />
-    <!-- collegamenti ai punti di interesse -->
-    <line data-edge x1="400" y1="500" x2="400" y2="560" />
-    <line data-edge x1="400" y1="500" x2="490" y2="545" />
-    <line data-edge x1="700" y1="300" x2="740" y2="285" />
-    <line data-edge x1="100" y1="300" x2="60" y2="300" />
-    <line data-edge x1="637.5" y1="112.5" x2="637.5" y2="45" />
+  <!-- Etichette delle sale -->
+  <g font-family="sans-serif" font-size="13" font-weight="600" fill="#5a5a5a" text-anchor="middle" pointer-events="none">
+    <text x="400" y="28">Ala Nord</text>
+    <text x="400" y="575">Ala Sud</text>
+    <text x="120" y="240">Ala Ovest</text>
+    <text x="680" y="240">Ala Est</text>
+    <text x="400" y="215">Sala Centrale</text>
   </g>
 
-  <!-- Nodi-opera: data-qid mappa il nodo all'artwork (ordine di seed del museo Q6373).
-       La sala NON e' etichettata qui: deriva dall'area che contiene il nodo. -->
-  <circle id="art-1" class="interactive-node" data-qid="Q137925932" cx="400" cy="300" r="15" fill="#555" />
-  <circle id="art-2" class="interactive-node" data-qid="Q110812274" cx="400" cy="100" r="10" fill="gray" />
-  <circle id="art-3" class="interactive-node" data-qid="Q216402" cx="400" cy="500" r="10" fill="gray" />
-  <circle id="art-4" class="interactive-node" data-qid="Q107343185" cx="100" cy="300" r="10" fill="gray" />
-  <circle id="art-5" class="interactive-node" data-qid="Q102257724" cx="700" cy="300" r="10" fill="gray" />
+  <!-- Muri interni: linee con un VARCO = porta. La Sala Centrale ha una porta su
+       ogni lato verso l'ala corrispondente; il resto dei divisori e' muro pieno. -->
+  <g stroke="#333" stroke-width="4" stroke-linecap="square">
+    <!-- muro y=220 (Ala Nord | fascia centrale), varco a x=400 verso la Sala Centrale -->
+    <line x1="10"  y1="220" x2="380" y2="220" />
+    <line x1="420" y1="220" x2="790" y2="220" />
+    <!-- muro y=380 (fascia centrale | Ala Sud), varco a x=400 -->
+    <line x1="10"  y1="380" x2="380" y2="380" />
+    <line x1="420" y1="380" x2="790" y2="380" />
+    <!-- muro x=280 (Ala Ovest | Sala Centrale), varco a y=300 -->
+    <line x1="280" y1="220" x2="280" y2="280" />
+    <line x1="280" y1="320" x2="280" y2="380" />
+    <!-- muro x=520 (Sala Centrale | Ala Est), varco a y=300 -->
+    <line x1="520" y1="220" x2="520" y2="280" />
+    <line x1="520" y1="320" x2="520" y2="380" />
+  </g>
 
-  <rect id="art-6" class="interactive-node" data-qid="Q104411621" x="150" y="100" width="25" height="25" fill="gray" />
-  <rect id="art-7" class="interactive-node" data-qid="Q212616" x="625" y="100" width="25" height="25" fill="gray" />
-  <rect id="art-8" class="interactive-node" data-qid="Q28110217" x="150" y="475" width="25" height="25" fill="gray" />
-  <rect id="art-9" class="interactive-node" data-qid="Q117745912" x="625" y="475" width="25" height="25" fill="gray" />
+  <!-- Grafo di navigazione: ogni <line data-edge> collega la Sala Centrale a
+       un'ala passando per il varco. Quasi invisibile. -->
+  <g id="nav-edges" stroke="#6b7c8a" stroke-width="1.5" stroke-dasharray="3,5" opacity="0.08">
+    <line data-edge x1="400" y1="190" x2="400" y2="250" /> <!-- Sala Centrale <-> Ala Nord -->
+    <line data-edge x1="400" y1="350" x2="400" y2="410" /> <!-- Sala Centrale <-> Ala Sud -->
+    <line data-edge x1="250" y1="300" x2="310" y2="300" /> <!-- Ala Ovest <-> Sala Centrale -->
+    <line data-edge x1="490" y1="300" x2="550" y2="300" /> <!-- Sala Centrale <-> Ala Est -->
+  </g>
 
-  <circle id="art-10" class="interactive-node" data-qid="Q95571270" cx="250" cy="200" r="10" fill="gray" />
-  <circle id="art-11" class="interactive-node" data-qid="Q1992041" cx="550" cy="200" r="10" fill="gray" />
-  <circle id="art-12" class="interactive-node" data-qid="Q28128822" cx="250" cy="400" r="10" fill="gray" />
-  <circle id="art-13" class="interactive-node" data-qid="Q21518246" cx="550" cy="400" r="10" fill="gray" />
+  <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks (il
+       seed assegna locationId=art-N in quell'ordine) e data-qid col relativo qid. -->
+  <!-- Sala Centrale -->
+  <circle id="art-1"  class="interactive-node" data-qid="Q137925932" cx="400" cy="300" r="14" fill="#333" />
+  <!-- Ala Nord -->
+  <circle id="art-2"  class="interactive-node" data-qid="Q110812274" cx="400" cy="95"  r="10" fill="gray" />
+  <rect   id="art-6"  class="interactive-node" data-qid="Q104411621" x="138" y="80"  width="24" height="24" fill="gray" />
+  <rect   id="art-7"  class="interactive-node" data-qid="Q212616"    x="628" y="80"  width="24" height="24" fill="gray" />
+  <circle id="art-10" class="interactive-node" data-qid="Q95571270"  cx="260" cy="165" r="10" fill="gray" />
+  <circle id="art-11" class="interactive-node" data-qid="Q1992041"   cx="540" cy="165" r="10" fill="gray" />
+  <!-- Ala Sud -->
+  <circle id="art-3"  class="interactive-node" data-qid="Q216402"    cx="400" cy="500" r="10" fill="gray" />
+  <rect   id="art-8"  class="interactive-node" data-qid="Q28110217"  x="138" y="488" width="24" height="24" fill="gray" />
+  <rect   id="art-9"  class="interactive-node" data-qid="Q117745912" x="628" y="488" width="24" height="24" fill="gray" />
+  <circle id="art-12" class="interactive-node" data-qid="Q28128822"  cx="260" cy="450" r="10" fill="gray" />
+  <circle id="art-13" class="interactive-node" data-qid="Q21518246"  cx="540" cy="450" r="10" fill="gray" />
+  <!-- Ala Ovest -->
+  <circle id="art-4"  class="interactive-node" data-qid="Q107343185" cx="140" cy="300" r="10" fill="gray" />
+  <!-- Ala Est -->
+  <circle id="art-5"  class="interactive-node" data-qid="Q102257724" cx="650" cy="300" r="10" fill="gray" />
 
   <!-- Punti di interesse (POI): data-poi = tipo, data-label = nome mostrato/letto. -->
   <g id="pois" font-family="sans-serif" font-size="12" fill="#1d4ed8" text-anchor="middle">
     <circle class="poi-node" data-poi="exit" data-label="Uscita" cx="400" cy="560" r="8" fill="#1d4ed8" />
     <text x="400" y="582">Uscita</text>
-    <circle class="poi-node" data-poi="shop" data-label="Bookshop" cx="490" cy="545" r="8" fill="#1d4ed8" />
-    <text x="490" y="567">Shop</text>
-    <circle class="poi-node" data-poi="toilet" data-label="Toilette" cx="740" cy="285" r="8" fill="#1d4ed8" />
-    <text x="740" y="307">WC</text>
+    <circle class="poi-node" data-poi="shop" data-label="Bookshop" cx="500" cy="545" r="8" fill="#1d4ed8" />
+    <text x="500" y="567">Shop</text>
+    <circle class="poi-node" data-poi="toilet" data-label="Toilette" cx="740" cy="300" r="8" fill="#1d4ed8" />
+    <text x="740" y="322">WC</text>
     <circle class="poi-node" data-poi="bar" data-label="Caffetteria" cx="60" cy="300" r="8" fill="#1d4ed8" />
     <text x="60" y="322">Bar</text>
-    <circle class="poi-node" data-poi="emergency_exit" data-label="Uscita di emergenza" cx="637.5" cy="45" r="8" fill="#16a34a" />
-    <text x="637.5" y="32" fill="#16a34a">SOS</text>
+    <circle class="poi-node" data-poi="emergency_exit" data-label="Uscita di emergenza" cx="640" cy="40" r="8" fill="#16a34a" />
+    <text x="640" y="27" fill="#16a34a">SOS</text>
   </g>
 
   <!-- Ostacoli di accessibilita': data-obstacle = tipo, data-desc = descrizione.
        La POSIZIONE del marker decide in quale sala (area) ricade. -->
   <g id="obstacles" fill="#dc2626" opacity="0.85">
-    <rect class="obstacle-marker" data-obstacle="steps" data-desc="due gradini verso l'uscita nord della Sala Centrale" x="360" y="255" width="10" height="10" />
-    <rect class="obstacle-marker" data-obstacle="chairs" data-desc="alcune sedie disposte a meta' sala" x="295" y="415" width="10" height="10" />
+    <rect class="obstacle-marker" data-obstacle="steps" data-desc="due gradini verso l'uscita nord della Sala Centrale" x="355" y="245" width="12" height="12" />
+    <rect class="obstacle-marker" data-obstacle="chairs" data-desc="alcune sedie disposte a meta' sala" x="294" y="445" width="12" height="12" />
   </g>
 </svg>

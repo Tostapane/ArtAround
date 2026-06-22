@@ -1,9 +1,9 @@
 // NOTA: modificare questi valori non cambia immediatamente il navigator,
 // vengono visualizzate le difficolta e tempi contenute dentro al database
 
-export const educationalLevels = ["Principiante"];
+export const educationalLevels = ["Principiante", "Intermedio", "Avanzato"];
 
-export const secPerArt = [15];
+export const secPerArt = [15, 30, 60];
 
 // Lingua di partenza dei contenuti salvati nel database (italiano).
 // La traduzione live converte da questa lingua a quella scelta dall'utente.
@@ -36,19 +36,35 @@ export const languages: Language[] = [
   { name: "Türkçe", translate: "tr", tts: "tr-TR", stt: "tr-TR" },
 ];
 
-export const options = [
-  { group: "Lettura", id: "Leggi", label: "Leggi" },
-  { group: "Lettura", id: "Ferma lettura", label: "Ferma lettura" },
-  { group: "Contenuto", id: "Non ho capito", label: "Non ho capito" },
-  { group: "Contenuto", id: "Sintetizza", label: "Sintetizza" },
-  { group: "Contenuto", id: "Approfondisci", label: "Approfondisci" },
-  { group: "Contenuto", id: "Semplifica", label: "Semplifica" },
-  { group: "Dettaglio", id: "Chi e' l'autore?", label: "Chi e' l'autore?" },
-  { group: "Dettaglio", id: "Che stile e?", label: "Che stile e?" },
-  { group: "Posizionale", id: "Dove esco?", label: "Dove esco?" },
-  { group: "Posizionale", id: "Dove e il bagno?", label: "Dove e il bagno?" },
-  { group: "Posizionale", id: "Dove e il bar?", label: "Dove e il bar?" },
-  { group: "Posizionale", id: "Dove e lo shop?", label: "Dove lo shop?" },
-  { group: "Posizionale", id: "Ci sono ostacoli?", label: "Ci sono ostacoli?" },
-  { group: "Altro", id: "Altro", label: "Altro" },
+// Un comando del vocabolario controllato. `surface` indica DOVE vive il pulsante
+// on-screen equivalente (richiesto dalla specifica): "panel" = griglia dell'
+// OptionsBar, "card" = pulsanti di navigazione dentro la scheda dell'opera.
+// Il vocabolario resta UNICO (mapRequest mappa su tutti i comandi); cambia solo
+// la superficie su cui il comando viene mostrato come pulsante.
+export interface CommandOption {
+  group: string;
+  id: string;
+  label: string;
+  surface: "panel" | "card";
+}
+
+export const options: CommandOption[] = [
+  { group: "Lettura", id: "Leggi", label: "Leggi", surface: "panel" },
+  { group: "Lettura", id: "Ferma lettura", label: "Ferma lettura", surface: "panel" },
+  { group: "Contenuto", id: "Non ho capito", label: "Non ho capito", surface: "panel" },
+  { group: "Contenuto", id: "Sintetizza", label: "Sintetizza", surface: "panel" },
+  { group: "Contenuto", id: "Approfondisci", label: "Approfondisci", surface: "panel" },
+  { group: "Contenuto", id: "Semplifica", label: "Semplifica", surface: "panel" },
+  { group: "Dettaglio", id: "Chi e' l'autore?", label: "Chi e' l'autore?", surface: "panel" },
+  { group: "Dettaglio", id: "Che stile e?", label: "Che stile e?", surface: "panel" },
+  { group: "Posizionale", id: "Dove esco?", label: "Dove esco?", surface: "panel" },
+  { group: "Posizionale", id: "Dove e il bagno?", label: "Dove e il bagno?", surface: "panel" },
+  { group: "Posizionale", id: "Dove e il bar?", label: "Dove e il bar?", surface: "panel" },
+  { group: "Posizionale", id: "Dove e lo shop?", label: "Dove lo shop?", surface: "panel" },
+  { group: "Posizionale", id: "Ci sono ostacoli?", label: "Ci sono ostacoli?", surface: "panel" },
+  // Navigazione: comandi vocali riconosciuti, ma il loro pulsante equivalente
+  // sta DENTRO la scheda (Card), non nella griglia dei comandi.
+  { group: "Navigazione", id: "Prossimo", label: "Prossimo", surface: "card" },
+  { group: "Navigazione", id: "Precedente", label: "Precedente", surface: "card" },
+  { group: "Altro", id: "Altro", label: "Altro", surface: "panel" },
 ];

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Match } from "../../../../shared/types";
+import { options } from "../../../../shared/constants";
 import { useTTS } from "./speech/useTTS";
 
 // `fields` = [titolo, autore, testo] gia' tradotti nella lingua scelta:
@@ -8,6 +9,9 @@ import { useTTS } from "./speech/useTTS";
 defineProps<{
   content: Match;
   fields: string[];
+  inVisit: boolean;
+  hasPrev: boolean;
+  hasNext: boolean;
 }>();
 const emit = defineEmits<{
   navigation: [value: string];
@@ -15,6 +19,18 @@ const emit = defineEmits<{
 }>();
 
 const tts = useTTS();
+
+// le etichette dei pulsanti di navigazione vengono dal vocabolario controllato
+// (shared/constants.ts): qui vivono i pulsanti equivalenti ai comandi vocali
+// "Prossimo"/"Precedente" (surface "card").
+function labelFor(id: string): string {
+  for (const o of options) {
+    if (o.id === id) return o.label;
+  }
+  return id;
+}
+const prevLabel = labelFor("Precedente");
+const nextLabel = labelFor("Prossimo");
 </script>
 
 <template>
@@ -87,6 +103,14 @@ const tts = useTTS();
         {{ fields[1] }}
       </p>
 
+      <!-- opera raggiunta via QR ma non inclusa nella visita corrente -->
+      <p
+        v-if="!inVisit"
+        class="mb-4 text-xs font-semibold uppercase tracking-wider text-accent"
+      >
+        Non fa parte di questa visita
+      </p>
+
       <p class="text-base leading-relaxed text-text">
         {{ fields[2] }}
       </p>
@@ -94,10 +118,11 @@ const tts = useTTS();
       <div class="mt-6 flex gap-2 border-t border-border pt-4">
         <button
           type="button"
+          :disabled="!hasPrev"
           @click="emit('navigation', 'prev')"
-          class="flex-1 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-text transition-colors hover:bg-surface-2"
+          class="flex-1 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-text transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Precedente
+          {{ prevLabel }}
         </button>
         <button
           type="button"
@@ -108,10 +133,11 @@ const tts = useTTS();
         </button>
         <button
           type="button"
+          :disabled="!hasNext"
           @click="emit('navigation', 'next')"
-          class="flex-1 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition-colors hover:opacity-90"
+          class="flex-1 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Successivo
+          {{ nextLabel }}
         </button>
       </div>
     </div>

@@ -1,30 +1,103 @@
 <svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
-  <rect x="10" y="10" width="780" height="580" fill="#fff9f0" stroke="#333" stroke-width="4" />
-  
-  <!-- Wings -->
-  <rect x="50" y="50" width="200" height="500" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
-  <rect x="300" y="50" width="200" height="500" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
-  <rect x="550" y="50" width="200" height="500" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="5,5" />
+  <!-- Cornice / muro perimetrale dell'edificio -->
+  <rect x="10" y="10" width="780" height="580" fill="#fbfbf9" stroke="#333" stroke-width="4" />
 
-  <!-- Connector -->
-  <line x1="50" y1="300" x2="750" y2="300" stroke="#333" stroke-width="6" />
+  <!-- Sale (AREE data-room): griglia 3x2. Ogni area ha il suo colore, cosi' le
+       sale si distinguono a colpo d'occhio; il nodo/ostacolo prende la sala la
+       cui area lo contiene. Le aree si toccano (non si sovrappongono). -->
+  <g pointer-events="none">
+    <rect data-room="Arte Egizia"          x="10"  y="10"  width="260" height="290" fill="#f6e3c5" />
+    <rect data-room="Dipinti Europei"      x="270" y="10"  width="260" height="290" fill="#dce8fb" />
+    <rect data-room="Arte Greca e Romana"  x="530" y="10"  width="260" height="290" fill="#e8e1f6" />
+    <rect data-room="American Wing"        x="10"  y="300" width="260" height="290" fill="#d9f2e4" />
+    <rect data-room="Great Hall"           x="270" y="300" width="260" height="290" fill="#fae3d4" />
+    <rect data-room="Arte Asiatica"        x="530" y="300" width="260" height="290" fill="#f8dde6" />
+  </g>
 
-  <!-- Nodes in Wing 1 -->
-  <circle id="art-1" class="interactive-node" cx="150" cy="100" r="12" fill="gray" />
-  <circle id="art-2" class="interactive-node" cx="150" cy="200" r="12" fill="gray" />
-  <circle id="art-3" class="interactive-node" cx="150" cy="400" r="12" fill="gray" />
-  <circle id="art-4" class="interactive-node" cx="150" cy="500" r="12" fill="gray" />
+  <!-- Etichette delle sale -->
+  <g font-family="sans-serif" font-size="13" font-weight="600" fill="#5a5a5a" text-anchor="middle" pointer-events="none">
+    <text x="140" y="32">Arte Egizia</text>
+    <text x="400" y="32">Dipinti Europei</text>
+    <text x="660" y="32">Arte Greca e Romana</text>
+    <text x="140" y="322">American Wing</text>
+    <text x="400" y="322">Great Hall</text>
+    <text x="660" y="322">Arte Asiatica</text>
+  </g>
 
-  <!-- Nodes in Wing 2 (Center) -->
-  <rect id="art-5" class="interactive-node" x="385" y="150" width="30" height="30" fill="#555" />
-  <circle id="art-6" class="interactive-node" cx="400" cy="300" r="15" fill="#333" />
-  <rect id="art-7" class="interactive-node" x="385" y="420" width="30" height="30" fill="#555" />
+  <!-- Muri interni: linee con un VARCO = porta tra due sale (la connettivita'
+       vera e' data dai data-edge che passano per il varco). -->
+  <g stroke="#333" stroke-width="4" stroke-linecap="square">
+    <!-- divisorio verticale x=270 (varchi a y=155 e y=445) -->
+    <line x1="270" y1="10"  x2="270" y2="135" />
+    <line x1="270" y1="175" x2="270" y2="425" />
+    <line x1="270" y1="465" x2="270" y2="590" />
+    <!-- divisorio verticale x=530 (varchi a y=155 e y=445) -->
+    <line x1="530" y1="10"  x2="530" y2="135" />
+    <line x1="530" y1="175" x2="530" y2="425" />
+    <line x1="530" y1="465" x2="530" y2="590" />
+    <!-- divisorio orizzontale y=300 (varchi a x=140, x=400, x=660) -->
+    <line x1="10"  y1="300" x2="120" y2="300" />
+    <line x1="160" y1="300" x2="380" y2="300" />
+    <line x1="420" y1="300" x2="640" y2="300" />
+    <line x1="680" y1="300" x2="790" y2="300" />
+  </g>
 
-  <!-- Nodes in Wing 3 -->
-  <circle id="art-8" class="interactive-node" cx="650" cy="100" r="10" fill="gray" />
-  <circle id="art-9" class="interactive-node" cx="650" cy="180" r="10" fill="gray" />
-  <circle id="art-10" class="interactive-node" cx="650" cy="260" r="10" fill="gray" />
-  <circle id="art-11" class="interactive-node" cx="650" cy="340" r="10" fill="gray" />
-  <circle id="art-12" class="interactive-node" cx="650" cy="420" r="10" fill="gray" />
-  <circle id="art-13" class="interactive-node" cx="650" cy="500" r="10" fill="gray" />
+  <!-- Grafo di navigazione: ogni <line data-edge> collega due SALE passando per
+       un varco; gli estremi cadono dentro le due sale. Quasi invisibile: la
+       lettura del percorso e' data dalle sale e dai varchi, non dalla linea. -->
+  <g id="nav-edges" stroke="#6b7c8a" stroke-width="1.5" stroke-dasharray="3,5" opacity="0.08">
+    <line data-edge x1="240" y1="155" x2="300" y2="155" /> <!-- Egizia <-> Dipinti -->
+    <line data-edge x1="500" y1="155" x2="560" y2="155" /> <!-- Dipinti <-> Greca/Romana -->
+    <line data-edge x1="240" y1="445" x2="300" y2="445" /> <!-- American Wing <-> Great Hall -->
+    <line data-edge x1="500" y1="445" x2="560" y2="445" /> <!-- Great Hall <-> Asiatica -->
+    <line data-edge x1="140" y1="270" x2="140" y2="330" /> <!-- Egizia <-> American Wing -->
+    <line data-edge x1="400" y1="270" x2="400" y2="330" /> <!-- Dipinti <-> Great Hall -->
+    <line data-edge x1="660" y1="270" x2="660" y2="330" /> <!-- Greca/Romana <-> Asiatica -->
+  </g>
+
+  <!-- Nodi-opera: id="art-N" deve combaciare con la posizione N in activeArtworks
+       (il seed assegna locationId=art-N in quell'ordine) e data-qid col relativo qid. -->
+  <!-- Arte Egizia -->
+  <circle id="art-1"  class="interactive-node" data-qid="Q185838"  cx="80"  cy="95"  r="11" fill="gray" />
+  <rect   id="art-2"  class="interactive-node" data-qid="Q606662"  x="178" y="80"  width="24" height="24" fill="gray" />
+  <circle id="art-3"  class="interactive-node" data-qid="Q1603141" cx="120" cy="225" r="11" fill="gray" />
+  <!-- Dipinti Europei -->
+  <circle id="art-4"  class="interactive-node" data-qid="Q251147"  cx="340" cy="95"  r="11" fill="gray" />
+  <circle id="art-5"  class="interactive-node" data-qid="Q2316682" cx="460" cy="95"  r="11" fill="gray" />
+  <circle id="art-6"  class="interactive-node" data-qid="Q609292"  cx="400" cy="225" r="11" fill="gray" />
+  <!-- Arte Greca e Romana -->
+  <rect   id="art-7"  class="interactive-node" data-qid="Q582103"  x="598" y="88"  width="24" height="24" fill="#555" />
+  <circle id="art-8"  class="interactive-node" data-qid="Q248101"  cx="710" cy="215" r="11" fill="gray" />
+  <!-- American Wing -->
+  <circle id="art-9"  class="interactive-node" data-qid="Q217796"  cx="90"  cy="410" r="11" fill="gray" />
+  <circle id="art-10" class="interactive-node" data-qid="Q2324840" cx="190" cy="515" r="11" fill="gray" />
+  <!-- Great Hall -->
+  <circle id="art-11" class="interactive-node" data-qid="Q152509"  cx="350" cy="470" r="14" fill="#333" />
+  <!-- Arte Asiatica -->
+  <circle id="art-12" class="interactive-node" data-qid="Q2351239" cx="610" cy="410" r="11" fill="gray" />
+  <circle id="art-13" class="interactive-node" data-qid="Q1246609" cx="710" cy="515" r="11" fill="gray" />
+
+  <!-- Punti di interesse (POI): data-poi = tipo, data-label = nome mostrato/letto. -->
+  <g id="pois" font-family="sans-serif" font-size="12" fill="#1d4ed8" text-anchor="middle">
+    <circle class="poi-node" data-poi="exit" data-label="Uscita" cx="400" cy="565" r="8" fill="#1d4ed8" />
+    <text x="400" y="585">Uscita</text>
+    <circle class="poi-node" data-poi="toilet" data-label="Toilette" cx="240" cy="560" r="8" fill="#1d4ed8" />
+    <text x="240" y="580">WC</text>
+    <circle class="poi-node" data-poi="bar" data-label="Caffetteria" cx="755" cy="135" r="8" fill="#1d4ed8" />
+    <text x="755" y="115">Bar</text>
+    <circle class="poi-node" data-poi="shop" data-label="Bookshop" cx="480" cy="345" r="8" fill="#1d4ed8" />
+    <text x="480" y="365">Shop</text>
+    <circle class="poi-node" data-poi="elevator" data-label="Ascensore" cx="300" cy="560" r="8" fill="#1d4ed8" />
+    <text x="300" y="580">Lift</text>
+    <circle class="poi-node" data-poi="emergency_exit" data-label="Uscita di emergenza" cx="770" cy="345" r="8" fill="#16a34a" />
+    <text x="770" y="365" fill="#16a34a">SOS</text>
+  </g>
+
+  <!-- Ostacoli di accessibilita': data-obstacle = tipo, data-desc = descrizione.
+       La POSIZIONE del marker decide in quale sala (area) ricade. -->
+  <g id="obstacles" fill="#dc2626" opacity="0.85">
+    <rect class="obstacle-marker" data-obstacle="object" data-desc="un grande sarcofago al centro della sala egizia che restringe il passaggio" x="195" y="155" width="12" height="12" />
+    <rect class="obstacle-marker" data-obstacle="steps" data-desc="tre gradini tra i Dipinti Europei e la Great Hall" x="394" y="330" width="12" height="12" />
+    <rect class="obstacle-marker" data-obstacle="chairs" data-desc="alcune panche disposte al centro della Great Hall" x="440" y="464" width="12" height="12" />
+  </g>
 </svg>

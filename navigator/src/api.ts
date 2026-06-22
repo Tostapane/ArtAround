@@ -1,4 +1,4 @@
-import type { Item, Museum, Visit } from "../../shared/types";
+import type { Item, Match, Museum, Visit } from "../../shared/types";
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -17,6 +17,27 @@ export async function getVisit(id: string): Promise<Visit> {
 export async function getVisitItems(id: string): Promise<Item[]> {
   const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(id)}/items`);
   if (!res.ok) throw new Error(`Failed to fetch visit items: ${res.statusText}`);
+  return res.json();
+}
+
+// ritorna il Match { artwork, item } di una singola opera anche se NON fa parte
+// della visita corrente (usato dallo scanner QR). `level` e `duration` (secondi)
+// selezionano l'item giusto; se l'opera non ha item, il server lo genera per
+// quel livello e quella durata.
+export async function getArtworkPreview(
+  qid: string,
+  level: string,
+  duration: number,
+): Promise<Match> {
+  const params = new URLSearchParams();
+  if (level) params.set("level", level);
+  if (duration) params.set("duration", String(duration));
+  let url = `${API_BASE}/artworks/${encodeURIComponent(qid)}/preview`;
+  const query = params.toString();
+  if (query) url += `?${query}`;
+  const res = await fetch(url);
+  if (!res.ok)
+    throw new Error(`Failed to fetch artwork preview: ${res.statusText}`);
   return res.json();
 }
 
