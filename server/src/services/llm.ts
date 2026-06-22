@@ -1,5 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
-import { options } from "../../../shared/constants";
+import { GoogleGenAI, Type } from "@google/genai";
+import { options, educationalLevels, secPerArt } from "../../../shared/constants";
 import { ItemModel } from "../models/item";
 import { insertArtwork } from "../dbActions";
 import { RouteIR } from "./wayfinding";
@@ -14,16 +14,52 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = "gemini-3.1-flash-lite";
 const MODEL_LIGHT = "gemini-3.1-flash-lite";
 
-// funzione di test
-async function AIRequest() {
+// numero di parole indicativo per stare dentro la durata richiesta (secondi)
+function wordsForDuration(duration: number): number {
+  if (duration == 60) return 100;
+  else if (duration == 30) return 50;
+  else if (duration == 15) return 25;
+  else return 5;
+}
+
+// genera la descrizione di un'opera per un dato livello e durata, dando
+// eventualmente particolare risalto a un'angolazione (`twist`): un'indicazione
+// in italiano su quale aspetto enfatizzare (es. "enfatizza l'uso del verde").
+// Con twist vuoto e' una descrizione neutra (vedi createDescription).
+export async function createTwistedDescription(
+  name: string,
+  author: string,
+  level: string,
+  duration: number,
+  twist: string,
+) {
   try {
+    const wordNo = wordsForDuration(duration);
+    let twistLine = "";
+    if (twist && twist.trim() !== "") {
+      twistLine = `Dai particolare risalto a: ${twist.trim()}.
+                    Mantieni comunque una descrizione completa e corretta dell'opera.`;
+    }
+    const request = `
+                    Sei uno scrittore di guide per musei,
+                    Rispondi in plain text, niente simboli o asterischi,
+                    Non parlare di musei, Non interagire con l'utente.
+                    Scrivi SOLO in plain text.
+                    Esaudisci ESATTAMENTE la richiesta rispettando la difficolta'
+                    e il limite di parole fornito.
+                    Descrivi l'opera ${name}
+                    realizzata da ${author}.
+                    L'utente e' di livello ${level},
+                    produci una spiegazione in circa ${wordNo} parole.
+                    ${twistLine}
+                    NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
     const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: "hello world",
+      model: MODEL_LIGHT,
+      contents: request,
     });
-    console.log(response.text);
+    return response.text;
   } catch (err) {
-    console.error("Error during the request: ", err);
+    console.error("Error during the request", err);
   }
 }
 
@@ -35,31 +71,94 @@ export async function createDescription(
   level: string,
   duration: number,
 ) {
+  return createTwistedDescription(name, author, level, duration, "");
+}
+
+// PIANIFICATORE di visite su misura: ricevuto il catalogo delle opere di un museo
+// e la richiesta in linguaggio naturale del visitatore, sceglie quali opere
+// includere (in ordine), con quale tono e durata, e con quale "twist" (angolazione
+// da enfatizzare per quella specifica opera, in base alla richiesta).
+// Il tempo totale e' bilanciato dall'LLM stesso (numero di opere x durata di
+// ciascuna), senza vincolo rigido lato server. L'output e' JSON strutturato:
+// tono e durata sono enum (educationalLevels / secPerArt) per garantire che il
+// resolver li sappia gestire. Restituisce undefined in caso di errore.
+export interface PlannedArtwork {
+  qid: string;
+  tone: string;
+  durationSec: string;
+  twist: string;
+}
+export interface VisitPlan {
+  name: string;
+  artworks: PlannedArtwork[];
+}
+
+export async function planVisit(
+  catalog: { qid: string; name: string; author: string; style: string }[],
+  userRequest: string,
+): Promise<VisitPlan | undefined> {
   try {
-    let wordNo;
-    if (duration == 60) wordNo = 100;
-    else if (duration == 30) wordNo = 50;
-    else if (duration == 15) wordNo = 25;
-    else wordNo = 5;
-    const request = `
-                    Sei uno scrittore di guide per musei, 
-                    Rispondi in plain text, niente simboli o asterischi,
-                    Non parlare di musei, Non interagire con l'utente.
-                    Scrivi SOLO in plain text.
-                    Esaudisci ESATTAMENTE la richiesta rispettando la difficolta'
-                    e il limite di parole fornito.
-                    Descrivi l'opera ${name} 
-                    realizzata da ${author}.
-                    L'utente e' di livello ${level}, 
-                    produci una spiegazione in circa ${wordNo} parole.
-                    NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
+    const catalogText = catalog
+      .map((a) => `- ${a.qid}: "${a.name}" di ${a.author} (stile: ${a.style})`)
+      .join("\n");
+    const request = `Sei un curatore che compone visite museali su misura.
+      Ricevi il catalogo delle opere di un museo e la richiesta di un visitatore.
+      Scegli le opere piu' adatte alla richiesta, in un ordine di visita sensato.
+      Per ogni opera scelta indica:
+      - tone: il livello di linguaggio adatto al visitatore;
+      - durationSec: la durata in secondi della descrizione;
+      - twist: una breve indicazione IN ITALIANO su quale aspetto enfatizzare
+        nella descrizione di QUELL'opera, in base alla richiesta del visitatore
+        (es. "enfatizza l'uso del colore verde", "analizza i rapporti con Bedoli").
+        Usa stringa vuota se non c'e' un'angolazione particolare da dare.
+      Se il visitatore e' un gruppo con eta' diverse (es. adulti e bambini), NON
+      creare descrizioni separate: usa il twist per chiedere un linguaggio
+      comprensibile ai bambini ma interessante anche per gli adulti.
+      Considera il tempo a disposizione indicato nella richiesta: bilancia il
+      numero di opere e la durata di ciascuna per avvicinarti al tempo totale,
+      lasciando un margine per gli spostamenti. Se non c'e' un vincolo di tempo,
+      scegli un numero ragionevole di opere.
+      Assegna alla visita un nome mnemonico breve in italiano (campo name).
+      Catalogo delle opere:
+      ${catalogText}
+      Richiesta del visitatore: "${userRequest}".`;
     const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
+      model: MODEL,
       contents: request,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            artworks: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  qid: { type: Type.STRING },
+                  tone: { type: Type.STRING, enum: educationalLevels },
+                  durationSec: {
+                    type: Type.STRING,
+                    enum: secPerArt.map((s) => String(s)),
+                  },
+                  twist: { type: Type.STRING },
+                },
+                required: ["qid", "tone", "durationSec", "twist"],
+                propertyOrdering: ["qid", "tone", "durationSec", "twist"],
+              },
+            },
+          },
+          required: ["name", "artworks"],
+          propertyOrdering: ["name", "artworks"],
+        },
+      },
     });
-    return response.text;
+    if (!response.text) return undefined;
+    return JSON.parse(response.text) as VisitPlan;
   } catch (err) {
     console.error("Error during the request", err);
+    return undefined;
   }
 }
 
@@ -86,7 +185,6 @@ export async function additionalDescription(
       model: MODEL_LIGHT,
       contents: request,
     });
-    console.log(response.text);
     return response.text;
   } catch (err) {
     console.error("Error during the request", err);
@@ -166,7 +264,6 @@ export async function mapRequest(transcript: string) {
       model: MODEL_LIGHT,
       contents: request,
     });
-    console.log(response.text);
     return response.text;
   } catch (err) {
     console.error("Error during the request", err);

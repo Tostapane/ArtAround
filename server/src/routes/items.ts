@@ -32,10 +32,6 @@ router.get("/author/:authorName", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
-    console.log(
-      "[BACKEND] Ricevuto payload POST /api/items:",
-      JSON.stringify(payload, null, 2),
-    );
 
     // Supporto formato Marketplace (tipo: "Item")
     if (payload.tipo === "Item") {
@@ -43,9 +39,7 @@ router.post("/", async (req, res) => {
         wikiDataUri: payload.id_oper_universale,
       });
       if (!artwork)
-        return res
-          .status(400)
-          .json({ error: "Artwork non trovato nel database." });
+        return res.status(400).json({ error: "Artwork non trovato nel database." });
 
       // Elimino versioni precedenti dello stesso autore per quell'opera per aggiornamento
       await ItemModel.deleteMany({

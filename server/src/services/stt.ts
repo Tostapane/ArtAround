@@ -23,6 +23,5 @@ export async function recognizeAudio(
   const transcrtiption = response.results
     ?.map((result) => result.alternatives?.[0].transcript)
     .join("\n");
-  console.log("Transcription: ", transcrtiption);
   return transcrtiption;
 }

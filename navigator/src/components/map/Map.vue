@@ -12,7 +12,6 @@ import { map, matchedContent } from "../../state";
 const emit = defineEmits<{
   select: [value: number];
 }>();
-// let currentIndex = ref<number | null>(null)
 
 const listeners: { element: Element; type: string; handler: EventListener }[] =
   [];
@@ -84,28 +83,6 @@ watch(
   { deep: true },
 );
 
-/*
-        config.forEach((item, index) => {
-            const element = document.querySelector(`#${item.svgId}`)
-            artworks.value.push({ svgId: item.svgId, title: item.title, info: item.info });
-            if (element) {
-                element.setAttribute('tabindex', '0');
-                element.setAttribute('role', 'button');
-                element.setAttribute('aria-label', item.title);
-                // aggiungo classe specifica
-                element.classList.add('interactive-node');
-
-                // click classico
-                const clickHandler = () => { emit('select', index) }
-                element.addEventListener('click', clickHandler)
-                listeners.push({ element, type: 'click', handler: clickHandler })
-                // enter accessibile
-                const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Enter') emit('select', index) }
-                element.addEventListener('keyup', keyHandler as EventListener)
-                listeners.push({ element, type: 'keyup', handler: keyHandler as EventListener})
-            }
-        })
-        */
 // cleanup
 onBeforeUnmount(() => {
   listeners.forEach(({ element, type, handler }) => {

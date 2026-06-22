@@ -4,8 +4,9 @@ import Header from "./components/Header.vue";
 import Footer from "./components/Footer.vue";
 import Selector from "./components/selection/Selector.vue";
 import MainView from "./components/map/MainView.vue";
-import { loadMuseum } from "./state";
+import { loadMuseum, setCustomVisit, setVisit } from "./state";
 import { useAnnouncer } from "./composables/useAnnouncer";
+import type { Visit, Match } from "../../shared/types";
 
 const { message, announce } = useAnnouncer();
 
@@ -21,9 +22,26 @@ const choice = ref<string>("");
 const started = ref(false);
 const summary = ref<{ level: string; duration: number } | null>(null);
 
-function onStart(info: { level: string; duration: number }) {
-  if (!choice.value) return;
-  summary.value = info;
+// visita normale: il Selector passa l'oggetto Visit gia' completo (lo ha gia'
+// caricato per popolare i menu), quindi lo iniettiamo nello stato senza un
+// secondo fetch dal server
+function onStart(v: Visit) {
+  setVisit(v);
+  choice.value = v["@id"];
+  summary.value = { level: v.level, duration: v.duration };
+  started.value = true;
+  announce("Visita avviata");
+}
+
+// visita su misura: il Selector ha gia' creato visita+contenuto (non persistiti),
+// qui li iniettiamo nello stato e avviamo la visita
+function onCustomStart(payload: { visit: Visit; content: Match[] }) {
+  setCustomVisit(payload.visit, payload.content);
+  choice.value = payload.visit["@id"];
+  summary.value = {
+    level: payload.visit.level,
+    duration: payload.visit.duration,
+  };
   started.value = true;
   announce("Visita avviata");
 }
@@ -59,8 +77,8 @@ function goBack() {
       >
         <Selector
           class="w-full max-w-md"
-          @currVisit="(visit) => (choice = visit)"
           @start="onStart"
+          @customStart="onCustomStart"
         />
       </div>
 

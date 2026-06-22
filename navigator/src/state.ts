@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import type { Artwork, Visit, Museum, Match } from "../../shared/types";
 import { languages, type Language } from "../../shared/constants";
-import { getMuseum, getVisit, getVisitItems } from "./api";
+import { getMuseum, getVisitItems } from "./api";
 
 export const visit = ref<Visit>();
 export const museum = ref<Museum>();
@@ -33,43 +33,52 @@ export function setLanguage(lang: Language) {
   localStorage.setItem(STORAGE_KEY, lang.translate);
 }
 
-// Popolato dal server (GET /api/visits/:id/items, con `about` gia' espanso).
+// Popolato dal server (GET /api/visits/:id/items, con `about` gia' espanso),
+// oppure iniettato direttamente per le visite su misura (setCustomVisit).
 // Niente piu' join lato client tra item e artwork.
 export const matchedContent = ref<Match[]>([]);
 
-let visitLoadingPromise: Promise<void> | null = null;
+// id della visita di cui matchedContent contiene gia' il contenuto: evita di
+// ricaricarlo (e, per le visite su misura, di sovrascrivere quello iniettato).
+let contentVisitId = "";
+
 let museumLoadingPromise: Promise<void> | null = null;
 
 // funzioni di pulizia
 export function clearVisit() {
   visit.value = undefined;
   matchedContent.value = [];
+  contentVisitId = "";
 }
 
-// carica i metadati della visita (nome, livello, logistica, ecc.)
-export async function loadVisit(id: string) {
-  if (visit.value && visit.value["@id"] === id) return;
-  if (visitLoadingPromise) return visitLoadingPromise;
-  visitLoadingPromise = (async () => {
-    try {
-      visit.value = await getVisit(id);
-    } catch (err) {
-      console.error("Errore durante il caricamento della visita", err);
-    } finally {
-      visitLoadingPromise = null;
-    }
-  })();
-  return visitLoadingPromise;
+// inietta una visita SU MISURA (generata dai vincoli dell'utente) direttamente
+// nello stato, senza passare dal DB: la visita vive solo nel client. Il guard
+// contentVisitId impedisce a loadVisit/loadVisitContent di ri-fetcharla.
+export function setCustomVisit(v: Visit, content: Match[]) {
+  visit.value = v;
+  matchedContent.value = content;
+  contentVisitId = v["@id"];
+}
+
+// imposta i metadati della visita normale scelta nel Selector: il Selector ha
+// gia' l'oggetto Visit completo, quindi evitiamo un secondo fetch dal server.
+// Le visite su misura usano invece setCustomVisit; il contenuto della visita
+// (matchedContent) viene caricato a parte da loadVisitContent.
+export function setVisit(v: Visit) {
+  visit.value = v;
 }
 
 // carica gli item della visita gia' uniti al rispettivo artwork
 export async function loadVisitContent(visitId: string) {
+  // gia' presente (caricata in precedenza o iniettata, visita su misura)
+  if (contentVisitId === visitId) return;
   matchedContent.value = [];
   try {
     const items = await getVisitItems(visitId);
     matchedContent.value = items
       .filter((it) => it.about && typeof it.about === "object")
       .map((it) => ({ artwork: it.about as Artwork, item: it }));
+    contentVisitId = visitId;
   } catch (err) {
     console.error(
       "Errore durante il caricamento del contenuto della visita",
@@ -85,7 +94,6 @@ export async function loadMuseum(id: string) {
   museumLoadingPromise = (async () => {
     try {
       museum.value = await getMuseum(id);
-      console.log("Museum loaded:", museum.value.name);
       await loadMap(museum.value);
     } catch (err) {
       console.error("Errore durante il caricamento del museo", err);

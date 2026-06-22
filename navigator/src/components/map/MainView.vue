@@ -10,7 +10,6 @@ import { useTTS } from "./speech/useTTS";
 import { useTranslation } from "@/composables/useTranslation";
 import { getArtworkPreview } from "@/api";
 import {
-  loadVisit,
   loadVisitContent,
   matchedContent,
   visit,
@@ -28,7 +27,6 @@ watch(
   () => props.currVisit,
   async (newVisitId) => {
     if (!newVisitId) return;
-    await loadVisit(newVisitId);
     await loadVisitContent(newVisitId);
   },
   { immediate: true },

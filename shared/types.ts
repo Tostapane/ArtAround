@@ -1,9 +1,7 @@
 /*
  * TODO:
- * - definire il passaggio di visite custom tra marketplace e navigator
  * - definire un modo per assegnare piu' item allo stesso artwork
  * - definire un modo per selezionare il museo nel navigator via file di configurazione
- * - implementare la gestione di mappe svg lato server, definendo routes e api per servire il navigator
  * - debloatare alcune routes
  */
 
@@ -55,9 +53,9 @@ export interface Match {
 }
 
 /**
- * Rappresenta un percorso/lista di item
- * NOTA: aggiungere un identificativo per distinguere
- * le visite fornite dal museo e quelle personalizzate
+ * Rappresenta un percorso/lista di item.
+ * NOTA: le visite "su misura" (generate dai vincoli dell'utente) NON vengono
+ * persistite: vivono solo nel client (navigator) e non compaiono nei listini.
  */
 export interface Visit {
   "@id": string;

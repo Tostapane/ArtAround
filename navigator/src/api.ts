@@ -6,13 +6,6 @@ const API_BASE = "http://localhost:8000/api";
 //                                 Visits
 // ============================================================================
 
-// ritorna la visita con l'id richiesto
-export async function getVisit(id: string): Promise<Visit> {
-  const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(id)}`);
-  if (!res.ok) throw new Error(`Failed to fetch visit: ${res.statusText}`);
-  return res.json();
-}
-
 // ritorna gli item della visita, gia' uniti al rispettivo artwork (`about` popolato)
 export async function getVisitItems(id: string): Promise<Item[]> {
   const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(id)}/items`);
@@ -38,6 +31,25 @@ export async function getArtworkPreview(
   const res = await fetch(url);
   if (!res.ok)
     throw new Error(`Failed to fetch artwork preview: ${res.statusText}`);
+  return res.json();
+}
+
+// crea una visita SU MISURA dai vincoli espressi in linguaggio naturale.
+// La visita NON viene persistita: il server risponde con la visita e il suo
+// contenuto ({ artwork, item } gia' uniti), che vivono solo nel client.
+export async function createCustomVisit(
+  museumQid: string,
+  request: string,
+): Promise<{ visit: Visit; content: Match[] }> {
+  const res = await fetch(`${API_BASE}/visits/custom`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ museumQid, request }),
+  });
+  if (!res.ok)
+    throw new Error(`Failed to create custom visit: ${res.statusText}`);
   return res.json();
 }
 

@@ -97,9 +97,7 @@ router.get("/:qid/preview", async (req, res) => {
       usedDuration,
     );
     if (!text) {
-      return res
-        .status(502)
-        .json({ error: "Impossibile generare la descrizione dell'opera" });
+      return res.status(502).json({ error: "Impossibile generare la descrizione dell'opera" });
     }
 
     // @id distinto per combinazione livello+durata: ogni variante persiste a parte

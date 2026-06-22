@@ -134,7 +134,11 @@ Base path `/api`. All mounted in `server/src/index.ts`.
     (`@type:"CreativeWork"`).
   - `POST /batch` → items by `{ids:[...]}`.
 - **Visits** `/api/visits`
-  - `GET /` → all visits. `GET /:id` → one visit by `@id`. `POST /` → upsert (marked "DA AGGIUSTARE").
+  - `GET /` → all visits. `GET /:id/items` → the visit's items with `about` (Artwork) **populated**
+    and ordered per `itemListElement` (the navigator consumes this directly — no client-side join).
+    `POST /custom` → ephemeral custom visit (see §8). `POST /` → upsert (marked "DA AGGIUSTARE").
+    (Single-visit `GET /:id` was removed: the Selector already holds the chosen `Visit` object and
+    passes it to the navigator, so it is never re-fetched.)
 - **Museums** `/api/museums`
   - `GET /` → all. `GET /:id` → museum by **qid**. `GET /:id/artworks` → artworks where
     `ofMuseum === "http://www.wikidata.org/entity" + id` (⚠️ note: **no `/` before qid**).
@@ -290,10 +294,12 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
    License/adoptions/sales mgmt mostly absent (only `price`).
 5. 🟡 **Extensions partially done:** teacher sync + quiz (18-27) not started; for 18-33, **QR
    localization is done and working** (see §5 above), **teleport + device geolocation not started**.
-6. 🟡 **Hygiene:** many `console.log`, dead imports (`AudioRecorder` in `MainView`,
-   `getAllArtworks` in `state.ts`), `navigationHandler` prev can go negative (`(idx-1)%len`),
-   open TODOs at top of `shared/types.ts` (custom-visit handoff marketplace↔navigator, multiple
-   items per artwork, museum-selection via config).
+6. ✅ **Hygiene — done:** request-path `console.log`s removed (kept startup/seed/config logs);
+   dead `AIRequest()` test fn, the unused local `navigator/.../map/map.svg`, and stale commented
+   blocks in `Map.vue` removed; `shared/types.ts` TODO header trimmed to the still-open items
+   (multiple items per artwork, museum-selection via config). The normal-visit flow no longer
+   double-fetches the visit (Selector emits the full `Visit`; `state.setVisit` injects it,
+   symmetric to `setCustomVisit`), so `loadVisit`/`getVisit`/`GET /api/visits/:id` are gone.
 
 ---
 
@@ -324,3 +330,64 @@ cd navigator && npm install && npm run dev  # navigator on :5173
 - Code comments and UI copy are in **Italian**; keep that style when editing existing files.
 - Shared types live in `shared/` and are imported by all three parts — change them with care
   (a field rename ripples across server models, navigator, and marketplace).
+
+---
+
+## 8. Custom (constraint-based) visit generation — IMPLEMENTING (18-33 LLM)
+
+Satisfies the 18-33 requirement *"Creazione di visite di un museo sulla base di vincoli
+dell'utente"* (slide 31): a free-text box where the visitor describes constraints ("ho solo
+mezz'ora, mostrami le cose importanti"; "tesi sul Parmigianino, so dei rapporti con Bedoli")
+and the system returns a **runnable `Visit`** of the same shape the navigator already consumes.
+Hard rule (slide 31, green): **the user must not know an LLM is involved** — a form, no chat,
+no prompt-style interaction; AI vs human content is distinguishable only via metadata.
+
+**Design (decided with the user) — planner/resolver split**, mirroring the wayfinding pattern
+(deterministic code owns correctness, the LLM owns interpretation/phrasing):
+
+1. **`planVisit(catalog, userRequest)`** (`services/llm.ts`, non-lite `MODEL`) — gets the
+   museum's catalog (`qid`/`name`/`author`/`style`) + the raw request and returns **structured
+   JSON** (forced via `responseSchema` + `responseMimeType:"application/json"`):
+   `{ name, artworks: [{ qid, tone, durationSec, twist }] }`.
+   - `tone` and `durationSec` are **schema enums** (`educationalLevels`, `secPerArt`) so the
+     model can only emit values the resolver understands.
+   - `twist` = a short Italian instruction on *which angle to emphasize for that artwork*
+     (e.g. `"enfatizza l'uso del verde"`, `"analizza in rapporto a Bedoli"`), `""` if none.
+     Per-artwork, so different works in the same visit can have different angles.
+   - **Time budget is the model's job, stochastically** — no separate budget param, no
+     server-side sum enforcement: the planner balances count × per-artwork duration against the
+     budget it reads from `userRequest`. Server validates only enums/qids + a loose count cap.
+   - **Multi-age ("due adulti + bimbi 5 e 8") = a twist, not multiple tracks.** Interpreted as
+     "one blended description, comprensible to a child yet interesting to an adult" → the group
+     composition becomes a `twist` string. This keeps content *synchronized* (everyone hears the
+     same words) per the slide wording, with zero schema/navigator changes.
+2. **`createTwistedDescription(name, author, level, duration, twist)`** (`services/llm.ts`,
+   `MODEL_LIGHT`) — `createDescription` refactored to delegate to this with `twist=""`, so the
+   plain path is unchanged. A non-empty twist adds one "dai particolare risalto a …" clause.
+3. **`resolveOrGenerateItem(artwork, level, durationSec, twist)`** (`dbActions.ts`) — the
+   `twist` field doubles as the **reuse switch** (keeps the "indistinguishable from human" rule
+   honest): `twist===""` → reuse a curated item from the DB (the `/:qid/preview` fallback chain:
+   level+duration → level → any), generate only if missing; `twist!==""` → always generate.
+   **Generated items are NOT persisted** — they're built **in memory** and returned (the `@id`
+   `${qid}-AI-${level}-${duration}[-${sha1(twist).slice(0,8)}]` is informative only).
+4. **`POST /api/visits/custom { museumQid, request }`** (`routes/visits.ts`) — load catalog →
+   `planVisit` → validate enums/qids + count cap (`MAX_CUSTOM_ARTWORKS`) → per-artwork
+   `resolveOrGenerateItem` → assemble the `Visit` (`level:"Su misura"`, `author:"AI"`) and
+   respond with **`{ visit, content }`** where `content` is `[{artwork, item}]` already joined
+   (no client-side join). Generation stays **in Italian** (source lang); the navigator
+   translates live as usual.
+
+**Persistence — DECIDED: custom visits are NOT persisted; they live only in the client.**
+Reasoning: non-custom visits keep being fetched from the DB; custom visits are ephemeral and
+must never leak into the marketplace/selector listings. So the route writes nothing — no `Visit`
+doc, no generated `Item` docs — and there is no `custom` flag / listing filter to maintain.
+(This is why a `custom` field was considered and then dropped from `Visit`/the visit model.)
+
+**Navigator:** `api.ts:createCustomVisit` returns `{ visit, content }`; `state.ts:setCustomVisit`
+injects both directly into `visit`/`matchedContent`, guarded by a module-level `contentVisitId`
+so `loadVisit`/`loadVisitContent` (driven by `MainView`'s `currVisit` watcher) short-circuit
+instead of re-fetching and wiping the injected content. A free-text box in
+`selection/Selector.vue` ("Oppure descrivi la tua visita") does the fetch (owning its loading/
+error UI) and emits a single `customStart` event; `App.vue:onCustomStart` owns the injection
+(`setCustomVisit`) and the transition (`choice`/`summary`/`started`), beside the normal-visit
+`onStart`. No AI is mentioned in the UI.

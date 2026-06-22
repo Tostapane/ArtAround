@@ -34,14 +34,11 @@ router.get("/", async (req, res) => {
 router.get("/:qid", async (req, res) => {
   try {
     const { qid } = req.params;
-    console.log(`[BACKEND] Chiamata GET /api/museums/${qid}`);
     const museum = await MuseumModel.findOne({ qid });
     if (!museum) return res.status(404).json({ error: "Museo non trovato" });
     res.json(museum);
   } catch (err: any) {
-    res.status(500).json({
-      err: err.message || "Errore nel caricamento del museo richiesto",
-    });
+    res.status(500).json({ err: err.message || "Errore nel caricamento del museo richiesto" });
   }
 });
 
@@ -53,14 +50,11 @@ router.get("/:qid", async (req, res) => {
 router.get("/:qid/artworks", async (req, res) => {
   try {
     const { qid } = req.params;
-    console.log(`[BACKEND] Chiamata GET /api/museums/${qid}/artworks`);
     const museumId = `http://www.wikidata.org/entity/${qid}`;
     const artworks = await ArtworkModel.find({ ofMuseum: museumId });
     res.json(artworks);
   } catch (err: any) {
-    res.status(500).json({
-      error: "Errore nel caricamento delle opere specifiche del museo",
-    });
+    res.status(500).json({ error: "Errore nel caricamento delle opere specifiche del museo" });
   }
 });
 
@@ -75,9 +69,7 @@ router.get("/:qid/visits", async (req, res) => {
     const visits = await VisitModel.find({ ofMuseum: museumId });
     res.json(visits);
   } catch (err: any) {
-    res.status(500).json({
-      error: "Errore nel caricamento delle visite del museo",
-    });
+    res.status(500).json({ error: "Errore nel caricamento delle visite del museo" });
   }
 });
 
