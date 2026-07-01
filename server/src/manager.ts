@@ -17,10 +17,20 @@ export async function populateArtwork(
   qid: string,
   museum: string,
   location: string,
-) {
+): Promise<boolean> {
   const data = await fetchArtwork(qid);
   if (!data) throw new Error("Artwork non trovato");
 
+  // Nessuna immagine (P18) su Wikidata: l'opera non e' mostrabile con la sua
+  // immagine, quindi la saltiamo per garantire che ogni opera caricata abbia
+  // sempre un'immagine visibile.
+  if (!data.image) {
+    console.warn(`[seed] opera ${qid} senza immagine (P18): saltata`);
+    return false;
+  }
+
+  // downloadImage salva l'immagine sul server e ritorna il percorso relativo;
+  // in caso di fallita download ritorna l'URL remoto (usabile comunque come src).
   const imagePath = await downloadImage(data.image, `${qid}`);
 
   await insertArtwork({
@@ -40,6 +50,7 @@ export async function populateArtwork(
     ofMuseum: museum,
     locationId: location,
   });
+  return true;
 }
 
 /**
@@ -92,8 +103,10 @@ export async function populateVisit(
   visitPrice?: number,
   visitAuthor?: string,
 ) {
-  const name = `${museum}-${level}-${duration}`;
-  const id = `visit-${name}`;
+  // L'id resta stabile (basato su museo-livello-durata), ma il NOME mostrato
+  // e' leggibile (le vecchie visite mostravano il codice grezzo come nome).
+  const id = `visit-${museum}-${level}-${duration}`;
+  const name = `Visita ${level} · ${duration}s`;
   await insertVisit({
     "@id": id,
     name: name,

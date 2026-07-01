@@ -11,6 +11,7 @@ import speechRoutes from "./routes/speech";
 import llmRoutes from "./routes/llm";
 import itemRoutes from "./routes/items";
 import museumRoutes from "./routes/museums";
+import userRoutes from "./routes/users";
 import translateRoutes from "./routes/translate";
 import wayfindingRoutes from "./routes/wayfinding";
 
@@ -54,6 +55,7 @@ app.use("/api/speech", speechRoutes);
 app.use("/api/llm", llmRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/museums", museumRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/translate", translateRoutes);
 app.use("/api/wayfinding", wayfindingRoutes);
 app.get("/api/health", (req, res) => {

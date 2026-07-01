@@ -79,11 +79,16 @@ async function seed() {
         console.log(
           `\n[Museo ${museumIdx}/${totalMuseums} ${museum.qid}] [Opera ${artworkIdx}/${museum.artworks.length} ${qid}]  (opera ${artworkCount}/${totalArtworks})`,
         );
-        await populateArtwork(
+        const inserita = await populateArtwork(
           qid,
           `http://www.wikidata.org/entity/${museum.qid}`,
           `art-${artworkIdx}`,
         );
+        // Opera senza immagine: saltata (niente item ne' inclusione nelle visite)
+        if (!inserita) {
+          console.log(`   opera ${qid} saltata (nessuna immagine).`);
+          continue;
+        }
         let itemIdx = 0;
         for (const level of educationalLevels) {
           for (const duration of secPerArt) {

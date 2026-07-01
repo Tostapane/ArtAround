@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, ref } from "vue";
 import type { Match } from "../../../../shared/types";
 import { options } from "../../../../shared/constants";
 import { useTTS } from "./speech/useTTS";
@@ -6,13 +7,6 @@ import { useTTS } from "./speech/useTTS";
 // `fields` = [titolo, autore, testo] gia' tradotti nella lingua scelta:
 // la traduzione e' gestita dal componente padre (MainView) cosi' da essere
 // condivisa anche dal comando di lettura "Leggi".
-defineProps<{
-  content: Match;
-  fields: string[];
-  inVisit: boolean;
-  hasPrev: boolean;
-  hasNext: boolean;
-}>();
 const emit = defineEmits<{
   navigation: [value: string];
   toggleOptions: [];
@@ -31,21 +25,49 @@ function labelFor(id: string): string {
 }
 const prevLabel = labelFor("Precedente");
 const nextLabel = labelFor("Prossimo");
+
+// Origine del server per le immagini scaricate localmente (imagePath e' relativo).
+const MEDIA_ORIGIN = "http://localhost:8000";
+
+// Se il caricamento dell'immagine fallisce, la nascondiamo (niente icona rotta).
+const imgBroken = ref(false);
+
+// Sorgente immagine: prima l'immagine scaricata sul server (imagePath), poi
+// come fallback l'URI remoto di Wikidata (imageUri). "" se non c'e' immagine.
+const props = defineProps<{
+  content: Match;
+  fields: string[];
+  inVisit: boolean;
+  hasPrev: boolean;
+  hasNext: boolean;
+}>();
+const imgSrc = computed(() => {
+  const a = props.content.artwork;
+  // imagePath e' relativo (`/images/...`) → serve l'origine del server;
+  // ma in caso di download fallito puo' essere gia' un URL assoluto.
+  if (a?.imagePath) {
+    return a.imagePath.startsWith("http")
+      ? a.imagePath
+      : MEDIA_ORIGIN + a.imagePath;
+  }
+  return a?.imageUri || "";
+});
 </script>
 
 <template>
   <article
     class="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
   >
-    <!-- Immagine dell'opera -->
+    <!-- Immagine dell'opera (locale, con fallback all'URI remoto di Wikidata) -->
     <div
-      v-if="content.artwork.imagePath"
+      v-if="imgSrc && !imgBroken"
       class="flex shrink-0 justify-center bg-surface-2"
     >
       <img
-        :src="'http://localhost:8000' + content.artwork.imagePath"
+        :src="imgSrc"
         :alt="'Immagine dell\'opera: ' + content.artwork.name"
         class="h-48 w-full object-contain sm:h-64"
+        @error="imgBroken = true"
       />
     </div>
 

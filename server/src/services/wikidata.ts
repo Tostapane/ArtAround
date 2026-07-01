@@ -63,8 +63,12 @@ export async function fetchArtwork(
   const binding = data.results.bindings[0];
 
   if (!binding) return null;
+  // Il label service ripiega sul QID quando non trova una label nelle lingue
+  // richieste: in quel caso il "nome" sarebbe un QID. Lo consideriamo assente.
+  const rawLabel = binding.itemLabel?.value || "";
+  const name = /^Q\d+$/.test(rawLabel) ? "" : rawLabel;
   return {
-    name: binding.itemLabel?.value || "",
+    name,
     image: binding.image?.value || "",
     author: binding.authorLabel?.value || "Unknown",
     author_qid: binding.authorQid?.value || "",

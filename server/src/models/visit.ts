@@ -18,6 +18,7 @@ const visitSchema = new Schema<IVisit>({
   duration: { type: Number, required: true },
   price: Number,
   author: String,
+  license: String,
   ofMuseum: String,
   itemListElement: [String],
   logistics: [String],

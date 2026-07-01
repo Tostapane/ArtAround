@@ -6,81 +6,154 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ArtAround - Marketplace & Editor</title>
   <link href="/dist/style.css" rel="stylesheet">
+  <!--
+    Anti-FOUC: applica il tema (chiaro/scuro) prima del primo paint, leggendo
+    la preferenza salvata o quella di sistema. Stessa chiave del navigator.
+  -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("artaround-theme");
+        var dark =
+          saved === "dark" ||
+          (saved !== "light" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+      } catch (e) {}
+    })();
+    // Componente Alpine riutilizzabile per il toggle del tema (chiaro/scuro).
+    document.addEventListener("alpine:init", function () {
+      window.Alpine.data("themeToggle", function () {
+        return {
+          dark: document.documentElement.classList.contains("dark"),
+          toggle() {
+            this.dark = !this.dark;
+            document.documentElement.classList.toggle("dark", this.dark);
+            localStorage.setItem("artaround-theme", this.dark ? "dark" : "light");
+          },
+        };
+      });
+    });
+  </script>
   <script type="module" src="/dist/marketplace/src/frontend/app.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 
-<body class="bg-slate-50 text-slate-900 font-sans antialiased text-left">
+<body class="bg-bg text-text font-sans antialiased text-left">
 
-  <div x-data="appData()" class="min-h-screen flex flex-col">
+  <div x-data="appData()" class="min-h-screen flex flex-col bg-surface-2">
+
+    <!-- Toggle tema fluttuante per le schermate senza navbar (welcome/login/registrazione) -->
+    <button x-show="currentUser === null" x-data="themeToggle()" @click="toggle()"
+      :aria-pressed="dark" :aria-label="dark ? 'Attiva il tema chiaro' : 'Attiva il tema scuro'"
+      :title="dark ? 'Attiva il tema chiaro' : 'Attiva il tema scuro'"
+      class="fixed top-4 right-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-surface text-text transition-colors hover:bg-surface-2">
+      <svg x-show="!dark" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+      </svg>
+      <svg x-show="dark" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <circle cx="12" cy="12" r="4" />
+        <path stroke-linecap="round" d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+      </svg>
+    </button>
 
     <!-- NAVBAR -->
-    <header class="bg-white shadow-sm p-4 flex justify-between items-center sticky top-0 z-50 border-b border-slate-200"
+    <header class="bg-surface border-b border-border px-4 sm:px-6 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between sticky top-0 z-50"
       x-show="currentUser !== null">
-      <div class="flex items-center space-x-4 text-left">
-        <h1 class="text-2xl font-black text-blue-600 tracking-tighter italic cursor-pointer" @click="tornaHome()">
-          ArtAround</h1>
-        <span
-          class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
-          📍 Global Database
-        </span>
+      <div class="flex items-center justify-between gap-3 text-left">
+        <div class="flex items-center gap-3">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent font-bold text-on-accent" aria-hidden="true">A</span>
+          <h1 class="text-lg font-bold tracking-tight text-text cursor-pointer" @click="tornaHome()">ArtAround</h1>
+          <!-- Museo selezionato: mostra il nome e permette di cambiarlo -->
+          <button x-show="museoSelezionato" @click="cambiaMuseo()"
+            :title="'Museo: ' + (museoSelezionato ? museoSelezionato.name : '') + ' — clicca per cambiare'"
+            class="hidden sm:inline-flex items-center gap-1.5 bg-surface-2 text-muted hover:text-text px-2.5 py-1 rounded-md text-xs font-medium border border-border transition-colors">
+            <span>📍</span>
+            <span class="max-w-[16rem] truncate" x-text="museoSelezionato ? museoSelezionato.name : ''"></span>
+            <span class="text-accent">Cambia</span>
+          </button>
+        </div>
+        <!-- Controlli visibili solo su mobile (a destra della prima riga) -->
+        <div class="flex items-center gap-2 md:hidden">
+          <div class="bg-surface-2 border border-border px-2.5 py-1 rounded-md flex items-center gap-1.5">
+            <span class="text-xs uppercase tracking-wide text-muted">€</span>
+            <span class="font-bold text-text text-sm" x-text="wallet.toFixed(2)"></span>
+          </div>
+          <button x-data="themeToggle()" @click="toggle()" :aria-pressed="dark"
+            :aria-label="dark ? 'Attiva il tema chiaro' : 'Attiva il tema scuro'"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-text transition-colors hover:bg-surface-2">
+            <svg x-show="!dark" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>
+            <svg x-show="dark" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path stroke-linecap="round" d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>
+          </button>
+          <button @click="logout()" class="text-danger hover:opacity-80 font-medium text-sm transition-opacity">Esci</button>
+        </div>
       </div>
 
-      <nav class="flex space-x-8 font-bold text-xs uppercase tracking-widest">
+      <nav x-show="museoSelezionato" class="flex gap-5 sm:gap-6 text-sm font-medium overflow-x-auto whitespace-nowrap -mx-4 px-4 md:mx-0 md:px-0">
         <template x-if="currentUserType === 'visitatore'">
-          <div class="flex space-x-8">
+          <div class="flex gap-5 sm:gap-6">
             <button @click="currentView = 'dashboard'"
-              :class="currentView === 'dashboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'">Marketplace</button>
+              :class="currentView === 'dashboard' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
+              class="pb-0.5 transition-colors">Marketplace</button>
             <button @click="currentView = 'my_collection'"
-              :class="currentView === 'my_collection' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-400'">La
-              mia Collezione</button>
+              :class="currentView === 'my_collection' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
+              class="pb-0.5 transition-colors">La mia Collezione</button>
             <button @click="apriEditor()"
-              :class="currentView === 'editor' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'">Crea
-              Percorso</button>
+              :class="currentView === 'editor' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
+              class="pb-0.5 transition-colors">Crea Percorso</button>
           </div>
         </template>
         <template x-if="currentUserType === 'autore'">
-          <div class="flex space-x-8">
+          <div class="flex gap-5 sm:gap-6">
             <button @click="currentView = 'my_works'"
-              :class="currentView === 'my_works' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400'">I miei
-              Lavori</button>
+              :class="currentView === 'my_works' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
+              class="pb-0.5 transition-colors">I miei Lavori</button>
             <button @click="apriEditor()"
-              :class="currentView === 'editor' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'">Nuovo
-              Contenuto</button>
+              :class="currentView === 'editor' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
+              class="pb-0.5 transition-colors">Nuovo Contenuto</button>
+            <button @click="apriVendite()"
+              :class="currentView === 'sales' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
+              class="pb-0.5 transition-colors">Vendite</button>
           </div>
         </template>
       </nav>
 
-      <div class="flex items-center space-x-6">
-        <div class="bg-slate-900 text-white px-4 py-2 rounded-2xl flex items-center space-x-2 shadow-lg">
-          <span class="text-[10px] uppercase font-black text-slate-400 italic">Budget</span>
-          <span class="font-black text-lg" x-text="'€ ' + wallet.toFixed(2)"></span>
+      <!-- Controlli desktop (nascosti su mobile, gia' mostrati nella prima riga) -->
+      <div class="hidden md:flex items-center gap-4">
+        <div class="bg-surface-2 border border-border px-3 py-1.5 rounded-md flex items-center gap-2">
+          <span class="text-xs uppercase tracking-wide text-muted">Budget</span>
+          <span class="font-bold text-text" x-text="'€ ' + wallet.toFixed(2)"></span>
         </div>
+        <button x-data="themeToggle()" @click="toggle()" :aria-pressed="dark"
+          :aria-label="dark ? 'Attiva il tema chiaro' : 'Attiva il tema scuro'"
+          :title="dark ? 'Attiva il tema chiaro' : 'Attiva il tema scuro'"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-text transition-colors hover:bg-surface-2">
+          <svg x-show="!dark" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>
+          <svg x-show="dark" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path stroke-linecap="round" d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>
+        </button>
         <button @click="logout()"
-          class="text-red-500 hover:text-red-700 font-black text-xs uppercase border-l border-slate-100 pl-6">Esci</button>
+          class="text-danger hover:opacity-80 font-medium text-sm border-l border-border pl-4 transition-opacity">Esci</button>
       </div>
     </header>
 
-    <main class="flex-grow container mx-auto p-8 text-left">
+    <main class="flex-grow container mx-auto p-4 sm:p-8 text-left">
 
       <!-- VISTA BENVENUTO -->
-      <section x-show="currentView === 'welcome'" class="flex flex-col items-center justify-center mt-20 text-center">
-        <h2 class="text-7xl font-black text-slate-900 mb-4 tracking-tighter">ArtAround<span
-            class="text-blue-600">.</span></h2>
-        <p class="text-slate-400 text-xl tracking-[0.2em] uppercase mb-16 font-light">Management & Discovery</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-5xl w-full">
+      <section x-show="currentView === 'welcome'" class="flex flex-col items-center justify-center mt-12 sm:mt-20 text-center">
+        <h2 class="text-4xl sm:text-5xl font-bold text-text mb-3 tracking-tight">ArtAround<span class="text-accent">.</span></h2>
+        <p class="text-muted text-sm tracking-[0.2em] uppercase mb-10 sm:mb-16">Management & Discovery</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl w-full">
           <div @click="currentView = 'login_autore'"
-            class="group bg-white p-16 rounded-[3rem] shadow-xl hover:shadow-2xl border-4 border-transparent hover:border-blue-500 transition-all cursor-pointer">
-            <div class="text-8xl mb-8 group-hover:scale-110 transition duration-500 font-bold text-blue-600 italic">🖋️
-            </div>
-            <h3 class="text-4xl font-black text-slate-900 mb-4">Autore</h3>
-            <p class="text-slate-400 font-medium">Crea e vendi i tuoi contenuti.</p>
+            class="group bg-surface p-8 sm:p-12 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer">
+            <div class="text-6xl mb-6">🖋️</div>
+            <h3 class="text-2xl font-bold text-text mb-2">Autore</h3>
+            <p class="text-muted">Crea e vendi i tuoi contenuti.</p>
           </div>
           <div @click="currentView = 'login_visitatore'"
-            class="group bg-white p-16 rounded-[3rem] shadow-xl hover:shadow-2xl border-4 border-transparent hover:border-emerald-500 transition-all cursor-pointer">
-            <div class="text-8xl mb-8 group-hover:scale-110 transition duration-500 text-emerald-600">👤</div>
-            <h3 class="text-4xl font-black text-slate-900 mb-4 tracking-tight text-emerald-600">Visitatore</h3>
-            <p class="text-slate-400 font-medium">Acquista e crea i tuoi percorsi.</p>
+            class="group bg-surface p-8 sm:p-12 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer">
+            <div class="text-6xl mb-6">👤</div>
+            <h3 class="text-2xl font-bold text-text mb-2">Visitatore</h3>
+            <p class="text-muted">Acquista e crea i tuoi percorsi.</p>
           </div>
         </div>
       </section>
@@ -88,50 +161,45 @@
       <!-- VISTA LOGIN -->
       <section x-show="['login_autore', 'login_visitatore'].includes(currentView)"
         class="flex flex-col items-center justify-center mt-10">
-        <div class="bg-white p-12 rounded-[2.5rem] shadow-2xl max-w-md w-full text-center border border-slate-100">
+        <div class="bg-surface p-10 rounded-lg border border-border shadow-sm max-w-md w-full text-center">
           <button @click="currentView = 'welcome'"
-            class="text-slate-300 hover:text-slate-600 mb-8 flex items-center text-[10px] font-black uppercase tracking-widest">←
-            Indietro</button>
-          <h2 class="text-4xl font-black mb-10 text-slate-900 tracking-tight text-center"
+            class="text-muted hover:text-text mb-8 flex items-center text-sm font-medium transition-colors">← Indietro</button>
+          <h2 class="text-2xl font-bold mb-8 text-text tracking-tight text-center"
             x-text="currentView === 'login_autore' ? 'Autore' : 'Visitatore'"></h2>
           <form @submit.prevent="effettuaLogin(currentView === 'login_autore' ? 'autore' : 'visitatore')"
-            class="space-y-5 text-left">
+            class="space-y-4 text-left">
             <input type="text" x-model="formLogin.username" required placeholder="Username"
-              class="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[1.5rem] outline-none transition font-bold shadow-inner">
+              class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
             <input type="password" x-model="formLogin.password" required placeholder="Password"
-              class="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[1.5rem] outline-none transition font-bold shadow-inner">
+              class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
             <button type="submit"
-              :class="currentView === 'login_autore' ? 'bg-blue-600 shadow-blue-100' : 'bg-emerald-600 shadow-emerald-100'"
-              class="w-full text-white py-5 rounded-[1.5rem] font-black text-xl shadow-2xl transition transform active:scale-95">Accedi</button>
+              class="w-full bg-accent text-on-accent py-3 rounded-md font-medium text-base hover:opacity-90 transition-opacity">Accedi</button>
           </form>
           <button @click="preparaRegistrazione(currentView === 'login_autore' ? 'autore' : 'visitatore')"
-            class="w-full mt-8 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-blue-600 transition">Registrati
-            ora</button>
+            class="w-full mt-6 text-muted font-medium text-sm hover:text-accent transition-colors">Registrati ora</button>
         </div>
       </section>
 
       <!-- VISTA REGISTRAZIONE -->
       <section x-show="currentView === 'register'" class="flex flex-col items-center justify-center mt-10">
-        <div class="bg-white p-12 rounded-[2.5rem] shadow-2xl max-w-lg w-full">
+        <div class="bg-surface p-10 rounded-lg border border-border shadow-sm max-w-lg w-full">
           <button @click="currentView = 'welcome'"
-            class="text-slate-300 hover:text-slate-600 mb-8 flex items-center text-[10px] font-black uppercase tracking-widest">←
-            Indietro</button>
-          <h2 class="text-4xl font-black mb-10 text-slate-900 tracking-tight text-center leading-none">Nuovo Profilo
+            class="text-muted hover:text-text mb-8 flex items-center text-sm font-medium transition-colors">← Indietro</button>
+          <h2 class="text-2xl font-bold mb-8 text-text tracking-tight text-center">Nuovo Profilo
             <span x-text="formReg.tipo"></span>
           </h2>
-          <form @submit.prevent="concludiRegistrazione" class="space-y-5 text-left">
+          <form @submit.prevent="concludiRegistrazione" class="space-y-4 text-left">
             <input type="text" x-model="formReg.username" required placeholder="Scegli Username"
-              class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold text-left shadow-inner">
+              class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
             <input type="password" x-model="formReg.password" required placeholder="Scegli Password"
-              class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold text-left shadow-inner">
+              class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
             <input type="password" x-model="formReg.conferma" required placeholder="Conferma Password"
-              class="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-bold text-left shadow-inner">
+              class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
             <button type="submit"
-              class="w-full bg-gray-900 text-white py-5 rounded-[1.5rem] font-black text-xl shadow-2xl hover:bg-blue-600 transition mt-6">Crea
-              Account</button>
+              class="w-full bg-accent text-on-accent py-3 rounded-md font-medium text-base hover:opacity-90 transition-opacity mt-2">Crea Account</button>
           </form>
           <button @click="currentView = 'login_' + formReg.tipo"
-            class="w-full mt-8 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-blue-600 transition">
+            class="w-full mt-6 text-muted font-medium text-sm hover:text-accent transition-colors">
             Hai già un account? Accedi ora
           </button>
         </div>
@@ -139,39 +207,59 @@
 
 
 
+      <!-- VISTA SELEZIONE MUSEO (pannello di scelta multipla) -->
+      <section x-show="currentView === 'select_museum'" class="text-left max-w-5xl mx-auto">
+        <div class="text-center mb-10 mt-4">
+          <h2 class="text-2xl sm:text-3xl font-bold text-text tracking-tight mb-2">Seleziona un museo</h2>
+          <p class="text-muted">Scegli il museo di cui gestire e scoprire i contenuti.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <template x-for="m in musei" :key="m.qid">
+            <button type="button" @click="selezionaMuseo(m)"
+              class="group bg-surface p-8 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all text-left flex flex-col">
+              <div class="flex items-center justify-center h-14 w-14 rounded-md bg-surface-2 border border-border text-3xl mb-5" aria-hidden="true">🏛️</div>
+              <h3 class="text-xl font-bold text-text tracking-tight leading-tight mb-1" x-text="m.name"></h3>
+              <p class="text-muted text-sm mb-1" x-show="m.location" x-text="m.location"></p>
+              <p class="text-muted text-xs font-medium uppercase tracking-wide" x-text="m.qid"></p>
+              <span class="mt-5 inline-flex items-center gap-1 text-accent font-medium text-sm">Entra <span aria-hidden="true">→</span></span>
+            </button>
+          </template>
+        </div>
+        <div x-show="musei.length === 0" class="text-center py-16">
+          <p class="text-muted">Nessun museo disponibile. Assicurati che il database sia stato popolato (seed).</p>
+        </div>
+      </section>
+
       <!-- VISTA CATALOGO AUTORE -->
       <section x-show="currentView === 'my_works'" class="text-left">
-        <div class="flex justify-between items-end mb-12">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-10">
           <div>
-            <h2 class="text-6xl font-black text-slate-900 tracking-tighter mb-2 leading-none">I miei Lavori</h2>
-            <p class="text-gray-400 text-lg font-medium italic">Gestione contenuti per <span
-                class="text-blue-600 font-black not-italic">Tutte le Opere</span></p>
+            <h2 class="text-2xl sm:text-3xl font-bold text-text tracking-tight mb-1">I miei Lavori</h2>
+            <p class="text-muted">Gestione contenuti per <span class="text-accent font-medium">Tutte le Opere</span></p>
           </div>
           <button @click="apriEditor()"
-            class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-700 transition">+
-            Nuovo Contenuto</button>
+            class="bg-accent text-on-accent px-5 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity shrink-0">+ Nuovo Contenuto</button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <template x-for="item in mieOpere" :key="item._id || item['@id']">
-            <div class="bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition-all flex flex-col group relative">
-              <div class="absolute top-6 right-6 z-10">
-                <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest border border-blue-100"
+            <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group relative">
+              <div class="absolute top-4 right-4 z-10">
+                <span class="bg-surface-2 text-muted px-2.5 py-1 rounded-md font-medium text-xs border border-border"
                   x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></span>
               </div>
-              <div class="h-56 bg-slate-100 flex items-center justify-center overflow-hidden rounded-t-[3rem]">
-                <!-- Se l'item ha l'artwork popolato (about) -->
-                <img x-show="item.about && item.about.image" :src="item.about.image"
+              <div class="h-48 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border" x-data="{ imgErr: false }">
+                <img x-show="imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
                   class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
-                <div x-show="!item.about || !item.about.image" class="text-7xl"
+                <div x-show="!imgOpera(item.about) || imgErr" class="text-6xl"
                   x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
               </div>
-              <div class="p-8">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2 italic" x-text="item.educationalLevel"></p>
-                <h3 class="text-2xl font-black text-slate-900 leading-tight mb-6 tracking-tight"
+              <div class="p-6">
+                <p class="text-xs font-medium uppercase tracking-wide text-accent mb-2" x-text="item.educationalLevel"></p>
+                <h3 class="text-lg font-bold text-text leading-tight mb-5 tracking-tight"
                   x-text="item['@type'] === 'ItemList' ? item.name : (item.about ? item.about.name : 'Opera Sconosciuta')"></h3>
-                <div class="flex space-x-3 mt-auto">
+                <div class="flex gap-3 mt-auto">
                   <button @click="apriDettaglio(item)"
-                    class="flex-grow bg-slate-900 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition shadow-lg">Anteprima</button>
+                    class="flex-grow bg-surface-2 border border-border text-text py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">Anteprima</button>
                 </div>
               </div>
             </div>
@@ -179,50 +267,109 @@
         </div>
       </section>
 
-      <!-- VISTA MARKETPLACE VISITATORE -->
-      <section x-show="currentView === 'dashboard'" class="text-left">
-        <div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-8">
+      <!-- VISTA VENDITE / ADOZIONI (autore) -->
+      <section x-show="currentView === 'sales'" class="text-left">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8">
           <div>
-            <h2 class="text-6xl font-black text-gray-900 tracking-tighter mb-2 leading-none">Marketplace</h2>
-            <p class="text-gray-400 text-lg font-medium italic">Scopri i tour disponibili</p>
+            <h2 class="text-2xl sm:text-3xl font-bold text-text tracking-tight mb-1">Vendite &amp; Adozioni</h2>
+            <p class="text-muted">Contenuti pubblicati nel museo selezionato</p>
           </div>
-          <div class="relative group w-full md:w-auto">
-            <input type="text" x-model="ricerca" placeholder="Cerca tour..."
-              class="pl-14 pr-6 py-5 bg-white border border-gray-200 rounded-[2rem] w-full md:w-96 shadow-sm focus:ring-8 focus:ring-blue-50 outline-none transition font-medium">
-            <span class="absolute left-6 top-5.5 text-2xl">🔍</span>
+          <div class="flex gap-3">
+            <div class="bg-surface border border-border rounded-md px-4 py-2.5 text-center">
+              <p class="text-xs uppercase tracking-wide text-muted">Adozioni</p>
+              <p class="text-xl font-bold text-text" x-text="totaleAdozioni()"></p>
+            </div>
+            <div class="bg-surface border border-border rounded-md px-4 py-2.5 text-center">
+              <p class="text-xs uppercase tracking-wide text-muted">Ricavo</p>
+              <p class="text-xl font-bold text-accent" x-text="'€ ' + totaleRicavo().toFixed(2)"></p>
+            </div>
           </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+
+        <div class="bg-surface border border-border rounded-lg overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead class="bg-surface-2 text-muted text-xs uppercase tracking-wide">
+                <tr>
+                  <th class="px-4 py-3 font-medium">Contenuto</th>
+                  <th class="px-4 py-3 font-medium">Tipo</th>
+                  <th class="px-4 py-3 font-medium">Licenza</th>
+                  <th class="px-4 py-3 font-medium text-right">Prezzo</th>
+                  <th class="px-4 py-3 font-medium text-right">Adozioni</th>
+                  <th class="px-4 py-3 font-medium text-right">Ricavo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="r in venditeFiltrate()" :key="r.id">
+                  <tr class="border-t border-border">
+                    <td class="px-4 py-3 font-medium text-text" x-text="r.name"></td>
+                    <td class="px-4 py-3">
+                      <span class="text-xs px-2 py-0.5 rounded-md border border-border bg-surface-2 text-muted" x-text="r.type"></span>
+                    </td>
+                    <td class="px-4 py-3 text-muted" x-text="r.license"></td>
+                    <td class="px-4 py-3 text-right text-text" x-text="(r.price ? '€ ' + r.price.toFixed(2) : 'Gratis')"></td>
+                    <td class="px-4 py-3 text-right font-medium text-text" x-text="r.adozioni"></td>
+                    <td class="px-4 py-3 text-right font-bold text-accent" x-text="'€ ' + (r.ricavo || 0).toFixed(2)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <div x-show="venditeFiltrate().length === 0" class="text-center py-12">
+            <p class="text-muted">Nessun contenuto pubblicato in questo museo.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA MARKETPLACE VISITATORE -->
+      <section x-show="currentView === 'dashboard'" class="text-left">
+        <div class="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
+          <div>
+            <h2 class="text-3xl font-bold text-text tracking-tight mb-1">Marketplace</h2>
+            <p class="text-muted">Contenuti e visite disponibili</p>
+          </div>
+          <div class="relative w-full md:w-auto">
+            <input type="text" x-model="ricerca" placeholder="Cerca contenuti o visite..."
+              class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full md:w-96 focus:border-accent outline-none transition-colors font-medium">
+            <span class="absolute left-4 top-3 text-lg">🔍</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <template x-for="item in contenutiFiltrati()" :key="item._id || item['@id']">
-            <div class="bg-white rounded-[3rem] shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl transition-all flex flex-col group relative">
-              <div class="absolute top-6 left-6 z-10">
-                <span class="bg-gray-900 text-white px-4 py-2 rounded-2xl font-black text-[10px] uppercase shadow-lg tracking-widest"
+            <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group relative" x-data="{ imgErr: false }">
+              <div class="absolute top-4 left-4 z-10">
+                <span class="bg-text text-bg px-3 py-1 rounded-md font-medium text-xs"
                   x-text="(!item.price || item.price === 0) ? 'Gratis' : '€ ' + item.price.toFixed(2)"></span>
               </div>
-              <div class="h-64 bg-slate-100 flex items-center justify-center overflow-hidden rounded-t-[3rem]">
-                <div class="text-8xl"
-                  x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
+              <div class="h-56 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border">
+                <img x-show="item['@type'] === 'CreativeWork' && imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
+                  class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
+                <div x-show="item['@type'] === 'ItemList' || !imgOpera(item.about) || imgErr" class="text-7xl" x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
               </div>
-              <div class="p-10 flex-grow flex flex-col">
-                <div class="flex justify-between items-start mb-4">
-                  <h3 class="text-3xl font-black text-slate-900 tracking-tight leading-tight mb-4"
+              <div class="p-6 flex-grow flex flex-col">
+                <div class="flex justify-between items-start mb-3">
+                  <h3 class="text-xl font-bold text-text tracking-tight leading-tight"
                     x-text="item['@type'] === 'ItemList' ? item.name : (item.about ? item.about.name : 'Senza Titolo')"></h3>
-                  <span :class="item['@type'] === 'ItemList' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'"
-                    class="text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest ml-4"
+                  <span class="text-xs px-2.5 py-1 rounded-md font-medium ml-3 border border-border bg-surface-2 text-muted shrink-0"
                     x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></span>
                 </div>
-                <p class="text-slate-400 text-[10px] font-black mb-8 uppercase tracking-widest italic">
-                  Curatore: <span class="text-slate-800 not-italic uppercase font-bold" x-text="item.author"></span></p>
-                <div class="mt-auto flex space-x-4">
+                <!-- Per gli item: livello e durata della descrizione -->
+                <div x-show="item['@type'] === 'CreativeWork'" class="flex flex-wrap gap-2 mb-4">
+                  <span class="text-[10px] px-2 py-0.5 rounded-md border border-border bg-surface-2 text-muted uppercase tracking-wide" x-text="item.educationalLevel"></span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-md border border-border bg-surface-2 text-muted uppercase tracking-wide" x-text="item.timeRequired + 's'"></span>
+                </div>
+                <p class="text-muted text-xs font-medium mb-6 uppercase tracking-wide">
+                  Curatore: <span class="text-text" x-text="item.author || '—'"></span></p>
+                <div class="mt-auto flex gap-3">
                   <button @click="apriDettaglio(item)"
-                    class="flex-grow bg-gray-50 text-gray-900 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition border border-gray-100 shadow-sm">Dettagli</button>
+                    class="flex-grow bg-surface-2 border border-border text-text py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">Dettagli</button>
                   <template x-if="haIlPossesso(item)">
-                    <div class="flex-grow bg-emerald-50 text-emerald-600 py-4 rounded-[1.5rem] font-black text-[10px] uppercase text-center border border-emerald-100">
+                    <div class="flex-grow bg-surface-2 text-muted py-2.5 rounded-md font-medium text-sm text-center border border-border">
                       Posseduto ✅</div>
                   </template>
                   <template x-if="!haIlPossesso(item)">
                     <button @click="compraOra(item)"
-                      class="flex-grow bg-blue-600 text-white py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition shadow-xl shadow-blue-100">Sblocca</button>
+                      class="flex-grow bg-accent text-on-accent py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity">Sblocca</button>
                   </template>
                 </div>
               </div>
@@ -233,19 +380,18 @@
 
       <!-- VISTA LA MIA COLLEZIONE -->
       <section x-show="currentView === 'my_collection'" class="text-left">
-        <h2 class="text-6xl font-black text-slate-900 tracking-tighter mb-4 leading-none text-left">La mia Collezione
-        </h2>
-        <p class="text-gray-400 text-lg mb-12 font-medium italic text-left">Contenuti acquistati</p>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+        <h2 class="text-3xl font-bold text-text tracking-tight mb-1 text-left">La mia Collezione</h2>
+        <p class="text-muted mb-10 text-left">Contenuti acquistati</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-center">
           <template x-for="item in miaCollezione()" :key="item['@id']">
-            <div @click="apriDettaglio(item)"
-              class="group bg-white p-10 rounded-[3rem] shadow-sm border border-emerald-50 flex flex-col items-center text-center cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden">
-              <img x-show="item['@type'] === 'CreativeWork' && item.about.image" :src="item.about.image"
-                class="w-24 h-24 rounded-2xl object-contain bg-slate-50 mb-6 group-hover:scale-110 transition">
-              <div x-show="item['@type'] === 'ItemList' || !item.about.image" class="text-6xl mb-6 text-center"
+            <div @click="apriDettaglio(item)" x-data="{ imgErr: false }"
+              class="group bg-surface p-8 rounded-lg border border-border shadow-sm flex flex-col items-center text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden">
+              <img x-show="item['@type'] === 'CreativeWork' && imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
+                class="w-20 h-20 rounded-md object-contain bg-surface-2 mb-5 group-hover:scale-105 transition">
+              <div x-show="item['@type'] === 'ItemList' || !imgOpera(item.about) || imgErr" class="text-5xl mb-5 text-center"
                 x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
-              <h3 class="text-xl font-black text-slate-900 text-center font-bold" x-text="item['@type'] === 'ItemList' ? item.name : item.about.name"></h3>
-              <p class="text-gray-400 text-[10px] font-black uppercase mt-2 tracking-[0.2em]" x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></p>
+              <h3 class="text-base font-bold text-text text-center" x-text="item['@type'] === 'ItemList' ? item.name : item.about.name"></h3>
+              <p class="text-muted text-xs font-medium uppercase mt-1 tracking-wide" x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></p>
             </div>
           </template>
         </div>
@@ -253,120 +399,126 @@
 
       <!-- VISTA EDITOR -->
       <section x-show="currentView === 'editor'" class="max-w-5xl mx-auto text-left">
-        <div class="bg-white p-16 rounded-[4rem] shadow-2xl border border-slate-100 relative">
-          <button @click="tornaHome()" class="absolute top-10 right-10 text-slate-300 hover:text-slate-600 text-4xl">&times;</button>
-          <h2 class="text-5xl font-black mb-2 text-slate-900 tracking-tight"
+        <div class="bg-surface p-6 sm:p-10 rounded-lg border border-border shadow-sm relative">
+          <button @click="tornaHome()" class="absolute top-6 right-6 sm:top-8 sm:right-8 text-muted hover:text-text text-3xl leading-none">&times;</button>
+          <h2 class="text-2xl font-bold mb-1 text-text tracking-tight"
             x-text="currentUserType === 'autore' ? 'Editor Contenuto' : 'Crea Percorso'"></h2>
-          <p class="text-slate-400 mb-12 text-lg font-medium italic">Gestore Contenuti</p>
+          <p class="text-muted mb-10">Gestore Contenuti</p>
 
-          <form @submit.prevent="salvaOpera" class="space-y-12">
-            <div x-show="currentUserType === 'autore'" class="flex bg-slate-100 p-2 rounded-[2rem] w-fit shadow-inner mb-8">
+          <form @submit.prevent="salvaOpera" class="space-y-10">
+            <div x-show="currentUserType === 'autore'" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit mb-6">
               <button type="button" @click="cambiaTipoEditor('Item')"
-                :class="nuovaOpera.type === 'Item' ? 'bg-white shadow-md text-blue-600' : 'text-slate-400'"
-                class="px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition">🖼️ Item</button>
+                :class="nuovaOpera.type === 'Item' ? 'bg-surface shadow-sm text-accent' : 'text-muted'"
+                class="px-6 py-2 rounded-md font-medium text-sm transition-colors">🖼️ Item</button>
               <button type="button" @click="cambiaTipoEditor('Visita')"
-                :class="nuovaOpera.type === 'Visita' ? 'bg-white shadow-md text-purple-600' : 'text-slate-400'"
-                class="px-8 py-3 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition">🗺️ Visita</button>
+                :class="nuovaOpera.type === 'Visita' ? 'bg-surface shadow-sm text-accent' : 'text-muted'"
+                class="px-6 py-2 rounded-md font-medium text-sm transition-colors">🗺️ Visita</button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div class="col-span-2" x-show="nuovaOpera.type === 'Visita'">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2 italic">Titolo Visita</label>
+                <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Titolo Visita</label>
                 <input type="text" x-model="nuovaOpera.titolo" placeholder="Es: I capolavori del Rinascimento"
-                  class="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[2rem] outline-none transition font-bold text-2xl shadow-inner">
+                  class="w-full p-4 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium text-lg">
               </div>
               <div class="col-span-2" x-show="nuovaOpera.type === 'Item'">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 ml-2 italic">Seleziona Opera dal Database</label>
-                <select x-model="nuovaOpera.selectedArtworkUri" required
-                  class="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-[2rem] outline-none transition font-bold text-2xl shadow-inner appearance-none cursor-pointer">
+                <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Seleziona Opera dal Database</label>
+                <select x-model="nuovaOpera.selectedArtworkUri" :required="nuovaOpera.type === 'Item'"
+                  class="w-full p-4 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium text-lg appearance-none cursor-pointer">
                   <option value="" disabled>Scegli un'opera...</option>
-                  <template x-for="art in availableArtworks" :key="art.wikiDataUri">
-                    <option :value="art.wikiDataUri" x-text="art.name"></option>
+                  <template x-for="art in opereDisponibili()" :key="art['@id']">
+                    <option :value="art['@id']" x-text="art.name"></option>
                   </template>
                 </select>
               </div>
               <div x-show="currentUserType === 'autore'">
-                <label class="block text-[10px] font-black uppercase mb-3 tracking-widest text-slate-400 ml-2 italic">Prezzo (€)</label>
-                <input type="number" step="0.10" x-model="nuovaOpera.price"
-                  class="w-full p-5 bg-slate-50 rounded-[1.5rem] outline-none font-black text-xl shadow-inner border-2 border-transparent focus:border-blue-500">
+                <label class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Prezzo (€)</label>
+                <input type="number" step="0.10" min="0" x-model="nuovaOpera.price"
+                  class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors">
+              </div>
+              <div x-show="currentUserType === 'autore'">
+                <label class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Licenza</label>
+                <select x-model="nuovaOpera.license"
+                  class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors appearance-none cursor-pointer">
+                  <template x-for="lic in licenze" :key="lic">
+                    <option :value="lic" x-text="lic"></option>
+                  </template>
+                </select>
               </div>
             </div>
 
             <!-- Editor Audioguida per Item (Solo Autore) -->
-            <div x-show="nuovaOpera.type === 'Item'" class="pt-12 border-t border-slate-100">
-                <div class="grid grid-cols-1 gap-12">
+            <div x-show="nuovaOpera.type === 'Item'" class="pt-10 border-t border-border">
+                <div class="grid grid-cols-1 gap-8">
                     <template x-for="tono in ['infantile', 'semplice', 'medio', 'avanzato']">
-                        <div class="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200">
-                            <div class="flex justify-between items-center mb-6">
-                                <h4 class="text-xl font-black uppercase tracking-tighter" :class="{
-                                    'text-pink-500': tono === 'infantile',
-                                    'text-emerald-500': tono === 'semplice',
-                                    'text-blue-500': tono === 'medio',
-                                    'text-purple-500': tono === 'avanzato'
-                                }">
+                        <div class="bg-surface-2 p-6 rounded-lg border border-border">
+                            <div class="flex justify-between items-center mb-5">
+                                <h4 class="text-base font-bold uppercase tracking-tight text-text">
                                     <span x-text="tono === 'infantile' ? '👶 ' : (tono === 'semplice' ? '🧑‍🎓 ' : (tono === 'medio' ? '🧐 ' : '🎓 '))"></span>
                                     <span x-text="tono"></span>
                                 </h4>
-                                <div class="flex items-center space-x-2">
-                                    <label class="text-[10px] font-black uppercase text-slate-400">Durata (sec)</label>
-                                    <input type="number" x-model="nuovaOpera.descrizioni[tono].durata" class="w-20 p-2 rounded-xl font-bold border-2 border-transparent focus:border-blue-500 text-center">
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs font-medium uppercase text-muted">Durata (sec)</label>
+                                    <input type="number" min="0" x-model="nuovaOpera.descrizioni[tono].durata" class="w-20 p-2 rounded-md font-medium border border-border focus:border-accent bg-surface text-center outline-none transition-colors">
                                 </div>
                             </div>
-                            <textarea x-model="nuovaOpera.descrizioni[tono].testo" :placeholder="'Scrivi qui la descrizione ' + tono + '...'" rows="4" 
-                                class="w-full p-6 bg-white rounded-2xl outline-none font-medium shadow-inner border-2 border-transparent focus:border-blue-500 text-lg"></textarea>
+                            <textarea x-model="nuovaOpera.descrizioni[tono].testo" :placeholder="'Scrivi qui la descrizione ' + tono + '...'" rows="4"
+                                class="w-full p-4 bg-surface rounded-md outline-none font-medium border border-border focus:border-accent text-base transition-colors"></textarea>
                         </div>
                     </template>
                 </div>
             </div>
 
             <!-- Editor Timeline per Visite (Autore e Visitatore) -->
-            <div x-show="nuovaOpera.type === 'Visita'" class="pt-12 border-t border-slate-100">
-                <h3 class="text-3xl font-black text-slate-900 mb-8">Percorso della Visita</h3>
-                
-                <div class="bg-slate-100 p-8 rounded-[3rem] mb-8 border-2 border-dashed border-slate-200">
-                    <p class="text-[10px] font-black uppercase text-slate-400 mb-6 text-center italic">Aggiungi contenuti dalla tua libreria:</p>
+            <div x-show="nuovaOpera.type === 'Visita'" class="pt-10 border-t border-border">
+                <h3 class="text-xl font-bold text-text mb-6">Percorso della Visita</h3>
+
+                <div class="bg-surface-2 p-6 rounded-lg mb-6 border border-dashed border-border">
+                    <p class="text-xs font-medium uppercase text-muted mb-5 text-center">Aggiungi contenuti dalla tua libreria:</p>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <template x-for="op in listaOpereSelezionabili()" :key="op._id || op['@id']">
                             <button type="button" @click="aggiungiTappa('item', op['@id'] || op._id)"
-                              class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 hover:border-purple-500 transition-all text-left flex items-center space-x-3 relative overflow-hidden">
-                              <span class="absolute top-1 right-2 text-[7px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-100" x-text="op.educationalLevel"></span>
-                              <span class="text-xl">🖼️</span>
+                              :disabled="itemGiaInVisita(op['@id'] || op._id)"
+                              :class="itemGiaInVisita(op['@id'] || op._id) ? 'opacity-50 cursor-not-allowed' : 'hover:border-accent'"
+                              class="bg-surface p-3 rounded-md border border-border transition-colors text-left flex items-center gap-3 relative overflow-hidden">
+                              <span class="absolute top-1 right-2 text-[9px] font-medium uppercase px-2 py-0.5 rounded-md bg-surface-2 text-muted border border-border" x-text="op.educationalLevel"></span>
+                              <span class="text-lg">🖼️</span>
                               <div>
-                                <p class="text-[10px] font-black leading-none" x-text="trovaNomeItem(op['@id'] || op._id)"></p>
-                                <p class="text-[8px] text-purple-400 font-bold uppercase mt-1">+ Aggiungi</p>
+                                <p class="text-sm font-medium leading-none text-text" x-text="trovaNomeItem(op['@id'] || op._id)"></p>
+                                <p class="text-xs font-medium mt-1" :class="itemGiaInVisita(op['@id'] || op._id) ? 'text-muted' : 'text-accent'" x-text="itemGiaInVisita(op['@id'] || op._id) ? '✓ Aggiunto' : '+ Aggiungi'"></p>
                               </div>
                             </button>
                         </template>
                     </div>
                     <div x-show="listaOpereSelezionabili().length === 0" class="text-center p-4">
-                        <p class="text-slate-400 text-xs italic">Nessun contenuto disponibile. <span x-show="currentUserType === 'visitatore'">Acquista qualcosa nel marketplace!</span></p>
+                        <p class="text-muted text-sm">Nessun contenuto disponibile. <span x-show="currentUserType === 'visitatore'">Acquista qualcosa nel marketplace!</span></p>
                     </div>
-                    <div class="mt-8 text-center border-t border-slate-200 pt-6">
-                        <button type="button" @click="aggiungiTappa('logistica')" class="bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition"> + Aggiungi Nota Logistica (Sosta, Direzione...)</button>
+                    <div class="mt-6 text-center border-t border-border pt-5">
+                        <button type="button" @click="aggiungiTappa('logistica')" class="bg-text text-bg px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity"> + Aggiungi Nota Logistica (Sosta, Direzione...)</button>
                     </div>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-3">
                     <template x-for="(tappa, index) in nuovaOpera.tappe" :key="index">
-                        <div class="flex items-center space-x-4 p-6 rounded-[2rem] border-2 bg-white" :class="tappa.tipo === 'item' ? 'border-purple-100' : 'border-slate-100 border-dashed'">
-                            <span class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center font-black text-xs" x-text="index + 1"></span>
+                        <div class="flex items-center gap-4 p-4 rounded-md border bg-surface" :class="tappa.tipo === 'item' ? 'border-border' : 'border-dashed border-border'">
+                            <span class="w-8 h-8 bg-surface-2 border border-border rounded-full flex items-center justify-center font-medium text-xs" x-text="index + 1"></span>
                             <div class="flex-grow">
                                 <template x-if="tappa.tipo === 'item'">
-                                    <p class="font-black text-slate-800" x-text="trovaNomeItem(tappa.value)"></p>
+                                    <p class="font-medium text-text" x-text="trovaNomeItem(tappa.value)"></p>
                                 </template>
                                 <template x-if="tappa.tipo === 'logistica'">
-                                    <input type="text" x-model="tappa.value" placeholder="Es: Gira a destra dopo la statua..." class="w-full bg-transparent font-bold text-slate-600 outline-none italic">
+                                    <input type="text" x-model="tappa.value" placeholder="Es: Gira a destra dopo la statua..." class="w-full bg-transparent font-medium text-muted outline-none">
                                 </template>
                             </div>
-                            <button type="button" @click="rimuoviTappa(index)" class="text-red-300 hover:text-red-500 text-2xl font-black">&times;</button>
+                            <button type="button" @click="rimuoviTappa(index)" class="text-danger hover:opacity-80 text-2xl font-medium transition-opacity">&times;</button>
                         </div>
                     </template>
                 </div>
             </div>
 
-            <div class="flex justify-end pt-12 border-t border-slate-100">
+            <div class="flex justify-end pt-10 border-t border-border">
               <button type="submit"
-                class="bg-blue-600 text-white px-16 py-6 rounded-[2rem] font-black text-2xl shadow-2xl hover:scale-105 transition-all tracking-tighter"
+                class="bg-accent text-on-accent px-10 py-3.5 rounded-md font-medium text-lg hover:opacity-90 transition-opacity"
                 x-text="currentUserType === 'autore' ? 'Pubblica sul Marketplace' : 'Salva nei miei Percorsi'"></button>
             </div>
           </form>
@@ -376,55 +528,54 @@
     </main>
 
     <!-- DETTAGLIO MODALE -->
-    <div x-show="modalDettaglio" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-md" x-transition.opacity>
-      <div class="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden" @click.away="modalDettaglio = false">
-        <div class="h-40 bg-blue-600 flex items-end p-10 relative">
-          <button @click="modalDettaglio = false" class="absolute top-6 right-6 text-white/50 hover:text-white text-4xl">&times;</button>
-          <h2 class="text-4xl font-black text-white leading-tight italic" x-text="itemSelezionato?.['@type'] === 'ItemList' ? itemSelezionato?.name : itemSelezionato?.about.name"></h2>
+    <div x-show="modalDettaglio" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm" x-transition.opacity>
+      <div class="bg-surface w-full max-w-2xl rounded-lg border border-border shadow-lg overflow-hidden" @click.away="modalDettaglio = false">
+        <div class="h-32 bg-accent flex items-end p-8 relative">
+          <button @click="modalDettaglio = false" class="absolute top-5 right-5 text-on-accent/70 hover:text-on-accent text-3xl leading-none">&times;</button>
+          <h2 class="text-2xl font-bold text-on-accent leading-tight" x-text="itemSelezionato?.['@type'] === 'ItemList' ? itemSelezionato?.name : itemSelezionato?.about.name"></h2>
         </div>
-        <div class="p-10 space-y-6">
-          <img x-show="itemSelezionato?.['@type'] === 'CreativeWork' && itemSelezionato.about.image" :src="itemSelezionato?.about.image" class="w-full h-64 object-contain bg-slate-100 rounded-3xl shadow-lg mb-6">
-          
+        <div class="p-8 space-y-5">
+          <img x-show="itemSelezionato?.['@type'] === 'CreativeWork' && imgOpera(itemSelezionato?.about)" :src="imgOpera(itemSelezionato?.about)" @error="$event.target.style.display='none'" class="w-full h-56 object-contain bg-surface-2 rounded-md border border-border mb-4">
+
           <div x-show="itemSelezionato?.['@type'] === 'CreativeWork'">
             <div class="flex justify-between items-center mb-4">
-                <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-black text-[10px] uppercase" x-text="itemSelezionato?.educationalLevel"></span>
-                <span class="text-slate-400 font-bold text-xs">
+                <span class="bg-surface-2 text-muted border border-border px-2.5 py-1 rounded-md font-medium text-xs" x-text="itemSelezionato?.educationalLevel"></span>
+                <span class="text-muted font-medium text-xs">
                   <span class="mr-1">⏱️</span>
                   <span>Tempo di lettura: </span>
                   <span x-text="itemSelezionato?.timeRequired + ' sec'"></span>
                 </span>
             </div>
-            <p class="text-slate-700 leading-relaxed text-lg" x-text="haIlPossesso(itemSelezionato) ? itemSelezionato?.text : 'Contenuto Protetto. Sbloccalo per leggere la descrizione.'"></p>
+            <p class="text-text leading-relaxed" x-text="haIlPossesso(itemSelezionato) ? itemSelezionato?.text : 'Contenuto Protetto. Sbloccalo per leggere la descrizione.'"></p>
           </div>
 
           <div x-show="itemSelezionato?.['@type'] === 'ItemList'">
-            <h4 class="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">Timeline Percorso</h4>
+            <h4 class="text-xs font-medium uppercase text-muted mb-4 tracking-wide">Timeline Percorso</h4>
             <div class="space-y-2">
                 <template x-for="(id, i) in itemSelezionato?.itemListElement">
-                    <div class="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black" x-text="i+1"></span>
-                        <span class="text-sm font-bold text-slate-700" x-text="trovaNomeItem(id)"></span>
+                    <div class="flex items-center gap-3 p-3 bg-surface-2 rounded-md border border-border">
+                        <span class="w-6 h-6 bg-accent text-on-accent rounded-full flex items-center justify-center text-xs font-medium" x-text="i+1"></span>
+                        <span class="text-sm font-medium text-text" x-text="trovaNomeItem(id)"></span>
                     </div>
                 </template>
             </div>
           </div>
 
-          <div class="pt-6 border-t flex justify-between items-center">
-            <span class="text-gray-400 font-black text-[10px] uppercase tracking-widest italic">Curatore: <span class="text-slate-800 font-bold" x-text="itemSelezionato?.author"></span></span>
+          <div class="pt-5 border-t border-border flex justify-between items-center">
+            <div class="flex flex-col gap-1">
+              <span class="text-muted font-medium text-xs uppercase tracking-wide">Curatore: <span class="text-text" x-text="itemSelezionato?.author"></span></span>
+              <span x-show="itemSelezionato?.license" class="text-muted font-medium text-xs uppercase tracking-wide">Licenza: <span class="text-text" x-text="itemSelezionato?.license"></span></span>
+            </div>
             <template x-if="currentUserType === 'visitatore' && !haIlPossesso(itemSelezionato)">
-              <button @click="compraOra(itemSelezionato)" class="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-blue-700 transition">Sblocca per € <span x-text="itemSelezionato?.price?.toFixed(2)"></span></button>
+              <button @click="compraOra(itemSelezionato)" class="bg-accent text-on-accent px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity"
+                x-text="(!itemSelezionato?.price || itemSelezionato?.price === 0) ? 'Ottieni gratis' : 'Sblocca per € ' + itemSelezionato?.price?.toFixed(2)"></button>
             </template>
           </div>
         </div>
       </div>
     </div>
 
-    <footer class="p-10 text-center text-slate-300 text-[10px] uppercase font-black tracking-[0.5em] mt-auto">ArtAround Suite &copy; 2026</footer>
-  </div>
-</body>
-
-</html>
-te &copy; 2026</footer>
+    <footer class="p-8 text-center text-muted text-xs uppercase font-medium tracking-[0.3em] mt-auto">ArtAround Suite &copy; 2026</footer>
   </div>
 </body>
 

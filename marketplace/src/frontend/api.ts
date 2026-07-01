@@ -1,9 +1,63 @@
-import { Contenuto, Artwork, Item } from '../../../shared/types.js';
+import { Contenuto, Artwork, Item, Museum, User } from '../../../shared/types.js';
+
+// Utente restituito dal server (senza password)
+export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
+
+async function readError(response: Response, fallback: string): Promise<string> {
+  const data = await response.json().catch(() => ({} as any));
+  return data.error || fallback;
+}
 
 /**
  * Servizio per la comunicazione con il server (Network Layer)
  */
 export const ArtAPI = {
+  // --- Autenticazione / utenti (persistiti su MongoDB) ---
+  async login(username: string, password: string, role: string): Promise<UserDTO> {
+    const response = await fetch('/api/users/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role }),
+    });
+    if (!response.ok) throw new Error(await readError(response, 'Credenziali non valide'));
+    return response.json();
+  },
+
+  async register(username: string, password: string, role: string): Promise<UserDTO> {
+    const response = await fetch('/api/users/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role }),
+    });
+    if (!response.ok) throw new Error(await readError(response, 'Errore in registrazione'));
+    return response.json();
+  },
+
+  // Acquisto persistente: il server scala il wallet e aggiorna la collezione
+  async buy(username: string, itemId: string, price: number): Promise<UserDTO> {
+    const response = await fetch(`/api/users/${encodeURIComponent(username)}/buy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, price }),
+    });
+    if (!response.ok) throw new Error(await readError(response, 'Errore nell\'acquisto'));
+    return response.json();
+  },
+
+  // Vendite/adozioni dei contenuti pubblicati da un autore
+  async fetchSales(username: string): Promise<any[]> {
+    const response = await fetch(`/api/users/${encodeURIComponent(username)}/sales`);
+    if (!response.ok) throw new Error('Errore caricamento vendite');
+    return response.json();
+  },
+
+  // Recupera la lista dei musei disponibili (per il pannello di selezione)
+  async fetchMuseums(): Promise<Museum[]> {
+    const response = await fetch('/api/museums');
+    if (!response.ok) throw new Error('Errore caricamento musei');
+    return response.json();
+  },
+
   // Recupera la lista di tutte le opere dal database (per la selezione nell'editor)
   async fetchArtworks(): Promise<Artwork[]> {
     const response = await fetch('/api/artworks');
@@ -15,6 +69,13 @@ export const ArtAPI = {
   async fetchVisite(): Promise<Contenuto[]> {
     const response = await fetch('/api/visits');
     if (!response.ok) throw new Error('Errore caricamento visite');
+    return response.json();
+  },
+
+  // Recupera tutti gli item (contenuti) in vendita, con l'artwork popolato
+  async fetchItems(): Promise<Item[]> {
+    const response = await fetch('/api/items');
+    if (!response.ok) throw new Error('Errore caricamento item');
     return response.json();
   },
 

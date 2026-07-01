@@ -1,2 +1,94 @@
 @import "tailwindcss";
 @plugin "@headlessui/tailwindcss";
+
+/*
+  Dark mode pilotato da una classe `.dark` su <html> (vedi il toggle in
+  index.html + lo script anti-FOUC). Tenuto in sync col navigator: stessa
+  chiave localStorage "artaround-theme".
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Stessi token semantici del navigator (palette "Swiss minimal": grigi
+  neutri + un singolo accento blu). Usiamo `@theme inline` cosi' le utility
+  Tailwind (es. bg-bg, text-text, border-border, bg-accent) puntano alle
+  CSS var, mantenendo coerenza visiva fra marketplace e navigator.
+*/
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-focus: var(--focus);
+  --color-danger: var(--danger);
+
+  --font-sans:
+    "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Tema chiaro (default) — contrasti verificati >= WCAG AA */
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #fafafa;
+  --text: #111113;
+  --muted: #5b5b62;
+  --border: #e3e3e6;
+  --accent: #1f4fd6;
+  --on-accent: #ffffff;
+  --focus: #1f4fd6;
+  --danger: #c12626;
+  color-scheme: light;
+}
+
+/* Tema scuro */
+.dark {
+  --bg: #0c0c0e;
+  --surface: #151517;
+  --surface-2: #1b1b1e;
+  --text: #f2f2f3;
+  --muted: #a8a8b0;
+  --border: #2a2a2e;
+  --accent: #5f82ff;
+  --on-accent: #0a0a0c;
+  --focus: #5f82ff;
+  --danger: #ff6b6b;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+  }
+
+  /* Focus visibile e ad alto contrasto su qualsiasi elemento interattivo */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Rispetta la preferenza "riduci animazioni" */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+</content>

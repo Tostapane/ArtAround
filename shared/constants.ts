@@ -5,6 +5,16 @@ export const educationalLevels = ["Principiante", "Intermedio", "Avanzato"];
 
 export const secPerArt = [15, 30, 60];
 
+// Licenze di pubblicazione selezionabili dall'autore nel marketplace.
+// La prima e' il default proposto in fase di creazione.
+export const licenses = [
+  "Tutti i diritti riservati",
+  "CC BY 4.0",
+  "CC BY-SA 4.0",
+  "CC BY-NC 4.0",
+  "CC0 (Pubblico dominio)",
+];
+
 // Lingua di partenza dei contenuti salvati nel database (italiano).
 // La traduzione live converte da questa lingua a quella scelta dall'utente.
 export const SOURCE_LANG = "it";

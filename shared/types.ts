@@ -67,6 +67,7 @@ export interface Visit {
   itemListElement: string[]; // Array di ID di Item
   logistics: string[]; // Indicazioni testuali
   author?: string;
+  license?: string; // licenza di pubblicazione (vedi shared/constants: licenses)
 }
 
 // Unione per il Marketplace

@@ -149,19 +149,36 @@ router.post("/custom", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
+
+    const itemIds: string[] =
+      payload.percorso
+        ?.filter((t: any) => t.tipo === "item")
+        .map((t: any) => t.id_item) ||
+      payload.itemListElement ||
+      [];
+
+    // `level` e `duration` sono obbligatori nello schema Visit. Una visita
+    // creata dal marketplace non ne ha di espliciti: usiamo un livello generico
+    // e ricaviamo la durata sommando i `timeRequired` (secondi) degli item scelti.
+    const items = itemIds.length
+      ? await ItemModel.find({ "@id": { $in: itemIds } })
+      : [];
+    const duration =
+      payload.duration ??
+      items.reduce((s, it: any) => s + (Number(it.timeRequired) || 0), 0);
+
     await VisitModel.findOneAndUpdate(
       { "@id": payload.id || payload["@id"] },
       {
         "@id": payload.id || payload["@id"],
         name: payload.titolo || payload.name,
+        level: payload.level || "Personalizzata",
+        duration,
         price: payload.prezzo || payload.price,
         author: payload.autore || payload.author,
-        itemListElement:
-          payload.percorso
-            ?.filter((t: any) => t.tipo === "item")
-            .map((t: any) => t.id_item) ||
-          payload.itemListElement ||
-          [],
+        license: payload.licenza || payload.license || "Tutti i diritti riservati",
+        ofMuseum: payload.museumUri || payload.ofMuseum,
+        itemListElement: itemIds,
         logistics:
           payload.percorso
             ?.filter((t: any) => t.tipo === "logistica")

@@ -35,9 +35,11 @@ The project grade maps to a band; each adds features on top of the base:
   missing items, map free-form voice commands to controlled ones, real-time translation,
   constraint-based visit generation). 18-33 is for groups of 2–3 and presented in person.
 
-> Current code reaches *toward* 18-33 (LLM + STT + TTS present) but **has not finished the 18-24
-> base** (logistics stubbed, marketplace item-publish broken) and has none of the 18-27/18-33
-> extension features (sync, quiz, QR/geo, teleport). **Recommendation: finish the 18-24 base first.**
+> Current code reaches *toward* 18-33 (LLM + STT + TTS present). The 18-24 base is **almost
+> complete** (logistics done, marketplace item-publish **fixed**, museum-selection panel **done**);
+> what remains of the base is mainly **marketplace persistence** (users/wallet/collection on DB).
+> None of the 18-27/18-33 extension features beyond QR/LLM are present (teacher sync, quiz,
+> teleport, device geo). **Recommendation: finish the remaining 18-24 base items first.**
 
 ---
 
@@ -107,7 +109,8 @@ marketplace at `/`, compiled JS at `/dist`. Navigator runs on its own Vite dev s
   `itemListElement` (Item `@id`[]), `logistics` (string[]), `author?`.
 - **Museum**: `@id`, `qid`, `name`, `created`, `location`, `mapPath`.
 - **User**: `username`, `role` (`autore`|`visitatore`), `wallet`, `collezione` (id[]).
-  ⚠️ Currently **not persisted** — marketplace users/wallet/collection are in-memory only.
+  **Now persisted** in MongoDB (`models/user.ts`, adds a plaintext `password` — security is not
+  graded). CRUD via `/api/users` (see §4); seeded with the 4 required accounts (`seedUsers.ts`).
 - **Match**: `{artwork, item}` (navigator joins item.about ↔ artwork["@id"]).
 - **Contenuto** = `Item | Visit` (marketplace union).
 
@@ -129,9 +132,16 @@ Base path `/api`. All mounted in `server/src/index.ts`.
     artwork has **no** item, generates one via the LLM (`createDescription`) for that level+duration
     and persists it as `@id = "<qid>-AI-<level>-<duration>"` (author `"AI"`).
 - **Items** `/api/items`
+  - `GET /` → **all** items with `about` (Artwork) **populated** (marketplace visitor listing; the
+    client filters by museum via `about.ofMuseum`).
   - `GET /author/:authorName` → author's items (populates `about`).
   - `POST /` → upsert item. Accepts marketplace format (`tipo:"Item"`) **or** Schema.org
     (`@type:"CreativeWork"`).
+    - **`@type` in forma corta obbligatoria:** gli item si salvano con `@type:"CreativeWork"`
+      (non l'URL `https://schema.org/CreativeWork`), coerente con le Visit (`"ItemList"`). I
+      template del marketplace confrontano `item['@type'] === 'CreativeWork'`, quindi l'URL
+      completo faceva fallire silenziosamente immagine/badge/dettaglio degli item (bug risolto:
+      default del model normalizzato + migrazione dei 310 item esistenti).
   - `POST /batch` → items by `{ids:[...]}`.
 - **Visits** `/api/visits`
   - `GET /` → all visits. `GET /:id/items` → the visit's items with `about` (Artwork) **populated**
@@ -145,6 +155,15 @@ Base path `/api`. All mounted in `server/src/index.ts`.
   - `GET /:qid/qrcodes` → **printable HTML** sheet with one QR per artwork (payload = the bare
     artwork qid). The curator's "foglio di carta" for QR localization; fully generic (driven by
     the museum's artworks). Uses the `qrcode` npm module server-side.
+- **Users** `/api/users` (marketplace auth + persistence)
+  - `POST /register` `{username, password, role}` → creates a user, returns it **without password**
+    (409 if the username exists).
+  - `POST /login` `{username, password, role}` → validates username+password+**role** (the portal
+    must match the account's role), returns the user (`wallet`+`collezione` included).
+  - `POST /:username/buy` `{itemId, price}` → **server-side** budget check, deducts `wallet`, adds
+    `itemId` to `collezione` (idempotent if already owned), returns the updated user.
+  - `GET /:username/sales` → the author's published items+visits with `license`, `price`,
+    `adozioni` (buyers) and `ricavo` (adozioni×price) — adoptions counted from `User.collezione`.
 - **LLM** `/api/llm`
   - `POST /newInfo` → `{previous, userReq, language}` → enriched description (Gemini), generated
     **directly in `language`** (the language's display name, e.g. `"English"`). (NOT `/addInfo`.)
@@ -182,7 +201,32 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   LLM "options" (Approfondisci/Semplifica/Chi è l'autore/…) → STT voice input mapped to
   controlled vocab; on-screen buttons mirror voice commands (`OptionsBar.vue`, with aria-labels).
 - Marketplace: login/register, author "my works", visitor dashboard/collection, editor for
-  items (4 tones×durations) and visits, in-memory wallet/purchase.
+  items (4 tones×durations) and visits, **DB-persisted wallet/purchase** (see §5 item 4 + `/api/users`).
+- **Visitor buys single items AND visits, then composes own visits — DONE (slide 20/23).** The
+  visitor dashboard now lists **both individual items** (`GET /api/items`, artwork image+name, tone/
+  duration, price) **and visits**, all buyable one-by-one (`contenutiFiltrati` merges
+  `itemsMarket`+`contenuti`, museum-scoped). Purchased items feed the visitor's **"Crea Percorso"**
+  editor (`listaOpereSelezionabili` now reads owned items from `itemsMarket`, previously looked in the
+  visits list → always empty). A composed visit is saved with `author=<visitor>` + `ofMuseum` and
+  appears in the visitor's collection. Also: system auto-tour visits were **renamed** from the raw
+  code (`Q…-Livello-durata`) to a readable label (`Visita <livello> · <durata>s`), in
+  `manager.populateVisit` + a one-off `renameVisits.ts`.
+- **Museum selection panel (slide 20, mandatory green req) — DONE.** At marketplace access, after
+  login, a **multiple-choice panel** (`select_museum` view) lists the museums (`GET /api/museums`)
+  and the user picks one; **all marketplace content is then filtered to that museum** (visits,
+  author items, collection, and the editor's selectable artworks — via `ofMuseum` ===
+  `http://www.wikidata.org/entity/${qid}`). A navbar pill shows the chosen museum with a "Cambia"
+  action. Frontend-only (`state.ts` `musei`/`museoSelezionato`/`selezionaMuseo`/`appartieneAlMuseo`,
+  `api.ts` `fetchMuseums`); no server change. (Navigator's museum selection stays config/URL-based,
+  a separate mechanism per the slides.)
+- **Artwork images reliably shown (navigator + marketplace) — DONE.** Frontends resolve the image as
+  `imagePath` (server-downloaded) → fallback `imageUri` (remote Wikidata) → placeholder, with an
+  `@error` guard so a broken URL never shows a broken-image icon (marketplace `state.ts:imgOpera`
+  used across cards/collection/modal; navigator `Card.vue:imgSrc` + `imgBroken`). **Seed hardening:**
+  `manager.populateArtwork` now **skips artworks with no P18 image** (returns `false`; `seed.ts`
+  `continue`s), so every artwork stored via seed always has a viewable image; `wikidata.ts` also drops
+  a label that is merely the QID (label-service fallback). Several invalid/imageless placeholder QIDs
+  in `data/museumContent.ts` were replaced with real, verified artworks.
 - Visit-matching identifiers/format fixed: `ofMuseum` now uses canonical
   `http://www.wikidata.org/entity/${qid}` (with `/`) consistently in `Selector.vue:51` and
   `museums.ts:47`; `Selector` levels/durations are now derived dynamically from the visits in
@@ -282,16 +326,27 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   floor (vertical links via `data-edge` are a future extension).
 
 **Missing / broken (priority order)**
-1. 🟠 **Item publish is broken:** `routes/items.ts` looks up `ArtworkModel.findOne({wikiDataUri:…})`
-   but the Artwork schema has no `wikiDataUri` → never matches → items never created via marketplace.
+1. ✅ **Item publish — FIXED:** the editor's artwork `<select>` used a non-existent field
+   (`art.wikiDataUri`) for its `:value`/`:key`, so nothing could be selected; and `routes/items.ts`
+   looked up `ArtworkModel.findOne({wikiDataUri:…})` which never matched. Now the select uses
+   `art['@id']` and the server resolves the artwork by `@id` (with `qid`/`wikiDataUri` fallback).
+   Negative price/duration are also blocked (`min="0"` + JS validation in `salvaOpera`).
 2. ✅ **Logistics — DONE:** positional commands now answer via the wayfinding pipeline (see
    "Working / present"); `routes/visits.ts` `tipo` filter fixed to `"logistica"` so author-written
    logistics persist (the *caricare* path) alongside the graph-generated directions (*creare*).
 3. 🟠 **Hardcoded env:** `App.vue` pins `museumId="Q6373"`; `navigator/src/api.ts` pins
    `http://localhost:8000`. Both must be config/relative for the docker deploy.
-4. 🟡 **Marketplace persistence:** users hardcoded (only `autore1`/`visitatore1` — need
-   `autore2`/`visitatore2`); wallet/collection/purchases not saved to DB (reset on reload).
-   License/adoptions/sales mgmt mostly absent (only `price`).
+4. ⏳ **Marketplace persistence — PARTLY DONE.** ✅ Users, wallet, collection and purchases are now
+   **persisted in MongoDB** via `/api/users` (`models/user.ts`, `routes/users.ts`); the marketplace
+   `state.ts` calls the API for login/register/buy instead of the old in-memory array. ✅ All **4
+   required accounts** (`autore1`/`autore2`/`visitatore1`/`visitatore2`, pw `12345678`) are seeded
+   (`seedUsers.ts`). ✅ **Publish license + adoptions + sales — DONE (slide 20):** the editor now
+   has a **license** selector (`shared/constants.ts:licenses`), persisted on Item **and** Visit
+   (`license` field added to the Visit type/model); the author has a **"Vendite" view** showing, per
+   published content, license + price + **adozioni** (buyers) + **ricavo** (adozioni×price) with
+   museum-scoped totals, from `GET /api/users/:username/sales` (adoptions **derived** from
+   `User.collezione`, no duplicated storage). Also fixed: the Visit `POST` now stores `ofMuseum`
+   (was missing → author/visitor-created visits wouldn't appear under the museum filter).
 5. 🟡 **Extensions partially done:** teacher sync + quiz (18-27) not started; for 18-33, **QR
    localization is done and working** (see §5 above), **teleport + device geolocation not started**.
 6. ✅ **Hygiene — done:** request-path `console.log`s removed (kept startup/seed/config logs);
@@ -320,7 +375,8 @@ docker-compose up    # mongo + node; runs npm install, navigator dev (5173), ser
 cd server && npm install && npm run dev     # API on :8000, also serves marketplace at /
 cd navigator && npm install && npm run dev  # navigator on :5173
 # marketplace is served by the server at http://localhost:8000
-# (re)seed the DB with server/src/seed.ts when needed
+# (re)seed the DB with server/src/seed.ts when needed (heavy: LLM-generates items)
+# seed just the 4 required accounts (fast, no LLM):  npx ts-node server/src/seedUsers.ts
 ```
 
 ---
