@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
+import { UserModel } from "../models/user";
 import { ArtworkModel } from "../models/artwork";
 import { planVisit } from "../services/llm";
 import { resolveOrGenerateItem } from "../dbActions";
@@ -208,6 +209,26 @@ router.post("/", async (req, res) => {
     res.status(201).send({ message: "Visita pubblicata con successo" });
   } catch (error: any) {
     console.error("[BACKEND ERROR] Errore durante il salvataggio della visita:", error);
+    res.status(500).json({ error: error.message || "Errore interno del server" });
+  }
+});
+
+/**
+ * DELETE /api/visits/:id
+ * Elimina una visita creata dal marketplace e la rimuove dalle collezioni
+ * degli utenti che la possedevano.
+ */
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await VisitModel.deleteOne({ "@id": id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Visita non trovata" });
+    }
+    await UserModel.updateMany({}, { $pull: { collezione: id } });
+    res.json({ message: "Visita eliminata" });
+  } catch (error: any) {
+    console.error("[BACKEND ERROR] eliminazione visita:", error);
     res.status(500).json({ error: error.message || "Errore interno del server" });
   }
 });

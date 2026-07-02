@@ -20,10 +20,27 @@ export class AppState {
   currentUser: string | null = null;
   currentUserType: UserRole | null = null;
   ricerca: string = "";
+  ricercaCollezione: string = "";
   wallet: number = 100.0;
   collezioneUtente: string[] = []; // Array di @id
   modalDettaglio: boolean = false;
   itemSelezionato: Contenuto | null = null;
+  // Cronologia delle schermate mostrate nel modale dettaglio: ogni volta che
+  // il contenuto del modale cambia (es. visita -> suo item) la schermata
+  // precedente viene impilata qui, cosi' si puo' sempre tornare indietro
+  // senza chiudere la finestra.
+  storiaModale: Contenuto[] = [];
+  // Modale di conferma acquisto (non usiamo alert/confirm nativi)
+  modalConferma: boolean = false;
+  itemDaAcquistare: Contenuto | null = null;
+  // Se valorizzata, la conferma riguarda l'acquisto in blocco degli item
+  // mancanti di questa visita (non un singolo contenuto).
+  visitaAcquistoMancanti: any = null;
+  // Se valorizzata, la conferma riguarda l'ELIMINAZIONE di questa visita.
+  visitaDaEliminare: any = null;
+  // Toast di notifica (successo/errore) che scompare da solo
+  toast: { messaggio: string; tipo: "success" | "error" } | null = null;
+  private toastTimer: any = null;
   editingId: string | null = null;
 
   formLogin = { username: "", password: "" };
@@ -50,6 +67,10 @@ export class AppState {
 
   // Stato per l'editor (mappato sui nuovi tipi)
   nuovaOpera = this.resetNuovaOpera();
+
+  // Filtro della libreria item nell'editor visite: "tutti", "posseduti"
+  // (posseduti + gratis) o "non_posseduti" (a pagamento non ancora acquistati).
+  filtroLibreria: "tutti" | "posseduti" | "non_posseduti" = "tutti";
 
   tornaHome() {
     this.currentView =
@@ -130,8 +151,9 @@ export class AppState {
       }
     } catch (e) {
       console.error("Errore durante l'inizializzazione dei dati:", e);
-      alert(
+      this.mostraToast(
         "Errore: Impossibile connettersi al database. Assicurati che il server sia attivo.",
+        "error",
       );
     }
   }
@@ -150,7 +172,7 @@ export class AppState {
       this.formLogin = { username: "", password: "" };
       await this.initApp(); // carica musei/opere/visite/lavori
     } catch (e) {
-      alert((e as Error).message);
+      this.mostraToast((e as Error).message, "error");
     }
   }
 
@@ -164,9 +186,9 @@ export class AppState {
   async concludiRegistrazione() {
     const { username, password, conferma, tipo } = this.formReg;
     if (!username || !password || password !== conferma)
-      return alert("Dati non validi o password non coincidenti");
+      return this.mostraToast("Dati non validi o password non coincidenti", "error");
     if (tipo !== "autore" && tipo !== "visitatore")
-      return alert("Seleziona un tipo di profilo");
+      return this.mostraToast("Seleziona un tipo di profilo", "error");
 
     try {
       const u = await ArtAPI.register(username, password, tipo);
@@ -177,7 +199,7 @@ export class AppState {
       this.formReg = { username: "", password: "", conferma: "", tipo: "" };
       await this.initApp();
     } catch (e) {
-      alert((e as Error).message);
+      this.mostraToast((e as Error).message, "error");
     }
   }
 
@@ -202,28 +224,153 @@ export class AppState {
     );
   }
 
+  // Acquisto: i contenuti GRATIS vengono aggiunti subito alla collezione,
+  // per quelli a pagamento si apre il modale di conferma.
   async compraOra(item: Contenuto) {
     if (!this.currentUser || this.haIlPossesso(item)) return;
+    if (!item.price || item.price === 0) {
+      await this.eseguiAcquisto(item);
+      return;
+    }
+    this.itemDaAcquistare = item;
+    this.modalConferma = true;
+  }
 
-    // Chiede conferma prima dell'acquisto (a prezzo o gratuito).
-    const prezzo = item.price || 0;
-    const nome = this.nomeContenuto(item) || "questo contenuto";
-    const messaggio =
-      prezzo > 0
-        ? `Sei sicuro di voler acquistare "${nome}" per € ${prezzo.toFixed(2)}?`
-        : `Vuoi aggiungere "${nome}" alla tua collezione? È gratuito.`;
-    if (!confirm(messaggio)) return;
-
+  // Esegue l'acquisto vero e proprio (persistito lato server).
+  private async eseguiAcquisto(item: Contenuto) {
+    if (!this.currentUser) return;
     try {
-      // L'acquisto e' persistito: il server scala il wallet e aggiorna la
-      // collezione, poi rispecchiamo il nuovo stato nel client.
       const u = await ArtAPI.buy(this.currentUser, item["@id"], item.price || 0);
       this.wallet = u.wallet;
       this.collezioneUtente = u.collezione;
-      alert("Contenuto sbloccato!");
+      this.mostraToast("Contenuto sbloccato!");
     } catch (e) {
-      alert((e as Error).message);
+      this.mostraToast((e as Error).message, "error");
     }
+  }
+
+  // Apre la conferma per comprare in blocco gli item mancanti di una visita
+  apriAcquistoMancanti(visit: any) {
+    if (!this.currentUser || this.itemsMancanti(visit).length === 0) return;
+    this.visitaAcquistoMancanti = visit;
+    this.modalConferma = true;
+  }
+
+  // Apre la conferma di eliminazione di una visita creata dall'utente
+  apriEliminaVisita(visit: any) {
+    if (!visit || visit.author !== this.currentUser) return;
+    this.visitaDaEliminare = visit;
+    this.modalConferma = true;
+  }
+
+  // Apre l'editor precompilato con i dati di una visita esistente per modificarla
+  modificaVisita(visit: any) {
+    if (!visit || visit.author !== this.currentUser) return;
+    this.chiudiDettaglio();
+    this.currentView = "editor";
+    this.filtroLibreria = "tutti";
+    this.editingId = visit["@id"];
+    this.nuovaOpera = this.resetNuovaOpera();
+    this.nuovaOpera.type = "Visita";
+    this.nuovaOpera.titolo = visit.name || "";
+    this.nuovaOpera.price = visit.price || 0;
+    this.nuovaOpera.license = visit.license || licenses[0];
+    // Ricostruisce il percorso: prima gli item nell'ordine salvato, poi le
+    // note logistiche (l'ordine misto originale non e' persistito nel modello).
+    this.nuovaOpera.tappe = [
+      ...(visit.itemListElement || []).map((id: string) => ({
+        tipo: "item" as const,
+        value: id,
+      })),
+      ...(visit.logistics || [])
+        .filter((n: string) => n && n.trim() !== "")
+        .map((n: string) => ({ tipo: "logistica" as const, value: n })),
+    ];
+  }
+
+  // Messaggio mostrato nel modale di conferma
+  messaggioConferma(): string {
+    if (this.visitaDaEliminare) {
+      return `Vuoi eliminare definitivamente la visita "${this.visitaDaEliminare.name}"? L'operazione non è reversibile.`;
+    }
+    if (this.visitaAcquistoMancanti) {
+      const mancanti = this.itemsMancanti(this.visitaAcquistoMancanti);
+      const costo = this.costoMancanti(this.visitaAcquistoMancanti);
+      return `Questa visita contiene ${mancanti.length} item che non possiedi. Per usarla devi acquistarli tutti: vuoi procedere per € ${costo.toFixed(2)}?`;
+    }
+    // Qui arrivano solo i contenuti a pagamento (i gratis si acquistano
+    // direttamente senza conferma).
+    const item = this.itemDaAcquistare;
+    if (!item) return "";
+    const prezzo = item.price || 0;
+    const nome = this.nomeContenuto(item) || "questo contenuto";
+    return `Sei sicuro di voler acquistare "${nome}" per € ${prezzo.toFixed(2)}?`;
+  }
+
+  annullaAcquisto() {
+    this.modalConferma = false;
+    this.itemDaAcquistare = null;
+    this.visitaAcquistoMancanti = null;
+    this.visitaDaEliminare = null;
+  }
+
+  // Toast non bloccante per notifiche post-azione (successo/errore)
+  mostraToast(messaggio: string, tipo: "success" | "error" = "success") {
+    this.toast = { messaggio, tipo };
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => {
+      this.toast = null;
+    }, 3500);
+  }
+
+  async confermaAcquisto() {
+    // Caso eliminazione visita
+    if (this.visitaDaEliminare) {
+      const visita = this.visitaDaEliminare;
+      this.modalConferma = false;
+      this.visitaDaEliminare = null;
+      try {
+        await ArtAPI.eliminaVisita(visita["@id"]);
+        this.chiudiDettaglio();
+        // Rispecchia l'eliminazione nello stato locale senza ricaricare tutto
+        this.contenuti = this.contenuti.filter(
+          (c: any) => c["@id"] !== visita["@id"],
+        );
+        this.collezioneUtente = this.collezioneUtente.filter(
+          (id) => id !== visita["@id"],
+        );
+        this.mostraToast("Visita eliminata.");
+      } catch (e) {
+        this.mostraToast((e as Error).message, "error");
+      }
+      return;
+    }
+
+    // Caso acquisto in blocco: tutti gli item mancanti di una visita
+    if (this.visitaAcquistoMancanti) {
+      const visita = this.visitaAcquistoMancanti;
+      this.modalConferma = false;
+      this.visitaAcquistoMancanti = null;
+      if (!this.currentUser) return;
+      try {
+        for (const it of this.itemsMancanti(visita)) {
+          const u = await ArtAPI.buy(this.currentUser, it["@id"], it.price || 0);
+          this.wallet = u.wallet;
+          this.collezioneUtente = u.collezione;
+        }
+        this.mostraToast("Item acquistati: ora puoi usare la visita!");
+      } catch (e) {
+        // Budget esaurito a meta': gli item gia' comprati restano acquisiti
+        this.mostraToast((e as Error).message, "error");
+      }
+      return;
+    }
+
+    const item = this.itemDaAcquistare;
+    this.modalConferma = false;
+    this.itemDaAcquistare = null;
+    if (!item || !this.currentUser || this.haIlPossesso(item)) return;
+    await this.eseguiAcquisto(item);
   }
 
   // Nome ricercabile di un contenuto (visita: name; item: nome dell'artwork).
@@ -257,10 +404,15 @@ export class AppState {
   }
 
   miaCollezione() {
-    // Collezione = item e visite posseduti nel museo selezionato
+    // Collezione = item e visite posseduti nel museo selezionato,
+    // filtrati dalla barra di ricerca dedicata.
+    const q = this.ricercaCollezione.toLowerCase();
     const tutto = [...this.itemsMarket, ...this.contenuti] as any[];
     return tutto.filter(
-      (c) => this.appartieneAlMuseo(c) && this.haIlPossesso(c),
+      (c) =>
+        this.appartieneAlMuseo(c) &&
+        this.haIlPossesso(c) &&
+        this.nomeContenuto(c).toLowerCase().includes(q),
     );
   }
   mieiLavori() {
@@ -277,7 +429,42 @@ export class AppState {
 
   apriDettaglio(item: Contenuto | Item) {
     this.itemSelezionato = item as any;
+    this.storiaModale = [];
     this.modalDettaglio = true;
+  }
+
+  chiudiDettaglio() {
+    this.modalDettaglio = false;
+    this.storiaModale = [];
+  }
+
+  // Item di una visita che l'utente NON possiede ancora (oggetti popolati).
+  itemsMancanti(visit: any): any[] {
+    if (!visit || visit["@type"] !== "ItemList") return [];
+    return (visit.itemListElement || [])
+      .map((id: string) => this.trovaItem(id))
+      .filter((it: any) => it && !this.haIlPossesso(it));
+  }
+
+  // Costo totale degli item mancanti di una visita.
+  costoMancanti(visit: any): number {
+    return this.itemsMancanti(visit).reduce(
+      (s: number, it: any) => s + (it.price || 0),
+      0,
+    );
+  }
+
+  // Una visita e' utilizzabile (avviabile nel navigator) solo se posseduta
+  // E tutti i suoi item sono posseduti: altrimenti si potrebbero leggere
+  // descrizioni non acquistate.
+  visitaUtilizzabile(visit: any): boolean {
+    return this.haIlPossesso(visit) && this.itemsMancanti(visit).length === 0;
+  }
+
+  // Torna alla schermata precedente del modale (es. dall'item alla visita)
+  tornaIndietroModale() {
+    const prev = this.storiaModale.pop();
+    if (prev) this.itemSelezionato = prev;
   }
 
   // URL del navigator per avviare una visita posseduta: stesso host del
@@ -300,6 +487,7 @@ export class AppState {
   apriEditor() {
     this.currentView = "editor";
     this.editingId = null;
+    this.filtroLibreria = "tutti";
     this.nuovaOpera = this.resetNuovaOpera();
     // Se è un visitatore, di default l'editor crea una visita
     if (this.currentUserType === "visitatore") {
@@ -327,13 +515,10 @@ export class AppState {
       price: 0,
       license: licenses[0],
       selectedArtworkUri: "",
-      // Struttura per i 4 toni richiesti
-      descrizioni: {
-        infantile: { testo: "", durata: "10" },
-        semplice: { testo: "", durata: "30" },
-        medio: { testo: "", durata: "60" },
-        avanzato: { testo: "", durata: "120" },
-      },
+      // Un item = UNA descrizione con un solo tono (niente piu' 4 item in uno)
+      tono: "",
+      durata: "30",
+      testo: "",
       tappe: [] as { tipo: "item" | "logistica"; value: string }[],
       titolo: "",
     };
@@ -346,12 +531,43 @@ export class AppState {
       // Un autore può inserire solo i propri item del museo scelto
       return this.mieOpere.filter((i) => this.appartieneAlMuseo(i));
     } else {
-      // Un visitatore può inserire gli item che ha ACQUISTATO nel museo scelto
+      // Un visitatore può inserire QUALSIASI item del museo scelto, anche non
+      // posseduto: ma prima di poter USARE la visita dovrà acquistare tutti
+      // gli item mancanti (vedi visitaUtilizzabile/itemsMancanti).
       return this.itemsMarket.filter(
         (i) =>
           this.appartieneAlMuseo(i) &&
-          this.collezioneUtente.includes(i["@id"]),
+          (this.filtroLibreria === "tutti" ||
+            (this.filtroLibreria === "posseduti"
+              ? this.disponibileSubito(i)
+              : !this.disponibileSubito(i))),
       );
+    }
+  }
+
+  // True se l'item e' usabile senza spendere: posseduto oppure gratuito
+  // (i gratis contano come "posseduti" nel filtro della libreria).
+  disponibileSubito(item: any): boolean {
+    return this.haIlPossesso(item) || !item.price || item.price === 0;
+  }
+
+  // Trova l'oggetto item a partire dal suo @id (tra lavori, mercato e visite)
+  trovaItem(id: string) {
+    const all = [
+      ...(this.mieOpere as any[]),
+      ...(this.itemsMarket as any[]),
+      ...(this.contenuti as any[]),
+    ];
+    return all.find((i) => i["@id"] === id || i._id === id) || null;
+  }
+
+  // Dal modale di una visita: apre il dettaglio di uno dei suoi item,
+  // ricordando la visita nella cronologia per il pulsante "indietro".
+  apriItemDaVisita(id: string) {
+    const item = this.trovaItem(id);
+    if (item && this.itemSelezionato) {
+      this.storiaModale.push(this.itemSelezionato);
+      this.itemSelezionato = item;
     }
   }
 
@@ -379,9 +595,22 @@ export class AppState {
       tipo === "item" &&
       this.nuovaOpera.tappe.some((t) => t.tipo === "item" && t.value === value)
     ) {
-      return alert("Questo item è già presente nella visita.");
+      return this.mostraToast("Questo item è già presente nella visita.", "error");
     }
     this.nuovaOpera.tappe.push({ tipo, value });
+  }
+
+  // True se l'autore ha gia' pubblicato una descrizione con questo tono
+  // per l'opera selezionata nell'editor.
+  tonoGiaUsato(tono: string): boolean {
+    const art = this.nuovaOpera.selectedArtworkUri;
+    if (!art) return false;
+    const cap = tono.charAt(0).toUpperCase() + tono.slice(1);
+    return this.mieOpere.some(
+      (i: any) =>
+        (typeof i.about === "object" ? i.about?.["@id"] : i.about) === art &&
+        i.educationalLevel === cap,
+    );
   }
 
   // True se l'item e' gia' stato inserito nella visita in costruzione.
@@ -400,30 +629,27 @@ export class AppState {
 
     if (this.nuovaOpera.type === "Item") {
       if (!this.nuovaOpera.selectedArtworkUri)
-        return alert("Seleziona un'opera d'arte.");
+        return this.mostraToast("Seleziona un'opera d'arte.", "error");
 
       // Il prezzo non può essere negativo
       if (Number(this.nuovaOpera.price) < 0)
-        return alert("Il prezzo non può essere negativo.");
+        return this.mostraToast("Il prezzo non può essere negativo.", "error");
 
-      // Le durate delle descrizioni non possono essere negative
-      const durataNegativa = Object.values(this.nuovaOpera.descrizioni).some(
-        (d) => Number(d.durata) < 0,
-      );
-      if (durataNegativa)
-        return alert("La durata delle descrizioni non può essere negativa.");
+      if (!this.nuovaOpera.tono)
+        return this.mostraToast("Seleziona un tono per la descrizione.", "error");
 
-      // Filtriamo solo le descrizioni che sono state effettivamente scritte
-      const descrizioniValide = Object.entries(this.nuovaOpera.descrizioni)
-        .filter(([_, data]) => data.testo.trim() !== "")
-        .map(([tono, data]) => ({
-          tono: tono.charAt(0).toUpperCase() + tono.slice(1), // Capitalizza
-          lunghezza: data.durata,
-          testo: data.testo,
-        }));
+      if (Number(this.nuovaOpera.durata) < 0)
+        return this.mostraToast("La durata della descrizione non può essere negativa.", "error");
 
-      if (descrizioniValide.length === 0)
-        return alert("Inserisci almeno una descrizione.");
+      if (this.nuovaOpera.testo.trim() === "")
+        return this.mostraToast("Scrivi il testo della descrizione.", "error");
+
+      // Un solo item per coppia opera+tono (il server lo verifica comunque)
+      if (this.tonoGiaUsato(this.nuovaOpera.tono))
+        return this.mostraToast(
+          "Hai già pubblicato una descrizione con questo tono per quest'opera.",
+          "error",
+        );
 
       payload = {
         tipo: "Item",
@@ -431,19 +657,29 @@ export class AppState {
         autore: this.currentUser!,
         prezzo: this.nuovaOpera.price,
         licenza: this.nuovaOpera.license,
-        descrizioni: descrizioniValide,
+        // Un item = una sola descrizione
+        descrizioni: [
+          {
+            tono:
+              this.nuovaOpera.tono.charAt(0).toUpperCase() +
+              this.nuovaOpera.tono.slice(1),
+            lunghezza: this.nuovaOpera.durata,
+            testo: this.nuovaOpera.testo,
+          },
+        ],
       };
     } else {
       // Visita (Tour)
       if (!this.nuovaOpera.titolo)
-        return alert("Inserisci un titolo per la visita.");
+        return this.mostraToast("Inserisci un titolo per la visita.", "error");
 
       if (this.currentUserType === "autore" && Number(this.nuovaOpera.price) < 0)
-        return alert("Il prezzo non può essere negativo.");
+        return this.mostraToast("Il prezzo non può essere negativo.", "error");
 
       payload = {
         tipo: "Visita",
-        id: `tour-${Date.now()}`,
+        // In modifica riusa l'id esistente (upsert), altrimenti ne crea uno nuovo
+        id: this.editingId || `tour-${Date.now()}`,
         titolo: this.nuovaOpera.titolo,
         autore: this.currentUser!,
         // I visitatori non possono mettere prezzi (prezzo 0)
@@ -458,20 +694,23 @@ export class AppState {
         museumUri: this.museoSelezionato
           ? `http://www.wikidata.org/entity/${this.museoSelezionato.qid}`
           : undefined,
-        percorso: this.nuovaOpera.tappe.map((t) => ({
-          tipo: t.tipo,
-          id_item: t.tipo === "item" ? t.value : undefined,
-          indicazione: t.tipo === "logistica" ? t.value : undefined,
-        })),
+        // Le note logistiche lasciate vuote non vengono salvate
+        percorso: this.nuovaOpera.tappe
+          .filter((t) => t.tipo === "item" || t.value.trim() !== "")
+          .map((t) => ({
+            tipo: t.tipo,
+            id_item: t.tipo === "item" ? t.value : undefined,
+            indicazione: t.tipo === "logistica" ? t.value : undefined,
+          })),
       };
     }
 
     try {
       await ArtAPI.pubblica(payload);
-      alert("Pubblicazione avvenuta con successo!");
+      this.mostraToast("Pubblicazione avvenuta con successo!");
       await this.initApp();
     } catch (e) {
-      alert("Errore: " + (e as Error).message);
+      this.mostraToast("Errore: " + (e as Error).message, "error");
     }
   }
 

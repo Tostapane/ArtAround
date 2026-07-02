@@ -36,6 +36,8 @@
     });
   </script>
   <script type="module" src="/dist/marketplace/src/frontend/app.js"></script>
+  <!-- Plugin Focus: intrappola il Tab dentro i modali aperti (x-trap) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 
@@ -63,7 +65,9 @@
       <div class="flex items-center justify-between gap-3 text-left">
         <div class="flex items-center gap-3">
           <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent font-bold text-on-accent" aria-hidden="true">A</span>
-          <h1 class="text-lg font-bold tracking-tight text-text cursor-pointer" @click="tornaHome()">ArtAround</h1>
+          <h1 class="text-lg font-bold tracking-tight text-text">
+            <button type="button" @click="tornaHome()" aria-label="ArtAround — torna alla home">ArtAround</button>
+          </h1>
           <!-- Museo selezionato: mostra il nome e permette di cambiarlo -->
           <button x-show="museoSelezionato" @click="cambiaMuseo()"
             :title="'Museo: ' + (museoSelezionato ? museoSelezionato.name : '') + ' — clicca per cambiare'"
@@ -89,7 +93,7 @@
         </div>
       </div>
 
-      <nav x-show="museoSelezionato" class="flex gap-5 sm:gap-6 text-sm font-medium overflow-x-auto whitespace-nowrap -mx-4 px-4 md:mx-0 md:px-0">
+      <nav x-show="museoSelezionato" aria-label="Navigazione principale" class="flex gap-5 sm:gap-6 text-sm font-medium overflow-x-auto whitespace-nowrap -mx-4 px-4 md:mx-0 md:px-0">
         <template x-if="currentUserType === 'visitatore'">
           <div class="flex gap-5 sm:gap-6">
             <button @click="currentView = 'dashboard'"
@@ -143,18 +147,18 @@
         <h2 class="text-4xl sm:text-5xl font-bold text-text mb-3 tracking-tight">ArtAround<span class="text-accent">.</span></h2>
         <p class="text-muted text-sm tracking-[0.2em] uppercase mb-10 sm:mb-16">Management & Discovery</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl w-full">
-          <div @click="currentView = 'login_autore'"
-            class="group bg-surface p-8 sm:p-12 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer">
-            <div class="text-6xl mb-6">🖋️</div>
+          <button type="button" @click="currentView = 'login_autore'"
+            class="group bg-surface p-8 sm:p-12 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer text-center">
+            <div class="text-6xl mb-6" aria-hidden="true">🖋️</div>
             <h3 class="text-2xl font-bold text-text mb-2">Autore</h3>
             <p class="text-muted">Crea e vendi i tuoi contenuti.</p>
-          </div>
-          <div @click="currentView = 'login_visitatore'"
-            class="group bg-surface p-8 sm:p-12 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer">
-            <div class="text-6xl mb-6">👤</div>
+          </button>
+          <button type="button" @click="currentView = 'login_visitatore'"
+            class="group bg-surface p-8 sm:p-12 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer text-center">
+            <div class="text-6xl mb-6" aria-hidden="true">👤</div>
             <h3 class="text-2xl font-bold text-text mb-2">Visitatore</h3>
             <p class="text-muted">Acquista e crea i tuoi percorsi.</p>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -168,9 +172,9 @@
             x-text="currentView === 'login_autore' ? 'Autore' : 'Visitatore'"></h2>
           <form @submit.prevent="effettuaLogin(currentView === 'login_autore' ? 'autore' : 'visitatore')"
             class="space-y-4 text-left">
-            <input type="text" x-model="formLogin.username" required placeholder="Username"
+            <input type="text" x-model="formLogin.username" required placeholder="Username" aria-label="Username" autocomplete="username"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
-            <input type="password" x-model="formLogin.password" required placeholder="Password"
+            <input type="password" x-model="formLogin.password" required placeholder="Password" aria-label="Password" autocomplete="current-password"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
             <button type="submit"
               class="w-full bg-accent text-on-accent py-3 rounded-md font-medium text-base hover:opacity-90 transition-opacity">Accedi</button>
@@ -189,11 +193,11 @@
             <span x-text="formReg.tipo"></span>
           </h2>
           <form @submit.prevent="concludiRegistrazione" class="space-y-4 text-left">
-            <input type="text" x-model="formReg.username" required placeholder="Scegli Username"
+            <input type="text" x-model="formReg.username" required placeholder="Scegli Username" aria-label="Scegli username" autocomplete="username"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
-            <input type="password" x-model="formReg.password" required placeholder="Scegli Password"
+            <input type="password" x-model="formReg.password" required placeholder="Scegli Password" aria-label="Scegli password" autocomplete="new-password"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
-            <input type="password" x-model="formReg.conferma" required placeholder="Conferma Password"
+            <input type="password" x-model="formReg.conferma" required placeholder="Conferma Password" aria-label="Conferma password" autocomplete="new-password"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
             <button type="submit"
               class="w-full bg-accent text-on-accent py-3 rounded-md font-medium text-base hover:opacity-90 transition-opacity mt-2">Crea Account</button>
@@ -249,8 +253,9 @@
               </div>
               <div class="h-48 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border" x-data="{ imgErr: false }">
                 <img x-show="imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
+                  :alt="item.about?.name ? 'Immagine dell\'opera ' + item.about.name : ''"
                   class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
-                <div x-show="!imgOpera(item.about) || imgErr" class="text-6xl"
+                <div x-show="!imgOpera(item.about) || imgErr" class="text-6xl" aria-hidden="true"
                   x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
               </div>
               <div class="p-6">
@@ -329,9 +334,9 @@
             <p class="text-muted">Contenuti e visite disponibili</p>
           </div>
           <div class="relative w-full md:w-auto">
-            <input type="text" x-model="ricerca" placeholder="Cerca contenuti o visite..."
+            <input type="search" x-model="ricerca" placeholder="Cerca contenuti o visite..." aria-label="Cerca contenuti o visite"
               class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full md:w-96 focus:border-accent outline-none transition-colors font-medium">
-            <span class="absolute left-4 top-3 text-lg">🔍</span>
+            <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -343,8 +348,9 @@
               </div>
               <div class="h-56 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border">
                 <img x-show="item['@type'] === 'CreativeWork' && imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
+                  :alt="item.about?.name ? 'Immagine dell\'opera ' + item.about.name : ''"
                   class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
-                <div x-show="item['@type'] === 'ItemList' || !imgOpera(item.about) || imgErr" class="text-7xl" x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
+                <div x-show="item['@type'] === 'ItemList' || !imgOpera(item.about) || imgErr" class="text-7xl" aria-hidden="true" x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
               </div>
               <div class="p-6 flex-grow flex flex-col">
                 <div class="flex justify-between items-start mb-3">
@@ -380,19 +386,29 @@
 
       <!-- VISTA LA MIA COLLEZIONE -->
       <section x-show="currentView === 'my_collection'" class="text-left">
-        <h2 class="text-3xl font-bold text-text tracking-tight mb-1 text-left">La mia Collezione</h2>
-        <p class="text-muted mb-10 text-left">Contenuti acquistati</p>
+        <div class="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
+          <div>
+            <h2 class="text-3xl font-bold text-text tracking-tight mb-1 text-left">La mia Collezione</h2>
+            <p class="text-muted text-left">Contenuti acquistati</p>
+          </div>
+          <div class="relative w-full md:w-auto">
+            <input type="search" x-model="ricercaCollezione" placeholder="Cerca nella collezione..." aria-label="Cerca nella collezione"
+              class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full md:w-96 focus:border-accent outline-none transition-colors font-medium">
+            <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
+          </div>
+        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-center">
           <template x-for="item in miaCollezione()" :key="item['@id']">
-            <div @click="apriDettaglio(item)" x-data="{ imgErr: false }"
+            <button type="button" @click="apriDettaglio(item)" x-data="{ imgErr: false }"
               class="group bg-surface p-8 rounded-lg border border-border shadow-sm flex flex-col items-center text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden">
               <img x-show="item['@type'] === 'CreativeWork' && imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
+                :alt="item.about?.name ? 'Immagine dell\'opera ' + item.about.name : ''"
                 class="w-20 h-20 rounded-md object-contain bg-surface-2 mb-5 group-hover:scale-105 transition">
-              <div x-show="item['@type'] === 'ItemList' || !imgOpera(item.about) || imgErr" class="text-5xl mb-5 text-center"
+              <div x-show="item['@type'] === 'ItemList' || !imgOpera(item.about) || imgErr" class="text-5xl mb-5 text-center" aria-hidden="true"
                 x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
               <h3 class="text-base font-bold text-text text-center" x-text="item['@type'] === 'ItemList' ? item.name : item.about.name"></h3>
               <p class="text-muted text-xs font-medium uppercase mt-1 tracking-wide" x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></p>
-            </div>
+            </button>
           </template>
         </div>
       </section>
@@ -400,7 +416,7 @@
       <!-- VISTA EDITOR -->
       <section x-show="currentView === 'editor'" class="max-w-5xl mx-auto text-left">
         <div class="bg-surface p-6 sm:p-10 rounded-lg border border-border shadow-sm relative">
-          <button @click="tornaHome()" class="absolute top-6 right-6 sm:top-8 sm:right-8 text-muted hover:text-text text-3xl leading-none">&times;</button>
+          <button @click="tornaHome()" aria-label="Chiudi editor" class="absolute top-6 right-6 sm:top-8 sm:right-8 text-muted hover:text-text text-3xl leading-none">&times;</button>
           <h2 class="text-2xl font-bold mb-1 text-text tracking-tight"
             x-text="currentUserType === 'autore' ? 'Editor Contenuto' : 'Crea Percorso'"></h2>
           <p class="text-muted mb-10">Gestore Contenuti</p>
@@ -417,13 +433,13 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div class="col-span-2" x-show="nuovaOpera.type === 'Visita'">
-                <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Titolo Visita</label>
-                <input type="text" x-model="nuovaOpera.titolo" placeholder="Es: I capolavori del Rinascimento"
+                <label for="editor-titolo" class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Titolo Visita</label>
+                <input id="editor-titolo" type="text" x-model="nuovaOpera.titolo" placeholder="Es: I capolavori del Rinascimento"
                   class="w-full p-4 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium text-lg">
               </div>
               <div class="col-span-2" x-show="nuovaOpera.type === 'Item'">
-                <label class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Seleziona Opera dal Database</label>
-                <select x-model="nuovaOpera.selectedArtworkUri" :required="nuovaOpera.type === 'Item'"
+                <label for="editor-opera" class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Seleziona Opera dal Database</label>
+                <select id="editor-opera" x-model="nuovaOpera.selectedArtworkUri" :required="nuovaOpera.type === 'Item'"
                   class="w-full p-4 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium text-lg appearance-none cursor-pointer">
                   <option value="" disabled>Scegli un'opera...</option>
                   <template x-for="art in opereDisponibili()" :key="art['@id']">
@@ -432,13 +448,13 @@
                 </select>
               </div>
               <div x-show="currentUserType === 'autore'">
-                <label class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Prezzo (€)</label>
-                <input type="number" step="0.10" min="0" x-model="nuovaOpera.price"
+                <label for="editor-prezzo" class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Prezzo (€)</label>
+                <input id="editor-prezzo" type="number" step="0.10" min="0" x-model="nuovaOpera.price"
                   class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors">
               </div>
               <div x-show="currentUserType === 'autore'">
-                <label class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Licenza</label>
-                <select x-model="nuovaOpera.license"
+                <label for="editor-licenza" class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Licenza</label>
+                <select id="editor-licenza" x-model="nuovaOpera.license"
                   class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors appearance-none cursor-pointer">
                   <template x-for="lic in licenze" :key="lic">
                     <option :value="lic" x-text="lic"></option>
@@ -447,25 +463,32 @@
               </div>
             </div>
 
-            <!-- Editor Audioguida per Item (Solo Autore) -->
+            <!-- Editor Descrizione per Item (Solo Autore): UN item = UN tono -->
             <div x-show="nuovaOpera.type === 'Item'" class="pt-10 border-t border-border">
-                <div class="grid grid-cols-1 gap-8">
-                    <template x-for="tono in ['infantile', 'semplice', 'medio', 'avanzato']">
-                        <div class="bg-surface-2 p-6 rounded-lg border border-border">
-                            <div class="flex justify-between items-center mb-5">
-                                <h4 class="text-base font-bold uppercase tracking-tight text-text">
-                                    <span x-text="tono === 'infantile' ? '👶 ' : (tono === 'semplice' ? '🧑‍🎓 ' : (tono === 'medio' ? '🧐 ' : '🎓 '))"></span>
+                <div class="bg-surface-2 p-6 rounded-lg border border-border space-y-6">
+                    <div>
+                        <p id="label-tono" class="text-xs font-medium uppercase tracking-wide text-muted mb-3">Tono della descrizione</p>
+                        <div role="group" aria-labelledby="label-tono" class="flex flex-wrap gap-2">
+                            <template x-for="tono in ['infantile', 'semplice', 'medio', 'avanzato']" :key="tono">
+                                <button type="button" @click="nuovaOpera.tono = tono"
+                                    :disabled="tonoGiaUsato(tono)"
+                                    :aria-pressed="nuovaOpera.tono === tono"
+                                    :class="nuovaOpera.tono === tono ? 'border-accent text-accent shadow-sm' : (tonoGiaUsato(tono) ? 'opacity-50 cursor-not-allowed text-muted' : 'text-muted hover:text-text')"
+                                    class="px-4 py-2 rounded-md font-medium text-sm border border-border bg-surface transition-colors capitalize">
+                                    <span aria-hidden="true" x-text="tono === 'infantile' ? '👶 ' : (tono === 'semplice' ? '🧑‍🎓 ' : (tono === 'medio' ? '🧐 ' : '🎓 '))"></span>
                                     <span x-text="tono"></span>
-                                </h4>
-                                <div class="flex items-center gap-2">
-                                    <label class="text-xs font-medium uppercase text-muted">Durata (sec)</label>
-                                    <input type="number" min="0" x-model="nuovaOpera.descrizioni[tono].durata" class="w-20 p-2 rounded-md font-medium border border-border focus:border-accent bg-surface text-center outline-none transition-colors">
-                                </div>
-                            </div>
-                            <textarea x-model="nuovaOpera.descrizioni[tono].testo" :placeholder="'Scrivi qui la descrizione ' + tono + '...'" rows="4"
-                                class="w-full p-4 bg-surface rounded-md outline-none font-medium border border-border focus:border-accent text-base transition-colors"></textarea>
+                                    <span x-show="tonoGiaUsato(tono)" class="text-[10px] uppercase"> · già pubblicato</span>
+                                </button>
+                            </template>
                         </div>
-                    </template>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="editor-durata" class="text-xs font-medium uppercase text-muted">Durata (sec)</label>
+                        <input id="editor-durata" type="number" min="0" x-model="nuovaOpera.durata"
+                            class="w-24 p-2 rounded-md font-medium border border-border focus:border-accent bg-surface text-center outline-none transition-colors">
+                    </div>
+                    <textarea x-model="nuovaOpera.testo" placeholder="Scrivi qui la descrizione..." aria-label="Testo della descrizione" rows="5"
+                        class="w-full p-4 bg-surface rounded-md outline-none font-medium border border-border focus:border-accent text-base transition-colors"></textarea>
                 </div>
             </div>
 
@@ -475,6 +498,21 @@
 
                 <div class="bg-surface-2 p-6 rounded-lg mb-6 border border-dashed border-border">
                     <p class="text-xs font-medium uppercase text-muted mb-5 text-center">Aggiungi contenuti dalla tua libreria:</p>
+                    <!-- Filtro libreria (solo visitatore): posseduti/gratis vs a pagamento -->
+                    <div x-show="currentUserType === 'visitatore'" role="group" aria-label="Filtra gli item della libreria"
+                      class="flex justify-center mb-6">
+                      <div class="flex bg-surface border border-border p-1 rounded-md">
+                        <button type="button" @click="filtroLibreria = 'tutti'" :aria-pressed="filtroLibreria === 'tutti'"
+                          :class="filtroLibreria === 'tutti' ? 'bg-surface-2 shadow-sm text-accent' : 'text-muted'"
+                          class="px-4 py-1.5 rounded-md font-medium text-xs transition-colors">Tutti</button>
+                        <button type="button" @click="filtroLibreria = 'posseduti'" :aria-pressed="filtroLibreria === 'posseduti'"
+                          :class="filtroLibreria === 'posseduti' ? 'bg-surface-2 shadow-sm text-accent' : 'text-muted'"
+                          class="px-4 py-1.5 rounded-md font-medium text-xs transition-colors">Posseduti e gratis</button>
+                        <button type="button" @click="filtroLibreria = 'non_posseduti'" :aria-pressed="filtroLibreria === 'non_posseduti'"
+                          :class="filtroLibreria === 'non_posseduti' ? 'bg-surface-2 shadow-sm text-accent' : 'text-muted'"
+                          class="px-4 py-1.5 rounded-md font-medium text-xs transition-colors">Da acquistare</button>
+                      </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <template x-for="op in listaOpereSelezionabili()" :key="op._id || op['@id']">
                             <button type="button" @click="aggiungiTappa('item', op['@id'] || op._id)"
@@ -485,7 +523,8 @@
                               <span class="text-lg">🖼️</span>
                               <div>
                                 <p class="text-sm font-medium leading-none text-text" x-text="trovaNomeItem(op['@id'] || op._id)"></p>
-                                <p class="text-xs font-medium mt-1" :class="itemGiaInVisita(op['@id'] || op._id) ? 'text-muted' : 'text-accent'" x-text="itemGiaInVisita(op['@id'] || op._id) ? '✓ Aggiunto' : '+ Aggiungi'"></p>
+                                <p class="text-xs font-medium mt-1" :class="itemGiaInVisita(op['@id'] || op._id) ? 'text-muted' : 'text-accent'"
+                                  x-text="itemGiaInVisita(op['@id'] || op._id) ? '✓ Aggiunto' : (disponibileSubito(op) ? '+ Aggiungi' : '+ Aggiungi · 🔒 € ' + (op.price || 0).toFixed(2))"></p>
                               </div>
                             </button>
                         </template>
@@ -507,10 +546,10 @@
                                     <p class="font-medium text-text" x-text="trovaNomeItem(tappa.value)"></p>
                                 </template>
                                 <template x-if="tappa.tipo === 'logistica'">
-                                    <input type="text" x-model="tappa.value" placeholder="Es: Gira a destra dopo la statua..." class="w-full bg-transparent font-medium text-muted outline-none">
+                                    <input type="text" x-model="tappa.value" placeholder="Es: Gira a destra dopo la statua..." :aria-label="'Nota logistica, tappa ' + (index + 1)" class="w-full bg-transparent font-medium text-muted outline-none">
                                 </template>
                             </div>
-                            <button type="button" @click="rimuoviTappa(index)" class="text-danger hover:opacity-80 text-2xl font-medium transition-opacity">&times;</button>
+                            <button type="button" @click="rimuoviTappa(index)" :aria-label="'Rimuovi tappa ' + (index + 1)" class="text-danger hover:opacity-80 text-2xl font-medium transition-opacity">&times;</button>
                         </div>
                     </template>
                 </div>
@@ -519,7 +558,7 @@
             <div class="flex justify-end pt-10 border-t border-border">
               <button type="submit"
                 class="bg-accent text-on-accent px-10 py-3.5 rounded-md font-medium text-lg hover:opacity-90 transition-opacity"
-                x-text="currentUserType === 'autore' ? 'Pubblica sul Marketplace' : 'Salva nei miei Percorsi'"></button>
+                x-text="editingId ? 'Salva Modifiche' : (currentUserType === 'autore' ? 'Pubblica sul Marketplace' : 'Salva nei miei Percorsi')"></button>
             </div>
           </form>
         </div>
@@ -528,14 +567,25 @@
     </main>
 
     <!-- DETTAGLIO MODALE -->
-    <div x-show="modalDettaglio" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm" x-transition.opacity>
-      <div class="bg-surface w-full max-w-2xl rounded-lg border border-border shadow-lg overflow-hidden" @click.away="modalDettaglio = false">
+    <div x-show="modalDettaglio" @keydown.escape.window="chiudiDettaglio()"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm" x-transition.opacity>
+      <div role="dialog" aria-modal="true" aria-label="Dettaglio contenuto"
+        x-trap.inert.noscroll="modalDettaglio"
+        class="bg-surface w-full max-w-2xl rounded-lg border border-border shadow-lg overflow-hidden" @click.away="chiudiDettaglio()">
         <div class="h-32 bg-accent flex items-end p-8 relative">
-          <button @click="modalDettaglio = false" class="absolute top-5 right-5 text-on-accent/70 hover:text-on-accent text-3xl leading-none">&times;</button>
+          <!-- Freccia indietro: visibile solo se c'e' una schermata precedente nel modale -->
+          <button x-show="storiaModale.length > 0" @click="tornaIndietroModale()"
+            aria-label="Torna alla schermata precedente"
+            class="absolute top-5 left-5 inline-flex items-center gap-1.5 text-on-accent/70 hover:text-on-accent font-medium text-sm transition-colors">
+            <span aria-hidden="true" class="text-xl leading-none">←</span> Indietro
+          </button>
+          <button @click="chiudiDettaglio()" aria-label="Chiudi dettaglio" class="absolute top-5 right-5 text-on-accent/70 hover:text-on-accent text-3xl leading-none">&times;</button>
           <h2 class="text-2xl font-bold text-on-accent leading-tight" x-text="itemSelezionato?.['@type'] === 'ItemList' ? itemSelezionato?.name : itemSelezionato?.about.name"></h2>
         </div>
         <div class="p-8 space-y-5">
-          <img x-show="itemSelezionato?.['@type'] === 'CreativeWork' && imgOpera(itemSelezionato?.about)" :src="imgOpera(itemSelezionato?.about)" @error="$event.target.style.display='none'" class="w-full h-56 object-contain bg-surface-2 rounded-md border border-border mb-4">
+          <img x-show="itemSelezionato?.['@type'] === 'CreativeWork' && imgOpera(itemSelezionato?.about)" :src="imgOpera(itemSelezionato?.about)" @error="$event.target.style.display='none'"
+            :alt="itemSelezionato?.about?.name ? 'Immagine dell\'opera ' + itemSelezionato.about.name : ''"
+            class="w-full h-56 object-contain bg-surface-2 rounded-md border border-border mb-4">
 
           <div x-show="itemSelezionato?.['@type'] === 'CreativeWork'">
             <div class="flex justify-between items-center mb-4">
@@ -553,25 +603,58 @@
             <h4 class="text-xs font-medium uppercase text-muted mb-4 tracking-wide">Timeline Percorso</h4>
             <div class="space-y-2">
                 <template x-for="(id, i) in itemSelezionato?.itemListElement">
-                    <div class="flex items-center gap-3 p-3 bg-surface-2 rounded-md border border-border">
-                        <span class="w-6 h-6 bg-accent text-on-accent rounded-full flex items-center justify-center text-xs font-medium" x-text="i+1"></span>
-                        <span class="text-sm font-medium text-text" x-text="trovaNomeItem(id)"></span>
-                    </div>
+                    <button type="button" @click="apriItemDaVisita(id)"
+                        class="w-full flex items-center gap-3 p-3 bg-surface-2 rounded-md border border-border hover:border-accent transition-colors text-left">
+                        <span class="w-6 h-6 bg-accent text-on-accent rounded-full flex items-center justify-center text-xs font-medium shrink-0" x-text="i+1"></span>
+                        <span class="text-sm font-medium text-text flex-grow" x-text="trovaNomeItem(id)"></span>
+                        <span class="text-xs text-accent font-medium shrink-0">Apri →</span>
+                    </button>
                 </template>
             </div>
+            <!-- Note logistiche della visita (soste, direzioni...) -->
+            <template x-if="itemSelezionato?.logistics && itemSelezionato.logistics.filter(n => n && n.trim() !== '').length > 0">
+              <div class="mt-6">
+                <h4 class="text-xs font-medium uppercase text-muted mb-4 tracking-wide">Note logistiche</h4>
+                <ul class="space-y-2">
+                  <template x-for="nota in itemSelezionato.logistics.filter(n => n && n.trim() !== '')">
+                    <li class="flex items-center gap-3 p-3 bg-surface-2 rounded-md border border-dashed border-border">
+                      <span aria-hidden="true">🧭</span>
+                      <span class="text-sm font-medium text-muted" x-text="nota"></span>
+                    </li>
+                  </template>
+                </ul>
+              </div>
+            </template>
           </div>
 
-          <div class="pt-5 border-t border-border flex justify-between items-center">
+          <div class="pt-5 border-t border-border flex flex-wrap justify-between items-center gap-3">
             <div class="flex flex-col gap-1">
               <span class="text-muted font-medium text-xs uppercase tracking-wide">Curatore: <span class="text-text" x-text="itemSelezionato?.author"></span></span>
               <span x-show="itemSelezionato?.license" class="text-muted font-medium text-xs uppercase tracking-wide">Licenza: <span class="text-text" x-text="itemSelezionato?.license"></span></span>
             </div>
+            <!-- Visita creata dall'utente: puo' modificarla o eliminarla -->
+            <template x-if="itemSelezionato?.['@type'] === 'ItemList' && itemSelezionato?.author === currentUser">
+              <div class="flex gap-2">
+                <button @click="modificaVisita(itemSelezionato)"
+                  class="bg-surface-2 border border-border text-text px-5 py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">✏️ Modifica</button>
+                <button @click="apriEliminaVisita(itemSelezionato)"
+                  class="bg-surface-2 border border-border text-danger px-5 py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">🗑️ Elimina</button>
+              </div>
+            </template>
             <template x-if="currentUserType === 'visitatore' && !haIlPossesso(itemSelezionato)">
               <button @click="compraOra(itemSelezionato)" class="bg-accent text-on-accent px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity"
                 x-text="(!itemSelezionato?.price || itemSelezionato?.price === 0) ? 'Ottieni gratis' : 'Sblocca per € ' + itemSelezionato?.price?.toFixed(2)"></button>
             </template>
-            <!-- Visita posseduta: avviala nel navigator (deep link con museo e visita) -->
-            <template x-if="itemSelezionato?.['@type'] === 'ItemList' && haIlPossesso(itemSelezionato)">
+            <!-- Visita posseduta ma con item non acquistati: obbligo di comprarli
+                 tutti prima di poterla usare (impedisce di leggere descrizioni
+                 non acquistate dal navigator) -->
+            <template x-if="itemSelezionato?.['@type'] === 'ItemList' && haIlPossesso(itemSelezionato) && !visitaUtilizzabile(itemSelezionato)">
+              <button @click="apriAcquistoMancanti(itemSelezionato)"
+                class="bg-accent text-on-accent px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity"
+                x-text="'Sblocca ' + itemsMancanti(itemSelezionato).length + ' item mancanti (€ ' + costoMancanti(itemSelezionato).toFixed(2) + ')'"></button>
+            </template>
+            <!-- Visita utilizzabile (posseduta + tutti gli item posseduti): avviala nel navigator -->
+            <template x-if="itemSelezionato?.['@type'] === 'ItemList' && visitaUtilizzabile(itemSelezionato)">
               <a :href="urlNavigator(itemSelezionato)"
                 class="bg-accent text-on-accent px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity">
                 Inizia la visita ➜</a>
@@ -580,6 +663,33 @@
         </div>
       </div>
     </div>
+
+    <!-- MODALE CONFERMA ACQUISTO -->
+    <div x-show="modalConferma" @keydown.escape.window="annullaAcquisto()"
+      class="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm" x-transition.opacity>
+      <div role="alertdialog" aria-modal="true" :aria-label="visitaDaEliminare ? 'Conferma eliminazione' : 'Conferma acquisto'"
+        x-trap.inert.noscroll="modalConferma"
+        class="bg-surface w-full max-w-md rounded-lg border border-border shadow-lg overflow-hidden" @click.away="annullaAcquisto()">
+        <div class="p-8 space-y-6">
+          <h3 class="text-xl font-bold text-text" x-text="visitaDaEliminare ? 'Conferma eliminazione' : 'Conferma acquisto'"></h3>
+          <p class="text-text leading-relaxed" x-text="messaggioConferma()"></p>
+          <div class="flex justify-end gap-3 pt-2">
+            <button type="button" @click="annullaAcquisto()"
+              class="px-6 py-2.5 rounded-md font-medium text-sm border border-border text-muted hover:text-text transition-colors">Annulla</button>
+            <button type="button" @click="confermaAcquisto()"
+              :class="visitaDaEliminare ? 'bg-danger text-white' : 'bg-accent text-on-accent'"
+              class="px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity"
+              x-text="visitaDaEliminare ? 'Elimina' : (visitaAcquistoMancanti ? 'Acquista tutto' : 'Acquista')"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST DI NOTIFICA (successo/errore, scompare da solo) -->
+    <div x-show="toast" x-transition.opacity role="status" aria-live="polite"
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] px-6 py-3.5 rounded-md shadow-lg font-medium text-sm border"
+      :class="toast?.tipo === 'error' ? 'bg-danger text-white border-danger' : 'bg-text text-bg border-border'"
+      x-text="toast?.messaggio"></div>
 
     <footer class="p-8 text-center text-muted text-xs uppercase font-medium tracking-[0.3em] mt-auto">ArtAround Suite &copy; 2026</footer>
   </div>

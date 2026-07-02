@@ -86,6 +86,17 @@ export const ArtAPI = {
     return response.json();
   },
 
+  // Elimina una visita creata dall'utente
+  async eliminaVisita(id: string): Promise<void> {
+    const response = await fetch(`/api/visits/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Errore durante l'eliminazione della visita");
+    }
+  },
+
   // Invia un nuovo contenuto al server
   async pubblica(payload: any): Promise<void> {
     // Determina l'endpoint in base al tipo di contenuto

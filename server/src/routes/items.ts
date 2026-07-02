@@ -69,11 +69,20 @@ router.post("/", async (req, res) => {
       if (!artwork)
         return res.status(400).json({ error: "Artwork non trovato nel database." });
 
-      // Elimino versioni precedenti dello stesso autore per quell'opera per aggiornamento
-      await ItemModel.deleteMany({
-        about: artwork["@id"],
-        author: payload.autore,
-      });
+      // Un autore puo' pubblicare UN solo item per coppia opera+tono:
+      // i duplicati vengono rifiutati (niente sovrascrittura silenziosa).
+      for (const desc of payload.descrizioni) {
+        const esistente = await ItemModel.findOne({
+          about: artwork["@id"],
+          author: payload.autore,
+          educationalLevel: desc.tono,
+        });
+        if (esistente) {
+          return res.status(409).json({
+            error: `Hai già pubblicato una descrizione di tono "${desc.tono}" per quest'opera.`,
+          });
+        }
+      }
 
       for (const desc of payload.descrizioni) {
         const itemId = `${artwork.qid}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
