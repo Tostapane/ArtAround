@@ -37,7 +37,7 @@ export interface Item {
   "@id": string; // ID unico generato (es. QID-Level-Time)
   about: string | Artwork; // ID dell'artwork o oggetto popolato
   text: string;
-  timeRequired: string; // Durata (es. "30s")
+  timeRequired: string; // Durata in secondi, senza suffisso (es. "30")
   educationalLevel: string;
   author: string;
   license: string;
@@ -61,7 +61,7 @@ export interface Visit {
   "@id": string;
   name: string;
   level: string;
-  duration: number;
+  duration: number; // durata TOTALE della visita in secondi (somma dei suoi item)
   price?: number;
   ofMuseum: string; // indica il museo a cui appartiene
   itemListElement: string[]; // Array di ID di Item

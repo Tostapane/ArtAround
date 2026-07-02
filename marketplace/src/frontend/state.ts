@@ -154,6 +154,13 @@ export class AppState {
     }
   }
 
+  // Prepara il form di registrazione con il ruolo del portale da cui si arriva
+  // (autore/visitatore) e mostra la vista di registrazione.
+  preparaRegistrazione(tipo: UserRole) {
+    this.formReg = { username: "", password: "", conferma: "", tipo };
+    this.currentView = "register";
+  }
+
   async concludiRegistrazione() {
     const { username, password, conferma, tipo } = this.formReg;
     if (!username || !password || password !== conferma)
@@ -271,6 +278,23 @@ export class AppState {
   apriDettaglio(item: Contenuto | Item) {
     this.itemSelezionato = item as any;
     this.modalDettaglio = true;
+  }
+
+  // URL del navigator per avviare una visita posseduta: stesso host del
+  // marketplace, porta 5173 (il navigator), con museo e visita nella query.
+  // Il navigator carica il museo dal suo file di configurazione e la visita
+  // dal database, e parte direttamente.
+  urlNavigator(v: any): string {
+    if (!v) return "#";
+    const uri: string = v.ofMuseum || "";
+    const parts = uri.split("/");
+    const museumQid = parts[parts.length - 1] || "";
+    const base = `${window.location.protocol}//${window.location.hostname}:5173/`;
+    return (
+      base +
+      `?museum=${encodeURIComponent(museumQid)}` +
+      `&visit=${encodeURIComponent(v["@id"])}`
+    );
   }
 
   apriEditor() {

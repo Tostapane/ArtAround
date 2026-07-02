@@ -22,24 +22,26 @@
   the solution, **usability**, and **graphic sophistication**. Genericity (one app, many
   museums, driven by config) is weighted heavily.
 
-### Project levels (bands) — decide which one we target
-The project grade maps to a band; each adds features on top of the base:
+### Project levels (bands) — target: 18-33
+⚠️ **The bands are CUMULATIVE, not alternatives** (slide 4, "Valutazione delle prove"):
+the 18-33 grade requires the base **plus BOTH additional modules** ("Il progetto con
+*entrambi i moduli aggiuntivi* genera un voto da 18 a 33").
 - **18–24 (base, mandatory black requirements):** marketplace+editor, navigator with
   visit selection/execution, map view of objects, **voice synthesis (TTS) of item
   content**, on-screen display of the same content, controlled-vocabulary voice commands
   **with equivalent on-screen buttons**. No user positioning at this level.
-- **18–27 (extension):** teacher/guide **synchronized** visit (same content pushed to all
-  students, monitoring who connected/asked what) + an end-of-visit **quiz/test**.
-- **18–33 (extension):** **georeferencing/QR** localization (QR codes on paper to simulate
+- **Module I (18–27):** teacher/guide **synchronized** visit (same content pushed to all
+  students, monitoring who connected/asked what) + an end-of-visit **quiz/test**; the seed
+  must include at least one synchronized visit with a meaningful test.
+- **Module II (18–33):** **georeferencing/QR** localization (QR codes on paper to simulate
   being near an object) + a **teleport module** + deep **LLM** integration (generate
   missing items, map free-form voice commands to controlled ones, real-time translation,
   constraint-based visit generation). 18-33 is for groups of 2–3 and presented in person.
 
-> Current code reaches *toward* 18-33 (LLM + STT + TTS present). The 18-24 base is **almost
-> complete** (logistics done, marketplace item-publish **fixed**, museum-selection panel **done**);
-> what remains of the base is mainly **marketplace persistence** (users/wallet/collection on DB).
-> None of the 18-27/18-33 extension features beyond QR/LLM are present (teacher sync, quiz,
-> teleport, device geo). **Recommendation: finish the remaining 18-24 base items first.**
+> Since we target **18-33**, Module I (teacher sync + quiz) is **mandatory** and is
+> currently **absent**, as is Module II's **teleport**; QR localization and all four LLM
+> uses are done. The 18-24 base is essentially complete (see §5).
+> **Recommendation: teacher-sync module + quiz + teleport are the top remaining blockers.**
 
 ---
 

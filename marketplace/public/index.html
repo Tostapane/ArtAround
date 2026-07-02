@@ -570,6 +570,12 @@
               <button @click="compraOra(itemSelezionato)" class="bg-accent text-on-accent px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity"
                 x-text="(!itemSelezionato?.price || itemSelezionato?.price === 0) ? 'Ottieni gratis' : 'Sblocca per € ' + itemSelezionato?.price?.toFixed(2)"></button>
             </template>
+            <!-- Visita posseduta: avviala nel navigator (deep link con museo e visita) -->
+            <template x-if="itemSelezionato?.['@type'] === 'ItemList' && haIlPossesso(itemSelezionato)">
+              <a :href="urlNavigator(itemSelezionato)"
+                class="bg-accent text-on-accent px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity">
+                Inizia la visita ➜</a>
+            </template>
           </div>
         </div>
       </div>

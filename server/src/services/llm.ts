@@ -14,12 +14,14 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = "gemini-3.1-flash-lite";
 const MODEL_LIGHT = "gemini-3.1-flash-lite";
 
-// numero di parole indicativo per stare dentro la durata richiesta (secondi)
+// numero di parole indicativo per stare dentro la durata richiesta (secondi):
+// ~100 parole al minuto (ritmo di lettura ad alta voce), minimo 5 parole.
+// Proporzionale, cosi' funziona anche per durate fuori da secPerArt (es. gli
+// item creati dal marketplace con durate libere).
 function wordsForDuration(duration: number): number {
-  if (duration == 60) return 100;
-  else if (duration == 30) return 50;
-  else if (duration == 15) return 25;
-  else return 5;
+  const words = Math.round((duration * 100) / 60);
+  if (words < 5) return 5;
+  return words;
 }
 
 // genera la descrizione di un'opera per un dato livello e durata, dando
@@ -259,12 +261,15 @@ export async function mapRequest(transcript: string) {
                     rispondi con SOLAMENTE il valore dell' opzione che piu si addice.
                     NOTA: se non trovi alcuna corrispondenza con le opzioni fornite,
                     rispondi con l'esatta richiesta senza modificarla.
-                    Se la richiesta dell'utente risulta vuota, rispondi con l'opzione altro.`;
+                    Se la richiesta dell'utente risulta vuota, rispondi con una stringa vuota.`;
     const response = await ai.models.generateContent({
       model: MODEL_LIGHT,
       contents: request,
     });
-    return response.text;
+    // trim: i client confrontano il comando con === sugli id del vocabolario,
+    // quindi un a-capo/spazio finale del modello romperebbe ogni comando vocale
+    if (!response.text) return response.text;
+    return response.text.trim();
   } catch (err) {
     console.error("Error during the request", err);
   }

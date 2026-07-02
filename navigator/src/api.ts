@@ -6,6 +6,13 @@ const API_BASE = "http://localhost:8000/api";
 //                                 Visits
 // ============================================================================
 
+// ritorna una singola visita (usata dal deep link ?visit=<id> dal marketplace)
+export async function getVisit(id: string): Promise<Visit> {
+  const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Failed to fetch visit: ${res.statusText}`);
+  return res.json();
+}
+
 // ritorna gli item della visita, gia' uniti al rispettivo artwork (`about` popolato)
 export async function getVisitItems(id: string): Promise<Item[]> {
   const res = await fetch(`${API_BASE}/visits/${encodeURIComponent(id)}/items`);
@@ -67,9 +74,13 @@ export async function getVisitsByMuseum(qid: string): Promise<Visit[]> {
 //                                 Museum
 // ============================================================================
 
-// ritorna uno specifico museo in base al suo qid
+// ritorna uno specifico museo in base al suo qid, letto dal suo FILE DI
+// CONFIGURAZIONE sul server (server/src/data/museums/<nome>.json): e' il file
+// che il curatore modifica per adattare il navigator al proprio museo.
 export async function getMuseum(qid: string): Promise<Museum> {
-  const res = await fetch(`${API_BASE}/museums/${encodeURIComponent(qid)}`);
+  const res = await fetch(
+    `${API_BASE}/museums/${encodeURIComponent(qid)}/config`,
+  );
   if (!res.ok)
     throw new Error(`Failed to fetch the desired museum: ${res.statusText}`);
   return res.json();

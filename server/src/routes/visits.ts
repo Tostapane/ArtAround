@@ -26,6 +26,22 @@ router.get("/", async (req, res) => {
 });
 
 /**
+ * GET /api/visits/:id
+ * Ritorna una singola visita. Usato dal navigator quando viene aperto con un
+ * deep link dal marketplace (?visit=<id>): dalla visita ricava anche il museo.
+ */
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const visit = await VisitModel.findOne({ "@id": id });
+    if (!visit) return res.status(404).json({ error: "Visita non trovata" });
+    res.json(visit);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Errore nel caricamento della visita" });
+  }
+});
+
+/**
  * GET /api/visits/:id/items
  * Ritorna gli item della visita con il rispettivo artwork (`about`) gia' popolato,
  * preservando l'ordine definito in itemListElement.
@@ -121,13 +137,13 @@ router.post("/custom", async (req, res) => {
     if (typeof plan.name === "string" && plan.name.trim() !== "") {
       name = plan.name.trim();
     }
-    const durationMin = Math.max(1, Math.round(totalSec / 60));
 
     const visit = {
       "@id": `custom-${museumQid}-${Date.now()}`,
       name,
       level: "Su misura",
-      duration: durationMin,
+      // durata TOTALE in secondi, coerente con le altre visite
+      duration: totalSec,
       ofMuseum: museumId,
       itemListElement: content.map((c) => (c.item as any)["@id"]),
       logistics: [],

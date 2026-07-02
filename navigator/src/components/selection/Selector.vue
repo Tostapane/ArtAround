@@ -151,11 +151,11 @@ async function createCustom() {
 
       <div class="flex flex-col gap-2">
         <span id="label-durata" class="text-sm font-medium text-text"
-          >Durata per opera (minuti)</span
+          >Durata della visita (secondi)</span
         >
         <DropDownMenu
           class="w-full"
-          aria-label="Durata per opera in minuti"
+          aria-label="Durata della visita in secondi"
           :label="filters.duration"
           :items="availableDurations"
           @selected="(val) => processChoice('duration', val as number)"
@@ -166,7 +166,7 @@ async function createCustom() {
     <p class="mt-6 border-t border-border pt-4 text-sm text-muted">
       Tempo stimato:
       <span class="font-semibold text-text"
-        >{{ filters.duration }} min per opera</span
+        >{{ Math.max(1, Math.round(filters.duration / 60)) }} min</span
       >
     </p>
 

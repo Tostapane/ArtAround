@@ -86,7 +86,14 @@ async function onScan(qid: string) {
     let duration = 0;
     if (visit.value) {
       level = visit.value.level;
-      duration = visit.value.duration;
+    }
+    // preferenza di durata PER ITEM: visit.duration e' il totale della visita,
+    // quindi usiamo la durata degli item della visita corrente (nel seed sono
+    // tutti omogenei); se non ricavabile, il server ripiega sul solo livello
+    const first = matchedContent.value[0];
+    if (first) {
+      const sec = parseInt(first.item.timeRequired, 10);
+      if (!isNaN(sec)) duration = sec;
     }
     currentArtwork.value = await getArtworkPreview(qid, level, duration);
   } catch (err) {

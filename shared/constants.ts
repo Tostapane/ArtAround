@@ -1,9 +1,9 @@
 // NOTA: modificare questi valori non cambia immediatamente il navigator,
 // vengono visualizzate le difficolta e tempi contenute dentro al database
 
-export const educationalLevels = ["Principiante", "Intermedio", "Avanzato"];
+export const educationalLevels = ["Principiante"];
 
-export const secPerArt = [15, 30, 60];
+export const secPerArt = [15];
 
 // Licenze di pubblicazione selezionabili dall'autore nel marketplace.
 // La prima e' il default proposto in fase di creazione.
@@ -60,21 +60,87 @@ export interface CommandOption {
 
 export const options: CommandOption[] = [
   { group: "Lettura", id: "Leggi", label: "Leggi", surface: "panel" },
-  { group: "Lettura", id: "Ferma lettura", label: "Ferma lettura", surface: "panel" },
-  { group: "Contenuto", id: "Non ho capito", label: "Non ho capito", surface: "panel" },
-  { group: "Contenuto", id: "Sintetizza", label: "Sintetizza", surface: "panel" },
-  { group: "Contenuto", id: "Approfondisci", label: "Approfondisci", surface: "panel" },
-  { group: "Contenuto", id: "Semplifica", label: "Semplifica", surface: "panel" },
-  { group: "Dettaglio", id: "Chi e' l'autore?", label: "Chi e' l'autore?", surface: "panel" },
-  { group: "Dettaglio", id: "Che stile e?", label: "Che stile e?", surface: "panel" },
-  { group: "Posizionale", id: "Dove esco?", label: "Dove esco?", surface: "panel" },
-  { group: "Posizionale", id: "Dove e il bagno?", label: "Dove e il bagno?", surface: "panel" },
-  { group: "Posizionale", id: "Dove e il bar?", label: "Dove e il bar?", surface: "panel" },
-  { group: "Posizionale", id: "Dove e lo shop?", label: "Dove lo shop?", surface: "panel" },
-  { group: "Posizionale", id: "Ci sono ostacoli?", label: "Ci sono ostacoli?", surface: "panel" },
+  {
+    group: "Lettura",
+    id: "Ferma lettura",
+    label: "Ferma lettura",
+    surface: "panel",
+  },
+  {
+    group: "Contenuto",
+    id: "Non ho capito",
+    label: "Non ho capito",
+    surface: "panel",
+  },
+  {
+    group: "Contenuto",
+    id: "Sintetizza",
+    label: "Sintetizza",
+    surface: "panel",
+  },
+  {
+    group: "Contenuto",
+    id: "Approfondisci",
+    label: "Approfondisci",
+    surface: "panel",
+  },
+  {
+    group: "Contenuto",
+    id: "Semplifica",
+    label: "Semplifica",
+    surface: "panel",
+  },
+  {
+    group: "Dettaglio",
+    id: "Chi e' l'autore?",
+    label: "Chi e' l'autore?",
+    surface: "panel",
+  },
+  {
+    group: "Dettaglio",
+    id: "Che stile e?",
+    label: "Che stile e?",
+    surface: "panel",
+  },
+  {
+    group: "Posizionale",
+    id: "Dove esco?",
+    label: "Dove esco?",
+    surface: "panel",
+  },
+  {
+    group: "Posizionale",
+    id: "Dove e il bagno?",
+    label: "Dove e il bagno?",
+    surface: "panel",
+  },
+  {
+    group: "Posizionale",
+    id: "Dove e il bar?",
+    label: "Dove e il bar?",
+    surface: "panel",
+  },
+  // NB: `id` e `label` devono coincidere: il mapping vocale (mapRequest) lavora
+  // sulle label, mentre i gestori nel navigator confrontano gli id.
+  {
+    group: "Posizionale",
+    id: "Dove e lo shop?",
+    label: "Dove e lo shop?",
+    surface: "panel",
+  },
+  {
+    group: "Posizionale",
+    id: "Ci sono ostacoli?",
+    label: "Ci sono ostacoli?",
+    surface: "panel",
+  },
   // Navigazione: comandi vocali riconosciuti, ma il loro pulsante equivalente
   // sta DENTRO la scheda (Card), non nella griglia dei comandi.
   { group: "Navigazione", id: "Prossimo", label: "Prossimo", surface: "card" },
-  { group: "Navigazione", id: "Precedente", label: "Precedente", surface: "card" },
-  { group: "Altro", id: "Altro", label: "Altro", surface: "panel" },
+  {
+    group: "Navigazione",
+    id: "Precedente",
+    label: "Precedente",
+    surface: "card",
+  },
 ];

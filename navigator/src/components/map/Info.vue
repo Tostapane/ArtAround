@@ -70,8 +70,10 @@ watch(
       return;
     }
 
-    // altrimenti: richiesta all'LLM sul contenuto dell'opera.
-    let request = "no";
+    // altrimenti: richiesta all'LLM sul contenuto dell'opera. I comandi del
+    // vocabolario controllato vengono riformulati; una richiesta libera (non
+    // mappata da mapRequest) viene inoltrata cosi' com'e' (vocabolario libero).
+    let request = cleanRequest;
     switch (cleanRequest) {
       case "Non ho capito":
         request = "Spiegalo con parole diverese";

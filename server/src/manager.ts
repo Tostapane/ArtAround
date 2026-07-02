@@ -95,7 +95,7 @@ export async function populateItem(
  */
 export async function populateVisit(
   level: string,
-  duration: number,
+  durationPerArt: number, // secondi di descrizione per singola opera
   museum: string,
   museumUri: string,
   items: string[],
@@ -103,15 +103,17 @@ export async function populateVisit(
   visitPrice?: number,
   visitAuthor?: string,
 ) {
-  // L'id resta stabile (basato su museo-livello-durata), ma il NOME mostrato
-  // e' leggibile (le vecchie visite mostravano il codice grezzo come nome).
-  const id = `visit-${museum}-${level}-${duration}`;
-  const name = `Visita ${level} · ${duration}s`;
+  // L'id resta stabile (basato su museo-livello-durata per opera), ma il NOME
+  // mostrato e' leggibile (le vecchie visite mostravano il codice grezzo).
+  const id = `visit-${museum}-${level}-${durationPerArt}`;
+  const name = `Visita ${level} · ${durationPerArt}s per opera`;
+  // Visit.duration e' la durata TOTALE in secondi: qui gli item sono omogenei
+  // (stessa durata per opera), quindi totale = durata per opera × numero opere.
   await insertVisit({
     "@id": id,
     name: name,
     level: level,
-    duration: duration,
+    duration: durationPerArt * items.length,
     price: visitPrice,
     author: visitAuthor,
     ofMuseum: museumUri,

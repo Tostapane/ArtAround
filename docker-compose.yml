@@ -24,11 +24,14 @@ services:
       - ./:/app
       - /app/navigator/node_modules
       - /app/server/node_modules
+      - /app/marketplace/node_modules
     depends_on:
       - mongodb
     command: >
       sh -c "npm install --prefix navigator &&
               npm install --prefix server &&
+              npm install --prefix marketplace &&
+              npm run build --prefix marketplace &&
               (npm run dev --prefix navigator -- --host &) &&
               npm run start --prefix server"
 

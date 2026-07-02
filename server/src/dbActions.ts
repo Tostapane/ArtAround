@@ -53,10 +53,11 @@ export async function resolveOrGenerateItem(
   const hasTwist = twist.trim() !== "";
 
   if (!hasTwist) {
+    // timeRequired e' salvato come secondi "nudi" (es. "30"), senza suffisso
     let item = await ItemModel.findOne({
       ...baseFilter,
       educationalLevel: level,
-      timeRequired: `${durationSec}s`,
+      timeRequired: `${durationSec}`,
     });
     if (!item)
       item = await ItemModel.findOne({ ...baseFilter, educationalLevel: level });
@@ -83,7 +84,7 @@ export async function resolveOrGenerateItem(
     "@id": id,
     about: artwork["@id"],
     text,
-    timeRequired: `${durationSec}s`,
+    timeRequired: `${durationSec}`,
     educationalLevel: level,
     author: "AI",
   } as IItem;

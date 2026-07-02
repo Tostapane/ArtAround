@@ -1,9 +1,14 @@
 import { Router } from "express";
 import QRCode from "qrcode";
+import fs from "fs";
+import path from "path";
 import { MuseumModel } from "../models/museum";
 import { ArtworkModel } from "../models/artwork";
 import { VisitModel } from "../models/visit";
 const router = Router();
+
+// directory dei file di configurazione per-museo generati dal seed
+const CONFIG_DIR = path.join(__dirname, "..", "data", "museums");
 
 // minima escape per inserire testo dal DB nell'HTML stampabile dei QR
 function escapeHtml(value: string): string {
@@ -39,6 +44,32 @@ router.get("/:qid", async (req, res) => {
     res.json(museum);
   } catch (err: any) {
     res.status(500).json({ err: err.message || "Errore nel caricamento del museo richiesto" });
+  }
+});
+
+/**
+ * GET /api/museums/:qid/config
+ * Ritorna il museo leggendolo dal suo FILE DI CONFIGURAZIONE
+ * (server/src/data/museums/<nome>.json, generato dal seed) invece che dal
+ * database: e' il file che il curatore puo' modificare per creare la versione
+ * del navigator specifica per il suo museo. Include anche activeArtworks.
+ */
+router.get("/:qid/config", async (req, res) => {
+  try {
+    const { qid } = req.params;
+    const files = fs.readdirSync(CONFIG_DIR).filter((f) => f.endsWith(".json"));
+    for (const file of files) {
+      const raw = fs.readFileSync(path.join(CONFIG_DIR, file), "utf-8");
+      const config = JSON.parse(raw);
+      if (config.qid === qid) {
+        // "@id" per compatibilita' con la shape Museum usata dai client
+        config["@id"] = `http://www.wikidata.org/entity/${qid}`;
+        return res.json(config);
+      }
+    }
+    return res.status(404).json({ error: "Configurazione del museo non trovata" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Errore nel caricamento della configurazione del museo" });
   }
 });
 

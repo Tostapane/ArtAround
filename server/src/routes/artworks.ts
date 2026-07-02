@@ -66,11 +66,12 @@ router.get("/:qid/preview", async (req, res) => {
 
     // 1) livello + durata, 2) solo livello, 3) uno qualsiasi
     let item = null;
+    // timeRequired e' salvato come secondi "nudi" (es. "30"), senza suffisso
     if (level && duration) {
       item = await ItemModel.findOne({
         ...baseFilter,
         educationalLevel: level,
-        timeRequired: `${duration}s`,
+        timeRequired: String(duration),
       });
     }
     if (!item && level) {
@@ -108,7 +109,7 @@ router.get("/:qid/preview", async (req, res) => {
         "@id": generatedId,
         about: artwork["@id"],
         text,
-        timeRequired: `${usedDuration}s`,
+        timeRequired: String(usedDuration),
         educationalLevel: usedLevel,
         author: "AI",
       },

@@ -5,16 +5,46 @@ import Footer from "./components/Footer.vue";
 import Selector from "./components/selection/Selector.vue";
 import MainView from "./components/map/MainView.vue";
 import { loadMuseum, setCustomVisit, setVisit } from "./state";
+import { getVisit } from "./api";
 import { useAnnouncer } from "./composables/useAnnouncer";
 import type { Visit, Match } from "../../shared/types";
 
 const { message, announce } = useAnnouncer();
 
-onMounted(() => {
-  // sara da ricercare nei parametri dell'url
-  const museumId = "Q6373";
-  if (museumId) loadMuseum(museumId);
-  else console.error("Nessun museo specificato");
+// museo mostrato quando il navigator viene aperto senza parametri
+const DEFAULT_MUSEUM_QID = "Q6373";
+
+// qid del museo a partire dal suo @id/URI wikidata (ultimo segmento)
+function museumQidFromUri(uri: string): string {
+  const parts = uri.split("/");
+  return parts[parts.length - 1] || "";
+}
+
+onMounted(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const visitId = params.get("visit");
+  const museumParam = params.get("museum");
+
+  // deep link dal marketplace (?museum=<qid>&visit=<id>): la visita arriva dal
+  // database, il museo dal suo file di configurazione; si parte direttamente.
+  if (visitId) {
+    try {
+      const v = await getVisit(visitId);
+      let museumQid = museumParam;
+      if (v.ofMuseum) museumQid = museumQidFromUri(v.ofMuseum);
+      if (museumQid) await loadMuseum(museumQid);
+      onStart(v);
+      return;
+    } catch (err) {
+      console.error("Impossibile aprire la visita dal link", err);
+      // si ricade sulla normale selezione della visita
+    }
+  }
+
+  // accesso diretto: museo dal parametro ?museum=, altrimenti quello di default
+  let museumQid = museumParam;
+  if (!museumQid) museumQid = DEFAULT_MUSEUM_QID;
+  loadMuseum(museumQid);
 });
 
 // la visita scelta (id) e la fase corrente: prima si sceglie, poi si visita
@@ -105,7 +135,8 @@ function goBack() {
             Cambia visita
           </button>
           <span v-if="summary" class="text-sm text-muted">
-            {{ summary.level }} · {{ summary.duration }} min
+            {{ summary.level }} ·
+            {{ Math.max(1, Math.round(summary.duration / 60)) }} min
           </span>
         </div>
 
