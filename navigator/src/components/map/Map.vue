@@ -7,7 +7,13 @@ import {
   computed,
   watch,
 } from "vue";
-import { map, matchedContent } from "../../state";
+import {
+  includeOptional,
+  isOptionalItem,
+  map,
+  matchedContent,
+  visit,
+} from "../../state";
 
 const emit = defineEmits<{
   select: [value: number];
@@ -26,6 +32,7 @@ function setupListeners() {
   // Clear previous active states
   document.querySelectorAll(".active-artwork").forEach((el) => {
     el.classList.remove("active-artwork");
+    el.classList.remove("optional-artwork");
     el.removeAttribute("tabindex");
     el.removeAttribute("role");
   });
@@ -39,7 +46,12 @@ function setupListeners() {
       element.setAttribute("role", "button");
 
       element.classList.add("active-artwork"); // for CSS styling
-      element.setAttribute("aria-label", art.name);
+      if (isOptionalItem(match.item["@id"])) {
+        element.classList.add("optional-artwork");
+        element.setAttribute("aria-label", art.name + " (tappa opzionale)");
+      } else {
+        element.setAttribute("aria-label", art.name);
+      }
       //click classico
       const clickHandler = () => {
         emit("select", index);
@@ -83,6 +95,13 @@ watch(
   { deep: true },
 );
 
+// numero di tappe opzionali della visita corrente (mostra/nasconde il toggle)
+const optionalCount = computed(() => {
+  if (!visit.value) return 0;
+  if (!visit.value.optionalItems) return 0;
+  return visit.value.optionalItems.length;
+});
+
 // cleanup
 onBeforeUnmount(() => {
   listeners.forEach(({ element, type, handler }) => {
@@ -98,7 +117,11 @@ onBeforeUnmount(() => {
       class="flex justify-center lg:flex-1"
       aria-label="Mappa del museo"
     >
-      <div class="svg-wrapper w-full max-w-xl" v-html="map"></div>
+      <div
+        class="svg-wrapper w-full max-w-xl"
+        :class="{ 'optional-excluded': !includeOptional }"
+        v-html="map"
+      ></div>
     </section>
 
     <!-- Elenco accessibile delle opere: percorso non spaziale per tastiera/screen reader -->
@@ -113,6 +136,20 @@ onBeforeUnmount(() => {
       >
         Opere della visita ({{ matchedContent.length }})
       </h2>
+
+      <!-- toggle delle tappe opzionali: da spento Prossimo/Precedente le saltano -->
+      <!-- TODO TEMP: ripristinare v-if="optionalCount > 0" (visibile per test senza dati) -->
+      <label
+        v-if="matchedContent.length > 0"
+        class="mb-3 flex cursor-pointer items-center gap-3 rounded-md border border-border bg-surface px-4 py-3"
+      >
+        <input type="checkbox" v-model="includeOptional" class="h-4 w-4 shrink-0 accent-[var(--accent)]" />
+        <span class="text-sm font-medium text-text">
+          Includi le {{ optionalCount }} tappe opzionali
+          <span class="block text-xs font-normal text-muted">se hai ancora tempo</span>
+        </span>
+      </label>
+
       <ul class="flex flex-col gap-2">
         <li
           v-for="(match, i) in matchedContent"
@@ -122,6 +159,9 @@ onBeforeUnmount(() => {
             type="button"
             @click="emit('select', i)"
             class="flex w-full items-baseline gap-3 rounded-md border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-2"
+            :class="{
+              'opacity-50': isOptionalItem(match.item['@id']) && !includeOptional,
+            }"
           >
             <span
               class="text-sm font-semibold tabular-nums text-accent"
@@ -134,6 +174,11 @@ onBeforeUnmount(() => {
                 match.artwork.author.name
               }}</span>
             </span>
+            <span
+              v-if="isOptionalItem(match.item['@id'])"
+              class="ml-auto shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted"
+              >Opzionale</span
+            >
           </button>
         </li>
       </ul>
@@ -176,5 +221,16 @@ onBeforeUnmount(() => {
   outline: none;
   stroke: var(--focus);
   stroke-width: 3px;
+}
+
+/* Tappe opzionali: tratteggiate; attenuate (ma cliccabili) a toggle spento */
+.svg-wrapper :deep(.optional-artwork) {
+  stroke: var(--accent);
+  stroke-width: 2px;
+  stroke-dasharray: 5 4;
+}
+
+.svg-wrapper.optional-excluded :deep(.optional-artwork) {
+  opacity: 0.45;
 }
 </style>

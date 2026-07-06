@@ -10,6 +10,8 @@ import { useTTS } from "./speech/useTTS";
 import { useTranslation } from "@/composables/useTranslation";
 import { getArtworkPreview } from "@/api";
 import {
+  includeOptional,
+  isOptionalItem,
   loadVisitContent,
   matchedContent,
   visit,
@@ -59,8 +61,18 @@ function navBase(): number {
   if (inVisit.value) return indexInVisit();
   return lastVisitIndex.value;
 }
-const hasNext = computed(() => navBase() + 1 < matchedContent.value.length);
-const hasPrev = computed(() => navBase() - 1 >= 0);
+// prossima tappa navigabile da `from` (esclusa) in direzione step=±1: salta le
+// tappe opzionali quando il toggle e' spento; -1 se non ce n'e' nessuna.
+function stepIndex(from: number, step: number): number {
+  for (let i = from + step; i >= 0 && i < matchedContent.value.length; i += step) {
+    const match = matchedContent.value[i];
+    if (!match) return -1;
+    if (includeOptional.value || !isOptionalItem(match.item["@id"])) return i;
+  }
+  return -1;
+}
+const hasNext = computed(() => stepIndex(navBase(), 1) >= 0);
+const hasPrev = computed(() => stepIndex(navBase(), -1) >= 0);
 
 // seleziona un'opera DELLA visita per indice (aggiorna anche l'ultima tappa)
 function selectIndex(i: number) {
@@ -160,10 +172,10 @@ function navigationHandler(direction: string) {
   }
   const base = navBase();
   if (direction === "next") {
-    const target = base + 1;
-    if (target < matchedContent.value.length) selectIndex(target);
+    const target = stepIndex(base, 1);
+    if (target >= 0) selectIndex(target);
   } else if (direction === "prev") {
-    const target = base - 1;
+    const target = stepIndex(base, -1);
     if (target >= 0) selectIndex(target);
   }
 }
@@ -210,6 +222,7 @@ function navigationHandler(direction: string) {
             :content="currentArtwork"
             :fields="translatedFields"
             :in-visit="inVisit"
+            :optional="isOptionalItem(currentArtwork.item['@id'])"
             :has-next="hasNext"
             :has-prev="hasPrev"
             @navigation="navigationHandler"

@@ -38,6 +38,7 @@ const props = defineProps<{
   content: Match;
   fields: string[];
   inVisit: boolean;
+  optional: boolean;
   hasPrev: boolean;
   hasNext: boolean;
 }>();
@@ -131,6 +132,14 @@ const imgSrc = computed(() => {
         class="mb-4 text-xs font-semibold uppercase tracking-wider text-accent"
       >
         Non fa parte di questa visita
+      </p>
+
+      <!-- tappa marcata come opzionale dall'autore della visita -->
+      <p
+        v-else-if="optional"
+        class="mb-4 text-xs font-semibold uppercase tracking-wider text-muted"
+      >
+        Tappa opzionale
       </p>
 
       <p class="text-base leading-relaxed text-text">

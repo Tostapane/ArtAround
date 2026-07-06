@@ -248,8 +248,18 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   content shown only if time remains / on visitor questions. Optional flags persist as
   `Visit.optionalItems` (subset of `itemListElement`; new field on the shared type + Mongoose model
   + `POST /api/visits`, verified round-trip), and show as an "Opzionale" badge in the visit detail.
-  ⚠️ **Navigator side not done:** the navigator still treats all `itemListElement` equally — it does
-  not yet skip/deprioritize `optionalItems`. Additive field, so nothing breaks (colleague's domain).
+  **Navigator side DONE (2026-07):** the navigator reads `visit.optionalItems` client-side (no new
+  API): an "Includi le N tappe opzionali (se hai ancora tempo)" toggle (`includeOptional` in
+  `state.ts`, default off, reset on visit change) makes Prossimo/Precedente **skip optional stops**
+  when off (`stepIndex` in `MainView.vue`); they stay directly openable via map/list click or QR
+  ("su domanda del visitatore"). Optional stops show an "Opzionale" badge in the sidebar list and
+  Card, dashed stroke + dimming on the SVG map, and "(tappa opzionale)" in the aria-label.
+  Custom (su misura) visits have no `optionalItems` → all stops mandatory, toggle hidden.
+  ⚠️ **TEMP to fix:** the toggle is currently shown for ANY visit (`v-if="matchedContent.length > 0"`
+  in `Map.vue`, marked `TODO TEMP`) because the current DB has no visits with optional items to
+  test against. Intended behavior: visible only when the visit has optional stops — restore
+  `v-if="optionalCount > 0"`. (Related: `seed.ts` creates no `optionalItems`; the seeded tours'
+  optional steps were added via API and are lost on reseed, see §1.)
 - **Marketplace code review vs slides.pdf — DONE (2026-07).** Full audit of the marketplace against
   the slide-20 mandatory requirements: all covered (museum panel, edit/create visit, free+paid
   content listing with scale handling, visit editing with reorder/multi-depth/optional, content

@@ -38,6 +38,16 @@ export function setLanguage(lang: Language) {
 // Niente piu' join lato client tra item e artwork.
 export const matchedContent = ref<Match[]>([]);
 
+// Tappe opzionali (slide 23): da toggle spento Prossimo/Precedente le saltano;
+// restano apribili direttamente (click/QR = "su domanda del visitatore").
+export const includeOptional = ref(false);
+
+export function isOptionalItem(itemId: string): boolean {
+  if (!visit.value) return false;
+  if (!visit.value.optionalItems) return false;
+  return visit.value.optionalItems.includes(itemId);
+}
+
 // id della visita di cui matchedContent contiene gia' il contenuto: evita di
 // ricaricarlo (e, per le visite su misura, di sovrascrivere quello iniettato).
 let contentVisitId = "";
@@ -49,6 +59,7 @@ export function clearVisit() {
   visit.value = undefined;
   matchedContent.value = [];
   contentVisitId = "";
+  includeOptional.value = false;
 }
 
 // inietta una visita SU MISURA (generata dai vincoli dell'utente) direttamente
@@ -58,6 +69,7 @@ export function setCustomVisit(v: Visit, content: Match[]) {
   visit.value = v;
   matchedContent.value = content;
   contentVisitId = v["@id"];
+  includeOptional.value = false;
 }
 
 // imposta i metadati della visita normale scelta nel Selector: il Selector ha
@@ -66,6 +78,7 @@ export function setCustomVisit(v: Visit, content: Match[]) {
 // (matchedContent) viene caricato a parte da loadVisitContent.
 export function setVisit(v: Visit) {
   visit.value = v;
+  includeOptional.value = false;
 }
 
 // carica gli item della visita gia' uniti al rispettivo artwork
