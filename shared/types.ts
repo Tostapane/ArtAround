@@ -1,6 +1,5 @@
 /*
  * TODO:
- * - definire un modo per assegnare piu' item allo stesso artwork
  * - definire un modo per selezionare il museo nel navigator via file di configurazione
  * - debloatare alcune routes
  */
@@ -65,6 +64,8 @@ export interface Visit {
   price?: number;
   ofMuseum: string; // indica il museo a cui appartiene
   itemListElement: string[]; // Array di ID di Item
+  optionalItems?: string[]; // Sottoinsieme di itemListElement marcato come "opzionale"
+  // (contenuti da mostrare solo se rimane tempo o su domanda del visitatore)
   logistics: string[]; // Indicazioni testuali
   author?: string;
   license?: string; // licenza di pubblicazione (vedi shared/constants: licenses)

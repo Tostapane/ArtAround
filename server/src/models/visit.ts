@@ -21,6 +21,7 @@ const visitSchema = new Schema<IVisit>({
   license: String,
   ofMuseum: String,
   itemListElement: [String],
+  optionalItems: [String],
   logistics: [String],
 });
 

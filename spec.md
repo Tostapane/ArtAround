@@ -57,8 +57,12 @@ the 18-33 grade requires the base **plus BOTH additional modules** ("Il progetto
 - Deploy = **two docker containers** on a department server; all data in **MongoDB** on
   that server. DBs are presented **already populated**.
 - Seed expectations: 4 accounts `autore1`, `autore2`, `visitatore1`, `visitatore2`
-  (password `12345678`); at least **3 visits of ≥10 artworks each** on the same museum,
-  differentiated by content/level.
+  (password `12345678`) — seeded via `seedUsers.ts` ✅; at least **3 visits of ≥10 artworks
+  each** on the same museum, differentiated by content/level — ✅ present in the DB:
+  `tour-bm-principiante` / `tour-bm-intermedio` / `tour-bm-avanzato` (British Museum Q6373,
+  13 artworks each, author `autore1`, free, CC-BY, per-level item texts, 2-3 optional steps
+  each). ⚠️ Created **directly in the DB via the API**, not by `seed.ts` — if the DB is ever
+  wiped and reseeded, they must be recreated.
 
 ---
 
@@ -85,7 +89,7 @@ navigator/              # Vue 3 + Vite + TS + Tailwind (visitor app)
   src/components/map/   # Map, MainView, Card, Info, OptionsBar + speech/ (recorder, player)
   src/components/selection/  # Selector, DropDownMenu (pick visit by level+duration)
 marketplace/            # Alpine + vanilla TS + Tailwind (author/visitor hub)
-  public/index.html     # the whole UI (Alpine x-data="appData()"), ~430 lines
+  public/index.html     # the whole UI (Alpine x-data="appData()"), ~740 lines
   src/frontend/state.ts # AppState class — all client logic (login, editor, wallet, publish)
   src/frontend/api.ts   # ArtAPI fetch wrappers (relative /api/... paths)
   src/frontend/app.ts   # wires AppState into Alpine
@@ -108,7 +112,8 @@ marketplace at `/`, compiled JS at `/dist`. Navigator runs on its own Vite dev s
   (Artwork `@id` string, or populated), `text`, `timeRequired`, `educationalLevel`,
   `author`, `license`, `price?`. ItemModel stores `about` as a **string id**.
 - **Visit** (= ItemList): `@id`, `name`, `level`, `duration`, `price?`, `ofMuseum`,
-  `itemListElement` (Item `@id`[]), `logistics` (string[]), `author?`.
+  `itemListElement` (Item `@id`[]), `optionalItems?` (subset marked "optional"),
+  `logistics` (string[]), `author?`.
 - **Museum**: `@id`, `qid`, `name`, `created`, `location`, `mapPath`.
 - **User**: `username`, `role` (`autore`|`visitatore`), `wallet`, `collezione` (id[]).
   **Now persisted** in MongoDB (`models/user.ts`, adds a plaintext `password` — security is not
@@ -116,8 +121,11 @@ marketplace at `/`, compiled JS at `/dist`. Navigator runs on its own Vite dev s
 - **Match**: `{artwork, item}` (navigator joins item.about ↔ artwork["@id"]).
 - **Contenuto** = `Item | Visit` (marketplace union).
 
-Items intentionally come in **4 tones** (infantile/semplice/medio/avanzato) × multiple
-durations — directly satisfies "multipli item per lo stesso oggetto".
+Items come in **4 tones** (infantile/semplice/medio/avanzato) × multiple durations —
+directly satisfies "multipli item per lo stesso oggetto". The editor creates **one item
+(= one tone) per publish**; uniqueness is enforced per **(artwork, author, tone)**: the
+same author can cover the other tones with further publishes, but never duplicate one
+(client-side the used tones are disabled, server-side `POST /api/items` returns **409**).
 
 ---
 
@@ -137,8 +145,11 @@ Base path `/api`. All mounted in `server/src/index.ts`.
   - `GET /` → **all** items with `about` (Artwork) **populated** (marketplace visitor listing; the
     client filters by museum via `about.ofMuseum`).
   - `GET /author/:authorName` → author's items (populates `about`).
-  - `POST /` → upsert item. Accepts marketplace format (`tipo:"Item"`) **or** Schema.org
-    (`@type:"CreativeWork"`).
+  - `POST /` → **create** item. Accepts marketplace format (`tipo:"Item"`) **or** Schema.org
+    (`@type:"CreativeWork"`). Marketplace format: **rejects duplicates with 409** if the author
+    already has an item for the same (artwork, tone) — no silent overwrite. (A previous
+    `deleteMany({about, author})` that wiped the author's *other* items for that artwork on every
+    publish was removed.)
     - **`@type` in forma corta obbligatoria:** gli item si salvano con `@type:"CreativeWork"`
       (non l'URL `https://schema.org/CreativeWork`), coerente con le Visit (`"ItemList"`). I
       template del marketplace confrontano `item['@type'] === 'CreativeWork'`, quindi l'URL
@@ -148,9 +159,14 @@ Base path `/api`. All mounted in `server/src/index.ts`.
 - **Visits** `/api/visits`
   - `GET /` → all visits. `GET /:id/items` → the visit's items with `about` (Artwork) **populated**
     and ordered per `itemListElement` (the navigator consumes this directly — no client-side join).
-    `POST /custom` → ephemeral custom visit (see §8). `POST /` → upsert (marked "DA AGGIUSTARE").
-    (Single-visit `GET /:id` was removed: the Selector already holds the chosen `Visit` object and
-    passes it to the navigator, so it is never re-fetched.)
+    `POST /custom` → ephemeral custom visit (see §8). `POST /` → upsert by `@id` (used both for
+    creation and for the marketplace's "Modifica" on own visits); fills the required `level`
+    (default `"Personalizzata"`) and `duration` (sum of the items' `timeRequired`) when the
+    payload omits them, and drops empty logistics notes. Items flagged `opzionale` in the
+    `percorso` are also stored in `optionalItems` (a subset of `itemListElement`).
+    `DELETE /:id` → deletes a (marketplace-created) visit and `$pull`s its id from every user's
+    `collezione`; 404 if unknown.
+    (`GET /:id` exists for the navigator's deep link `?visit=<id>` from the marketplace.)
 - **Museums** `/api/museums`
   - `GET /` → all. `GET /:id` → museum by **qid**. `GET /:id/artworks` → artworks where
     `ofMuseum === "http://www.wikidata.org/entity" + id` (⚠️ note: **no `/` before qid**).
@@ -203,7 +219,49 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   LLM "options" (Approfondisci/Semplifica/Chi è l'autore/…) → STT voice input mapped to
   controlled vocab; on-screen buttons mirror voice commands (`OptionsBar.vue`, with aria-labels).
 - Marketplace: login/register, author "my works", visitor dashboard/collection, editor for
-  items (4 tones×durations) and visits, **DB-persisted wallet/purchase** (see §5 item 4 + `/api/users`).
+  items (**one tone per publish**, duplicates per (artwork, author, tone) blocked client+server)
+  and visits, **DB-persisted wallet/purchase** (see §5 item 4 + `/api/users`).
+- **Marketplace UX/a11y + visit lifecycle — DONE.** Everything is keyboard-navigable
+  (cards are `<button>`s, aria-labels/alt/label-for everywhere); every overlay window has a
+  **focus trap** (`@alpinejs/focus`, `x-trap.inert.noscroll`) + Esc/click-away; native
+  `alert()`/`confirm()` are **banned** — confirmations use an in-app modal (purchase confirm for
+  **paid** content only; free content unlocks on first click) and notifications use an aria-live
+  **toast**. The detail modal keeps an internal history (`storiaModale`) with a "← Indietro"
+  button whenever its content switches screens (e.g. visit → item). **Full screen-reader pass
+  (2026-07):** skip link ("Salta al contenuto principale") as the first focusable element, an
+  `aria-live` region announcing each SPA view change (`etichettaVista()`), `aria-current="page"`
+  on the active nav tab, and contextual `aria-label`s on otherwise-generic action buttons
+  ("Dettagli/Anteprima/Sblocca di <nome>", via the now-public `nomeContenuto`). Verified: every
+  `<img>` has an `:alt`, every icon-only button (`×`, arrows) has an `aria-label`, no clickable
+  `<div>` (all interactive elements are `<button>`/`<a>`/native controls). Visit detail: clickable
+  timeline entries (open each item) + logistics notes displayed; own visits can be **edited**
+  (prefilled editor, upsert on same `@id`) and **deleted** (danger confirm modal,
+  `DELETE /api/visits/:id`). Visits may be created **with unowned items** (editor library filter
+  Tutti / Posseduti e gratis / Da acquistare, 🔒 price badge), but "Inizia la visita" only shows
+  when the user owns the visit **and all its items** (`visitaUtilizzabile`) — with a bulk
+  "Sblocca N item mancanti" purchase; this closed a bug where unpurchased item descriptions were
+  readable via the navigator. Collection view has its own search bar.
+- **Visit editor — scale + reorganize + optional content (slide 23) — DONE.** The item picker has
+  its own **search box** (`ricercaLibreria`) on top of the Tutti/Posseduti/Da-acquistare filter, so
+  a library of hundreds/thousands stays browsable. Timeline steps can be **reordered** (up/down
+  buttons, `spostaTappa`) and each item step can be flagged **"Opzionale"** (`toggleOpzionale`) —
+  content shown only if time remains / on visitor questions. Optional flags persist as
+  `Visit.optionalItems` (subset of `itemListElement`; new field on the shared type + Mongoose model
+  + `POST /api/visits`, verified round-trip), and show as an "Opzionale" badge in the visit detail.
+  ⚠️ **Navigator side not done:** the navigator still treats all `itemListElement` equally — it does
+  not yet skip/deprioritize `optionalItems`. Additive field, so nothing breaks (colleague's domain).
+- **Marketplace code review vs slides.pdf — DONE (2026-07).** Full audit of the marketplace against
+  the slide-20 mandatory requirements: all covered (museum panel, edit/create visit, free+paid
+  content listing with scale handling, visit editing with reorder/multi-depth/optional, content
+  creation with universal ids + image + multi-text + the 4 minimum metadata
+  lunghezza/linguaggio/autore/licenza, publishing with license/price/adoptions/sales). Fixes from
+  the review: **a visit can no longer be published without at least one item** (was possible to
+  save an empty / logistics-only visit, contradicting the slide's "sequenza di descrizioni di
+  item"); **`logout()` now resets all residual session state** (search fields, sales report,
+  `editingId`, editor form — previously a second login on the same browser inherited them);
+  removed the unused `educationalLevels` import and a leftover init `console.log` in
+  `marketplace/state.ts`. Verified: no `alert`/`confirm`/TODO leftovers, no dead views, no
+  residue of the old 4-tone editor.
 - **Visitor buys single items AND visits, then composes own visits — DONE (slide 20/23).** The
   visitor dashboard now lists **both individual items** (`GET /api/items`, artwork image+name, tone/
   duration, price) **and visits**, all buyable one-by-one (`contenutiFiltrati` merges
@@ -337,8 +395,12 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
    "Working / present"); `routes/visits.ts` `tipo` filter fixed to `"logistica"` so author-written
    logistics persist (the *caricare* path) alongside the graph-generated directions (*creare*).
 3. 🟠 **Hardcoded env:** `App.vue` pins `museumId="Q6373"`; `navigator/src/api.ts` pins
-   `http://localhost:8000`. Both must be config/relative for the docker deploy.
-4. ⏳ **Marketplace persistence — PARTLY DONE.** ✅ Users, wallet, collection and purchases are now
+   `http://localhost:8000`; marketplace `state.ts:urlNavigator` pins port `5173`. All must be
+   config/relative for the docker deploy.
+3b. 🟡 **`shared/constants.ts:educationalLevels = ["Principiante"]`** while the DB has
+   Principiante/Intermedio/Avanzato visits: the seed and the custom-visit LLM enum only use
+   "Principiante". Server/seed domain (colleague's) — check whether intentional.
+4. ✅ **Marketplace persistence — DONE.** ✅ Users, wallet, collection and purchases are now
    **persisted in MongoDB** via `/api/users` (`models/user.ts`, `routes/users.ts`); the marketplace
    `state.ts` calls the API for login/register/buy instead of the old in-memory array. ✅ All **4
    required accounts** (`autore1`/`autore2`/`visitatore1`/`visitatore2`, pw `12345678`) are seeded
@@ -353,10 +415,12 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
    localization is done and working** (see §5 above), **teleport + device geolocation not started**.
 6. ✅ **Hygiene — done:** request-path `console.log`s removed (kept startup/seed/config logs);
    dead `AIRequest()` test fn, the unused local `navigator/.../map/map.svg`, and stale commented
-   blocks in `Map.vue` removed; `shared/types.ts` TODO header trimmed to the still-open items
-   (multiple items per artwork, museum-selection via config). The normal-visit flow no longer
-   double-fetches the visit (Selector emits the full `Visit`; `state.setVisit` injects it,
-   symmetric to `setCustomVisit`), so `loadVisit`/`getVisit`/`GET /api/visits/:id` are gone.
+   blocks in `Map.vue` removed; `shared/types.ts` TODO header trimmed to the still-open item
+   (museum-selection via config — "multiple items per artwork" is solved by the per-tone editor
+   + (artwork, author, tone) uniqueness). The normal-visit flow no longer double-fetches the
+   visit (Selector emits the full `Visit`; `state.setVisit` injects it, symmetric to
+   `setCustomVisit`); `GET /api/visits/:id` was later reintroduced for the marketplace →
+   navigator deep link (`?visit=<id>`).
 
 ---
 

@@ -45,6 +45,14 @@
 
   <div x-data="appData()" class="min-h-screen flex flex-col bg-surface-2">
 
+    <!-- Skip link: primo elemento focalizzabile, salta navbar e controlli -->
+    <a href="#contenuto"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:bg-accent focus:text-on-accent focus:px-4 focus:py-2 focus:rounded-md focus:font-medium">
+      Salta al contenuto principale</a>
+
+    <!-- Live region: annuncia agli screen reader il cambio di vista della SPA -->
+    <div class="sr-only" role="status" aria-live="polite" x-text="etichettaVista()"></div>
+
     <!-- Toggle tema fluttuante per le schermate senza navbar (welcome/login/registrazione) -->
     <button x-show="currentUser === null" x-data="themeToggle()" @click="toggle()"
       :aria-pressed="dark" :aria-label="dark ? 'Attiva il tema chiaro' : 'Attiva il tema scuro'"
@@ -96,26 +104,26 @@
       <nav x-show="museoSelezionato" aria-label="Navigazione principale" class="flex gap-5 sm:gap-6 text-sm font-medium overflow-x-auto whitespace-nowrap -mx-4 px-4 md:mx-0 md:px-0">
         <template x-if="currentUserType === 'visitatore'">
           <div class="flex gap-5 sm:gap-6">
-            <button @click="currentView = 'dashboard'"
+            <button @click="currentView = 'dashboard'" :aria-current="currentView === 'dashboard' ? 'page' : false"
               :class="currentView === 'dashboard' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
               class="pb-0.5 transition-colors">Marketplace</button>
-            <button @click="currentView = 'my_collection'"
+            <button @click="currentView = 'my_collection'" :aria-current="currentView === 'my_collection' ? 'page' : false"
               :class="currentView === 'my_collection' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
               class="pb-0.5 transition-colors">La mia Collezione</button>
-            <button @click="apriEditor()"
+            <button @click="apriEditor()" :aria-current="currentView === 'editor' ? 'page' : false"
               :class="currentView === 'editor' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
               class="pb-0.5 transition-colors">Crea Percorso</button>
           </div>
         </template>
         <template x-if="currentUserType === 'autore'">
           <div class="flex gap-5 sm:gap-6">
-            <button @click="currentView = 'my_works'"
+            <button @click="currentView = 'my_works'" :aria-current="currentView === 'my_works' ? 'page' : false"
               :class="currentView === 'my_works' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
               class="pb-0.5 transition-colors">I miei Lavori</button>
-            <button @click="apriEditor()"
+            <button @click="apriEditor()" :aria-current="currentView === 'editor' ? 'page' : false"
               :class="currentView === 'editor' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
               class="pb-0.5 transition-colors">Nuovo Contenuto</button>
-            <button @click="apriVendite()"
+            <button @click="apriVendite()" :aria-current="currentView === 'sales' ? 'page' : false"
               :class="currentView === 'sales' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
               class="pb-0.5 transition-colors">Vendite</button>
           </div>
@@ -140,7 +148,7 @@
       </div>
     </header>
 
-    <main class="flex-grow container mx-auto p-4 sm:p-8 text-left">
+    <main id="contenuto" class="flex-grow container mx-auto p-4 sm:p-8 text-left">
 
       <!-- VISTA BENVENUTO -->
       <section x-show="currentView === 'welcome'" class="flex flex-col items-center justify-center mt-12 sm:mt-20 text-center">
@@ -263,7 +271,7 @@
                 <h3 class="text-lg font-bold text-text leading-tight mb-5 tracking-tight"
                   x-text="item['@type'] === 'ItemList' ? item.name : (item.about ? item.about.name : 'Opera Sconosciuta')"></h3>
                 <div class="flex gap-3 mt-auto">
-                  <button @click="apriDettaglio(item)"
+                  <button @click="apriDettaglio(item)" :aria-label="'Anteprima di ' + nomeContenuto(item)"
                     class="flex-grow bg-surface-2 border border-border text-text py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">Anteprima</button>
                 </div>
               </div>
@@ -367,14 +375,14 @@
                 <p class="text-muted text-xs font-medium mb-6 uppercase tracking-wide">
                   Curatore: <span class="text-text" x-text="item.author || '—'"></span></p>
                 <div class="mt-auto flex gap-3">
-                  <button @click="apriDettaglio(item)"
+                  <button @click="apriDettaglio(item)" :aria-label="'Dettagli di ' + nomeContenuto(item)"
                     class="flex-grow bg-surface-2 border border-border text-text py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">Dettagli</button>
                   <template x-if="haIlPossesso(item)">
                     <div class="flex-grow bg-surface-2 text-muted py-2.5 rounded-md font-medium text-sm text-center border border-border">
                       Posseduto ✅</div>
                   </template>
                   <template x-if="!haIlPossesso(item)">
-                    <button @click="compraOra(item)"
+                    <button @click="compraOra(item)" :aria-label="'Sblocca ' + nomeContenuto(item)"
                       class="flex-grow bg-accent text-on-accent py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity">Sblocca</button>
                   </template>
                 </div>
@@ -513,6 +521,12 @@
                           class="px-4 py-1.5 rounded-md font-medium text-xs transition-colors">Da acquistare</button>
                       </div>
                     </div>
+                    <div class="mb-5">
+                        <input type="search" x-model="ricercaLibreria"
+                          placeholder="Cerca un'opera nella libreria..."
+                          aria-label="Cerca un'opera nella libreria"
+                          class="w-full bg-surface border border-border rounded-md px-4 py-2 text-sm text-text placeholder:text-muted outline-none focus:border-accent">
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <template x-for="op in listaOpereSelezionabili()" :key="op._id || op['@id']">
                             <button type="button" @click="aggiungiTappa('item', op['@id'] || op._id)"
@@ -539,16 +553,35 @@
 
                 <div class="space-y-3">
                     <template x-for="(tappa, index) in nuovaOpera.tappe" :key="index">
-                        <div class="flex items-center gap-4 p-4 rounded-md border bg-surface" :class="tappa.tipo === 'item' ? 'border-border' : 'border-dashed border-border'">
+                        <div class="flex items-center gap-4 p-4 rounded-md border bg-surface" :class="tappa.tipo === 'item' ? (tappa.opzionale ? 'border-dashed border-accent' : 'border-border') : 'border-dashed border-border'">
                             <span class="w-8 h-8 bg-surface-2 border border-border rounded-full flex items-center justify-center font-medium text-xs" x-text="index + 1"></span>
+                            <!-- Riorganizzazione: sposta la tappa su/giù -->
+                            <div class="flex flex-col">
+                                <button type="button" @click="spostaTappa(index, -1)" :disabled="index === 0"
+                                  :aria-label="'Sposta la tappa ' + (index + 1) + ' in su'"
+                                  class="text-muted hover:text-text leading-none disabled:opacity-30 disabled:cursor-not-allowed">&#9650;</button>
+                                <button type="button" @click="spostaTappa(index, 1)" :disabled="index === nuovaOpera.tappe.length - 1"
+                                  :aria-label="'Sposta la tappa ' + (index + 1) + ' in giù'"
+                                  class="text-muted hover:text-text leading-none disabled:opacity-30 disabled:cursor-not-allowed">&#9660;</button>
+                            </div>
                             <div class="flex-grow">
                                 <template x-if="tappa.tipo === 'item'">
-                                    <p class="font-medium text-text" x-text="trovaNomeItem(tappa.value)"></p>
+                                    <p class="font-medium text-text">
+                                        <span x-text="trovaNomeItem(tappa.value)"></span>
+                                        <span x-show="tappa.opzionale" class="ml-2 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md border border-accent text-accent">Opzionale</span>
+                                    </p>
                                 </template>
                                 <template x-if="tappa.tipo === 'logistica'">
                                     <input type="text" x-model="tappa.value" placeholder="Es: Gira a destra dopo la statua..." :aria-label="'Nota logistica, tappa ' + (index + 1)" class="w-full bg-transparent font-medium text-muted outline-none">
                                 </template>
                             </div>
+                            <!-- Contenuto opzionale: mostrato solo se resta tempo o su richiesta -->
+                            <button type="button" x-show="tappa.tipo === 'item'" @click="toggleOpzionale(index)"
+                              :aria-pressed="!!tappa.opzionale"
+                              :aria-label="(tappa.opzionale ? 'Rendi obbligatoria' : 'Rendi opzionale') + ' la tappa ' + (index + 1)"
+                              :class="tappa.opzionale ? 'border-accent text-accent' : 'border-border text-muted hover:text-text'"
+                              class="text-[11px] font-medium uppercase tracking-wide px-3 py-1 rounded-md border transition-colors whitespace-nowrap"
+                              x-text="tappa.opzionale ? '✓ Opzionale' : 'Opzionale'"></button>
                             <button type="button" @click="rimuoviTappa(index)" :aria-label="'Rimuovi tappa ' + (index + 1)" class="text-danger hover:opacity-80 text-2xl font-medium transition-opacity">&times;</button>
                         </div>
                     </template>
@@ -606,7 +639,10 @@
                     <button type="button" @click="apriItemDaVisita(id)"
                         class="w-full flex items-center gap-3 p-3 bg-surface-2 rounded-md border border-border hover:border-accent transition-colors text-left">
                         <span class="w-6 h-6 bg-accent text-on-accent rounded-full flex items-center justify-center text-xs font-medium shrink-0" x-text="i+1"></span>
-                        <span class="text-sm font-medium text-text flex-grow" x-text="trovaNomeItem(id)"></span>
+                        <span class="text-sm font-medium text-text flex-grow">
+                            <span x-text="trovaNomeItem(id)"></span>
+                            <span x-show="(itemSelezionato?.optionalItems || []).includes(id)" class="ml-2 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md border border-accent text-accent">Opzionale</span>
+                        </span>
                         <span class="text-xs text-accent font-medium shrink-0">Apri →</span>
                     </button>
                 </template>

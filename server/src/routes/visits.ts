@@ -161,7 +161,6 @@ router.post("/custom", async (req, res) => {
 /**
  * POST /api/visits
  * Salva o aggiorna una visita (tour).
- * DA AGGIUSTARE
  */
 router.post("/", async (req, res) => {
   try {
@@ -172,6 +171,15 @@ router.post("/", async (req, res) => {
         ?.filter((t: any) => t.tipo === "item")
         .map((t: any) => t.id_item) ||
       payload.itemListElement ||
+      [];
+
+    // Item marcati come "opzionali" (da mostrare solo se resta tempo o su
+    // domanda del visitatore): sottoinsieme di itemListElement.
+    const optionalItems: string[] =
+      payload.percorso
+        ?.filter((t: any) => t.tipo === "item" && t.opzionale)
+        .map((t: any) => t.id_item) ||
+      payload.optionalItems ||
       [];
 
     // `level` e `duration` sono obbligatori nello schema Visit. Una visita
@@ -196,6 +204,7 @@ router.post("/", async (req, res) => {
         license: payload.licenza || payload.license || "Tutti i diritti riservati",
         ofMuseum: payload.museumUri || payload.ofMuseum,
         itemListElement: itemIds,
+        optionalItems,
         logistics:
           payload.percorso
             ?.filter((t: any) => t.tipo === "logistica")

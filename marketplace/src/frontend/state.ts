@@ -6,7 +6,7 @@ import {
   Artwork,
   Museum,
 } from "../../../shared/types.js";
-import { educationalLevels, licenses } from "../../../shared/constants.js";
+import { licenses } from "../../../shared/constants.js";
 import { ArtAPI } from "./api.js";
 
 /**
@@ -72,9 +72,31 @@ export class AppState {
   // (posseduti + gratis) o "non_posseduti" (a pagamento non ancora acquistati).
   filtroLibreria: "tutti" | "posseduti" | "non_posseduti" = "tutti";
 
+  // Ricerca testuale nella libreria di item dell'editor visite (gestione della
+  // scala: con centinaia/migliaia di contenuti si filtra per nome).
+  ricercaLibreria: string = "";
+
   tornaHome() {
     this.currentView =
       this.currentUserType === "autore" ? "my_works" : "dashboard";
+  }
+
+  // Etichetta leggibile della vista corrente, annunciata dagli screen reader
+  // tramite la live region (il cambio vista di una SPA è altrimenti silenzioso).
+  etichettaVista(): string {
+    const nomi: Record<string, string> = {
+      welcome: "Benvenuto",
+      login_autore: "Accesso autore",
+      login_visitatore: "Accesso visitatore",
+      register: "Registrazione",
+      select_museum: "Selezione del museo",
+      dashboard: "Marketplace",
+      my_collection: "La mia collezione",
+      my_works: "I miei lavori",
+      editor: "Editor",
+      sales: "Vendite e adozioni",
+    };
+    return nomi[this.currentView] || "";
   }
 
   // URI-museo canonico usato nei campi `ofMuseum` di artwork/visite.
@@ -118,8 +140,6 @@ export class AppState {
 
   async initApp() {
     try {
-      console.log("[FRONTEND] Inizializzazione dati globali dal database...");
-
       // 0. Carichiamo l'elenco dei musei per il pannello di selezione
       this.musei = await ArtAPI.fetchMuseums();
 
@@ -214,6 +234,13 @@ export class AppState {
     this.mieOpere = [];
     this.musei = [];
     this.museoSelezionato = null;
+    // Stato di navigazione/editor residuo della sessione precedente
+    this.ricerca = "";
+    this.ricercaCollezione = "";
+    this.ricercaLibreria = "";
+    this.vendite = [];
+    this.editingId = null;
+    this.nuovaOpera = this.resetNuovaOpera();
   }
 
   haIlPossesso(item: Contenuto) {
@@ -269,6 +296,7 @@ export class AppState {
     this.chiudiDettaglio();
     this.currentView = "editor";
     this.filtroLibreria = "tutti";
+    this.ricercaLibreria = "";
     this.editingId = visit["@id"];
     this.nuovaOpera = this.resetNuovaOpera();
     this.nuovaOpera.type = "Visita";
@@ -277,10 +305,12 @@ export class AppState {
     this.nuovaOpera.license = visit.license || licenses[0];
     // Ricostruisce il percorso: prima gli item nell'ordine salvato, poi le
     // note logistiche (l'ordine misto originale non e' persistito nel modello).
+    const opzionali = new Set<string>(visit.optionalItems || []);
     this.nuovaOpera.tappe = [
       ...(visit.itemListElement || []).map((id: string) => ({
         tipo: "item" as const,
         value: id,
+        opzionale: opzionali.has(id),
       })),
       ...(visit.logistics || [])
         .filter((n: string) => n && n.trim() !== "")
@@ -374,7 +404,8 @@ export class AppState {
   }
 
   // Nome ricercabile di un contenuto (visita: name; item: nome dell'artwork).
-  private nomeContenuto(c: any): string {
+  // Pubblico: usato anche dai template per le aria-label contestuali.
+  nomeContenuto(c: any): string {
     if (c?.["@type"] === "ItemList") return c.name || "";
     const art = c?.about;
     return (typeof art === "object" ? art?.name : "") || "";
@@ -488,6 +519,7 @@ export class AppState {
     this.currentView = "editor";
     this.editingId = null;
     this.filtroLibreria = "tutti";
+    this.ricercaLibreria = "";
     this.nuovaOpera = this.resetNuovaOpera();
     // Se è un visitatore, di default l'editor crea una visita
     if (this.currentUserType === "visitatore") {
@@ -519,7 +551,11 @@ export class AppState {
       tono: "",
       durata: "30",
       testo: "",
-      tappe: [] as { tipo: "item" | "logistica"; value: string }[],
+      tappe: [] as {
+        tipo: "item" | "logistica";
+        value: string;
+        opzionale?: boolean;
+      }[],
       titolo: "",
     };
   }
@@ -527,14 +563,15 @@ export class AppState {
   // Restituisce gli item che l'utente può inserire in una visita
   // (limitati al museo selezionato)
   listaOpereSelezionabili() {
+    let base: any[];
     if (this.currentUserType === "autore") {
       // Un autore può inserire solo i propri item del museo scelto
-      return this.mieOpere.filter((i) => this.appartieneAlMuseo(i));
+      base = this.mieOpere.filter((i) => this.appartieneAlMuseo(i));
     } else {
       // Un visitatore può inserire QUALSIASI item del museo scelto, anche non
       // posseduto: ma prima di poter USARE la visita dovrà acquistare tutti
       // gli item mancanti (vedi visitaUtilizzabile/itemsMancanti).
-      return this.itemsMarket.filter(
+      base = this.itemsMarket.filter(
         (i) =>
           this.appartieneAlMuseo(i) &&
           (this.filtroLibreria === "tutti" ||
@@ -543,6 +580,12 @@ export class AppState {
               : !this.disponibileSubito(i))),
       );
     }
+    // Ricerca per nome dell'opera (gestione della scala nella libreria)
+    const q = this.ricercaLibreria.toLowerCase().trim();
+    if (!q) return base;
+    return base.filter((op) =>
+      this.trovaNomeItem(op["@id"] || op._id).toLowerCase().includes(q),
+    );
   }
 
   // True se l'item e' usabile senza spendere: posseduto oppure gratuito
@@ -624,6 +667,20 @@ export class AppState {
     this.nuovaOpera.tappe.splice(index, 1);
   }
 
+  // Riorganizzazione del percorso: sposta una tappa in su (-1) o in giù (+1).
+  spostaTappa(index: number, dir: -1 | 1) {
+    const j = index + dir;
+    const t = this.nuovaOpera.tappe;
+    if (j < 0 || j >= t.length) return;
+    [t[index], t[j]] = [t[j], t[index]];
+  }
+
+  // Marca/smarca una tappa-item come "opzionale" (solo per gli item).
+  toggleOpzionale(index: number) {
+    const t = this.nuovaOpera.tappe[index];
+    if (t && t.tipo === "item") t.opzionale = !t.opzionale;
+  }
+
   async salvaOpera() {
     let payload: any;
 
@@ -676,6 +733,13 @@ export class AppState {
       if (this.currentUserType === "autore" && Number(this.nuovaOpera.price) < 0)
         return this.mostraToast("Il prezzo non può essere negativo.", "error");
 
+      // Una visita e' una sequenza di item: senza almeno un item non ha senso
+      if (!this.nuovaOpera.tappe.some((t) => t.tipo === "item"))
+        return this.mostraToast(
+          "Aggiungi almeno un item al percorso della visita.",
+          "error",
+        );
+
       payload = {
         tipo: "Visita",
         // In modifica riusa l'id esistente (upsert), altrimenti ne crea uno nuovo
@@ -700,6 +764,7 @@ export class AppState {
           .map((t) => ({
             tipo: t.tipo,
             id_item: t.tipo === "item" ? t.value : undefined,
+            opzionale: t.tipo === "item" ? !!t.opzionale : undefined,
             indicazione: t.tipo === "logistica" ? t.value : undefined,
           })),
       };
