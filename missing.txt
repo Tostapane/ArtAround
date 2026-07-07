@@ -1,0 +1,15 @@
+Leo 
+modulo di teletrasporto
+modulo geolocalizzazione
+visualizzatore test
+aggiunger direzioni (come le chiedono le specifiche)
+capire cosa fare con l'array logistics
+rendere funzionanti i tasti
+
+
+Andrea
+login unificato
+ricerca per autore
+il budget non include i ricavi
+verifica connessione tra autore e visitatore con stesse credenziali
+rendi disponibili per creare visite anche gli item non tuoi (come si fa nel visitatore)
