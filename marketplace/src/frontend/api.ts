@@ -46,6 +46,21 @@ export const ArtAPI = {
     return response.json();
   },
 
+  // Visita guidata: lo studente entra nella sala d'attesa digitando la parola
+  // chiave. Ritorna la vista sessione (con id + visitName) o lancia se 404/errore.
+  async joinGuidedSession(accessKey: string, username: string): Promise<any> {
+    const response = await fetch('/api/guided-sessions/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessKey, username }),
+    });
+    if (!response.ok)
+      throw new Error(
+        await readError(response, 'Nessuna visita guidata attiva con questa parola chiave'),
+      );
+    return response.json();
+  },
+
   // Vendite/adozioni dei contenuti pubblicati da un autore
   async fetchSales(username: string): Promise<any[]> {
     const response = await fetch(`/api/users/${encodeURIComponent(username)}/sales`);

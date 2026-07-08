@@ -5,6 +5,8 @@ visualizzatore test
 aggiunger direzioni (come le chiedono le specifiche)
 capire cosa fare con l'array logistics
 rendere funzionanti i tasti
+devi sapere gestire la situazione in cui:
+docente si connette (host della visita) e solo dopo cio gli studenti sono in grado di entrare nella lista d'attesa.
 
 
 Andrea
@@ -58,10 +60,15 @@ API SESSIONI GIÀ DISPONIBILI (da consumare dal navigator):
 DA FARE NEL NAVIGATOR:
 
 1) UI STUDENTE — ingresso con parola chiave.
-   - Un campo "Ho una parola chiave" (accanto/dentro il Selector delle visite).
-   - Al submit: POST /api/guided-sessions/join { accessKey, username }.
-     Salvare il sessionId ricevuto in state (es. state.ts: guidedSessionId).
-   - Mostrare una schermata di ATTESA ("in attesa che il docente avvii...").
+   [FATTO NEL MARKETPLACE] Il campo "Hai una parola chiave?" è già nella dashboard
+   visitatore: chiama POST /api/guided-sessions/join, entra in sala d'attesa e
+   mostra un link "Vai alla sala d'attesa" che apre il NAVIGATOR con deep-link:
+       <navigator>/?guidedSession=<sessionId>&role=studente&user=<username>
+   DA FARE NEL NAVIGATOR: leggere quei query param all'avvio (come già si legge
+   ?museum=&visit=), riconoscere role=studente + guidedSession, e mostrare la
+   schermata di ATTESA ("in attesa che il docente avvii..."). Lo studente è GIÀ
+   nella sala d'attesa lato server (il join è avvenuto nel marketplace); il
+   navigator deve solo agganciarsi a quella sessione via il sessionId.
    - Polling GET /api/guided-sessions/:id/state ogni ~2s:
        * stato "attesa"  -> resta in sala d'attesa (può premere "sono pronto"
          -> POST /:id/ready).

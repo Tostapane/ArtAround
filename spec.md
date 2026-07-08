@@ -296,9 +296,15 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   `/api/guided-sessions`, **polling REST**): sala d'attesa, join con parola chiave, lista d'attesa/pronti
   del docente, avvio/step (con `stepStartAt` per audio ~simultaneo)/fine, accesso **temporaneo** ai
   contenuti dei partecipanti, sparizione senza traccia a fine visita (410). Verificato via curl
-  end-to-end. ⚠️ **Navigator NON toccato** (accordo col collega): UI docente (sala d'attesa,
-  conduzione) e studente (ingresso parola chiave, attesa, sync audio) restano da fare — istruzioni +
-  contratto API in **`missing.txt`**. **Quiz di fine visita (Fase 3) non iniziato.**
+  end-to-end. **Ingresso studente DAL MARKETPLACE (unica interfaccia d'accesso):** box "Hai una
+  parola chiave?" nella dashboard visitatore → `POST /guided-sessions/join` → entra in sala d'attesa
+  e mostra un **deep-link al navigator** `?guidedSession=<id>&role=studente&user=<username>` (il
+  navigator, Fase 2, aggancerà quella sessione e mostrerà l'attesa). Se il docente non ha ancora
+  avviato → 404 con messaggio. **Editor autore:** la libreria di una visita (guidata o no) offre ora
+  i **propri item (pubblici e privati) + gli item gratuiti** del marketplace; nelle visite guidate il
+  campo **prezzo è nascosto** (gratuite). ⚠️ **Navigator NON toccato** (accordo col collega): UI
+  docente (sala d'attesa, conduzione) e la schermata di attesa/sync studente restano da fare —
+  contratto API + deep-link in **`missing.txt`**. **Quiz di fine visita (Fase 3) non iniziato.**
 - **Account unico + saldo autore — DONE.** L'account non ha più ruolo (`User.role` opzionale, tolto
   dallo schema): "autore"/"visitatore" sono **modalità** dell'interfaccia commutabili via toggle in
   navbar (`state.ts:cambiaModalita`); login/register senza ruolo. **All'acquisto il wallet del
@@ -307,6 +313,15 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   visitatore. Un utente **non compra i propri contenuti** (già suoi: `haIlPossesso` client + guardia
   server). **Login-first:** all'accesso si apre direttamente la pagina di login (vista `welcome`
   rimossa; branding ArtAround spostato sulla pagina di login).
+- **"I miei Lavori" (autore) ≈ "La mia Collezione" (visitatore) — DONE.** Le due viste ora hanno la
+  **stessa impaginazione** (griglia di card item+visite, barra di ricerca robusta, **filtro per tipo**
+  Tutti/Item/Visite — `filtroTipoLavori`/`filtroTipoCollezione`). ⚠️ **Sottigliezza importante: i
+  CONTENUTI mostrati differiscono.** "I miei Lavori" (`state.ts:mieiLavori`) mostra **solo la
+  produzione propria dell'autore** — i suoi item (`mieOpere`, inclusi i privati) + le sue visite
+  (`contenuti` con `author === currentUser`, incluse le guidate); **non** i contenuti acquistati da
+  altri. "La mia Collezione" (`miaCollezione`) mostra invece i contenuti **posseduti** dal visitatore
+  = **propri + acquistati** (`haIlPossesso`). Stessa UI, insiemi di dati diversi. Prima "I miei
+  Lavori" mostrava solo gli item (niente visite): ora include anche le visite create dall'autore.
 - **Ricerca robusta — DONE.** Le tre barre del marketplace (dashboard, collezione, libreria editor)
   usano un unico motore (`state.ts:corrispondeRicerca` + `normalizzaRicerca`/`campiRicercabili`):
   match multi-token in AND su **nome opera/visita, autore-contenuto (curatore), difficoltà, e per gli

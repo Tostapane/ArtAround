@@ -36,6 +36,7 @@ interface Partecipante {
 interface Sessione {
   id: string;
   visitId: string;
+  visitName: string;
   accessKey: string;
   teacher: string;
   stato: "attesa" | "attiva" | "terminata";
@@ -55,6 +56,7 @@ function vistaDocente(s: Sessione) {
   return {
     id: s.id,
     visitId: s.visitId,
+    visitName: s.visitName,
     accessKey: s.accessKey,
     teacher: s.teacher,
     stato: s.stato,
@@ -72,6 +74,7 @@ function vistaStudente(s: Sessione) {
   return {
     id: s.id,
     visitId: s.visitId,
+    visitName: s.visitName,
     stato: s.stato,
     currentStep: s.currentStep,
     stepStartAt: s.stepStartAt,
@@ -110,6 +113,7 @@ router.post("/", async (req, res) => {
     const s: Sessione = {
       id,
       visitId,
+      visitName: visit.name || "Visita guidata",
       accessKey: visit.accessKey,
       teacher,
       stato: "attesa",

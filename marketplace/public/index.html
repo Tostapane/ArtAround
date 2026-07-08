@@ -234,16 +234,36 @@
 
       <!-- VISTA CATALOGO AUTORE -->
       <section x-show="currentView === 'my_works'" class="text-left">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-10">
-          <div>
-            <h2 class="text-2xl sm:text-3xl font-bold text-text tracking-tight mb-1">I miei Lavori</h2>
-            <p class="text-muted">Gestione contenuti per <span class="text-accent font-medium">Tutte le Opere</span></p>
+        <div class="flex flex-col gap-4 mb-10">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+            <div>
+              <h2 class="text-2xl sm:text-3xl font-bold text-text tracking-tight mb-1">I miei Lavori</h2>
+              <p class="text-muted">I contenuti (item e visite) che hai creato</p>
+            </div>
+            <button @click="apriEditor()"
+              class="bg-accent text-on-accent px-5 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity shrink-0">+ Nuovo Contenuto</button>
           </div>
-          <button @click="apriEditor()"
-            class="bg-accent text-on-accent px-5 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity shrink-0">+ Nuovo Contenuto</button>
+          <div class="flex flex-col md:flex-row gap-4 md:items-center">
+            <div class="relative flex-grow">
+              <input type="search" x-model="ricercaLavori" placeholder="Cerca nei tuoi lavori..." aria-label="Cerca nei tuoi lavori"
+                class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full focus:border-accent outline-none transition-colors font-medium">
+              <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
+            </div>
+            <div role="group" aria-label="Filtra i lavori per tipo" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit">
+              <button type="button" @click="filtroTipoLavori = 'tutti'" :aria-pressed="filtroTipoLavori === 'tutti'"
+                :class="filtroTipoLavori === 'tutti' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Tutti</button>
+              <button type="button" @click="filtroTipoLavori = 'item'" :aria-pressed="filtroTipoLavori === 'item'"
+                :class="filtroTipoLavori === 'item' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Item</button>
+              <button type="button" @click="filtroTipoLavori = 'visite'" :aria-pressed="filtroTipoLavori === 'visite'"
+                :class="filtroTipoLavori === 'visite' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Visite</button>
+            </div>
+          </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <template x-for="item in mieOpere" :key="item._id || item['@id']">
+          <template x-for="item in mieiLavori()" :key="item._id || item['@id']">
             <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group relative">
               <div class="absolute top-4 right-4 z-10">
                 <span class="bg-surface-2 text-muted px-2.5 py-1 rounded-md font-medium text-xs border border-border"
@@ -267,6 +287,9 @@
               </div>
             </div>
           </template>
+        </div>
+        <div x-show="mieiLavori().length === 0" class="text-center py-16">
+          <p class="text-muted">Nessun contenuto da mostrare. Usa "+ Nuovo Contenuto" per crearne uno.</p>
         </div>
       </section>
 
@@ -337,6 +360,28 @@
             <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
           </div>
         </div>
+
+        <!-- Ingresso a una VISITA GUIDATA con parola chiave (studente) -->
+        <div class="bg-surface-2 border border-border rounded-lg p-5 mb-10">
+          <h3 class="text-sm font-bold text-text mb-1"><span aria-hidden="true">🔑</span> Hai una parola chiave?</h3>
+          <p class="text-muted text-xs mb-4">Accedi alla visita guidata del tuo docente digitando la parola chiave che ti ha comunicato.</p>
+          <form @submit.prevent="entraConPasskey()" class="flex flex-col sm:flex-row gap-3">
+            <label for="passkey-studente" class="sr-only">Parola chiave della visita guidata</label>
+            <input id="passkey-studente" type="text" x-model="passkeyInput" placeholder="Es: Fenice rossa"
+              class="flex-grow p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
+            <button type="submit"
+              class="bg-accent text-on-accent px-6 py-3 rounded-md font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap">Entra</button>
+          </form>
+          <!-- Sessione trovata: conferma + link alla sala d'attesa del navigator -->
+          <div x-show="guidedTrovata" class="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 border-t border-border pt-4">
+            <p class="text-sm text-text flex-grow">
+              Sei in sala d'attesa per <span class="font-bold" x-text="guidedTrovata?.visitName"></span>. In attesa che il docente dia il via.
+            </p>
+            <a :href="salaAttesaUrl()"
+              class="bg-accent text-on-accent px-6 py-3 rounded-md font-medium text-sm hover:opacity-90 transition-opacity text-center whitespace-nowrap">Vai alla sala d'attesa →</a>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <template x-for="item in contenutiFiltrati()" :key="item._id || item['@id']">
             <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group" x-data="{ imgErr: false }">
@@ -383,15 +428,28 @@
 
       <!-- VISTA LA MIA COLLEZIONE -->
       <section x-show="currentView === 'my_collection'" class="text-left">
-        <div class="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
+        <div class="flex flex-col gap-4 mb-10">
           <div>
             <h2 class="text-3xl font-bold text-text tracking-tight mb-1 text-left">La mia Collezione</h2>
-            <p class="text-muted text-left">Contenuti acquistati</p>
+            <p class="text-muted text-left">I tuoi contenuti: creati e acquistati</p>
           </div>
-          <div class="relative w-full md:w-auto">
-            <input type="search" x-model="ricercaCollezione" placeholder="Cerca nella collezione..." aria-label="Cerca nella collezione"
-              class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full md:w-96 focus:border-accent outline-none transition-colors font-medium">
-            <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
+          <div class="flex flex-col md:flex-row gap-4 md:items-center">
+            <div class="relative flex-grow">
+              <input type="search" x-model="ricercaCollezione" placeholder="Cerca nella collezione..." aria-label="Cerca nella collezione"
+                class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full focus:border-accent outline-none transition-colors font-medium">
+              <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
+            </div>
+            <div role="group" aria-label="Filtra la collezione per tipo" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit">
+              <button type="button" @click="filtroTipoCollezione = 'tutti'" :aria-pressed="filtroTipoCollezione === 'tutti'"
+                :class="filtroTipoCollezione === 'tutti' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Tutti</button>
+              <button type="button" @click="filtroTipoCollezione = 'item'" :aria-pressed="filtroTipoCollezione === 'item'"
+                :class="filtroTipoCollezione === 'item' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Item</button>
+              <button type="button" @click="filtroTipoCollezione = 'visite'" :aria-pressed="filtroTipoCollezione === 'visite'"
+                :class="filtroTipoCollezione === 'visite' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Visite</button>
+            </div>
           </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-center">
@@ -459,7 +517,7 @@
                   </template>
                 </select>
               </div>
-              <div x-show="currentUserType === 'autore' && !(nuovaOpera.type === 'Item' && nuovaOpera.privato)">
+              <div x-show="currentUserType === 'autore' && !(nuovaOpera.type === 'Item' && nuovaOpera.privato) && !(nuovaOpera.type === 'Visita' && nuovaOpera.guidata)">
                 <label for="editor-prezzo" class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Prezzo (€)</label>
                 <input id="editor-prezzo" type="number" step="0.10" min="0" x-model="nuovaOpera.price"
                   class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors">

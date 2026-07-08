@@ -24,6 +24,15 @@ export class AppState {
   currentUserType: UserRole | null = null;
   ricerca: string = "";
   ricercaCollezione: string = "";
+  ricercaLavori: string = "";
+  // Filtro per tipo di contenuto (Tutti / solo Item / solo Visite), nelle viste
+  // "I miei Lavori" (autore) e "La mia Collezione" (visitatore).
+  filtroTipoLavori: "tutti" | "item" | "visite" = "tutti";
+  filtroTipoCollezione: "tutti" | "item" | "visite" = "tutti";
+  // Visita guidata (studente): parola chiave digitata e sessione trovata dopo
+  // l'ingresso in sala d'attesa (id sessione + nome visita per conferma).
+  passkeyInput: string = "";
+  guidedTrovata: { id: string; visitName: string } | null = null;
   wallet: number = 100.0;
   collezioneUtente: string[] = []; // Array di @id
   modalDettaglio: boolean = false;
@@ -251,6 +260,11 @@ export class AppState {
     this.ricerca = "";
     this.ricercaCollezione = "";
     this.ricercaLibreria = "";
+    this.ricercaLavori = "";
+    this.filtroTipoLavori = "tutti";
+    this.filtroTipoCollezione = "tutti";
+    this.passkeyInput = "";
+    this.guidedTrovata = null;
     this.vendite = [];
     this.editingId = null;
     this.nuovaOpera = this.resetNuovaOpera();
@@ -496,17 +510,31 @@ export class AppState {
     );
   }
 
+  // Filtra una lista per tipo di contenuto: "item" (CreativeWork), "visite"
+  // (ItemList) o "tutti".
+  private filtraPerTipo(
+    lista: any[],
+    filtro: "tutti" | "item" | "visite",
+  ): any[] {
+    if (filtro === "item")
+      return lista.filter((c) => c["@type"] === "CreativeWork");
+    if (filtro === "visite")
+      return lista.filter((c) => c["@type"] === "ItemList");
+    return lista;
+  }
+
   miaCollezione() {
-    // Collezione = item e visite posseduti nel museo selezionato,
-    // filtrati dalla barra di ricerca dedicata.
+    // Collezione (VISITATORE) = item e visite POSSEDUTI (propri + acquistati) nel
+    // museo selezionato, filtrati da ricerca e filtro-tipo.
     const tutto = [...this.itemsMarket, ...this.contenuti] as any[];
-    return tutto.filter(
+    const filtrati = tutto.filter(
       (c) =>
         this.appartieneAlMuseo(c) &&
         this.haIlPossesso(c) &&
         this.visibileNelMercato(c) &&
         this.corrispondeRicerca(c, this.ricercaCollezione),
     );
+    return this.filtraPerTipo(filtrati, this.filtroTipoCollezione);
   }
 
   // Una visita GUIDATA (con parola chiave) non compare nel marketplace né si
@@ -516,8 +544,21 @@ export class AppState {
     if (!c?.accessKey) return true;
     return c.author === this.currentUser;
   }
+
   mieiLavori() {
-    return this.mieOpere;
+    // "I miei Lavori" (AUTORE) = SOLO ciò che ha creato lui: i propri item
+    // (mieOpere, inclusi i privati) + le proprie visite (create da lui), nel
+    // museo selezionato. NB: a differenza della collezione del visitatore, qui
+    // NON compaiono contenuti acquistati da altri — solo produzione propria.
+    const items = this.mieOpere.filter((i) => this.appartieneAlMuseo(i));
+    const visite = this.contenuti.filter(
+      (v: any) => v.author === this.currentUser && this.appartieneAlMuseo(v),
+    );
+    const base = this.filtraPerTipo(
+      [...items, ...visite],
+      this.filtroTipoLavori,
+    );
+    return base.filter((c) => this.corrispondeRicerca(c, this.ricercaLavori));
   }
 
   // Sorgente immagine di un'opera: prima l'immagine scaricata sul server
@@ -585,6 +626,38 @@ export class AppState {
     );
   }
 
+  // --- Visita guidata: ingresso dello studente con parola chiave ---
+
+  // Lo studente digita la parola chiave: entra nella sala d'attesa (server) e,
+  // se la sessione esiste (docente l'ha avviata), memorizza id + nome visita.
+  // Se il docente non ha ancora avviato, il server risponde 404 → messaggio.
+  async entraConPasskey() {
+    const key = this.passkeyInput.trim();
+    if (!key || !this.currentUser)
+      return this.mostraToast("Inserisci la parola chiave della visita.", "error");
+    try {
+      const s = await ArtAPI.joinGuidedSession(key, this.currentUser);
+      this.guidedTrovata = { id: s.id, visitName: s.visitName || "Visita guidata" };
+      this.mostraToast(`Sei in sala d'attesa per «${this.guidedTrovata.visitName}».`);
+    } catch (e) {
+      this.guidedTrovata = null;
+      this.mostraToast((e as Error).message, "error");
+    }
+  }
+
+  // Deep-link alla sala d'attesa del navigator per la sessione trovata. Il
+  // navigator (Fase 2) legge questi parametri per mostrare l'attesa del via.
+  salaAttesaUrl(): string {
+    if (!this.guidedTrovata) return "#";
+    const base = `${window.location.protocol}//${window.location.hostname}:5173/`;
+    return (
+      base +
+      `?guidedSession=${encodeURIComponent(this.guidedTrovata.id)}` +
+      `&role=studente` +
+      `&user=${encodeURIComponent(this.currentUser || "")}`
+    );
+  }
+
   apriEditor() {
     this.currentView = "editor";
     this.editingId = null;
@@ -640,8 +713,15 @@ export class AppState {
   listaOpereSelezionabili() {
     let base: any[];
     if (this.currentUserType === "autore") {
-      // Un autore può inserire solo i propri item del museo scelto
-      base = this.mieOpere.filter((i) => this.appartieneAlMuseo(i));
+      // Un autore può inserire i PROPRI item del museo (pubblici e privati) più
+      // gli item GRATUITI presenti nel marketplace. Unione deduplicata per @id.
+      const propri = this.mieOpere.filter((i) => this.appartieneAlMuseo(i));
+      const gratis = this.itemsMarket.filter(
+        (i) => this.appartieneAlMuseo(i) && (!i.price || i.price === 0),
+      );
+      const perId = new Map<string, any>();
+      for (const i of [...propri, ...gratis]) perId.set(i["@id"], i);
+      base = [...perId.values()];
     } else {
       // Un visitatore può inserire QUALSIASI item del museo scelto, anche non
       // posseduto: ma prima di poter USARE la visita dovrà acquistare tutti
