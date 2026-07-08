@@ -198,3 +198,147 @@ export async function translateTexts(
   const data = await res.json();
   return data.translations;
 }
+
+// ============================================================================
+//                        Guided sessions (modulo 18-27)
+// ============================================================================
+// Wrapper REST per il backbone effimero delle visite guidate sincronizzate
+// (server: routes/guidedSessions.ts). Trasporto a POLLING: i componenti del
+// navigator interrogano le GET a intervalli brevi. La sessione vive solo in
+// memoria sul server: quando finisce, le GET rispondono 404/410 (studente).
+
+const GS_BASE = `${API_BASE}/guided-sessions`;
+
+// Errore dedicato: la sessione non esiste piu' (docente ha terminato o il
+// server e' ripartito). Il chiamante deve uscire senza lasciare traccia.
+export class GuidedEndedError extends Error {
+  constructor() {
+    super("La visita guidata è terminata.");
+    this.name = "GuidedEndedError";
+  }
+}
+
+// estrae il messaggio d'errore dal corpo JSON, con un fallback generico.
+async function readGuidedError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (data && data.error) return data.error;
+  } catch {
+    // corpo non-JSON: si usa il fallback
+  }
+  return `Errore ${res.status}`;
+}
+
+// DOCENTE: apre (o riusa) la sala d'attesa per una sua visita guidata.
+export async function createGuidedSession(
+  visitId: string,
+  teacher: string,
+): Promise<any> {
+  const res = await fetch(GS_BASE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ visitId, teacher }),
+  });
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+// DOCENTE: vista con la lista partecipanti (polling della sala d'attesa).
+export async function getGuidedTeacherView(id: string): Promise<any> {
+  const res = await fetch(`${GS_BASE}/${encodeURIComponent(id)}`);
+  if (res.status === 404) throw new GuidedEndedError();
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+// STUDENTE: stato corrente (step, momento di partenza audio). 410 = terminata.
+export async function getGuidedStudentState(id: string): Promise<any> {
+  const res = await fetch(`${GS_BASE}/${encodeURIComponent(id)}/state`);
+  if (res.status === 410) throw new GuidedEndedError();
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+// Contenuti della visita (accesso TEMPORANEO legato alla sessione viva): item
+// con `about` gia' popolato, ordinati come nella visita.
+export async function getGuidedItems(
+  id: string,
+  username: string,
+): Promise<Item[]> {
+  const res = await fetch(
+    `${GS_BASE}/${encodeURIComponent(id)}/items?username=${encodeURIComponent(username)}`,
+  );
+  if (res.status === 410) throw new GuidedEndedError();
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+// DOCENTE: da' il via (stato "attiva", step 0).
+export async function postGuidedStart(id: string, teacher: string): Promise<any> {
+  const res = await fetch(`${GS_BASE}/${encodeURIComponent(id)}/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teacher }),
+  });
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+// DOCENTE: porta tutti sull'opera `index` (la vista degli studenti lo segue).
+export async function postGuidedStep(
+  id: string,
+  teacher: string,
+  index: number,
+): Promise<any> {
+  const res = await fetch(`${GS_BASE}/${encodeURIComponent(id)}/step`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teacher, index }),
+  });
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+// DOCENTE: termina la sessione (sparisce per tutti).
+export async function postGuidedEnd(id: string, teacher: string): Promise<void> {
+  const res = await fetch(`${GS_BASE}/${encodeURIComponent(id)}/end`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teacher }),
+  });
+  if (!res.ok) throw new Error(await readGuidedError(res));
+}
+
+// STUDENTE: esce dalla sala d'attesa.
+export async function postGuidedLeave(
+  id: string,
+  username: string,
+): Promise<void> {
+  const res = await fetch(`${GS_BASE}/${encodeURIComponent(id)}/leave`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username }),
+  });
+  if (!res.ok) throw new Error(await readGuidedError(res));
+}
+
+// STUDENTE: notifica al docente una domanda posta (nome + testo + opera). E'
+// "fire-and-forget": la risposta LLM la ottiene per conto suo, questa e' solo la
+// segnalazione per il monitoraggio del docente, quindi un errore non deve
+// disturbare l'esperienza dello studente.
+export async function postGuidedAsk(
+  id: string,
+  username: string,
+  question: string,
+  artwork: string,
+): Promise<void> {
+  try {
+    await fetch(`${GS_BASE}/${encodeURIComponent(id)}/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, question, artwork }),
+    });
+  } catch {
+    // ignorata di proposito: la segnalazione al docente e' best-effort
+  }
+}

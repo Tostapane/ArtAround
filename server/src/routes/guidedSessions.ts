@@ -29,8 +29,16 @@ const router = Router();
 
 interface Partecipante {
   username: string;
-  pronto: boolean; // ha premuto "sono pronto"
   joinedAt: number;
+}
+
+// Una domanda posta da uno studente durante la visita (monitoraggio docente,
+// slide 18-27: "vedere chi si e' collegato e cosa ha chiesto").
+interface Domanda {
+  username: string; // chi l'ha posta
+  question: string; // cosa ha chiesto (es. "Approfondisci", "Chi e' l'autore?")
+  artwork: string; // opera a cui si riferiva (nome, se disponibile)
+  at: number; // epoch ms
 }
 
 interface Sessione {
@@ -43,6 +51,11 @@ interface Sessione {
   currentStep: number; // indice opera corrente (-1 = non ancora iniziata)
   stepStartAt: number | null; // epoch ms a cui far partire l'audio dello step
   partecipanti: Map<string, Partecipante>;
+  // CODA di consegna (non uno storico): le domande poste dagli studenti restano
+  // qui solo finche' il docente non fa il polling successivo, poi vengono
+  // "drenate" e consegnate al suo client, che le conserva. Il server non tiene
+  // l'elenco: lo tiene il client del docente (slide 18-27).
+  domandeInSospeso: Domanda[];
   createdAt: number;
 }
 
@@ -51,8 +64,12 @@ interface Sessione {
 const sessioni = new Map<string, Sessione>();
 const perChiave = new Map<string, string>();
 
-// Vista per il DOCENTE: include la lista d'attesa completa.
+// Vista per il DOCENTE: include la lista d'attesa completa e "drena" le domande
+// in sospeso (consegna-una-volta): `nuoveDomande` sono le domande arrivate dopo
+// l'ultima vista del docente; qui la coda si svuota — a conservarle e' il client.
 function vistaDocente(s: Sessione) {
+  const nuoveDomande = s.domandeInSospeso;
+  s.domandeInSospeso = [];
   return {
     id: s.id,
     visitId: s.visitId,
@@ -64,8 +81,8 @@ function vistaDocente(s: Sessione) {
     stepStartAt: s.stepStartAt,
     partecipanti: [...s.partecipanti.values()].map((p) => ({
       username: p.username,
-      pronto: p.pronto,
     })),
+    nuoveDomande,
   };
 }
 
@@ -103,10 +120,21 @@ router.post("/", async (req, res) => {
         .status(403)
         .json({ error: "Solo l'autore della visita può avviarla" });
 
-    // Se esiste già una sessione viva per questa chiave, la si riusa.
+    // Se esiste già una sessione per questa chiave (es. quella precedente non è
+    // stata chiusa correttamente: tab chiusa, niente "Termina"), la si RIAVVIA
+    // da capo con una sala d'attesa PULITA. Ogni avvio del docente = nuova
+    // visita: così una visita guidata resta sempre riutilizzabile, senza restare
+    // "incastrata" nello stato della sessione precedente.
     const esistente = perChiave.get(visit.accessKey);
     if (esistente && sessioni.has(esistente)) {
-      return res.status(200).json(vistaDocente(sessioni.get(esistente)!));
+      const s = sessioni.get(esistente)!;
+      s.stato = "attesa";
+      s.currentStep = -1;
+      s.stepStartAt = null;
+      s.teacher = teacher;
+      s.partecipanti.clear();
+      s.domandeInSospeso = [];
+      return res.status(200).json(vistaDocente(s));
     }
 
     const id = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -120,6 +148,7 @@ router.post("/", async (req, res) => {
       currentStep: -1,
       stepStartAt: null,
       partecipanti: new Map(),
+      domandeInSospeso: [],
       createdAt: Date.now(),
     };
     sessioni.set(id, s);
@@ -149,24 +178,9 @@ router.post("/join", (req, res) => {
   if (!s.partecipanti.has(username)) {
     s.partecipanti.set(username, {
       username,
-      pronto: false,
       joinedAt: Date.now(),
     });
   }
-  res.json(vistaStudente(s));
-});
-
-/**
- * POST /api/guided-sessions/:id/ready  { username, pronto? }
- * Lo studente segnala di essere pronto (o annulla).
- */
-router.post("/:id/ready", (req, res) => {
-  const s = sessioni.get(req.params.id);
-  if (!s) return res.status(404).json({ error: "Sessione non trovata" });
-  const { username, pronto } = req.body;
-  const p = s.partecipanti.get(username);
-  if (!p) return res.status(404).json({ error: "Non sei nella sala d'attesa" });
-  p.pronto = pronto === undefined ? true : !!pronto;
   res.json(vistaStudente(s));
 });
 
@@ -178,6 +192,31 @@ router.post("/:id/leave", (req, res) => {
   const s = sessioni.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
   s.partecipanti.delete(req.body.username);
+  res.json({ ok: true });
+});
+
+/**
+ * POST /api/guided-sessions/:id/ask  { username, question, artwork? }
+ * Lo studente ha posto una domanda (la risposta LLM la ottiene per conto suo dal
+ * normale endpoint /api/llm): qui inoltriamo SOLO la notifica al docente. La
+ * mettiamo in coda; il client del docente la ritira al polling successivo e la
+ * conserva. Il server non tiene l'elenco.
+ */
+router.post("/:id/ask", (req, res) => {
+  const s = sessioni.get(req.params.id);
+  if (!s) return res.status(404).json({ error: "Sessione non trovata" });
+  const { username, question, artwork } = req.body;
+  if (!username || !question)
+    return res.status(400).json({ error: "username e question richiesti" });
+  // solo chi partecipa alla visita (o il docente) puo' inviare domande
+  if (username !== s.teacher && !s.partecipanti.has(username))
+    return res.status(403).json({ error: "Non partecipi a questa visita guidata" });
+  s.domandeInSospeso.push({
+    username,
+    question: String(question),
+    artwork: artwork ? String(artwork) : "",
+    at: Date.now(),
+  });
   res.json({ ok: true });
 });
 

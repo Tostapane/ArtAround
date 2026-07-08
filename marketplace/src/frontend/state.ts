@@ -658,6 +658,19 @@ export class AppState {
     );
   }
 
+  // Deep-link per il DOCENTE: apre il navigator sulla propria visita guidata.
+  // Il navigator crea (o riusa) la sessione e mostra la sala d'attesa; solo
+  // dopo gli studenti possono entrare con la parola chiave.
+  avviaGuidataUrl(visit: any): string {
+    const base = `${window.location.protocol}//${window.location.hostname}:5173/`;
+    return (
+      base +
+      `?guidedVisit=${encodeURIComponent(visit["@id"])}` +
+      `&role=docente` +
+      `&user=${encodeURIComponent(this.currentUser || "")}`
+    );
+  }
+
   apriEditor() {
     this.currentView = "editor";
     this.editingId = null;

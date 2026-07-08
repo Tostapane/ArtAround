@@ -4,8 +4,10 @@ import Header from "./components/Header.vue";
 import Footer from "./components/Footer.vue";
 import Selector from "./components/selection/Selector.vue";
 import MainView from "./components/map/MainView.vue";
+import GuidedGate from "./components/GuidedGate.vue";
 import { loadMuseum, setCustomVisit, setVisit } from "./state";
 import { getVisit } from "./api";
+import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
 import { useAnnouncer } from "./composables/useAnnouncer";
 import type { Visit, Match } from "../../shared/types";
 
@@ -24,6 +26,30 @@ onMounted(async () => {
   const params = new URLSearchParams(window.location.search);
   const visitId = params.get("visit");
   const museumParam = params.get("museum");
+
+  // deep link VISITA GUIDATA (modulo 18-27) dal marketplace:
+  //  - studente: ?guidedSession=<id>&role=studente&user=<username>
+  //  - docente:  ?guidedVisit=<visitId>&role=docente&user=<username>
+  const role = params.get("role");
+  const guidedSessionParam = params.get("guidedSession");
+  const guidedVisitParam = params.get("guidedVisit");
+  const userParam = params.get("user") || "";
+  if (role === "studente" && guidedSessionParam) {
+    try {
+      await attachAsStudent(guidedSessionParam, userParam);
+      return;
+    } catch (err) {
+      console.error("Impossibile agganciare la visita guidata", err);
+    }
+  }
+  if (role === "docente" && guidedVisitParam) {
+    try {
+      await startAsTeacher(guidedVisitParam, userParam);
+      return;
+    } catch (err) {
+      console.error("Impossibile avviare la visita guidata", err);
+    }
+  }
 
   // deep link dal marketplace (?museum=<qid>&visit=<id>): la visita arriva dal
   // database, il museo dal suo file di configurazione; si parte direttamente.
@@ -100,9 +126,12 @@ function goBack() {
       class="relative flex flex-1 flex-col overflow-hidden bg-surface-2"
       aria-label="Contenuto principale"
     >
+      <!-- Visita guidata (modulo 18-27): sala d'attesa, visita, fine -->
+      <GuidedGate v-if="guidedActive" />
+
       <!-- Fase 1: scelta di livello e durata -->
       <div
-        v-if="!started"
+        v-else-if="!started"
         class="flex flex-1 items-start justify-center overflow-y-auto p-4 sm:items-center"
       >
         <Selector
@@ -146,7 +175,7 @@ function goBack() {
       </template>
     </main>
 
-    <Footer v-if="!started" class="shrink-0" />
+    <Footer v-if="!started && !guidedActive" class="shrink-0" />
 
     <!-- Live region globale: annunci di stato per screen reader -->
     <p class="sr-only" role="status" aria-live="polite">{{ message }}</p>

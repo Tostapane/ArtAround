@@ -283,6 +283,10 @@
                 <div class="flex gap-3 mt-auto">
                   <button @click="apriDettaglio(item)" :aria-label="'Anteprima di ' + nomeContenuto(item)"
                     class="flex-grow bg-surface-2 border border-border text-text py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">Anteprima</button>
+                  <!-- Visita guidata: il docente la avvia nel navigator (sala d'attesa) -->
+                  <a x-show="item['@type'] === 'ItemList' && item.accessKey" :href="avviaGuidataUrl(item)"
+                    :aria-label="'Avvia la visita guidata ' + nomeContenuto(item)"
+                    class="flex-grow text-center bg-accent text-on-accent py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap"><span aria-hidden="true">▶</span> Avvia (docente)</a>
                 </div>
               </div>
             </div>

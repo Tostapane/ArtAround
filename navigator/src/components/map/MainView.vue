@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { Dialog, DialogPanel } from "@headlessui/vue";
 import Map from "./Map.vue";
 import Card from "./Card.vue";
@@ -16,6 +16,14 @@ import {
   matchedContent,
   visit,
 } from "./../../state";
+import {
+  guidedActive,
+  guidedRole,
+  guidedStato,
+  guidedCurrentStep,
+  teacherGoToStep,
+  studentAsk,
+} from "@/guided";
 import type { Match } from "../../../../shared/types";
 
 const tts = useTTS();
@@ -71,8 +79,30 @@ function stepIndex(from: number, step: number): number {
   }
   return -1;
 }
-const hasNext = computed(() => stepIndex(navBase(), 1) >= 0);
-const hasPrev = computed(() => stepIndex(navBase(), -1) >= 0);
+// modalita' guidata (18-27): lo studente SEGUE il docente e non naviga; il
+// docente conduce (ogni Prossimo/Precedente spinge lo step a tutti).
+const guidedStudent = computed(
+  () =>
+    guidedActive.value &&
+    guidedRole.value === "studente" &&
+    guidedStato.value === "attiva",
+);
+const guidedTeacher = computed(
+  () =>
+    guidedActive.value &&
+    guidedRole.value === "docente" &&
+    guidedStato.value === "attiva",
+);
+
+// lo studente non ha Prossimo/Precedente (navigazione pilotata dal docente)
+const hasNext = computed(() => {
+  if (guidedStudent.value) return false;
+  return stepIndex(navBase(), 1) >= 0;
+});
+const hasPrev = computed(() => {
+  if (guidedStudent.value) return false;
+  return stepIndex(navBase(), -1) >= 0;
+});
 
 // seleziona un'opera DELLA visita per indice (aggiorna anche l'ultima tappa)
 function selectIndex(i: number) {
@@ -80,6 +110,14 @@ function selectIndex(i: number) {
   if (!match) return;
   currentArtwork.value = match;
   lastVisitIndex.value = i;
+}
+
+// click su un'opera dalla mappa: lo studente guidato non puo' spostarsi da solo;
+// il docente invece porta con se' tutti gli studenti (spinge lo step).
+function onMapSelect(i: number) {
+  if (guidedStudent.value) return;
+  selectIndex(i);
+  if (guidedTeacher.value) teacherGoToStep(i);
 }
 
 // scansione QR: imposta SOLO la posizione corrente, senza ricaricare nulla e
@@ -138,6 +176,10 @@ function actionHandler(option: string) {
   }
   currentOption.value = option;
   showOptions.value = false;
+  // visita guidata: notifica al docente la domanda posta dallo studente
+  // (no-op se non e' uno studente in una visita attiva)
+  const art = currentArtwork.value;
+  studentAsk(option, art ? art.artwork.name : "");
 }
 
 // traduzione live di titolo, autore e descrizione dell'opera corrente.
@@ -159,6 +201,24 @@ watch(currentArtwork, (newVal) => {
   if (newVal && tts.autoRead.value) tts.speak(translatedFields.value[2]);
 });
 
+// STUDENTE guidato: quando il docente cambia opera, la vista lo segue. L'audio
+// NON parte in automatico: e' lo studente ad avviare la lettura col pulsante se
+// lo desidera (resta valida la sua preferenza di lettura automatica, se attiva).
+watch(guidedCurrentStep, (step) => {
+  if (!guidedStudent.value) return;
+  if (step < 0) return;
+  selectIndex(step);
+});
+
+// All'ingresso nella visita (MainView montato in fase "attiva") apriamo subito
+// l'opera corrente sia per lo studente sia per il docente.
+onMounted(() => {
+  if (guidedCurrentStep.value < 0) return;
+  if (guidedStudent.value || guidedTeacher.value) {
+    selectIndex(guidedCurrentStep.value);
+  }
+});
+
 onUnmounted(() => {
   tts.stop();
 });
@@ -167,26 +227,36 @@ onUnmounted(() => {
 // alla posizione reale; ai bordi non fanno nulla (la Card disabilita i pulsanti).
 function navigationHandler(direction: string) {
   if (direction === "close") {
+    // in modalita' guidata lo studente non chiude la scheda (visita pilotata)
+    if (guidedStudent.value) return;
     currentArtwork.value = null;
     return;
   }
+  if (guidedStudent.value) return; // lo studente non naviga da solo
   const base = navBase();
   if (direction === "next") {
     const target = stepIndex(base, 1);
-    if (target >= 0) selectIndex(target);
+    if (target >= 0) {
+      selectIndex(target);
+      if (guidedTeacher.value) teacherGoToStep(target);
+    }
   } else if (direction === "prev") {
     const target = stepIndex(base, -1);
-    if (target >= 0) selectIndex(target);
+    if (target >= 0) {
+      selectIndex(target);
+      if (guidedTeacher.value) teacherGoToStep(target);
+    }
   }
 }
 </script>
 
 <template>
-  <Map @select="selectIndex" />
+  <Map @select="onMapSelect" />
 
-  <!-- Scanner QR: disponibile durante una visita; imposta la posizione corrente -->
+  <!-- Scanner QR: disponibile durante una visita; imposta la posizione corrente.
+       Nascosto allo studente guidato (non puo' spostarsi da solo). -->
   <button
-    v-if="matchedContent.length"
+    v-if="matchedContent.length && !guidedStudent"
     type="button"
     @click="showScanner = true"
     aria-label="Scansiona il QR di un'opera"
