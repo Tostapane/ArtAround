@@ -23,6 +23,8 @@ const visitSchema = new Schema<IVisit>({
   itemListElement: [String],
   optionalItems: [String],
   logistics: [String],
+  // Parola chiave della visita guidata (univoca; assente = visita normale).
+  accessKey: String,
 });
 
 export const VisitModel = model<IVisit>("Visit", visitSchema);

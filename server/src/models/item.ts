@@ -25,6 +25,13 @@ const itemSchema = new Schema<IItem>({
   },
   price: { type: Number, default: 0 },
   text: String,
+  // "privato" = item non pubblico, usabile solo nelle visite guidate del suo
+  // autore (escluso da GET /api/items). Default "pubblico" (retrocompatibile).
+  visibility: {
+    type: String,
+    enum: ["pubblico", "privato"],
+    default: "pubblico",
+  },
 });
 
 export const ItemModel = model<IItem>("Item", itemSchema);

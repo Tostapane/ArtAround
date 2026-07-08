@@ -9,27 +9,27 @@ const router = Router();
 function sanitize(u: any) {
   return {
     username: u.username,
-    role: u.role,
     wallet: u.wallet,
     collezione: u.collezione,
   };
 }
 
 /**
- * POST /api/users/register  { username, password, role }
- * Crea un nuovo utente e lo restituisce (senza password).
+ * POST /api/users/register  { username, password }
+ * Crea un nuovo utente e lo restituisce (senza password). L'account è unico:
+ * potrà poi operare sia da autore sia da visitatore (scelta nell'interfaccia).
  */
 router.post("/register", async (req, res) => {
   try {
-    const { username, password, role } = req.body;
-    if (!username || !password || (role !== "autore" && role !== "visitatore"))
+    const { username, password } = req.body;
+    if (!username || !password)
       return res.status(400).json({ error: "Dati di registrazione non validi" });
 
     const esiste = await UserModel.findOne({ username });
     if (esiste)
       return res.status(409).json({ error: "Username gia' registrato" });
 
-    const user = await UserModel.create({ username, password, role });
+    const user = await UserModel.create({ username, password });
     res.status(201).json(sanitize(user));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore in registrazione" });
@@ -37,14 +37,14 @@ router.post("/register", async (req, res) => {
 });
 
 /**
- * POST /api/users/login  { username, password, role }
- * Verifica le credenziali (username + password + ruolo del portale) e
- * restituisce l'utente (wallet e collezione inclusi).
+ * POST /api/users/login  { username, password }
+ * Verifica le credenziali (username + password) e restituisce l'utente
+ * (wallet e collezione inclusi). Nessun ruolo: l'account è unico.
  */
 router.post("/login", async (req, res) => {
   try {
-    const { username, password, role } = req.body;
-    const user = await UserModel.findOne({ username, password, role });
+    const { username, password } = req.body;
+    const user = await UserModel.findOne({ username, password });
     if (!user)
       return res.status(401).json({ error: "Credenziali non valide" });
     res.json(sanitize(user));
@@ -54,26 +54,51 @@ router.post("/login", async (req, res) => {
 });
 
 /**
- * POST /api/users/:username/buy  { itemId, price }
- * Acquisto persistente: scala il wallet e aggiunge l'item alla collezione.
- * Il controllo del budget e' fatto lato server (fonte di verita').
+ * POST /api/users/:username/buy  { itemId }
+ * Acquisto persistente: scala il wallet del compratore, aggiunge l'item alla
+ * sua collezione e ACCREDITA il wallet dell'autore che ha pubblicato il
+ * contenuto. Prezzo e autore vengono ricavati dal documento (fonte di verità
+ * server-side), non dal client.
  */
 router.post("/:username/buy", async (req, res) => {
   try {
     const { username } = req.params;
-    const { itemId, price } = req.body;
+    const { itemId } = req.body;
     const user = await UserModel.findOne({ username });
     if (!user) return res.status(404).json({ error: "Utente non trovato" });
 
     if (user.collezione.includes(itemId)) return res.json(sanitize(user)); // gia' posseduto
 
-    const costo = Number(price) || 0;
+    // Prezzo e autore autoritativi dal contenuto (Item oppure Visit).
+    const contenuto: any =
+      (await ItemModel.findOne({ "@id": itemId })) ||
+      (await VisitModel.findOne({ "@id": itemId }));
+    const costo = contenuto
+      ? Number(contenuto.price) || 0
+      : Number(req.body.price) || 0;
+    const autore: string | undefined = contenuto ? contenuto.author : undefined;
+
+    // Un utente non "compra" i propri contenuti: sono già suoi per il fatto di
+    // averli creati. Nessun addebito, nessuna modifica (possesso implicito).
+    if (autore && autore === username) return res.json(sanitize(user));
+
     if (user.wallet < costo)
       return res.status(400).json({ error: "Budget insufficiente" });
 
     user.wallet -= costo;
     user.collezione.push(itemId);
     await user.save();
+
+    // Accredita il venditore: solo se è un utente reale, diverso dal compratore
+    // e il contenuto è a pagamento (i contenuti gratis o dei tour di sistema/AI
+    // non generano ricavo su un account).
+    if (costo > 0 && autore && autore !== username) {
+      await UserModel.updateOne(
+        { username: autore },
+        { $inc: { wallet: costo } },
+      );
+    }
+
     res.json(sanitize(user));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nell'acquisto" });

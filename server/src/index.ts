@@ -14,6 +14,7 @@ import museumRoutes from "./routes/museums";
 import userRoutes from "./routes/users";
 import translateRoutes from "./routes/translate";
 import wayfindingRoutes from "./routes/wayfinding";
+import guidedSessionRoutes from "./routes/guidedSessions";
 
 const app = express();
 const PORT = 8000;
@@ -58,6 +59,7 @@ app.use("/api/museums", museumRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/translate", translateRoutes);
 app.use("/api/wayfinding", wayfindingRoutes);
+app.use("/api/guided-sessions", guidedSessionRoutes);
 app.get("/api/health", (req, res) => {
   res.json({
     message: "Unified Backend running",

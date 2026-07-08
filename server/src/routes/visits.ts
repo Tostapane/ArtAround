@@ -192,19 +192,61 @@ router.post("/", async (req, res) => {
       payload.duration ??
       items.reduce((s, it: any) => s + (Number(it.timeRequired) || 0), 0);
 
+    const visitId = payload.id || payload["@id"];
+    const author = payload.autore || payload.author;
+
+    // --- Visita GUIDATA (con parola chiave) ---
+    const accessKey: string | undefined =
+      typeof payload.accessKey === "string" && payload.accessKey.trim() !== ""
+        ? payload.accessKey.trim()
+        : undefined;
+
+    if (accessKey) {
+      // 1) La parola chiave dev'essere UNIVOCA nel DB (un'altra visita non può
+      //    già usarla — altrimenti gli studenti non saprebbero quale attivare).
+      const conflitto = await VisitModel.findOne({
+        accessKey,
+        "@id": { $ne: visitId },
+      });
+      if (conflitto)
+        return res.status(409).json({
+          error: `La parola chiave "${accessKey}" è già usata da un'altra visita. Scegline un'altra.`,
+        });
+
+      // 2) Vincolo anti-scappatoia: ogni item dev'essere gratuito OPPURE
+      //    posseduto dall'autore (creato da lui — anche privato — oppure
+      //    acquistato). Vietato includere item a pagamento di ALTRI autori:
+      //    li si regalerebbe tramite una password magari condivisa.
+      const autoreUser = await UserModel.findOne({ username: author });
+      const posseduti = new Set(autoreUser?.collezione || []);
+      for (const it of items as any[]) {
+        const gratis = !it.price || Number(it.price) === 0;
+        const suo = it.author === author || posseduti.has(it["@id"]);
+        if (!gratis && !suo) {
+          return res.status(400).json({
+            error:
+              "Una visita guidata può contenere solo item gratuiti o posseduti da te. " +
+              `L'item "${it["@id"]}" è a pagamento e non è tuo.`,
+          });
+        }
+      }
+    }
+
     await VisitModel.findOneAndUpdate(
-      { "@id": payload.id || payload["@id"] },
+      { "@id": visitId },
       {
-        "@id": payload.id || payload["@id"],
+        "@id": visitId,
         name: payload.titolo || payload.name,
         level: payload.level || "Personalizzata",
         duration,
-        price: payload.prezzo || payload.price,
-        author: payload.autore || payload.author,
+        // Le visite guidate sono gratuite (accesso a parola chiave): prezzo 0.
+        price: accessKey ? 0 : payload.prezzo || payload.price,
+        author,
         license: payload.licenza || payload.license || "Tutti i diritti riservati",
         ofMuseum: payload.museumUri || payload.ofMuseum,
         itemListElement: itemIds,
         optionalItems,
+        accessKey: accessKey ?? null,
         logistics:
           payload.percorso
             ?.filter((t: any) => t.tipo === "logistica")

@@ -1,7 +1,7 @@
 import { Contenuto, Artwork, Item, Museum, User } from '../../../shared/types.js';
 
 // Utente restituito dal server (senza password)
-export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
+export type UserDTO = Pick<User, 'username' | 'wallet' | 'collezione'>;
 
 async function readError(response: Response, fallback: string): Promise<string> {
   const data = await response.json().catch(() => ({} as any));
@@ -13,27 +13,29 @@ async function readError(response: Response, fallback: string): Promise<string> 
  */
 export const ArtAPI = {
   // --- Autenticazione / utenti (persistiti su MongoDB) ---
-  async login(username: string, password: string, role: string): Promise<UserDTO> {
+  async login(username: string, password: string): Promise<UserDTO> {
     const response = await fetch('/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, role }),
+      body: JSON.stringify({ username, password }),
     });
     if (!response.ok) throw new Error(await readError(response, 'Credenziali non valide'));
     return response.json();
   },
 
-  async register(username: string, password: string, role: string): Promise<UserDTO> {
+  async register(username: string, password: string): Promise<UserDTO> {
     const response = await fetch('/api/users/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, role }),
+      body: JSON.stringify({ username, password }),
     });
     if (!response.ok) throw new Error(await readError(response, 'Errore in registrazione'));
     return response.json();
   },
 
-  // Acquisto persistente: il server scala il wallet e aggiorna la collezione
+  // Acquisto persistente: il server scala il wallet, aggiorna la collezione e
+  // accredita l'autore. Il prezzo passato è solo un fallback (il server usa
+  // quello autoritativo del contenuto).
   async buy(username: string, itemId: string, price: number): Promise<UserDTO> {
     const response = await fetch(`/api/users/${encodeURIComponent(username)}/buy`, {
       method: 'POST',

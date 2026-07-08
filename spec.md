@@ -110,14 +110,22 @@ marketplace at `/`, compiled JS at `/dist`. Navigator runs on its own Vite dev s
   Mongoose model adds `@context`, `@type`. **No `wikiDataUri` field exists.**
 - **Item** (= Schema.org CreativeWork): `@id` (`QID-author-tono-lunghezza`), `about`
   (Artwork `@id` string, or populated), `text`, `timeRequired`, `educationalLevel`,
-  `author`, `license`, `price?`. ItemModel stores `about` as a **string id**.
+  `author`, `license`, `price?`, `visibility?` (`"pubblico"` default | `"privato"`).
+  ItemModel stores `about` as a **string id**. **Item privati** (modulo 18-27): esclusi da
+  `GET /api/items`, prezzo forzato a 0, usati solo nelle visite guidate del loro autore.
 - **Visit** (= ItemList): `@id`, `name`, `level`, `duration`, `price?`, `ofMuseum`,
   `itemListElement` (Item `@id`[]), `optionalItems?` (subset marked "optional"),
-  `logistics` (string[]), `author?`.
+  `logistics` (string[]), `author?`, `accessKey?` (parola chiave univoca). **Visita guidata**
+  (modulo 18-27): con `accessKey` è gratuita, non comprabile e non listata nel marketplace dei
+  visitatori; gli studenti vi accedono in modo temporaneo con la parola chiave.
 - **Museum**: `@id`, `qid`, `name`, `created`, `location`, `mapPath`.
-- **User**: `username`, `role` (`autore`|`visitatore`), `wallet`, `collezione` (id[]).
-  **Now persisted** in MongoDB (`models/user.ts`, adds a plaintext `password` — security is not
-  graded). CRUD via `/api/users` (see §4); seeded with the 4 required accounts (`seedUsers.ts`).
+- **User**: `username`, `wallet`, `collezione` (id[]). **Account unico, senza ruolo:**
+  `role` è opzionale nel tipo e **rimosso dallo schema Mongoose** — "autore" e "visitatore" sono
+  ora **modalità dell'interfaccia** che lo stesso utente sceglie dopo il login (toggle in navbar,
+  `state.ts:cambiaModalita`), non l'identità dell'account. L'autorship dei contenuti resta legata
+  allo `username` (`Item.author`/`Visit.author`), indipendente dalla modalità. **Persistito** in
+  MongoDB (`models/user.ts`, `password` in chiaro — security non valutata). CRUD via `/api/users`
+  (see §4); seeded con i 4 account richiesti (`seedUsers.ts`).
 - **Match**: `{artwork, item}` (navigator joins item.about ↔ artwork["@id"]).
 - **Contenuto** = `Item | Visit` (marketplace union).
 
@@ -142,8 +150,10 @@ Base path `/api`. All mounted in `server/src/index.ts`.
     artwork has **no** item, generates one via the LLM (`createDescription`) for that level+duration
     and persists it as `@id = "<qid>-AI-<level>-<duration>"` (author `"AI"`).
 - **Items** `/api/items`
-  - `GET /` → **all** items with `about` (Artwork) **populated** (marketplace visitor listing; the
-    client filters by museum via `about.ofMuseum`).
+  - `GET /` → items with `about` (Artwork) **populated** (marketplace visitor listing; the
+    client filters by museum via `about.ofMuseum`). **Esclude gli item `visibility:"privato"`.**
+  - `POST /` (tipo Item) accetta `privato`/`visibility:"privato"` → forza `price:0` e
+    `visibility:"privato"` (item riservato alle visite guidate del suo autore).
   - `GET /author/:authorName` → author's items (populates `about`).
   - `POST /` → **create** item. Accepts marketplace format (`tipo:"Item"`) **or** Schema.org
     (`@type:"CreativeWork"`). Marketplace format: **rejects duplicates with 409** if the author
@@ -167,6 +177,16 @@ Base path `/api`. All mounted in `server/src/index.ts`.
     `DELETE /:id` → deletes a (marketplace-created) visit and `$pull`s its id from every user's
     `collezione`; 404 if unknown.
     (`GET /:id` exists for the navigator's deep link `?visit=<id>` from the marketplace.)
+    **Visita guidata** (`accessKey` nel payload): `POST /` valida (a) **unicità** della chiave
+    (409 se già usata da un'altra visita) e (b) **anti-scappatoia** — ogni item dev'essere gratuito
+    o posseduto dall'autore (creato da lui, anche privato, o acquistato), altrimenti 400; il prezzo
+    è forzato a 0.
+- **Guided sessions** `/api/guided-sessions` (modulo 18-27, sincronizzazione — **backbone effimero
+  in memoria, nessuna persistenza**; consumato dal navigator, vedi `missing.txt`). Trasporto:
+  **polling REST** (no WebSocket/SSE). Endpoint: `POST /` (docente apre la sala), `POST /join`
+  (studente entra con `accessKey`), `POST /:id/ready|leave|start|step|end`, `GET /:id` (vista docente
+  con lista d'attesa), `GET /:id/state` (vista studente; **410** a fine visita → "nessuna traccia"),
+  `GET /:id/items?username=` (accesso **temporaneo** ai contenuti per i partecipanti, 403 se estraneo).
 - **Museums** `/api/museums`
   - `GET /` → all. `GET /:id` → museum by **qid**. `GET /:id/artworks` → artworks where
     `ofMuseum === "http://www.wikidata.org/entity" + id` (⚠️ note: **no `/` before qid**).
@@ -174,12 +194,19 @@ Base path `/api`. All mounted in `server/src/index.ts`.
     artwork qid). The curator's "foglio di carta" for QR localization; fully generic (driven by
     the museum's artworks). Uses the `qrcode` npm module server-side.
 - **Users** `/api/users` (marketplace auth + persistence)
-  - `POST /register` `{username, password, role}` → creates a user, returns it **without password**
-    (409 if the username exists).
-  - `POST /login` `{username, password, role}` → validates username+password+**role** (the portal
-    must match the account's role), returns the user (`wallet`+`collezione` included).
-  - `POST /:username/buy` `{itemId, price}` → **server-side** budget check, deducts `wallet`, adds
-    `itemId` to `collezione` (idempotent if already owned), returns the updated user.
+  - `POST /register` `{username, password}` → creates a user, returns it **without password**
+    (409 if the username exists). **No role** (account unico).
+  - `POST /login` `{username, password}` → validates username+password only, returns the user
+    (`wallet`+`collezione` included). **No role/portal.**
+  - `POST /:username/buy` `{itemId}` → **server-side** budget check, deducts `wallet`, adds
+    `itemId` to `collezione` (idempotent if already owned), and **credits the seller's wallet**:
+    price+author are read from the content doc (Item or Visit) server-side, and `$inc`'d onto the
+    author's wallet when price>0 and author≠buyer (system/AI tours have no real author → no credit).
+    So author earnings become spendable by the same account in visitor mode. **A user never buys
+    their own content**: if `content.author === buyer` the route is a no-op (no charge, no change) —
+    own creations are implicitly owned. Mirrors the client's `haIlPossesso` (true when
+    `item.author === currentUser`), which already treats own works as owned/usable everywhere
+    (buy, visit missing-items, "posseduti" library filter, `visitaUtilizzabile`). Returns the buyer.
   - `GET /:username/sales` → the author's published items+visits with `license`, `price`,
     `adozioni` (buyers) and `ricavo` (adozioni×price) — adoptions counted from `User.collezione`.
 - **LLM** `/api/llm`
@@ -260,6 +287,31 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   test against. Intended behavior: visible only when the visit has optional stops — restore
   `v-if="optionalCount > 0"`. (Related: `seed.ts` creates no `optionalItems`; the seeded tours'
   optional steps were added via API and are lost on reseed, see §1.)
+- **Visite guidate a parola chiave — basi marketplace+server DONE (modulo 18-27, "Fenice rossa").**
+  Fase 1 completa e verificata: **item privati** (`Item.visibility`, checkbox 🔒 nell'editor, esclusi
+  dal marketplace, prezzo 0) e **visite guidate** (`Visit.accessKey`, toggle 🔑 + campo parola chiave;
+  gratuite, non comprabili, non listate ai visitatori, visibili solo al loro autore). Vincoli validati
+  **client+server**: parola chiave **univoca** (409) e **anti-scappatoia** (solo item gratuiti o
+  posseduti dall'autore, 400). **Backbone sessioni** effimero in memoria (`routes/guidedSessions.ts`,
+  `/api/guided-sessions`, **polling REST**): sala d'attesa, join con parola chiave, lista d'attesa/pronti
+  del docente, avvio/step (con `stepStartAt` per audio ~simultaneo)/fine, accesso **temporaneo** ai
+  contenuti dei partecipanti, sparizione senza traccia a fine visita (410). Verificato via curl
+  end-to-end. ⚠️ **Navigator NON toccato** (accordo col collega): UI docente (sala d'attesa,
+  conduzione) e studente (ingresso parola chiave, attesa, sync audio) restano da fare — istruzioni +
+  contratto API in **`missing.txt`**. **Quiz di fine visita (Fase 3) non iniziato.**
+- **Account unico + saldo autore — DONE.** L'account non ha più ruolo (`User.role` opzionale, tolto
+  dallo schema): "autore"/"visitatore" sono **modalità** dell'interfaccia commutabili via toggle in
+  navbar (`state.ts:cambiaModalita`); login/register senza ruolo. **All'acquisto il wallet del
+  venditore viene accreditato** (`$inc`, prezzo+autore dal doc lato server; salta contenuti gratis,
+  tour di sistema/AI e acquisto dei propri contenuti); i ricavi diventano spendibili in modalità
+  visitatore. Un utente **non compra i propri contenuti** (già suoi: `haIlPossesso` client + guardia
+  server). **Login-first:** all'accesso si apre direttamente la pagina di login (vista `welcome`
+  rimossa; branding ArtAround spostato sulla pagina di login).
+- **Ricerca robusta — DONE.** Le tre barre del marketplace (dashboard, collezione, libreria editor)
+  usano un unico motore (`state.ts:corrispondeRicerca` + `normalizzaRicerca`/`campiRicercabili`):
+  match multi-token in AND su **nome opera/visita, autore-contenuto (curatore), difficoltà, e per gli
+  item autore-opera (pittore) e stile**, con normalizzazione accenti/punteggiatura e tolleranza agli
+  spazi mancanti ("davinci"/"leonardodavinci" trovano "Leonardo da Vinci"). Verificato su dati reali.
 - **Marketplace code review vs slides.pdf — DONE (2026-07).** Full audit of the marketplace against
   the slide-20 mandatory requirements: all covered (museum panel, edit/create visit, free+paid
   content listing with scale handling, visit editing with reorder/multi-depth/optional, content

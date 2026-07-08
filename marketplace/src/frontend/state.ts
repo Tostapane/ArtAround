@@ -16,8 +16,11 @@ import { ArtAPI } from "./api.js";
  * - Visit = ItemList (@id, name, itemListElement: string[], logistics: string[], price)
  */
 export class AppState {
-  currentView: string = "welcome";
+  currentView: string = "login";
   currentUser: string | null = null;
+  // Modalità dell'interfaccia scelta dall'utente DOPO il login (non è il ruolo
+  // dell'account: lo stesso utente può passare da autore a visitatore quando
+  // vuole tramite il toggle in navbar). Default: visitatore.
   currentUserType: UserRole | null = null;
   ricerca: string = "";
   ricercaCollezione: string = "";
@@ -48,7 +51,6 @@ export class AppState {
     username: "",
     password: "",
     conferma: "",
-    tipo: "" as UserRole | "",
   };
 
   contenuti: Contenuto[] = []; // Visite (Tour) globali
@@ -81,13 +83,25 @@ export class AppState {
       this.currentUserType === "autore" ? "my_works" : "dashboard";
   }
 
+  // Passa dalla modalità visitatore a quella autore (e viceversa) sullo stesso
+  // account, senza logout. Chiude editor/modali e porta alla home della
+  // modalità scelta.
+  cambiaModalita(tipo: UserRole) {
+    if (this.currentUserType === tipo) return;
+    this.currentUserType = tipo;
+    this.modalDettaglio = false;
+    this.itemSelezionato = null;
+    this.editingId = null;
+    this.nuovaOpera = this.resetNuovaOpera();
+    if (this.museoSelezionato) this.tornaHome();
+    else this.currentView = "select_museum";
+  }
+
   // Etichetta leggibile della vista corrente, annunciata dagli screen reader
   // tramite la live region (il cambio vista di una SPA è altrimenti silenzioso).
   etichettaVista(): string {
     const nomi: Record<string, string> = {
-      welcome: "Benvenuto",
-      login_autore: "Accesso autore",
-      login_visitatore: "Accesso visitatore",
+      login: "Accesso",
       register: "Registrazione",
       select_museum: "Selezione del museo",
       dashboard: "Marketplace",
@@ -155,8 +169,9 @@ export class AppState {
       // 2b. Carichiamo gli item (contenuti) acquistabili singolarmente
       this.itemsMarket = await ArtAPI.fetchItems();
 
-      // 3. Se l'utente è un autore, carichiamo i suoi lavori personali
-      if (this.currentUserType === "autore" && this.currentUser) {
+      // 3. Carichiamo i lavori pubblicati dall'utente: essendo l'account unico,
+      // può passare in modalità autore in qualsiasi momento.
+      if (this.currentUser) {
         this.mieOpere = await ArtAPI.fetchMyItems(this.currentUser);
       }
 
@@ -178,15 +193,16 @@ export class AppState {
     }
   }
 
-  async effettuaLogin(portalType: UserRole) {
+  async effettuaLogin() {
     try {
       const u = await ArtAPI.login(
         this.formLogin.username,
         this.formLogin.password,
-        portalType,
       );
       this.currentUser = u.username;
-      this.currentUserType = u.role;
+      // L'account è unico: si entra di default in modalità visitatore, con il
+      // toggle in navbar per passare a autore quando si vuole.
+      this.currentUserType = "visitatore";
       this.wallet = u.wallet;
       this.collezioneUtente = u.collezione;
       this.formLogin = { username: "", password: "" };
@@ -196,27 +212,24 @@ export class AppState {
     }
   }
 
-  // Prepara il form di registrazione con il ruolo del portale da cui si arriva
-  // (autore/visitatore) e mostra la vista di registrazione.
-  preparaRegistrazione(tipo: UserRole) {
-    this.formReg = { username: "", password: "", conferma: "", tipo };
+  // Mostra la vista di registrazione (account unico, nessun ruolo da scegliere).
+  preparaRegistrazione() {
+    this.formReg = { username: "", password: "", conferma: "" };
     this.currentView = "register";
   }
 
   async concludiRegistrazione() {
-    const { username, password, conferma, tipo } = this.formReg;
+    const { username, password, conferma } = this.formReg;
     if (!username || !password || password !== conferma)
       return this.mostraToast("Dati non validi o password non coincidenti", "error");
-    if (tipo !== "autore" && tipo !== "visitatore")
-      return this.mostraToast("Seleziona un tipo di profilo", "error");
 
     try {
-      const u = await ArtAPI.register(username, password, tipo);
+      const u = await ArtAPI.register(username, password);
       this.currentUser = u.username;
-      this.currentUserType = u.role;
+      this.currentUserType = "visitatore";
       this.wallet = u.wallet;
       this.collezioneUtente = u.collezione;
-      this.formReg = { username: "", password: "", conferma: "", tipo: "" };
+      this.formReg = { username: "", password: "", conferma: "" };
       await this.initApp();
     } catch (e) {
       this.mostraToast((e as Error).message, "error");
@@ -226,7 +239,7 @@ export class AppState {
   logout() {
     this.currentUser = null;
     this.currentUserType = null;
-    this.currentView = "welcome";
+    this.currentView = "login";
     this.wallet = 0;
     this.collezioneUtente = [];
     this.contenuti = [];
@@ -255,6 +268,8 @@ export class AppState {
   // per quelli a pagamento si apre il modale di conferma.
   async compraOra(item: Contenuto) {
     if (!this.currentUser || this.haIlPossesso(item)) return;
+    // Le visite guidate non si comprano: si accede con la parola chiave.
+    if ((item as any).accessKey) return;
     if (!item.price || item.price === 0) {
       await this.eseguiAcquisto(item);
       return;
@@ -305,6 +320,9 @@ export class AppState {
     this.nuovaOpera.license = visit.license || licenses[0];
     // Ricostruisce il percorso: prima gli item nell'ordine salvato, poi le
     // note logistiche (l'ordine misto originale non e' persistito nel modello).
+    // Ripristina lo stato "visita guidata" quando si modifica.
+    this.nuovaOpera.guidata = !!visit.accessKey;
+    this.nuovaOpera.accessKey = visit.accessKey || "";
     const opzionali = new Set<string>(visit.optionalItems || []);
     this.nuovaOpera.tappe = [
       ...(visit.itemListElement || []).map((id: string) => ({
@@ -411,9 +429,55 @@ export class AppState {
     return (typeof art === "object" ? art?.name : "") || "";
   }
 
+  // Normalizza una stringa per la ricerca: minuscolo, accenti rimossi, ogni
+  // sequenza non alfanumerica ridotta a un singolo spazio. Così "Léonardo",
+  // "leonardo" e "LEONARDO," collassano nella stessa forma.
+  private normalizzaRicerca(s: string): string {
+    return (s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  // Tutti i campi su cui ha senso cercare un contenuto, concatenati e
+  // normalizzati: nome (opera o visita), autore del contenuto (curatore),
+  // difficoltà, e per gli item anche autore dell'opera e stile.
+  private campiRicercabili(c: any): string {
+    const parti: string[] = [this.nomeContenuto(c), c?.author || ""];
+    if (c?.["@type"] === "ItemList") {
+      parti.push(c?.level || ""); // difficoltà della visita
+    } else {
+      parti.push(c?.educationalLevel || ""); // difficoltà dell'item
+      const art = c?.about;
+      if (art && typeof art === "object") {
+        parti.push(art?.name || "", art?.author?.name || "", art?.style?.name || "");
+      }
+    }
+    return this.normalizzaRicerca(parti.join(" "));
+  }
+
+  // True se la query corrisponde al contenuto. La query è spezzata in token
+  // (spazi): OGNI token deve comparire (semantica AND), così "gioconda infantile"
+  // richiede sia il nome sia la difficoltà. Il match tollera l'assenza di spazi
+  // ("davinci"/"leonardodavinci" trovano "Leonardo da Vinci") confrontando anche
+  // contro l'haystack privato degli spazi.
+  private corrispondeRicerca(c: any, query: string): boolean {
+    const q = this.normalizzaRicerca(query);
+    if (!q) return true;
+    const haystack = this.campiRicercabili(c);
+    const haystackCompatto = haystack.replace(/ /g, "");
+    return q
+      .split(" ")
+      .every(
+        (tok) =>
+          !tok || haystack.includes(tok) || haystackCompatto.includes(tok),
+      );
+  }
+
   // Filtro basato sui nuovi nomi delle proprietà (sempre ristretto al museo scelto)
   contenutiFiltrati() {
-    const q = this.ricerca.toLowerCase();
     // Per i visitatori: mostra SIA i singoli item SIA le visite del museo,
     // entrambi acquistabili (slide 20: "contenuti ... sia gratuiti sia in vendita").
     if (this.currentUserType === "visitatore") {
@@ -421,30 +485,36 @@ export class AppState {
       return tutto.filter(
         (c) =>
           this.appartieneAlMuseo(c) &&
-          this.nomeContenuto(c).toLowerCase().includes(q),
+          this.visibileNelMercato(c) &&
+          this.corrispondeRicerca(c, this.ricerca),
       );
     }
     // Per gli autori nella dashboard: mostra i propri item del museo selezionato
-    return this.mieOpere.filter((i) => {
-      const artwork = i.about as Artwork;
-      return (
-        this.appartieneAlMuseo(i) &&
-        artwork.name?.toLowerCase().includes(q)
-      );
-    });
+    return this.mieOpere.filter(
+      (i) =>
+        this.appartieneAlMuseo(i) && this.corrispondeRicerca(i, this.ricerca),
+    );
   }
 
   miaCollezione() {
     // Collezione = item e visite posseduti nel museo selezionato,
     // filtrati dalla barra di ricerca dedicata.
-    const q = this.ricercaCollezione.toLowerCase();
     const tutto = [...this.itemsMarket, ...this.contenuti] as any[];
     return tutto.filter(
       (c) =>
         this.appartieneAlMuseo(c) &&
         this.haIlPossesso(c) &&
-        this.nomeContenuto(c).toLowerCase().includes(q),
+        this.visibileNelMercato(c) &&
+        this.corrispondeRicerca(c, this.ricercaCollezione),
     );
+  }
+
+  // Una visita GUIDATA (con parola chiave) non compare nel marketplace né si
+  // acquista: vi si accede solo con la parola chiave. Resta visibile al suo
+  // autore (per gestirla). Gli altri contenuti sono sempre visibili.
+  private visibileNelMercato(c: any): boolean {
+    if (!c?.accessKey) return true;
+    return c.author === this.currentUser;
   }
   mieiLavori() {
     return this.mieOpere;
@@ -551,6 +621,11 @@ export class AppState {
       tono: "",
       durata: "30",
       testo: "",
+      // Item privato: non pubblicato/venduto, riservato alle visite guidate.
+      privato: false,
+      // Visita guidata (18-27): se true, la visita è protetta da parola chiave.
+      guidata: false,
+      accessKey: "",
       tappe: [] as {
         tipo: "item" | "logistica";
         value: string;
@@ -580,18 +655,28 @@ export class AppState {
               : !this.disponibileSubito(i))),
       );
     }
-    // Ricerca per nome dell'opera (gestione della scala nella libreria)
-    const q = this.ricercaLibreria.toLowerCase().trim();
-    if (!q) return base;
-    return base.filter((op) =>
-      this.trovaNomeItem(op["@id"] || op._id).toLowerCase().includes(q),
-    );
+    // Se sto componendo una visita GUIDATA, la libreria mostra solo item
+    // ammessi (gratuiti o miei): niente item a pagamento di altri autori.
+    if (this.nuovaOpera.guidata) {
+      base = base.filter((op) => this.usabileInGuidata(op));
+    }
+    // Ricerca robusta (nome opera / autore opera / curatore / difficoltà, con
+    // tolleranza ad accenti e spazi), coerente con dashboard e collezione.
+    return base.filter((op) => this.corrispondeRicerca(op, this.ricercaLibreria));
   }
 
   // True se l'item e' usabile senza spendere: posseduto oppure gratuito
   // (i gratis contano come "posseduti" nel filtro della libreria).
   disponibileSubito(item: any): boolean {
     return this.haIlPossesso(item) || !item.price || item.price === 0;
+  }
+
+  // True se l'item può stare in una visita GUIDATA: gratuito oppure posseduto
+  // dall'autore (creato da lui, anche privato, o acquistato). Vieta gli item a
+  // pagamento di altri autori (che verrebbero regalati tramite la parola chiave).
+  usabileInGuidata(item: any): boolean {
+    if (!item) return false;
+    return !item.price || item.price === 0 || this.haIlPossesso(item);
   }
 
   // Trova l'oggetto item a partire dal suo @id (tra lavori, mercato e visite)
@@ -712,7 +797,9 @@ export class AppState {
         tipo: "Item",
         id_oper_universale: this.nuovaOpera.selectedArtworkUri,
         autore: this.currentUser!,
-        prezzo: this.nuovaOpera.price,
+        // Un item privato non ha prezzo (non è in vendita): forzato a 0.
+        prezzo: this.nuovaOpera.privato ? 0 : this.nuovaOpera.price,
+        privato: !!this.nuovaOpera.privato,
         licenza: this.nuovaOpera.license,
         // Un item = una sola descrizione
         descrizioni: [
@@ -740,14 +827,38 @@ export class AppState {
           "error",
         );
 
+      // Visita GUIDATA (solo autore): richiede la parola chiave e ammette solo
+      // item gratuiti o posseduti dall'autore (il server rivalida comunque).
+      const guidata = this.currentUserType === "autore" && this.nuovaOpera.guidata;
+      if (guidata) {
+        if (this.nuovaOpera.accessKey.trim() === "")
+          return this.mostraToast(
+            "Inserisci la parola chiave della visita guidata.",
+            "error",
+          );
+        const nonAmmessi = this.nuovaOpera.tappe.filter(
+          (t) => t.tipo === "item" && !this.usabileInGuidata(this.trovaItem(t.value)),
+        );
+        if (nonAmmessi.length > 0)
+          return this.mostraToast(
+            "Una visita guidata può contenere solo item gratuiti o tuoi. Rimuovi gli item a pagamento non tuoi.",
+            "error",
+          );
+      }
+
       payload = {
         tipo: "Visita",
         // In modifica riusa l'id esistente (upsert), altrimenti ne crea uno nuovo
         id: this.editingId || `tour-${Date.now()}`,
         titolo: this.nuovaOpera.titolo,
         autore: this.currentUser!,
-        // I visitatori non possono mettere prezzi (prezzo 0)
-        prezzo: this.currentUserType === "autore" ? this.nuovaOpera.price : 0,
+        // Visita guidata: gratuita (parola chiave). Altrimenti prezzo autore
+        // (i visitatori non mettono prezzi → 0).
+        accessKey: guidata ? this.nuovaOpera.accessKey.trim() : undefined,
+        prezzo:
+          guidata || this.currentUserType !== "autore"
+            ? 0
+            : this.nuovaOpera.price,
         // solo gli autori pubblicano con licenza; le visite dei visitatori
         // restano private (prezzo 0) ma manteniamo comunque una licenza di default
         licenza:

@@ -41,6 +41,11 @@ export interface Item {
   author: string;
   license: string;
   price?: number; // Prezzo nel marketplace
+  // Visibilità del contenuto: "pubblico" (default) compare e si vende nel
+  // marketplace; "privato" è nascosto e non vendibile — l'autore lo tiene per
+  // le proprie visite guidate (modulo 18-27, "contenuti privati non resi
+  // pubblici"). Un item privato ha sempre prezzo 0.
+  visibility?: "pubblico" | "privato";
 }
 
 /*
@@ -69,6 +74,11 @@ export interface Visit {
   logistics: string[]; // Indicazioni testuali
   author?: string;
   license?: string; // licenza di pubblicazione (vedi shared/constants: licenses)
+  // Parola chiave ("nome mnemonico" della slide 18-27, es. "Fenice rossa") che
+  // marca la visita come GUIDATA: non si compra né compare nel marketplace dei
+  // visitatori; gli studenti vi accedono in modo temporaneo digitando questa
+  // chiave (univoca nel DB). Prezzo ignorato (di fatto 0).
+  accessKey?: string;
 }
 
 // Unione per il Marketplace
@@ -77,7 +87,11 @@ export type Contenuto = Item | Visit;
 // Profilo utente (esteso)
 export interface User {
   username: string;
-  role: UserRole;
+  // Un account NON ha più un ruolo fisso: "autore" e "visitatore" sono ora
+  // modalità dell'interfaccia che lo stesso utente sceglie dopo il login
+  // (crea contenuti come autore, acquista/compone percorsi come visitatore).
+  // Campo mantenuto opzionale solo per retrocompatibilità con dati esistenti.
+  role?: UserRole;
   wallet: number;
   collezione: string[]; // ID degli item/visit acquistati
 }

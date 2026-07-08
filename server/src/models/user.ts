@@ -11,10 +11,13 @@ export interface IUser extends SharedUser {
   password: string;
 }
 
+// NB: l'account non ha più un ruolo fisso — "autore"/"visitatore" sono modalità
+// dell'interfaccia scelte dopo il login. Il campo `role` non fa più parte dello
+// schema (eventuali valori residui su vecchi documenti vengono semplicemente
+// ignorati).
 const userSchema = new Schema<IUser>({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ["autore", "visitatore"], required: true },
   wallet: { type: Number, default: 100 },
   collezione: { type: [String], default: [] },
 });

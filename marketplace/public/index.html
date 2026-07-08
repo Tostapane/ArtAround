@@ -130,6 +130,17 @@
         </template>
       </nav>
 
+      <!-- Toggle modalità: lo stesso account opera come autore o visitatore -->
+      <div x-show="museoSelezionato" role="group" aria-label="Modalità interfaccia"
+        class="flex bg-surface-2 border border-border p-1 rounded-md w-fit self-start md:self-auto">
+        <button @click="cambiaModalita('visitatore')" :aria-pressed="currentUserType === 'visitatore'"
+          :class="currentUserType === 'visitatore' ? 'bg-accent text-on-accent' : 'text-muted hover:text-text'"
+          class="px-3 py-1 rounded text-sm font-medium transition-colors"><span aria-hidden="true">👤</span> Visitatore</button>
+        <button @click="cambiaModalita('autore')" :aria-pressed="currentUserType === 'autore'"
+          :class="currentUserType === 'autore' ? 'bg-accent text-on-accent' : 'text-muted hover:text-text'"
+          class="px-3 py-1 rounded text-sm font-medium transition-colors"><span aria-hidden="true">🖋️</span> Autore</button>
+      </div>
+
       <!-- Controlli desktop (nascosti su mobile, gia' mostrati nella prima riga) -->
       <div class="hidden md:flex items-center gap-4">
         <div class="bg-surface-2 border border-border px-3 py-1.5 rounded-md flex items-center gap-2">
@@ -150,35 +161,16 @@
 
     <main id="contenuto" class="flex-grow container mx-auto p-4 sm:p-8 text-left">
 
-      <!-- VISTA BENVENUTO -->
-      <section x-show="currentView === 'welcome'" class="flex flex-col items-center justify-center mt-12 sm:mt-20 text-center">
-        <h2 class="text-4xl sm:text-5xl font-bold text-text mb-3 tracking-tight">ArtAround<span class="text-accent">.</span></h2>
-        <p class="text-muted text-sm tracking-[0.2em] uppercase mb-10 sm:mb-16">Management & Discovery</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl w-full">
-          <button type="button" @click="currentView = 'login_autore'"
-            class="group bg-surface p-8 sm:p-12 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer text-center">
-            <div class="text-6xl mb-6" aria-hidden="true">🖋️</div>
-            <h3 class="text-2xl font-bold text-text mb-2">Autore</h3>
-            <p class="text-muted">Crea e vendi i tuoi contenuti.</p>
-          </button>
-          <button type="button" @click="currentView = 'login_visitatore'"
-            class="group bg-surface p-8 sm:p-12 rounded-lg border border-border shadow-sm hover:shadow-md hover:border-accent transition-all cursor-pointer text-center">
-            <div class="text-6xl mb-6" aria-hidden="true">👤</div>
-            <h3 class="text-2xl font-bold text-text mb-2">Visitatore</h3>
-            <p class="text-muted">Acquista e crea i tuoi percorsi.</p>
-          </button>
+      <!-- VISTA LOGIN (prima pagina all'accesso al marketplace) -->
+      <section x-show="currentView === 'login'"
+        class="flex flex-col items-center justify-center mt-12 sm:mt-20">
+        <div class="text-center mb-8">
+          <h1 class="text-4xl sm:text-5xl font-bold text-text mb-3 tracking-tight">ArtAround<span class="text-accent">.</span></h1>
+          <p class="text-muted text-sm tracking-[0.2em] uppercase">Management & Discovery</p>
         </div>
-      </section>
-
-      <!-- VISTA LOGIN -->
-      <section x-show="['login_autore', 'login_visitatore'].includes(currentView)"
-        class="flex flex-col items-center justify-center mt-10">
         <div class="bg-surface p-10 rounded-lg border border-border shadow-sm max-w-md w-full text-center">
-          <button @click="currentView = 'welcome'"
-            class="text-muted hover:text-text mb-8 flex items-center text-sm font-medium transition-colors">← Indietro</button>
-          <h2 class="text-2xl font-bold mb-8 text-text tracking-tight text-center"
-            x-text="currentView === 'login_autore' ? 'Autore' : 'Visitatore'"></h2>
-          <form @submit.prevent="effettuaLogin(currentView === 'login_autore' ? 'autore' : 'visitatore')"
+          <h2 class="text-2xl font-bold mb-8 text-text tracking-tight text-center">Accedi</h2>
+          <form @submit.prevent="effettuaLogin()"
             class="space-y-4 text-left">
             <input type="text" x-model="formLogin.username" required placeholder="Username" aria-label="Username" autocomplete="username"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
@@ -187,7 +179,7 @@
             <button type="submit"
               class="w-full bg-accent text-on-accent py-3 rounded-md font-medium text-base hover:opacity-90 transition-opacity">Accedi</button>
           </form>
-          <button @click="preparaRegistrazione(currentView === 'login_autore' ? 'autore' : 'visitatore')"
+          <button @click="preparaRegistrazione()"
             class="w-full mt-6 text-muted font-medium text-sm hover:text-accent transition-colors">Registrati ora</button>
         </div>
       </section>
@@ -195,11 +187,9 @@
       <!-- VISTA REGISTRAZIONE -->
       <section x-show="currentView === 'register'" class="flex flex-col items-center justify-center mt-10">
         <div class="bg-surface p-10 rounded-lg border border-border shadow-sm max-w-lg w-full">
-          <button @click="currentView = 'welcome'"
+          <button @click="currentView = 'login'"
             class="text-muted hover:text-text mb-8 flex items-center text-sm font-medium transition-colors">← Indietro</button>
-          <h2 class="text-2xl font-bold mb-8 text-text tracking-tight text-center">Nuovo Profilo
-            <span x-text="formReg.tipo"></span>
-          </h2>
+          <h2 class="text-2xl font-bold mb-8 text-text tracking-tight text-center">Nuovo Account</h2>
           <form @submit.prevent="concludiRegistrazione" class="space-y-4 text-left">
             <input type="text" x-model="formReg.username" required placeholder="Scegli Username" aria-label="Scegli username" autocomplete="username"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
@@ -210,7 +200,7 @@
             <button type="submit"
               class="w-full bg-accent text-on-accent py-3 rounded-md font-medium text-base hover:opacity-90 transition-opacity mt-2">Crea Account</button>
           </form>
-          <button @click="currentView = 'login_' + formReg.tipo"
+          <button @click="currentView = 'login'"
             class="w-full mt-6 text-muted font-medium text-sm hover:text-accent transition-colors">
             Hai già un account? Accedi ora
           </button>
@@ -349,11 +339,7 @@
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <template x-for="item in contenutiFiltrati()" :key="item._id || item['@id']">
-            <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group relative" x-data="{ imgErr: false }">
-              <div class="absolute top-4 left-4 z-10">
-                <span class="bg-text text-bg px-3 py-1 rounded-md font-medium text-xs"
-                  x-text="(!item.price || item.price === 0) ? 'Gratis' : '€ ' + item.price.toFixed(2)"></span>
-              </div>
+            <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group" x-data="{ imgErr: false }">
               <div class="h-56 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border">
                 <img x-show="item['@type'] === 'CreativeWork' && imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
                   :alt="item.about?.name ? 'Immagine dell\'opera ' + item.about.name : ''"
@@ -372,8 +358,11 @@
                   <span class="text-[10px] px-2 py-0.5 rounded-md border border-border bg-surface-2 text-muted uppercase tracking-wide" x-text="item.educationalLevel"></span>
                   <span class="text-[10px] px-2 py-0.5 rounded-md border border-border bg-surface-2 text-muted uppercase tracking-wide" x-text="item.timeRequired + 's'"></span>
                 </div>
-                <p class="text-muted text-xs font-medium mb-6 uppercase tracking-wide">
+                <p class="text-muted text-xs font-medium mb-1 uppercase tracking-wide">
                   Curatore: <span class="text-text" x-text="item.author || '—'"></span></p>
+                <p class="text-muted text-xs font-medium mb-6 uppercase tracking-wide">
+                  Prezzo: <span class="text-text"
+                    x-text="(!item.price || item.price === 0) ? 'Gratis' : '€ ' + item.price.toFixed(2)"></span></p>
                 <div class="mt-auto flex gap-3">
                   <button @click="apriDettaglio(item)" :aria-label="'Dettagli di ' + nomeContenuto(item)"
                     class="flex-grow bg-surface-2 border border-border text-text py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">Dettagli</button>
@@ -445,6 +434,21 @@
                 <input id="editor-titolo" type="text" x-model="nuovaOpera.titolo" placeholder="Es: I capolavori del Rinascimento"
                   class="w-full p-4 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium text-lg">
               </div>
+              <!-- Visita guidata con parola chiave (solo autore/docente) -->
+              <div class="col-span-2" x-show="nuovaOpera.type === 'Visita' && currentUserType === 'autore'">
+                <label class="flex items-start gap-3 cursor-pointer p-3 bg-surface-2 border border-border rounded-md">
+                  <input type="checkbox" x-model="nuovaOpera.guidata" class="mt-1 h-4 w-4 accent-[var(--accent)]">
+                  <span class="text-sm">
+                    <span class="font-medium text-text"><span aria-hidden="true">🔑</span> Visita guidata (con parola chiave)</span>
+                    <span class="block text-muted text-xs mt-0.5">Gratuita: gli studenti vi accedono digitando la parola chiave. Può contenere solo item gratuiti o tuoi (anche privati).</span>
+                  </span>
+                </label>
+                <div x-show="nuovaOpera.guidata" class="mt-3">
+                  <label for="editor-passkey" class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Parola chiave (univoca)</label>
+                  <input id="editor-passkey" type="text" x-model="nuovaOpera.accessKey" placeholder="Es: Fenice rossa"
+                    class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
+                </div>
+              </div>
               <div class="col-span-2" x-show="nuovaOpera.type === 'Item'">
                 <label for="editor-opera" class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Seleziona Opera dal Database</label>
                 <select id="editor-opera" x-model="nuovaOpera.selectedArtworkUri" :required="nuovaOpera.type === 'Item'"
@@ -455,7 +459,7 @@
                   </template>
                 </select>
               </div>
-              <div x-show="currentUserType === 'autore'">
+              <div x-show="currentUserType === 'autore' && !(nuovaOpera.type === 'Item' && nuovaOpera.privato)">
                 <label for="editor-prezzo" class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Prezzo (€)</label>
                 <input id="editor-prezzo" type="number" step="0.10" min="0" x-model="nuovaOpera.price"
                   class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors">
@@ -468,6 +472,16 @@
                     <option :value="lic" x-text="lic"></option>
                   </template>
                 </select>
+              </div>
+              <!-- Item privato: riservato alle proprie visite guidate (no vendita) -->
+              <div class="col-span-2" x-show="currentUserType === 'autore' && nuovaOpera.type === 'Item'">
+                <label class="flex items-start gap-3 cursor-pointer p-3 bg-surface-2 border border-border rounded-md">
+                  <input type="checkbox" x-model="nuovaOpera.privato" class="mt-1 h-4 w-4 accent-[var(--accent)]">
+                  <span class="text-sm">
+                    <span class="font-medium text-text"><span aria-hidden="true">🔒</span> Tieni privato</span>
+                    <span class="block text-muted text-xs mt-0.5">Non pubblicato nel marketplace e non vendibile (prezzo 0): usabile solo nelle tue visite guidate.</span>
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -534,7 +548,7 @@
                               :class="itemGiaInVisita(op['@id'] || op._id) ? 'opacity-50 cursor-not-allowed' : 'hover:border-accent'"
                               class="bg-surface p-3 rounded-md border border-border transition-colors text-left flex items-center gap-3 relative overflow-hidden">
                               <span class="absolute top-1 right-2 text-[9px] font-medium uppercase px-2 py-0.5 rounded-md bg-surface-2 text-muted border border-border" x-text="op.educationalLevel"></span>
-                              <span class="text-lg">🖼️</span>
+                              <span class="text-lg" aria-hidden="true">🖼️</span>
                               <div>
                                 <p class="text-sm font-medium leading-none text-text" x-text="trovaNomeItem(op['@id'] || op._id)"></p>
                                 <p class="text-xs font-medium mt-1" :class="itemGiaInVisita(op['@id'] || op._id) ? 'text-muted' : 'text-accent'"

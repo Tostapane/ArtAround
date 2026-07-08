@@ -12,7 +12,11 @@ const router = Router();
  */
 router.get("/", async (req, res) => {
   try {
-    const items = await ItemModel.find({}).populate({
+    // Gli item privati (usati solo nelle visite guidate del loro autore) NON
+    // compaiono nel marketplace dei visitatori.
+    const items = await ItemModel.find({
+      visibility: { $ne: "privato" },
+    }).populate({
       path: "about",
       model: "Artwork",
       foreignField: "@id",
@@ -84,6 +88,10 @@ router.post("/", async (req, res) => {
         }
       }
 
+      // Item privato: non pubblico e senza prezzo (forzato a 0), così non può
+      // essere "venduto" e poi regalato tramite la password di una visita guidata.
+      const privato = payload.privato === true || payload.visibility === "privato";
+
       for (const desc of payload.descrizioni) {
         const itemId = `${artwork.qid}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
         await ItemModel.create({
@@ -92,9 +100,10 @@ router.post("/", async (req, res) => {
           timeRequired: desc.lunghezza,
           educationalLevel: desc.tono,
           author: payload.autore,
-          price: payload.prezzo,
+          price: privato ? 0 : payload.prezzo,
           license: payload.licenza || "Tutti i diritti riservati",
           text: desc.testo,
+          visibility: privato ? "privato" : "pubblico",
         });
       }
     }
