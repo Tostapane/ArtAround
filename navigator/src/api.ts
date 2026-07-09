@@ -255,8 +255,15 @@ export async function getGuidedTeacherView(id: string): Promise<any> {
 }
 
 // STUDENTE: stato corrente (step, momento di partenza audio). 410 = terminata.
-export async function getGuidedStudentState(id: string): Promise<any> {
-  const res = await fetch(`${GS_BASE}/${encodeURIComponent(id)}/state`);
+// `username` fa da heartbeat: ogni poll segnala al server "sono ancora collegato"
+// (il server toglie dalla lista del docente chi non si fa vivo, vedi TTL_MS).
+export async function getGuidedStudentState(
+  id: string,
+  username: string,
+): Promise<any> {
+  const res = await fetch(
+    `${GS_BASE}/${encodeURIComponent(id)}/state?username=${encodeURIComponent(username)}`,
+  );
   if (res.status === 410) throw new GuidedEndedError();
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();

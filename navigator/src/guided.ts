@@ -131,7 +131,9 @@ async function pollOnce() {
     if (guidedRole.value === "docente") {
       applyTeacherView(await getGuidedTeacherView(guidedSessionId.value));
     } else {
-      applyStudentState(await getGuidedStudentState(guidedSessionId.value));
+      applyStudentState(
+        await getGuidedStudentState(guidedSessionId.value, guidedUser.value),
+      );
     }
   } catch (err) {
     // sessione finita: usciamo senza traccia. Altri errori (rete): si ritenta.
@@ -165,7 +167,7 @@ export async function attachAsStudent(sessionId: string, user: string) {
   guidedRole.value = "studente";
   guidedSessionId.value = sessionId;
   guidedUser.value = user;
-  const st = await getGuidedStudentState(sessionId);
+  const st = await getGuidedStudentState(sessionId, user);
   applyStudentState(st);
   await ensureContent(st.visitId);
   startPolling();

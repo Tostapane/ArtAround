@@ -30,6 +30,7 @@ const router = Router();
 interface Partecipante {
   username: string;
   joinedAt: number;
+  lastSeen: number; // ultimo "sono qui" (polling dello studente): vedi rimuoviAssenti
 }
 
 // Una domanda posta da uno studente durante la visita (monitoraggio docente,
@@ -63,6 +64,31 @@ interface Sessione {
 // (solo per le sessioni vive).
 const sessioni = new Map<string, Sessione>();
 const perChiave = new Map<string, string>();
+
+// Uno studente e' "presente" finche' continua a fare polling (ogni ~1.5s). Se non
+// si fa vivo da piu' di TTL_MS (≈3 poll mancati: tab chiusa, rete caduta), lo si
+// considera uscito e lo si toglie dalla lista che il docente vede.
+const TTL_MS = 5000;
+
+// Registra il "sono qui" di uno studente: aggiorna lastSeen e lo (re)inserisce se
+// era stato rimosso (breve disconnessione). Usata da /join e dal polling /state.
+function segnaPresente(s: Sessione, username: string) {
+  const ora = Date.now();
+  const esistente = s.partecipanti.get(username);
+  s.partecipanti.set(username, {
+    username,
+    joinedAt: esistente ? esistente.joinedAt : ora,
+    lastSeen: ora,
+  });
+}
+
+// Rimuove gli studenti che non si fanno vivi da troppo tempo (usciti/disconnessi).
+function rimuoviAssenti(s: Sessione) {
+  const ora = Date.now();
+  for (const [username, p] of s.partecipanti) {
+    if (ora - p.lastSeen > TTL_MS) s.partecipanti.delete(username);
+  }
+}
 
 // Vista per il DOCENTE: include la lista d'attesa completa e "drena" le domande
 // in sospeso (consegna-una-volta): `nuoveDomande` sono le domande arrivate dopo
@@ -175,12 +201,7 @@ router.post("/join", (req, res) => {
       .status(404)
       .json({ error: "Nessuna visita guidata attiva con questa parola chiave" });
 
-  if (!s.partecipanti.has(username)) {
-    s.partecipanti.set(username, {
-      username,
-      joinedAt: Date.now(),
-    });
-  }
+  segnaPresente(s, username);
   res.json(vistaStudente(s));
 });
 
@@ -276,6 +297,7 @@ router.post("/:id/end", (req, res) => {
 router.get("/:id", (req, res) => {
   const s = sessioni.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione terminata o inesistente" });
+  rimuoviAssenti(s); // il docente vede solo chi e' ancora collegato
   res.json(vistaDocente(s));
 });
 
@@ -288,6 +310,11 @@ router.get("/:id/state", (req, res) => {
   const s = sessioni.get(req.params.id);
   if (!s)
     return res.status(410).json({ error: "Visita guidata terminata", stato: "terminata" });
+  // Il polling dello studente e' il suo "sono qui": aggiorna prima la sua
+  // presenza, poi rimuove gli altri assenti (cosi' non rimuove mai il chiamante).
+  const username = String(req.query.username || "");
+  if (username) segnaPresente(s, username);
+  rimuoviAssenti(s);
   res.json(vistaStudente(s));
 });
 
