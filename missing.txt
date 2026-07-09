@@ -9,6 +9,7 @@ La domanda non viene passata così com’è all’LLM, bensì l’LLM fa da “r
 per decidere quale domanda predefinita somiglia di più a quella inserita dall’utente. 
 L'elenco delle domande accettabili può essere ampliato in base 
 al wording utilizzato, che può variare da utente a utente.
+se uno studente esce non viene visualizzato nessun cambiamento da parte dell'insegnatnte
 
 Andrea
 se apri una visita nel marketplace esce dallo schermo
@@ -43,4 +44,7 @@ si esegue la visita?
 
 deve esserci un tasto nella sezione crea percorso, che sarebbe crea visita, deve esserci il tasto che
 lo fa fare all'ai, (esiste al funzione!), gli fai una richiesta e lui crea la visita, guarda in services/llm.ts 
-li puoi creare uana visita con il "twist" 
+li puoi creare uana visita con il "twist"
+
+se al login navighi con tab spunta un bottone ai slop che dice salta al contenuto
+principale e non fa nulla 

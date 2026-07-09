@@ -5,6 +5,7 @@ import {
   guidedRole,
   guidedStato,
   guidedVisitName,
+  guidedAccessKey,
   guidedParticipants,
   guidedParticipantsCount,
   guidedQuestions,
@@ -22,8 +23,18 @@ import { visit } from "@/state";
 const isTeacher = computed(() => guidedRole.value === "docente");
 const currVisit = computed(() => (visit.value ? visit.value["@id"] : ""));
 
-// Pannello domande (solo docente): le mostriamo dalla piu' recente.
+// Pannelli laterali del docente durante la visita: domande e studenti collegati
+// (mutuamente esclusivi, cosi' non si sovrappongono sullo stesso lato).
 const showQuestions = ref(false);
+const showParticipants = ref(false);
+function toggleQuestions() {
+  showQuestions.value = !showQuestions.value;
+  showParticipants.value = false;
+}
+function toggleParticipants() {
+  showParticipants.value = !showParticipants.value;
+  showQuestions.value = false;
+}
 const domandeRecenti = computed(() => [...guidedQuestions.value].reverse());
 function formatOra(at: number): string {
   return new Date(at).toLocaleTimeString("it-IT", {
@@ -76,8 +87,22 @@ function tornaAllaSelezione() {
       </p>
       <h1 class="mb-4 text-xl font-bold text-text">{{ guidedVisitName }}</h1>
 
-      <!-- DOCENTE: lista dei collegati + avvio -->
+      <!-- DOCENTE: parola chiave (promemoria) + lista dei collegati + avvio -->
       <template v-if="isTeacher">
+        <div
+          v-if="guidedAccessKey"
+          class="mb-4 rounded-md border border-border bg-surface-2 px-4 py-3"
+        >
+          <p class="text-xs font-medium uppercase tracking-wider text-muted">
+            Parola chiave
+          </p>
+          <p class="font-mono text-lg font-bold tracking-wide text-text">
+            {{ guidedAccessKey }}
+          </p>
+          <p class="mt-1 text-xs text-muted">
+            Comunicala agli studenti per farli entrare.
+          </p>
+        </div>
         <p class="mb-3 text-sm text-muted">
           {{ guidedParticipantsCount }} collegati
         </p>
@@ -141,14 +166,20 @@ function tornaAllaSelezione() {
       <span class="truncate text-sm font-medium text-text">
         <span aria-hidden="true">🔑</span> {{ guidedVisitName }}
       </span>
-      <span v-if="isTeacher" class="shrink-0 text-xs text-muted">
-        {{ guidedParticipantsCount }} studenti
-      </span>
+      <button
+        v-if="isTeacher"
+        type="button"
+        @click="toggleParticipants"
+        class="shrink-0 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface-2"
+        :aria-pressed="showParticipants"
+      >
+        Studenti ({{ guidedParticipantsCount }})
+      </button>
       <span v-else class="shrink-0 text-xs text-muted">Guidata dal docente</span>
       <button
         v-if="isTeacher"
         type="button"
-        @click="showQuestions = !showQuestions"
+        @click="toggleQuestions"
         class="shrink-0 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface-2"
         :aria-pressed="showQuestions"
       >
@@ -165,6 +196,43 @@ function tornaAllaSelezione() {
     </div>
     <div class="relative flex-1 overflow-hidden">
       <MainView :currVisit="currVisit" />
+
+      <!-- Pannello studenti collegati (solo docente): nomi, non solo il numero -->
+      <aside
+        v-if="isTeacher && showParticipants"
+        class="absolute inset-y-0 right-0 z-20 flex w-full max-w-sm flex-col border-l border-border bg-surface shadow-xl"
+        aria-label="Studenti collegati"
+      >
+        <div
+          class="flex shrink-0 items-center justify-between border-b border-border px-4 py-3"
+        >
+          <h2 class="text-sm font-semibold text-text">
+            Studenti collegati ({{ guidedParticipantsCount }})
+          </h2>
+          <button
+            type="button"
+            @click="showParticipants = false"
+            class="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+          >
+            Chiudi
+          </button>
+        </div>
+        <ul
+          v-if="guidedParticipants.length"
+          class="flex flex-1 flex-col gap-2 overflow-y-auto p-3"
+        >
+          <li
+            v-for="p in guidedParticipants"
+            :key="p.username"
+            class="rounded-md border border-border px-3 py-2 text-sm font-medium text-text"
+          >
+            {{ p.username }}
+          </li>
+        </ul>
+        <p v-else class="p-4 text-sm text-muted">
+          Nessuno studente collegato.
+        </p>
+      </aside>
 
       <!-- Pannello domande degli studenti (solo docente): conservate dal client -->
       <aside

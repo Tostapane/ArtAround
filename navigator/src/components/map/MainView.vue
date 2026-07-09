@@ -112,13 +112,30 @@ function selectIndex(i: number) {
   lastVisitIndex.value = i;
 }
 
-// click su un'opera dalla mappa: lo studente guidato non puo' spostarsi da solo;
-// il docente invece porta con se' tutti gli studenti (spinge lo step).
+// click su un'opera dalla mappa: lo studente guidato non sceglie le opere, ma
+// puo' RIAPRIRE la scheda della propria opera corrente (quella decisa dal
+// docente); non puo' spostarsi su altre. Il docente invece porta con se' tutti
+// gli studenti (spinge lo step).
 function onMapSelect(i: number) {
-  if (guidedStudent.value) return;
+  if (guidedStudent.value) {
+    if (i === guidedCurrentStep.value) selectIndex(i);
+    return;
+  }
   selectIndex(i);
   if (guidedTeacher.value) teacherGoToStep(i);
 }
+
+// posizione corrente da evidenziare sulla mappa ("sei qui"): l'opera mostrata
+// quando la scheda e' aperta; per lo studente guidato resta l'opera scelta dal
+// docente anche a scheda chiusa, cosi' vede sempre dove si trova.
+const currentLocationId = computed(() => {
+  if (currentArtwork.value) return currentArtwork.value.artwork.locationId;
+  if (guidedStudent.value) {
+    const match = matchedContent.value[guidedCurrentStep.value];
+    if (match) return match.artwork.locationId;
+  }
+  return "";
+});
 
 // scansione QR: imposta SOLO la posizione corrente, senza ricaricare nulla e
 // senza toccare la progressione della visita (lo stato resta in memoria).
@@ -227,12 +244,15 @@ onUnmounted(() => {
 // alla posizione reale; ai bordi non fanno nulla (la Card disabilita i pulsanti).
 function navigationHandler(direction: string) {
   if (direction === "close") {
-    // in modalita' guidata lo studente non chiude la scheda (visita pilotata)
-    if (guidedStudent.value) return;
+    // anche lo studente guidato puo' chiudere la scheda per vedere la mappa
+    // (dove si trova e il resto del museo). Non e' navigazione: la tappa la
+    // decide il docente, quindi quando avanza la scheda si riapre da sola
+    // (watch su guidedCurrentStep). Puo' comunque riaprire l'opera corrente
+    // cliccandola sulla mappa (onMapSelect).
     currentArtwork.value = null;
     return;
   }
-  if (guidedStudent.value) return; // lo studente non naviga da solo
+  if (guidedStudent.value) return; // lo studente non naviga da solo (Prossimo/Precedente)
   const base = navBase();
   if (direction === "next") {
     const target = stepIndex(base, 1);
@@ -251,7 +271,7 @@ function navigationHandler(direction: string) {
 </script>
 
 <template>
-  <Map @select="onMapSelect" />
+  <Map @select="onMapSelect" :current-location-id="currentLocationId" />
 
   <!-- Scanner QR: disponibile durante una visita; imposta la posizione corrente.
        Nascosto allo studente guidato (non puo' spostarsi da solo). -->

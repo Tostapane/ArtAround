@@ -38,6 +38,10 @@ export const guidedRole = ref<Role>("");
 export const guidedSessionId = ref("");
 export const guidedUser = ref("");
 export const guidedVisitName = ref("");
+// parola chiave (nome mnemonico) della visita: mostrata al DOCENTE nella sala
+// d'attesa come promemoria, se la dimentica. Solo lato docente (la vista dello
+// studente non la include).
+export const guidedAccessKey = ref("");
 export const guidedStato = ref<Stato>("attesa");
 // indice dell'opera corrente decisa dal docente (-1 = non ancora iniziata)
 export const guidedCurrentStep = ref(-1);
@@ -71,6 +75,7 @@ function applyTeacherView(v: any) {
   guidedSessionId.value = v.id;
   guidedStato.value = v.stato;
   guidedCurrentStep.value = v.currentStep;
+  if (v.accessKey) guidedAccessKey.value = v.accessKey;
   if (v.partecipanti) {
     guidedParticipants.value = v.partecipanti;
     guidedParticipantsCount.value = v.partecipanti.length;
@@ -213,6 +218,7 @@ export function resetGuided() {
   guidedSessionId.value = "";
   guidedUser.value = "";
   guidedVisitName.value = "";
+  guidedAccessKey.value = "";
   guidedStato.value = "attesa";
   guidedCurrentStep.value = -1;
   guidedParticipants.value = [];

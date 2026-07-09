@@ -19,6 +19,23 @@ const emit = defineEmits<{
   select: [value: number];
 }>();
 
+// locationId (id del nodo SVG) dell'opera corrente: evidenziata come "sei qui".
+const props = defineProps<{
+  currentLocationId?: string;
+}>();
+
+// Evidenzia sulla mappa il nodo dell'opera corrente ("sei qui"): utile in
+// particolare allo studente guidato, che a scheda chiusa deve comunque vedere
+// dove si trova. Rimuove il marcatore precedente e lo applica al nodo corrente.
+function highlightCurrent() {
+  document.querySelectorAll(".current-artwork").forEach((el) => {
+    el.classList.remove("current-artwork");
+  });
+  if (!props.currentLocationId) return;
+  const element = document.getElementById(props.currentLocationId);
+  if (element) element.classList.add("current-artwork");
+}
+
 const listeners: { element: Element; type: string; handler: EventListener }[] =
   [];
 
@@ -73,6 +90,9 @@ function setupListeners() {
       });
     }
   });
+
+  // dopo aver (ri)costruito i nodi, riapplica il marcatore "sei qui"
+  highlightCurrent();
 }
 
 onMounted(async () => {
@@ -93,6 +113,16 @@ watch(
     });
   },
   { deep: true },
+);
+
+// il nodo "sei qui" cambia senza ricostruire la mappa: basta spostare il marcatore
+watch(
+  () => props.currentLocationId,
+  () => {
+    nextTick(() => {
+      highlightCurrent();
+    });
+  },
 );
 
 // numero di tappe opzionali della visita corrente (mostra/nasconde il toggle)
@@ -221,6 +251,32 @@ onBeforeUnmount(() => {
   outline: none;
   stroke: var(--focus);
   stroke-width: 3px;
+}
+
+/* Posizione corrente ("sei qui"): anello marcato e pulsante sopra il nodo opera,
+   cosi' e' riconoscibile a colpo d'occhio anche a scheda chiusa. */
+.svg-wrapper :deep(.current-artwork) {
+  fill: var(--text);
+  stroke: var(--accent);
+  stroke-width: 4px;
+  paint-order: stroke;
+  animation: current-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes current-pulse {
+  0%,
+  100% {
+    stroke-opacity: 1;
+  }
+  50% {
+    stroke-opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .svg-wrapper :deep(.current-artwork) {
+    animation: none;
+  }
 }
 
 /* Tappe opzionali: tratteggiate; attenuate (ma cliccabili) a toggle spento */
