@@ -113,22 +113,25 @@ export async function getInfo(
 //                                 Wayfinding
 // ============================================================================
 
-// ritorna le indicazioni logistiche (in linguaggio naturale, nella lingua scelta)
-// dalla posizione `from` (qid dell'opera corrente) verso `target`: un tipo di POI
-// ("toilet"|"exit"|"bar"|"shop"|...), "obstacles", o il qid di un'altra opera.
-// Il percorso e' calcolato lato server sul grafo ricavato dalla mappa SVG.
+// ritorna le indicazioni logistiche dalla posizione `from` (qid dell'opera
+// corrente) verso `target`: un tipo di POI ("toilet"|"exit"|"bar"|"shop"|...),
+// "obstacles", o il qid di un'altra opera.
+// Con `detailed=false` (default) ritorna la risposta SEMPLICE: solo la zona
+// (nome della sala dall'SVG, es. "Ala Nord"). Con `detailed=true` ritorna il
+// percorso passo-passo calcolato sul grafo e verbalizzato dall'LLM.
 export async function getDirections(
   museumQid: string,
   from: string,
   target: string,
   language: string,
+  detailed = false,
 ): Promise<string> {
   const res = await fetch(`${API_BASE}/wayfinding`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ museumQid, from, target, language }),
+    body: JSON.stringify({ museumQid, from, target, language, detailed }),
   });
   if (!res.ok) throw new Error(`Failed to fetch directions: ${res.statusText}`);
   const data = await res.json();

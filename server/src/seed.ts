@@ -96,7 +96,7 @@ async function seed() {
             itemIdx++;
             itemCount++;
             await populateItem(qid, level, duration);
-            await delay(2500);
+            await delay(5000);
             const elapsed = (Date.now() - startTime) / 1000;
             const eta = (totalItems - itemCount) * (elapsed / itemCount);
             console.log(
@@ -301,10 +301,9 @@ async function seedSpecialVisits() {
 }
 
 async function completeSeed() {
-  await seedMuseums();
+  // await seedMuseums();
   await seed();
   await seedDownload();
   await seedSpecialVisits();
 }
-//completeSeed();
-seedSpecialVisits();
+completeSeed();

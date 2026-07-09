@@ -23,7 +23,7 @@ import {
 //    visita opera per opera (ogni "Prossimo" spinge lo step a tutti gli studenti);
 //  - STUDENTE: si aggancia alla sessione (il join e' gia' avvenuto nel
 //    marketplace) e SEGUE: la sua vista salta all'opera scelta dal docente e
-//    l'audio parte ~insieme a quello degli altri. Non puo' andare avanti/indietro.
+//     Non puo' andare avanti/indietro.
 //
 // Trasporto: polling REST (nessun WebSocket). I contenuti si leggono
 // dall'endpoint di sessione (accesso TEMPORANEO): quando la visita finisce
@@ -168,7 +168,9 @@ export async function attachAsStudent(sessionId: string, user: string) {
 
 // --- Azioni DOCENTE ---
 export async function teacherStart() {
-  applyTeacherView(await postGuidedStart(guidedSessionId.value, guidedUser.value));
+  applyTeacherView(
+    await postGuidedStart(guidedSessionId.value, guidedUser.value),
+  );
 }
 
 export async function teacherGoToStep(index: number) {

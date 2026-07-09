@@ -5,11 +5,12 @@ import ThemeToggle from "./ThemeToggle.vue";
 
 const mobileMenuOpen = ref(false);
 
-const navigation = [
-  { name: "Home", href: "#" },
-  { name: "Marketplace", href: "#" },
-  { name: "Informazioni", href: "#" },
-];
+// Il marketplace e' servito dal server (porta 8000) sullo stesso host del
+// navigator: costruiamo il link a runtime, in simmetria con il marketplace che
+// rimanda al navigator su :5173 (vedi marketplace state.ts urlNavigator).
+const MARKETPLACE_URL = `${window.location.protocol}//${window.location.hostname}:8000/`;
+
+const navigation = [{ name: "Marketplace", href: MARKETPLACE_URL }];
 </script>
 
 <template>
@@ -35,11 +36,6 @@ const navigation = [
           :href="item.href"
           class="text-sm font-medium text-muted transition-colors hover:text-text"
           >{{ item.name }}</a
-        >
-        <a
-          href="#"
-          class="text-sm font-medium text-text transition-colors hover:text-accent"
-          >Accedi</a
         >
         <ThemeToggle />
       </div>
@@ -114,12 +110,6 @@ const navigation = [
             class="rounded-md px-3 py-2 text-base font-medium text-text hover:bg-surface-2"
             @click="mobileMenuOpen = false"
             >{{ item.name }}</a
-          >
-          <a
-            href="#"
-            class="mt-2 rounded-md px-3 py-2 text-base font-medium text-text hover:bg-surface-2"
-            @click="mobileMenuOpen = false"
-            >Accedi</a
           >
         </div>
       </DialogPanel>

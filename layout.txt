@@ -1,0 +1,12 @@
+in questo documento specifico come deve essere implemnetato il layout del marketplace
+LOGIN
+
+VISITATORE
+appena si entra si deve scegliere se fare una visita gia' creata o se creare la propria (al momento appena
+si entra ci si trova un elenco infinito di item). NON VENGONO MOSTRATI ELENCHI SIN DA SUBITO
+    SCELTA visite gia' create: all'utente viene mostrato l'elenco delle visite disponibili, sia gratutite 
+    a pagamento. Deve essere possibile una volta selezionata o pagata la visita, iniziare immediatamente
+    la visita senza passare per collezione (al momento impossibile).
+    SCELTA 
+
+AUTORE

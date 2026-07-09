@@ -55,24 +55,24 @@
   <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks e
        data-qid col relativo qid. -->
   <!-- Ala Richelieu -->
-  <circle id="art-1"  class="interactive-node" data-qid="Q151050"  cx="80"  cy="80"  r="11" fill="gray" />
-  <rect   id="art-2"  class="interactive-node" data-qid="Q199392"  x="178" y="68"  width="24" height="24" fill="gray" />
-  <circle id="art-3"  class="interactive-node" data-qid="Q728973"  cx="110" cy="180" r="11" fill="gray" />
+  <circle id="art-1"  class="interactive-node" data-qid="Q12418"   cx="80"  cy="80"  r="11" fill="gray" />
+  <rect   id="art-2"  class="interactive-node" data-qid="Q597114"  x="178" y="68"  width="24" height="24" fill="gray" />
+  <circle id="art-3"  class="interactive-node" data-qid="Q783215"  cx="110" cy="180" r="11" fill="gray" />
   <!-- Antichita Egizie -->
-  <circle id="art-4"  class="interactive-node" data-qid="Q154336"  cx="340" cy="95"  r="11" fill="gray" />
+  <circle id="art-4"  class="interactive-node" data-qid="Q544315"  cx="340" cy="95"  r="11" fill="gray" />
   <circle id="art-5"  class="interactive-node" data-qid="Q210161"  cx="460" cy="175" r="11" fill="gray" />
   <!-- Ala Denon -->
-  <circle id="art-6"  class="interactive-node" data-qid="Q1053759" cx="610" cy="95"  r="11" fill="gray" />
-  <rect   id="art-7"  class="interactive-node" data-qid="Q2344133" x="708" y="158" width="24" height="24" fill="#555" />
+  <circle id="art-6"  class="interactive-node" data-qid="Q1282840" cx="610" cy="95"  r="11" fill="gray" />
+  <rect   id="art-7"  class="interactive-node" data-qid="Q2610675" x="708" y="158" width="24" height="24" fill="#555" />
   <!-- Hall Napoleon -->
   <circle id="art-8"  class="interactive-node" data-qid="Q2626554" cx="250" cy="300" r="13" fill="#333" />
   <!-- Ala Sully -->
-  <circle id="art-9"  class="interactive-node" data-qid="Q2247953" cx="90"  cy="430" r="11" fill="gray" />
+  <circle id="art-9"  class="interactive-node" data-qid="Q2653851" cx="90"  cy="430" r="11" fill="gray" />
   <circle id="art-10" class="interactive-node" data-qid="Q2266515" cx="200" cy="520" r="11" fill="gray" />
-  <circle id="art-11" class="interactive-node" data-qid="Q797909"  cx="320" cy="440" r="11" fill="gray" />
+  <circle id="art-11" class="interactive-node" data-qid="Q3228069" cx="320" cy="440" r="11" fill="gray" />
   <!-- Galleria Apollo -->
-  <circle id="art-12" class="interactive-node" data-qid="Q275454"  cx="520" cy="450" r="11" fill="gray" />
-  <circle id="art-13" class="interactive-node" data-qid="Q2266521" cx="680" cy="520" r="11" fill="gray" />
+  <circle id="art-12" class="interactive-node" data-qid="Q6287319" cx="520" cy="450" r="11" fill="gray" />
+  <circle id="art-13" class="interactive-node" data-qid="Q1114881" cx="680" cy="520" r="11" fill="gray" />
 
   <!-- Punti di interesse (POI): data-poi = tipo, data-label = nome mostrato/letto. -->
   <g id="pois" font-family="sans-serif" font-size="12" fill="#1d4ed8" text-anchor="middle">

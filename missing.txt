@@ -1,11 +1,46 @@
 Leo
-modulo di teletrasporto
-modulo geolocalizzazione
+modulo di teletrasporto ?
+modulo geolocalizzazione ?
 visualizzatore test
-aggiunger direzioni (come le chiedono le specifiche)
-capire cosa fare con l'array logistics
-rendere funzionanti i tasti
-devi sapere gestire la situazione in cui:
-docente si connette (host della visita) e solo dopo cio gli studenti sono in grado di entrare nella lista d'attesa.
+capire cosa fare con l'array logistics (per me completamente inutile, ne parleremo)
+lo studente deve poter chiudere la card e vedere la mappa
+rimuovere il selettore dal navigator
+La domanda non viene passata così com’è all’LLM, bensì l’LLM fa da “router” 
+per decidere quale domanda predefinita somiglia di più a quella inserita dall’utente. 
+L'elenco delle domande accettabili può essere ampliato in base 
+al wording utilizzato, che può variare da utente a utente.
 
-la ricerca per parola funzion anache se selezioni il museo sbagliato
+Andrea
+se apri una visita nel marketplace esce dallo schermo
+
+al momento la ricerca si limita a una barra di ricerca, saraebbe utile se invece ci fosse una cosa un po'
+piu' strutturata, piuttosto che solo la barra (che va bene), anche ricerca per tipo (con checkbox?) tipo:
+filtra per: visita, item, difficolta' durata... (nota che durata e' da intendersi con durata per opera,
+altrimenti le visite durano tutte di piu di 15 secondi!
+
+creare test editor (domande a scelta multipla)
+
+devi impedire agli studenti di colelgarsi (con la  parola) se l'insegnante non ha ancora avviato la sala 
+d'attesa
+
+le cose gratuite non vanno sbloccate, devono considerarsi sbloccate (e dunque non apparire nel marketplace)
+le cose gratuite devono apparire solo nella creazione della visita (non in marketplace), 
+sarebbe bello che apparisse una card per artwork, una volta aparta selezioni durata e linguaggio.
+ visualizzazione a card per artwork puo' essere usata sia per vedere gli item in collezione che nella creazione
+della visita. (al momento ho meno di 100 item e la situazione e' gia' ingestibile cosi')
+
+dobbiamo discutere sulla gestiione degli account, il login unificato e' la via corretta, ma un visitatore non ha 
+interesse nell'avere una parte "autore".
+alla registrazione l'utente decide se registrarsi come autore o visitatore (modulo unico, un toggle o una spunta)
+al login si mettono le credenziali e se sei autore avrai le scelte degli autori, se sei un visitatore le scelte dei 
+visitatori
+
+la ricerca per parola funzion anache se selezioni il museo sbagliato (parola giusta ma di un museo diverso, 
+non deve essere trovata la visita (e' di un altro museo!)
+
+l'ordine con cui le opere vengono selezionate nella creazione della visita, e' rispettato quando 
+si esegue la visita?
+
+deve esserci un tasto nella sezione crea percorso, che sarebbe crea visita, deve esserci il tasto che
+lo fa fare all'ai, (esiste al funzione!), gli fai una richiesta e lui crea la visita, guarda in services/llm.ts 
+li puoi creare uana visita con il "twist" 

@@ -58,12 +58,12 @@
   <!-- Nodi-opera: id="art-N" deve combaciare con la posizione N in activeArtworks
        (il seed assegna locationId=art-N in quell'ordine) e data-qid col relativo qid. -->
   <!-- Arte Egizia -->
-  <circle id="art-1"  class="interactive-node" data-qid="Q185838"  cx="80"  cy="95"  r="11" fill="gray" />
+  <circle id="art-1"  class="interactive-node" data-qid="Q19925045" cx="80"  cy="95"  r="11" fill="gray" />
   <rect   id="art-2"  class="interactive-node" data-qid="Q606662"  x="178" y="80"  width="24" height="24" fill="gray" />
   <circle id="art-3"  class="interactive-node" data-qid="Q1603141" cx="120" cy="225" r="11" fill="gray" />
   <!-- Dipinti Europei -->
   <circle id="art-4"  class="interactive-node" data-qid="Q251147"  cx="340" cy="95"  r="11" fill="gray" />
-  <circle id="art-5"  class="interactive-node" data-qid="Q2316682" cx="460" cy="95"  r="11" fill="gray" />
+  <circle id="art-5"  class="interactive-node" data-qid="Q19912235" cx="460" cy="95"  r="11" fill="gray" />
   <circle id="art-6"  class="interactive-node" data-qid="Q609292"  cx="400" cy="225" r="11" fill="gray" />
   <!-- Arte Greca e Romana -->
   <rect   id="art-7"  class="interactive-node" data-qid="Q582103"  x="598" y="88"  width="24" height="24" fill="#555" />

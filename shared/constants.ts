@@ -1,9 +1,9 @@
 // NOTA: modificare questi valori non cambia immediatamente il navigator,
 // vengono visualizzate le difficolta e tempi contenute dentro al database
 
-export const educationalLevels = ["Principiante"];
+export const educationalLevels = ["Principiante", "Intermedio", "Avanzato"];
 
-export const secPerArt = [15];
+export const secPerArt = [15, 60];
 
 // Licenze di pubblicazione selezionabili dall'autore nel marketplace.
 // La prima e' il default proposto in fase di creazione.

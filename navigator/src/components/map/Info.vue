@@ -38,11 +38,27 @@ const POSITIONAL: Record<string, string> = {
   "Ci sono ostacoli?": "obstacles",
 };
 
+// Per i comandi posizionali la risposta di default e' SEMPLICE (solo la zona,
+// es. "Ala Nord"). `detailed` passa al percorso passo-passo completo quando il
+// visitatore preme "Indicazioni dettagliate". Si azzera a ogni nuova richiesta.
+const detailed = ref(false);
+watch(
+  () => props.request,
+  () => (detailed.value = false),
+);
+
+// mostriamo il pulsante "Indicazioni dettagliate" solo per i comandi posizionali
+// verso una DESTINAZIONE (gli ostacoli non hanno una zona: sono gia' dettagliati).
+const canDetail = computed(() => {
+  const target = POSITIONAL[props.request.trim()];
+  return !!target && target !== "obstacles";
+});
+
 // traduce il comando controllato in una richiesta per l'LLM.
 // Dipende anche dalla lingua: cambiandola, si richiede una nuova risposta
 // direttamente nella nuova lingua (l'LLM la genera, non la traduciamo).
 watch(
-  () => [props.request, props.about, language.value],
+  () => [props.request, props.about, language.value, detailed.value],
   async () => {
     const cleanRequest = props.request.trim();
     const myId = ++requestId; // id di QUESTA richiesta
@@ -59,6 +75,7 @@ watch(
           props.about.artwork.qid,
           target,
           language.value.name,
+          detailed.value,
         );
         if (myId !== requestId) return;
         if (text) responseText.value = text;
@@ -168,5 +185,15 @@ watch(
     <p class="text-sm leading-relaxed text-text" aria-live="polite" :aria-busy="isLoading">
       {{ responseText }}
     </p>
+    <!-- Il sistema completo (percorso passo-passo) resta disponibile su richiesta:
+         il visitatore confuso puo' ottenere le indicazioni dettagliate. -->
+    <button
+      v-if="canDetail && !detailed && canRead"
+      type="button"
+      @click="detailed = true"
+      class="mt-3 self-start rounded-md border border-border px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-surface-2"
+    >
+      Indicazioni dettagliate
+    </button>
   </section>
 </template>
