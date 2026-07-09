@@ -9,27 +9,43 @@ const router = Router();
 function sanitize(u: any) {
   return {
     username: u.username,
+    role: u.role,
     wallet: u.wallet,
     collezione: u.collezione,
   };
 }
 
+// True se il ruolo passato dal client è uno dei due ammessi.
+function ruoloValido(role: any): boolean {
+  return role === "autore" || role === "visitatore";
+}
+
 /**
- * POST /api/users/register  { username, password }
- * Crea un nuovo utente e lo restituisce (senza password). L'account è unico:
- * potrà poi operare sia da autore sia da visitatore (scelta nell'interfaccia).
+ * POST /api/users/register  { username, password, role }
+ * Crea un nuovo account con un ruolo (autore o visitatore) e lo restituisce
+ * (senza password). Il ruolo fa parte dell'identità: lo stesso username può
+ * essere registrato una volta come autore e una come visitatore (account
+ * distinti). Il conflitto è quindi sulla coppia (username, role).
  */
 router.post("/register", async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password)
+    const { username, password, role } = req.body;
+    if (!username || !password || !ruoloValido(role))
       return res.status(400).json({ error: "Dati di registrazione non validi" });
 
-    const esiste = await UserModel.findOne({ username });
+    const esiste = await UserModel.findOne({ username, role });
     if (esiste)
-      return res.status(409).json({ error: "Username gia' registrato" });
+      return res
+        .status(409)
+        .json({ error: `Esiste già un ${role} con questo username` });
 
-    const user = await UserModel.create({ username, password });
+    // Il wallet è solo da visitatore (budget iniziale 100); l'autore non ne ha.
+    const user = await UserModel.create({
+      username,
+      password,
+      role,
+      ...(role === "visitatore" ? { wallet: 100 } : {}),
+    });
     res.status(201).json(sanitize(user));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore in registrazione" });
@@ -37,14 +53,17 @@ router.post("/register", async (req, res) => {
 });
 
 /**
- * POST /api/users/login  { username, password }
- * Verifica le credenziali (username + password) e restituisce l'utente
- * (wallet e collezione inclusi). Nessun ruolo: l'account è unico.
+ * POST /api/users/login  { username, password, role }
+ * Verifica le credenziali per lo specifico account (username + password +
+ * ruolo scelto al login) e lo restituisce. Un account autore e uno visitatore
+ * con lo stesso username sono distinti: si accede a quello del ruolo indicato.
  */
 router.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const user = await UserModel.findOne({ username, password });
+    const { username, password, role } = req.body;
+    if (!ruoloValido(role))
+      return res.status(400).json({ error: "Ruolo non valido" });
+    const user = await UserModel.findOne({ username, password, role });
     if (!user)
       return res.status(401).json({ error: "Credenziali non valide" });
     res.json(sanitize(user));
@@ -55,32 +74,27 @@ router.post("/login", async (req, res) => {
 
 /**
  * POST /api/users/:username/buy  { itemId }
- * Acquisto persistente: scala il wallet del compratore, aggiunge l'item alla
- * sua collezione e ACCREDITA il wallet dell'autore che ha pubblicato il
- * contenuto. Prezzo e autore vengono ricavati dal documento (fonte di verità
- * server-side), non dal client.
+ * Acquisto persistente: scala il wallet del compratore e aggiunge l'item alla
+ * sua collezione. I ricavi dell'autore NON vengono accreditati su un wallet
+ * (li mostra il report vendite/adozioni): account autore e visitatore sono
+ * separati, nessun portafoglio condiviso. Solo i VISITATORI acquistano.
  */
 router.post("/:username/buy", async (req, res) => {
   try {
     const { username } = req.params;
     const { itemId } = req.body;
-    const user = await UserModel.findOne({ username });
-    if (!user) return res.status(404).json({ error: "Utente non trovato" });
+    const user = await UserModel.findOne({ username, role: "visitatore" });
+    if (!user) return res.status(404).json({ error: "Visitatore non trovato" });
 
     if (user.collezione.includes(itemId)) return res.json(sanitize(user)); // gia' posseduto
 
-    // Prezzo e autore autoritativi dal contenuto (Item oppure Visit).
+    // Prezzo autoritativo dal contenuto (Item oppure Visit), non dal client.
     const contenuto: any =
       (await ItemModel.findOne({ "@id": itemId })) ||
       (await VisitModel.findOne({ "@id": itemId }));
     const costo = contenuto
       ? Number(contenuto.price) || 0
       : Number(req.body.price) || 0;
-    const autore: string | undefined = contenuto ? contenuto.author : undefined;
-
-    // Un utente non "compra" i propri contenuti: sono già suoi per il fatto di
-    // averli creati. Nessun addebito, nessuna modifica (possesso implicito).
-    if (autore && autore === username) return res.json(sanitize(user));
 
     if (user.wallet < costo)
       return res.status(400).json({ error: "Budget insufficiente" });
@@ -88,16 +102,6 @@ router.post("/:username/buy", async (req, res) => {
     user.wallet -= costo;
     user.collezione.push(itemId);
     await user.save();
-
-    // Accredita il venditore: solo se è un utente reale, diverso dal compratore
-    // e il contenuto è a pagamento (i contenuti gratis o dei tour di sistema/AI
-    // non generano ricavo su un account).
-    if (costo > 0 && autore && autore !== username) {
-      await UserModel.updateOne(
-        { username: autore },
-        { $inc: { wallet: costo } },
-      );
-    }
 
     res.json(sanitize(user));
   } catch (err: any) {

@@ -275,19 +275,25 @@ async function seedSpecialVisits() {
         `"${visitaGuidata.name}" (parola chiave: «${PAROLA_CHIAVE_GUIDATA}»).`,
     );
 
-    // Account che partecipano alla visita guidata: il docente (autore, la avvia
-    // dal marketplace) e gli studenti (si agganciano con la parola chiave).
-    const account = [DOCENTE, ...STUDENTI];
-    for (const username of account) {
+    // Account che partecipano alla visita guidata: il docente (account AUTORE,
+    // avvia la visita dal marketplace) e gli studenti (account VISITATORE, si
+    // agganciano con la parola chiave). Il wallet è solo da visitatore.
+    const account: { username: string; role: "autore" | "visitatore" }[] = [
+      { username: DOCENTE, role: "autore" },
+      ...STUDENTI.map((username) => ({ username, role: "visitatore" as const })),
+    ];
+    for (const a of account) {
+      const onInsert: any =
+        a.role === "visitatore" ? { wallet: 100, collezione: [] } : { collezione: [] };
       await UserModel.updateOne(
-        { username },
+        { username: a.username, role: a.role },
         {
           $set: { password: "12345678" },
-          $setOnInsert: { wallet: 100, collezione: [] },
+          $setOnInsert: onInsert,
         },
         { upsert: true },
       );
-      console.log(`  account pronto: ${username}`);
+      console.log(`  account pronto: ${a.username} (${a.role})`);
     }
     console.log(
       `Docente: ${DOCENTE} · studenti: ${STUDENTI.join(", ")} (password "12345678").`,

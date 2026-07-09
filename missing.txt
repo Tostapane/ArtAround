@@ -11,40 +11,86 @@ L'elenco delle domande accettabili può essere ampliato in base
 al wording utilizzato, che può variare da utente a utente.
 se uno studente esce non viene visualizzato nessun cambiamento da parte dell'insegnatnte
 
+come mantenre ordine (note logistiche)?
+come visualizzare le note logistiche?
+
+implementazione user admin con superpoteri.
+
+chiede AI se ci serve JWT.
+
+permettiamo la creazione di quiz sia manualmente che mediante llm?
+
+nel caso della visita guidata, il questionario non è skippabile,
+il docente dovrebbe decidere quando farlo iniziare (per tutti contemporaneamente)
+e tramite il navigator decidere quanto tempo dare agli alunni
+(in funzione del tempo rimasto a disposizione). Eventualmenta anche "termina per tutti" prima dello scadere del tempo.
+
+c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico (non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
+(hai detto facilmente risolvibile con prompt ma rimane irrisolto).
+
+
+le visite guidate possono essere generate con AI? -> i quiz devono poter essere generati con AI. In funzione di qualcosa (informazioni del twist stesso)?
+
+vanno rivisti i toni nei seed (potrebbero avere nomi diversi dai toni esistenti).
+
 Andrea
-se apri una visita nel marketplace esce dallo schermo
 
-al momento la ricerca si limita a una barra di ricerca, saraebbe utile se invece ci fosse una cosa un po'
-piu' strutturata, piuttosto che solo la barra (che va bene), anche ricerca per tipo (con checkbox?) tipo:
-filtra per: visita, item, difficolta' durata... (nota che durata e' da intendersi con durata per opera,
-altrimenti le visite durano tutte di piu di 15 secondi!
+questi sono già fatti (//)
 
-creare test editor (domande a scelta multipla)
+scrivi codice in inglese.
+//
 
-devi impedire agli studenti di colelgarsi (con la  parola) se l'insegnante non ha ancora avviato la sala 
-d'attesa
+cambiare scritta "pubblica su marketplace" nel caso di visita guidata. (essa non verrà resa pubblica sul marketplace, ma accessibile solo tramite passkey).
+
+spostare lo script che permette di cambiare tema da index.html a un qualche file js.
+
+
+
+Un insegnate deve potere prendere una visita gratis e poterla rendere una visita guidata,
+al fine di aggiungere la passkey e il test e usarla per fare una visita guidata.
+//
+
+durante la creazione di una visita guidata devono essere aggiunte anche delle domande che andranno a comprorre un quiz a scelta multipla che sarà poi eseguito nel navigator a fine visita.
+creare test editor (domande a risposta multipla con 4 opzioni di cui solo una corretta)
+Il test/quiz deve essere obbligatorio da fare per gli studenti (esiste solo nelle visite guidate). Spiegami come hai intenzione di crearlo e in che modo sarebbe corretto passarlo al navigator che si dovrà occupare di gestire l'interazione degli studenti e del docente con il quiz. Considera che  il docente dovrebbe decidere quando farlo iniziare (per tutti contemporaneamente) e tramite il navigator decidere quanto tempo dare agli alunni
+(in funzione del tempo rimasto a disposizione). Eventualmenta anche "termina per tutti" prima dello scadere del tempo.
+//
 
 le cose gratuite non vanno sbloccate, devono considerarsi sbloccate (e dunque non apparire nel marketplace)
-le cose gratuite devono apparire solo nella creazione della visita (non in marketplace), 
-sarebbe bello che apparisse una card per artwork, una volta aparta selezioni durata e linguaggio.
- visualizzazione a card per artwork puo' essere usata sia per vedere gli item in collezione che nella creazione
-della visita. (al momento ho meno di 100 item e la situazione e' gia' ingestibile cosi')
+le cose gratuite devono apparire solo nella creazione della visita (non in marketplace).
+//
+
+
+sarebbe bello che apparisse una card per artwork, una volta aparta selezioni durata e linguaggio. Esempio: selezioni card contenente foto gioconda e vedi tutti gli item (gratis o a pagamento o tutti, in funzione del filtro sopra).
+La stessa cosa dovrebbe funzionare in qualsiasi schermata, anche nel marketplace.
+Selezioni gioconda vedi tutti gli item della gioconda in funzione del filtro inserito.
+Quindi vorrei aggiungere le "card"" nelle schermate "marketplace", "crea percorso", "la mia collezione". In "i miei lavori" di autore, stesso meccanismo con la "card gioconda", che al click mostra tutte le gioconde create (al massimo una per difficoltà).
+//
+
+un autore non può attualmente modificare i suoi item. può solo modificare le sue visite.
+Le visite e gli item che vengono modificati, vengono automaticamente cambiate per tutti i possessori (chiunque abbia comprato quell'item o visita vedrà la versione prima o dopo l'aggiornamento)?
+//
+
+
+l'autore non dovrebbe piu tenere traccia del numero di persone che usufruiscono di visite gratuite da lui create, o cambiare la logica che sta dietro ciò, tipo che ad un autore risulta che qualcuno ha usufruito del suo item nel caso in cui qualcuno lo inserisca durante la creazione della propria visita. Nel caso in cui un utente usa lo stesso item in più visite, il counter dell'autore NON aumenta. Gli serve sapere quanti utenti lo usano per le proprie visite non in quante visite è usato.
+
 
 dobbiamo discutere sulla gestiione degli account, il login unificato e' la via corretta, ma un visitatore non ha 
 interesse nell'avere una parte "autore".
 alla registrazione l'utente decide se registrarsi come autore o visitatore (modulo unico, un toggle o una spunta)
 al login si mettono le credenziali e se sei autore avrai le scelte degli autori, se sei un visitatore le scelte dei 
 visitatori
+// 
 
-la ricerca per parola funzion anache se selezioni il museo sbagliato (parola giusta ma di un museo diverso, 
-non deve essere trovata la visita (e' di un altro museo!)
+il login unificato non è la via corretta, un autore rimane un autore e stessa cosa per i visitatori. Rimuovere anche la logica che univa il portafogli del profilo autore e visitatore dello stesso account.
+//
 
-l'ordine con cui le opere vengono selezionate nella creazione della visita, e' rispettato quando 
-si esegue la visita?
 
-deve esserci un tasto nella sezione crea percorso, che sarebbe crea visita, deve esserci il tasto che
-lo fa fare all'ai, (esiste al funzione!), gli fai una richiesta e lui crea la visita, guarda in services/llm.ts 
-li puoi creare uana visita con il "twist"
+attualmente se inserisco una parola chiave per inizare una visita al museo del louvre, ma la inserisco nella schermata british museum mi apre comunque il navigator. Dovrebbe comparire messaggio di errore tipo "questa visita non esiste in questo museo".
+// 
 
-se al login navighi con tab spunta un bottone ai slop che dice salta al contenuto
-principale e non fa nulla 
+un visitatore può creare una visita mediante la schermata attuale ma anche attraverso una schermata di "creazione automatica" in cui il visitatore inserisce durata della visita (in minuti), il livello (esperto/principiante/adolescente), una chat con l'AI in cui il visitatore inserisce il twist (e.g. voglio vedere quadri verdi). Per fare ciò usa le funzioni che si trovano in ./server/src/services/llm.ts.
+In attesa di potere creare anche quiz con AI.
+
+Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tipo filtrarle per periodi (vendite effettuate in mese x anno y)
+

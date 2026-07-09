@@ -42,13 +42,22 @@ interface Domanda {
   at: number; // epoch ms
 }
 
+// Domanda del quiz lato server: include la risposta corretta, che NON viene mai
+// inviata agli studenti (la correzione è server-side).
+interface QuizQuestionRT {
+  question: string;
+  options: string[];
+  correct: number;
+}
+
 interface Sessione {
   id: string;
   visitId: string;
   visitName: string;
   accessKey: string;
+  museum: string; // URI del museo della visita (per rifiutare join dal museo sbagliato)
   teacher: string;
-  stato: "attesa" | "attiva" | "terminata";
+  stato: "attesa" | "attiva" | "quiz" | "terminata";
   currentStep: number; // indice opera corrente (-1 = non ancora iniziata)
   stepStartAt: number | null; // epoch ms a cui far partire l'audio dello step
   partecipanti: Map<string, Partecipante>;
@@ -57,7 +66,32 @@ interface Sessione {
   // "drenate" e consegnate al suo client, che le conserva. Il server non tiene
   // l'elenco: lo tiene il client del docente (slide 18-27).
   domandeInSospeso: Domanda[];
+  // --- Quiz di fine visita (fase "quiz"), tutto effimero ---
+  quizQuestions: QuizQuestionRT[] | null; // caricate dalla visita all'avvio del quiz
+  quizStartAt: number | null; // epoch ms di partenza (~simultanea per tutti)
+  quizEndsAt: number | null; // scadenza (start + durata scelta dal docente)
+  quizClosed: boolean; // true se il docente ha chiuso "per tutti" in anticipo
+  // Consegne degli studenti: username -> risposte scelte + punteggio (corrette).
+  quizAnswers: Map<string, { answers: number[]; score: number }>;
   createdAt: number;
+}
+
+// Il quiz è chiuso se il docente l'ha terminato o se è scaduto il tempo.
+function quizChiuso(s: Sessione): boolean {
+  return (
+    s.quizClosed || (s.quizEndsAt != null && Date.now() >= s.quizEndsAt)
+  );
+}
+
+// Correzione server-side: 1 punto per ogni risposta che coincide con la corretta.
+// Le risposte mancanti (indice assente/errato) contano come errate.
+function correggiQuiz(s: Sessione, answers: number[]): number {
+  const qs = s.quizQuestions || [];
+  let score = 0;
+  for (let i = 0; i < qs.length; i++) {
+    if (Number(answers?.[i]) === qs[i].correct) score++;
+  }
+  return score;
 }
 
 // Registro effimero: sessionId -> Sessione, e indice accessKey -> sessionId
@@ -109,11 +143,27 @@ function vistaDocente(s: Sessione) {
       username: p.username,
     })),
     nuoveDomande,
+    // Durante il quiz: avanzamento/esiti di TUTTI gli studenti collegati (chi non
+    // ha consegnato conta 0). Il docente vede i punteggi e chi ha finito.
+    quiz: s.quizQuestions
+      ? {
+          total: s.quizQuestions.length,
+          startAt: s.quizStartAt,
+          endsAt: s.quizEndsAt,
+          closed: quizChiuso(s),
+          risultati: [...s.partecipanti.keys()].map((username) => ({
+            username,
+            consegnato: s.quizAnswers.has(username),
+            score: s.quizAnswers.get(username)?.score ?? 0,
+          })),
+        }
+      : null,
   };
 }
 
-// Vista per lo STUDENTE: solo ciò che gli serve per sincronizzarsi.
-function vistaStudente(s: Sessione) {
+// Vista per lo STUDENTE: solo ciò che gli serve per sincronizzarsi. In fase quiz
+// include le domande SENZA la risposta corretta e il proprio esito.
+function vistaStudente(s: Sessione, username?: string) {
   return {
     id: s.id,
     visitId: s.visitId,
@@ -122,6 +172,23 @@ function vistaStudente(s: Sessione) {
     currentStep: s.currentStep,
     stepStartAt: s.stepStartAt,
     partecipanti: s.partecipanti.size,
+    quiz: s.quizQuestions
+      ? {
+          total: s.quizQuestions.length,
+          endsAt: s.quizEndsAt,
+          closed: quizChiuso(s),
+          // domande senza `correct` (mai esposto agli studenti)
+          domande: s.quizQuestions.map((q) => ({
+            question: q.question,
+            options: q.options,
+          })),
+          giaConsegnato: username ? s.quizAnswers.has(username) : false,
+          // il proprio punteggio (visibile a fine quiz / dopo la consegna)
+          punteggio: username
+            ? s.quizAnswers.get(username)?.score ?? null
+            : null,
+        }
+      : null,
   };
 }
 
@@ -158,8 +225,14 @@ router.post("/", async (req, res) => {
       s.currentStep = -1;
       s.stepStartAt = null;
       s.teacher = teacher;
+      s.museum = visit.ofMuseum || "";
       s.partecipanti.clear();
       s.domandeInSospeso = [];
+      s.quizQuestions = null;
+      s.quizStartAt = null;
+      s.quizEndsAt = null;
+      s.quizClosed = false;
+      s.quizAnswers.clear();
       return res.status(200).json(vistaDocente(s));
     }
 
@@ -169,12 +242,18 @@ router.post("/", async (req, res) => {
       visitId,
       visitName: visit.name || "Visita guidata",
       accessKey: visit.accessKey,
+      museum: visit.ofMuseum || "",
       teacher,
       stato: "attesa",
       currentStep: -1,
       stepStartAt: null,
       partecipanti: new Map(),
       domandeInSospeso: [],
+      quizQuestions: null,
+      quizStartAt: null,
+      quizEndsAt: null,
+      quizClosed: false,
+      quizAnswers: new Map(),
       createdAt: Date.now(),
     };
     sessioni.set(id, s);
@@ -189,20 +268,40 @@ router.post("/", async (req, res) => {
  * POST /api/guided-sessions/join  { accessKey, username }
  * Lo studente entra nella sala d'attesa digitando la parola chiave.
  */
-router.post("/join", (req, res) => {
-  const { accessKey, username } = req.body;
+router.post("/join", async (req, res) => {
+  const { accessKey, username, museum } = req.body;
   if (!accessKey || !username)
     return res.status(400).json({ error: "accessKey e username richiesti" });
 
-  const id = perChiave.get(String(accessKey).trim());
+  const chiave = String(accessKey).trim();
+  const id = perChiave.get(chiave);
   const s = id ? sessioni.get(id) : undefined;
-  if (!s || s.stato === "terminata")
+
+  // La parola chiave va digitata nel museo giusto: se lo studente ha selezionato
+  // un museo diverso da quello della visita, la visita "non esiste qui".
+  if (s && s.stato !== "terminata" && museum && s.museum && s.museum !== museum)
+    return res.status(409).json({
+      error: "Questa visita guidata non esiste nel museo selezionato.",
+    });
+
+  if (!s || s.stato === "terminata") {
+    // Nessuna sessione viva: distinguiamo "parola chiave inesistente" da "esiste
+    // la visita ma il docente non ha ancora aperto la sala d'attesa", così lo
+    // studente sa se deve correggere la parola o solo aspettare. In entrambi i
+    // casi l'ingresso è comunque IMPEDITO finché la sala non è avviata.
+    const visitaEsiste = await VisitModel.exists({ accessKey: chiave });
+    if (visitaEsiste)
+      return res.status(409).json({
+        error:
+          "Il docente non ha ancora avviato la sala d'attesa. Riprova appena la visita è aperta.",
+      });
     return res
       .status(404)
       .json({ error: "Nessuna visita guidata attiva con questa parola chiave" });
+  }
 
   segnaPresente(s, username);
-  res.json(vistaStudente(s));
+  res.json(vistaStudente(s, username));
 });
 
 /**
@@ -277,6 +376,85 @@ router.post("/:id/step", (req, res) => {
 });
 
 /**
+ * POST /api/guided-sessions/:id/quiz/start  { teacher, durationSec }
+ * Il docente avvia il quiz di FINE visita: carica le domande dalla visita, passa
+ * in fase "quiz" e fissa la scadenza (durata scelta in base al tempo residuo).
+ * Parte per tutti a `quizStartAt` (piccolo margine per la ~simultaneità).
+ */
+router.post("/:id/quiz/start", async (req, res) => {
+  const s = sessioni.get(req.params.id);
+  if (!s) return res.status(404).json({ error: "Sessione non trovata" });
+  if (req.body.teacher && req.body.teacher !== s.teacher)
+    return res.status(403).json({ error: "Solo il docente può avviare il quiz" });
+
+  const visit = await VisitModel.findOne({ "@id": s.visitId });
+  const quiz = (visit?.quiz as any[]) || [];
+  if (!Array.isArray(quiz) || quiz.length === 0)
+    return res.status(400).json({ error: "Questa visita non ha un quiz" });
+
+  // Durata scelta dal docente, tra 5s e 1h (fallback 60s).
+  const durationSec = Math.max(
+    5,
+    Math.min(3600, Number(req.body.durationSec) || 60),
+  );
+  const RITARDO_MS = 500; // margine per far partire tutti ~insieme
+  s.quizQuestions = quiz.map((q) => ({
+    question: String(q.question),
+    options: (q.options || []).map((o: any) => String(o)),
+    correct: Number(q.correct),
+  }));
+  s.quizAnswers.clear();
+  s.quizClosed = false;
+  s.stato = "quiz";
+  s.quizStartAt = Date.now() + RITARDO_MS;
+  s.quizEndsAt = s.quizStartAt + durationSec * 1000;
+  res.json(vistaDocente(s));
+});
+
+/**
+ * POST /api/guided-sessions/:id/quiz/answer  { username, answers:number[] }
+ * Lo studente consegna le risposte (indici scelti). Il server corregge subito
+ * (ha le corrette) e blocca la riconsegna. Ritorna il proprio esito (score/total).
+ */
+router.post("/:id/quiz/answer", (req, res) => {
+  const s = sessioni.get(req.params.id);
+  if (!s) return res.status(404).json({ error: "Sessione non trovata" });
+  if (s.stato !== "quiz" || !s.quizQuestions)
+    return res.status(409).json({ error: "Il quiz non è in corso" });
+  const { username } = req.body;
+  if (!username || !s.partecipanti.has(username))
+    return res.status(403).json({ error: "Non partecipi a questa visita guidata" });
+  if (quizChiuso(s))
+    return res.status(409).json({ error: "Tempo scaduto: quiz chiuso" });
+
+  const total = s.quizQuestions.length;
+  const esistente = s.quizAnswers.get(username);
+  if (esistente)
+    return res.json({ score: esistente.score, total, giaConsegnato: true });
+
+  const answers = Array.isArray(req.body.answers)
+    ? req.body.answers.map((n: any) => Number(n))
+    : [];
+  const score = correggiQuiz(s, answers);
+  s.quizAnswers.set(username, { answers, score });
+  res.json({ score, total, giaConsegnato: false });
+});
+
+/**
+ * POST /api/guided-sessions/:id/quiz/end  { teacher }
+ * "Termina per tutti": chiude il quiz anche prima dello scadere del tempo. Gli
+ * studenti che non hanno consegnato risultano con 0 (mancanti = errate).
+ */
+router.post("/:id/quiz/end", (req, res) => {
+  const s = sessioni.get(req.params.id);
+  if (!s) return res.status(404).json({ error: "Sessione non trovata" });
+  if (req.body.teacher && req.body.teacher !== s.teacher)
+    return res.status(403).json({ error: "Solo il docente può terminare il quiz" });
+  s.quizClosed = true;
+  res.json(vistaDocente(s));
+});
+
+/**
  * POST /api/guided-sessions/:id/end  { teacher }
  * Il docente termina: la sessione viene distrutta (nessuna traccia).
  */
@@ -315,7 +493,7 @@ router.get("/:id/state", (req, res) => {
   const username = String(req.query.username || "");
   if (username) segnaPresente(s, username);
   rimuoviAssenti(s);
-  res.json(vistaStudente(s));
+  res.json(vistaStudente(s, username));
 });
 
 /**

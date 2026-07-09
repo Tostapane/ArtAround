@@ -232,6 +232,35 @@ router.post("/", async (req, res) => {
       }
     }
 
+    // --- Quiz di fine visita (solo GUIDATE, facoltativo) ---
+    // Struttura attesa: [{ question, options[4], correct 0..3 }]. Se presente,
+    // va validato; un quiz su una visita NON guidata viene ignorato.
+    let quiz: any[] | undefined;
+    if (accessKey && Array.isArray(payload.quiz) && payload.quiz.length > 0) {
+      quiz = [];
+      for (const q of payload.quiz) {
+        const question = typeof q?.question === "string" ? q.question.trim() : "";
+        const options = Array.isArray(q?.options)
+          ? q.options.map((o: any) => (typeof o === "string" ? o.trim() : ""))
+          : [];
+        const correct = Number(q?.correct);
+        if (
+          !question ||
+          options.length !== 4 ||
+          options.some((o: string) => o === "") ||
+          !Number.isInteger(correct) ||
+          correct < 0 ||
+          correct > 3
+        ) {
+          return res.status(400).json({
+            error:
+              "Quiz non valido: ogni domanda deve avere testo, 4 opzioni non vuote e una risposta corretta.",
+          });
+        }
+        quiz.push({ question, options, correct });
+      }
+    }
+
     await VisitModel.findOneAndUpdate(
       { "@id": visitId },
       {
@@ -247,6 +276,9 @@ router.post("/", async (req, res) => {
         itemListElement: itemIds,
         optionalItems,
         accessKey: accessKey ?? null,
+        // Quiz solo per le guidate: null lo rimuove se la visita non è guidata o
+        // non ha domande (es. modifica che toglie il quiz).
+        quiz: quiz ?? null,
         logistics:
           payload.percorso
             ?.filter((t: any) => t.tipo === "logistica")

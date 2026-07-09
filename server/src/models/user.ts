@@ -11,15 +11,21 @@ export interface IUser extends SharedUser {
   password: string;
 }
 
-// NB: l'account non ha più un ruolo fisso — "autore"/"visitatore" sono modalità
-// dell'interfaccia scelte dopo il login. Il campo `role` non fa più parte dello
-// schema (eventuali valori residui su vecchi documenti vengono semplicemente
-// ignorati).
+// Il ruolo fa parte dell'identità: un account è autore OPPURE visitatore. Lo
+// stesso username può esistere una volta come autore e una come visitatore
+// (account distinti, non collegati). L'unicità è quindi sulla COPPIA
+// (username, role), non sul solo username.
 const userSchema = new Schema<IUser>({
-  username: { type: String, required: true, unique: true },
+  username: { type: String, required: true },
   password: { type: String, required: true },
-  wallet: { type: Number, default: 100 },
+  role: { type: String, enum: ["autore", "visitatore"], required: true },
+  // Il wallet (budget d'acquisto) è un concetto da VISITATORE: gli account
+  // autore NON ce l'hanno (non comprano; i ricavi si vedono in /sales). Nessun
+  // default → viene impostato esplicitamente solo per i visitatori.
+  wallet: { type: Number },
   collezione: { type: [String], default: [] },
 });
+
+userSchema.index({ username: 1, role: 1 }, { unique: true });
 
 export const UserModel = model<IUser>("User", userSchema);

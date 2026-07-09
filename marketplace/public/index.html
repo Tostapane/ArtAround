@@ -45,11 +45,6 @@
 
   <div x-data="appData()" class="min-h-screen flex flex-col bg-surface-2">
 
-    <!-- Skip link: primo elemento focalizzabile, salta navbar e controlli -->
-    <a href="#contenuto"
-      class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:bg-accent focus:text-on-accent focus:px-4 focus:py-2 focus:rounded-md focus:font-medium">
-      Salta al contenuto principale</a>
-
     <!-- Live region: annuncia agli screen reader il cambio di vista della SPA -->
     <div class="sr-only" role="status" aria-live="polite" x-text="etichettaVista()"></div>
 
@@ -68,7 +63,7 @@
     </button>
 
     <!-- NAVBAR -->
-    <header class="bg-surface border-b border-border px-4 sm:px-6 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between sticky top-0 z-50"
+    <header class="bg-surface border-b border-border px-4 sm:px-6 py-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between sticky top-0 z-50"
       x-show="currentUser !== null">
       <div class="flex items-center justify-between gap-3 text-left">
         <div class="flex items-center gap-3">
@@ -86,8 +81,9 @@
           </button>
         </div>
         <!-- Controlli visibili solo su mobile (a destra della prima riga) -->
-        <div class="flex items-center gap-2 md:hidden">
-          <div class="bg-surface-2 border border-border px-2.5 py-1 rounded-md flex items-center gap-1.5">
+        <div class="flex items-center gap-2 lg:hidden">
+          <!-- Il budget è un concetto da visitatore: gli autori non acquistano -->
+          <div x-show="currentUserType === 'visitatore'" class="bg-surface-2 border border-border px-2.5 py-1 rounded-md flex items-center gap-1.5">
             <span class="text-xs uppercase tracking-wide text-muted">€</span>
             <span class="font-bold text-text text-sm" x-text="wallet.toFixed(2)"></span>
           </div>
@@ -101,9 +97,9 @@
         </div>
       </div>
 
-      <nav x-show="museoSelezionato" aria-label="Navigazione principale" class="flex gap-5 sm:gap-6 text-sm font-medium overflow-x-auto whitespace-nowrap -mx-4 px-4 md:mx-0 md:px-0">
+      <nav x-show="museoSelezionato" aria-label="Navigazione principale" class="flex flex-wrap gap-x-5 gap-y-2 sm:gap-x-6 text-sm font-medium">
         <template x-if="currentUserType === 'visitatore'">
-          <div class="flex gap-5 sm:gap-6">
+          <div class="flex flex-wrap gap-x-5 gap-y-2 sm:gap-x-6">
             <button @click="currentView = 'dashboard'" :aria-current="currentView === 'dashboard' ? 'page' : false"
               :class="currentView === 'dashboard' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
               class="pb-0.5 transition-colors">Marketplace</button>
@@ -116,7 +112,7 @@
           </div>
         </template>
         <template x-if="currentUserType === 'autore'">
-          <div class="flex gap-5 sm:gap-6">
+          <div class="flex flex-wrap gap-x-5 gap-y-2 sm:gap-x-6">
             <button @click="currentView = 'my_works'" :aria-current="currentView === 'my_works' ? 'page' : false"
               :class="currentView === 'my_works' ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-text'"
               class="pb-0.5 transition-colors">I miei Lavori</button>
@@ -130,20 +126,18 @@
         </template>
       </nav>
 
-      <!-- Toggle modalità: lo stesso account opera come autore o visitatore -->
-      <div x-show="museoSelezionato" role="group" aria-label="Modalità interfaccia"
-        class="flex bg-surface-2 border border-border p-1 rounded-md w-fit self-start md:self-auto">
-        <button @click="cambiaModalita('visitatore')" :aria-pressed="currentUserType === 'visitatore'"
-          :class="currentUserType === 'visitatore' ? 'bg-accent text-on-accent' : 'text-muted hover:text-text'"
-          class="px-3 py-1 rounded text-sm font-medium transition-colors"><span aria-hidden="true">👤</span> Visitatore</button>
-        <button @click="cambiaModalita('autore')" :aria-pressed="currentUserType === 'autore'"
-          :class="currentUserType === 'autore' ? 'bg-accent text-on-accent' : 'text-muted hover:text-text'"
-          class="px-3 py-1 rounded text-sm font-medium transition-colors"><span aria-hidden="true">🖋️</span> Autore</button>
+      <!-- Indicatore del ruolo dell'account con cui si è entrati (fissato al
+           login: autore o visitatore). Non è commutabile. -->
+      <div x-show="museoSelezionato"
+        class="flex items-center gap-2 bg-surface-2 border border-border px-3 py-1 rounded-md w-fit self-start lg:self-auto text-sm font-medium text-text">
+        <span aria-hidden="true" x-text="currentUserType === 'autore' ? '🖋️' : '👤'"></span>
+        <span x-text="currentUserType === 'autore' ? 'Autore' : 'Visitatore'"></span>
       </div>
 
       <!-- Controlli desktop (nascosti su mobile, gia' mostrati nella prima riga) -->
-      <div class="hidden md:flex items-center gap-4">
-        <div class="bg-surface-2 border border-border px-3 py-1.5 rounded-md flex items-center gap-2">
+      <div class="hidden lg:flex items-center gap-4">
+        <!-- Il budget è un concetto da visitatore: gli autori non acquistano -->
+        <div x-show="currentUserType === 'visitatore'" class="bg-surface-2 border border-border px-3 py-1.5 rounded-md flex items-center gap-2">
           <span class="text-xs uppercase tracking-wide text-muted">Budget</span>
           <span class="font-bold text-text" x-text="'€ ' + wallet.toFixed(2)"></span>
         </div>
@@ -159,7 +153,7 @@
       </div>
     </header>
 
-    <main id="contenuto" class="flex-grow container mx-auto p-4 sm:p-8 text-left">
+    <main class="flex-grow container mx-auto p-4 sm:p-8 text-left">
 
       <!-- VISTA LOGIN (prima pagina all'accesso al marketplace) -->
       <section x-show="currentView === 'login'"
@@ -176,6 +170,19 @@
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
             <input type="password" x-model="formLogin.password" required placeholder="Password" aria-label="Password" autocomplete="current-password"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
+            <!-- Scelta del profilo: si accede all'account autore OPPURE visitatore
+                 (account distinti anche a parità di username). Default: visitatore. -->
+            <div>
+              <span id="login-role-label" class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Accedi come</span>
+              <div role="group" aria-labelledby="login-role-label" class="flex bg-surface-2 border border-border p-1 rounded-md">
+                <button type="button" @click="formLogin.role = 'visitatore'" :aria-pressed="formLogin.role === 'visitatore'"
+                  :class="formLogin.role === 'visitatore' ? 'bg-accent text-on-accent' : 'text-muted hover:text-text'"
+                  class="flex-1 px-3 py-2 rounded text-sm font-medium transition-colors"><span aria-hidden="true">👤</span> Visitatore</button>
+                <button type="button" @click="formLogin.role = 'autore'" :aria-pressed="formLogin.role === 'autore'"
+                  :class="formLogin.role === 'autore' ? 'bg-accent text-on-accent' : 'text-muted hover:text-text'"
+                  class="flex-1 px-3 py-2 rounded text-sm font-medium transition-colors"><span aria-hidden="true">🖋️</span> Autore</button>
+              </div>
+            </div>
             <button type="submit"
               class="w-full bg-accent text-on-accent py-3 rounded-md font-medium text-base hover:opacity-90 transition-opacity">Accedi</button>
           </form>
@@ -197,6 +204,19 @@
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
             <input type="password" x-model="formReg.conferma" required placeholder="Conferma Password" aria-label="Conferma password" autocomplete="new-password"
               class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-left transition-colors">
+            <!-- Tipo di account da creare. Creare un autore NON crea anche il
+                 visitatore (e viceversa): sono account distinti. -->
+            <div>
+              <span id="reg-role-label" class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Tipo di account</span>
+              <div role="group" aria-labelledby="reg-role-label" class="flex bg-surface-2 border border-border p-1 rounded-md">
+                <button type="button" @click="formReg.role = 'visitatore'" :aria-pressed="formReg.role === 'visitatore'"
+                  :class="formReg.role === 'visitatore' ? 'bg-accent text-on-accent' : 'text-muted hover:text-text'"
+                  class="flex-1 px-3 py-2 rounded text-sm font-medium transition-colors"><span aria-hidden="true">👤</span> Visitatore</button>
+                <button type="button" @click="formReg.role = 'autore'" :aria-pressed="formReg.role === 'autore'"
+                  :class="formReg.role === 'autore' ? 'bg-accent text-on-accent' : 'text-muted hover:text-text'"
+                  class="flex-1 px-3 py-2 rounded text-sm font-medium transition-colors"><span aria-hidden="true">🖋️</span> Autore</button>
+              </div>
+            </div>
             <button type="submit"
               class="w-full bg-accent text-on-accent py-3 rounded-md font-medium text-base hover:opacity-90 transition-opacity mt-2">Crea Account</button>
           </form>
@@ -249,42 +269,70 @@
                 class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full focus:border-accent outline-none transition-colors font-medium">
               <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
             </div>
-            <div role="group" aria-label="Filtra i lavori per tipo" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit">
-              <button type="button" @click="filtroTipoLavori = 'tutti'" :aria-pressed="filtroTipoLavori === 'tutti'"
-                :class="filtroTipoLavori === 'tutti' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
-                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Tutti</button>
-              <button type="button" @click="filtroTipoLavori = 'item'" :aria-pressed="filtroTipoLavori === 'item'"
-                :class="filtroTipoLavori === 'item' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
-                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Item</button>
-              <button type="button" @click="filtroTipoLavori = 'visite'" :aria-pressed="filtroTipoLavori === 'visite'"
-                :class="filtroTipoLavori === 'visite' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
-                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Visite</button>
+            <div class="flex flex-wrap items-center gap-3">
+              <div role="group" aria-label="Filtra i lavori per tipo" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit">
+                <button type="button" @click="filtroTipoLavori = 'tutti'" :aria-pressed="filtroTipoLavori === 'tutti'"
+                  :class="filtroTipoLavori === 'tutti' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Tutti</button>
+                <button type="button" @click="filtroTipoLavori = 'item'" :aria-pressed="filtroTipoLavori === 'item'"
+                  :class="filtroTipoLavori === 'item' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Item</button>
+                <button type="button" @click="filtroTipoLavori = 'visite'" :aria-pressed="filtroTipoLavori === 'visite'"
+                  :class="filtroTipoLavori === 'visite' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Visite</button>
+              </div>
+              <label class="sr-only" for="diff-lavori">Filtra per difficoltà</label>
+              <select id="diff-lavori" x-model="filtroDiffLavori"
+                class="px-3 py-2 bg-surface border border-border rounded-md text-sm font-medium text-text focus:border-accent outline-none transition-colors">
+                <option value="tutti">Tutte le difficoltà</option>
+                <template x-for="d in difficoltaDisponibili()" :key="d"><option :value="d" x-text="d"></option></template>
+              </select>
+              <label class="sr-only" for="durata-lavori">Filtra per durata per opera</label>
+              <select id="durata-lavori" x-model="filtroDurataLavori"
+                class="px-3 py-2 bg-surface border border-border rounded-md text-sm font-medium text-text focus:border-accent outline-none transition-colors">
+                <option value="tutti">Ogni durata</option>
+                <template x-for="n in durateDisponibili()" :key="n"><option :value="n" x-text="n + 's per opera'"></option></template>
+              </select>
             </div>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <template x-for="item in mieiLavori()" :key="item._id || item['@id']">
-            <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group relative">
+          <!-- Card per OPERA: al click mostra i TUOI item di quell'opera (max 1 per difficoltà) -->
+          <template x-for="g in raggruppaPerArtwork(mieiLavori())" :key="g.artwork['@id']">
+            <button type="button" @click="apriArtwork(g)"
+              :aria-label="'Apri i tuoi contenuti dell\'opera ' + (g.artwork.name || 'senza titolo') + ' (' + g.items.length + ')'"
+              class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md hover:border-accent transition-all flex flex-col group relative text-left" x-data="{ imgErr: false }">
               <div class="absolute top-4 right-4 z-10">
                 <span class="bg-surface-2 text-muted px-2.5 py-1 rounded-md font-medium text-xs border border-border"
-                  x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></span>
+                  x-text="g.items.length + (g.items.length === 1 ? ' item' : ' item')"></span>
               </div>
-              <div class="h-48 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border" x-data="{ imgErr: false }">
-                <img x-show="imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
-                  :alt="item.about?.name ? 'Immagine dell\'opera ' + item.about.name : ''"
+              <div class="h-48 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border">
+                <img x-show="imgOpera(g.artwork) && !imgErr" :src="imgOpera(g.artwork)" @error="imgErr = true"
+                  :alt="'Immagine dell\'opera ' + (g.artwork.name || '')"
                   class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
-                <div x-show="!imgOpera(item.about) || imgErr" class="text-6xl" aria-hidden="true"
-                  x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
+                <div x-show="!imgOpera(g.artwork) || imgErr" class="text-6xl" aria-hidden="true">🖼️</div>
               </div>
               <div class="p-6">
-                <p class="text-xs font-medium uppercase tracking-wide text-accent mb-2" x-text="item.educationalLevel"></p>
-                <h3 class="text-lg font-bold text-text leading-tight mb-5 tracking-tight"
-                  x-text="item['@type'] === 'ItemList' ? item.name : (item.about ? item.about.name : 'Opera Sconosciuta')"></h3>
+                <h3 class="text-lg font-bold text-text leading-tight mb-2 tracking-tight" x-text="g.artwork.name || 'Opera Sconosciuta'"></h3>
+                <p class="text-accent text-xs font-medium uppercase tracking-wide">Vedi i tuoi contenuti →</p>
+              </div>
+            </button>
+          </template>
+          <!-- Card VISITA (con avvio guidata per il docente) -->
+          <template x-for="item in soloVisite(mieiLavori())" :key="item['@id']">
+            <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col relative">
+              <div class="absolute top-4 right-4 z-10">
+                <span class="bg-surface-2 text-muted px-2.5 py-1 rounded-md font-medium text-xs border border-border">Visita</span>
+              </div>
+              <div class="h-48 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border">
+                <div class="text-6xl" aria-hidden="true">🗺️</div>
+              </div>
+              <div class="p-6">
+                <h3 class="text-lg font-bold text-text leading-tight mb-5 tracking-tight" x-text="item.name"></h3>
                 <div class="flex gap-3 mt-auto">
                   <button @click="apriDettaglio(item)" :aria-label="'Anteprima di ' + nomeContenuto(item)"
                     class="flex-grow bg-surface-2 border border-border text-text py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">Anteprima</button>
-                  <!-- Visita guidata: il docente la avvia nel navigator (sala d'attesa) -->
-                  <a x-show="item['@type'] === 'ItemList' && item.accessKey" :href="avviaGuidataUrl(item)"
+                  <a x-show="item.accessKey" :href="avviaGuidataUrl(item)"
                     :aria-label="'Avvia la visita guidata ' + nomeContenuto(item)"
                     class="flex-grow text-center bg-accent text-on-accent py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap"><span aria-hidden="true">▶</span> Avvia (docente)</a>
                 </div>
@@ -353,15 +401,62 @@
 
       <!-- VISTA MARKETPLACE VISITATORE -->
       <section x-show="currentView === 'dashboard'" class="text-left">
-        <div class="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
+        <div class="flex flex-col gap-4 mb-10">
           <div>
             <h2 class="text-3xl font-bold text-text tracking-tight mb-1">Marketplace</h2>
             <p class="text-muted">Contenuti e visite disponibili</p>
           </div>
-          <div class="relative w-full md:w-auto">
-            <input type="search" x-model="ricerca" placeholder="Cerca contenuti o visite..." aria-label="Cerca contenuti o visite"
-              class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full md:w-96 focus:border-accent outline-none transition-colors font-medium">
-            <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
+          <!-- Suggerisce la personalizzazione di una visita gratuita da Crea Percorso -->
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3 bg-surface-2 border border-border rounded-md px-4 py-3">
+            <p class="text-sm text-muted flex-grow">
+              <span aria-hidden="true">💡</span>
+              Qui trovi item e visite, gratuiti e a pagamento. Vuoi una visita su misura? <span class="text-text font-medium">Creane o personalizzane una</span> da «Crea Percorso».
+            </p>
+            <button @click="apriEditor()"
+              class="shrink-0 bg-accent text-on-accent px-4 py-2 rounded-md font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap">Vai a Crea Percorso →</button>
+          </div>
+          <div class="flex flex-col md:flex-row gap-4 md:items-center">
+            <div class="relative flex-grow">
+              <input type="search" x-model="ricerca" placeholder="Cerca contenuti o visite..." aria-label="Cerca contenuti o visite"
+                class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full focus:border-accent outline-none transition-colors font-medium">
+              <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <div role="group" aria-label="Filtra il marketplace per tipo" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit">
+                <button type="button" @click="filtroTipoDashboard = 'tutti'" :aria-pressed="filtroTipoDashboard === 'tutti'"
+                  :class="filtroTipoDashboard === 'tutti' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Tutti</button>
+                <button type="button" @click="filtroTipoDashboard = 'item'" :aria-pressed="filtroTipoDashboard === 'item'"
+                  :class="filtroTipoDashboard === 'item' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Item</button>
+                <button type="button" @click="filtroTipoDashboard = 'visite'" :aria-pressed="filtroTipoDashboard === 'visite'"
+                  :class="filtroTipoDashboard === 'visite' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Visite</button>
+              </div>
+              <label class="sr-only" for="diff-dashboard">Filtra per difficoltà</label>
+              <select id="diff-dashboard" x-model="filtroDiffDashboard"
+                class="px-3 py-2 bg-surface border border-border rounded-md text-sm font-medium text-text focus:border-accent outline-none transition-colors">
+                <option value="tutti">Tutte le difficoltà</option>
+                <template x-for="d in difficoltaDisponibili()" :key="d"><option :value="d" x-text="d"></option></template>
+              </select>
+              <label class="sr-only" for="durata-dashboard">Filtra per durata per opera</label>
+              <select id="durata-dashboard" x-model="filtroDurataDashboard"
+                class="px-3 py-2 bg-surface border border-border rounded-md text-sm font-medium text-text focus:border-accent outline-none transition-colors">
+                <option value="tutti">Ogni durata</option>
+                <template x-for="n in durateDisponibili()" :key="n"><option :value="n" x-text="n + 's per opera'"></option></template>
+              </select>
+              <div role="group" aria-label="Filtra il marketplace per prezzo" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit">
+                <button type="button" @click="filtroPrezzoDashboard = 'tutti'" :aria-pressed="filtroPrezzoDashboard === 'tutti'"
+                  :class="filtroPrezzoDashboard === 'tutti' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Tutte</button>
+                <button type="button" @click="filtroPrezzoDashboard = 'gratis'" :aria-pressed="filtroPrezzoDashboard === 'gratis'"
+                  :class="filtroPrezzoDashboard === 'gratis' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Gratis</button>
+                <button type="button" @click="filtroPrezzoDashboard = 'pagamento'" :aria-pressed="filtroPrezzoDashboard === 'pagamento'"
+                  :class="filtroPrezzoDashboard === 'pagamento' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">A pagamento</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -387,37 +482,44 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <template x-for="item in contenutiFiltrati()" :key="item._id || item['@id']">
-            <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col group" x-data="{ imgErr: false }">
+          <!-- Card per OPERA: raggruppa gli item; al click si aprono i contenuti -->
+          <template x-for="g in raggruppaPerArtwork(contenutiFiltrati())" :key="g.artwork['@id']">
+            <button type="button" @click="apriArtwork(g)"
+              :aria-label="'Apri i contenuti dell\'opera ' + (g.artwork.name || 'senza titolo') + ' (' + g.items.length + ')'"
+              class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md hover:border-accent transition-all flex flex-col group text-left" x-data="{ imgErr: false }">
+              <div class="h-56 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border relative">
+                <img x-show="imgOpera(g.artwork) && !imgErr" :src="imgOpera(g.artwork)" @error="imgErr = true"
+                  :alt="'Immagine dell\'opera ' + (g.artwork.name || '')" class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
+                <div x-show="!imgOpera(g.artwork) || imgErr" class="text-7xl" aria-hidden="true">🖼️</div>
+                <span class="absolute top-3 right-3 text-xs px-2.5 py-1 rounded-md font-medium bg-surface border border-border text-text"
+                  x-text="g.items.length + (g.items.length === 1 ? ' contenuto' : ' contenuti')"></span>
+              </div>
+              <div class="p-6 flex-grow flex flex-col">
+                <h3 class="text-xl font-bold text-text tracking-tight leading-tight mb-1" x-text="g.artwork.name || 'Senza Titolo'"></h3>
+                <p class="text-accent text-xs font-medium uppercase tracking-wide mt-auto">Vedi i contenuti →</p>
+              </div>
+            </button>
+          </template>
+          <!-- Card VISITA (le visite non si raggruppano per opera) -->
+          <template x-for="item in soloVisite(contenutiFiltrati())" :key="item['@id']">
+            <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden hover:shadow-md transition-all flex flex-col">
               <div class="h-56 bg-surface-2 flex items-center justify-center overflow-hidden border-b border-border">
-                <img x-show="item['@type'] === 'CreativeWork' && imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
-                  :alt="item.about?.name ? 'Immagine dell\'opera ' + item.about.name : ''"
-                  class="w-full h-full object-contain group-hover:scale-105 transition duration-500">
-                <div x-show="item['@type'] === 'ItemList' || !imgOpera(item.about) || imgErr" class="text-7xl" aria-hidden="true" x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
+                <div class="text-7xl" aria-hidden="true">🗺️</div>
               </div>
               <div class="p-6 flex-grow flex flex-col">
                 <div class="flex justify-between items-start mb-3">
-                  <h3 class="text-xl font-bold text-text tracking-tight leading-tight"
-                    x-text="item['@type'] === 'ItemList' ? item.name : (item.about ? item.about.name : 'Senza Titolo')"></h3>
-                  <span class="text-xs px-2.5 py-1 rounded-md font-medium ml-3 border border-border bg-surface-2 text-muted shrink-0"
-                    x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></span>
-                </div>
-                <!-- Per gli item: livello e durata della descrizione -->
-                <div x-show="item['@type'] === 'CreativeWork'" class="flex flex-wrap gap-2 mb-4">
-                  <span class="text-[10px] px-2 py-0.5 rounded-md border border-border bg-surface-2 text-muted uppercase tracking-wide" x-text="item.educationalLevel"></span>
-                  <span class="text-[10px] px-2 py-0.5 rounded-md border border-border bg-surface-2 text-muted uppercase tracking-wide" x-text="item.timeRequired + 's'"></span>
+                  <h3 class="text-xl font-bold text-text tracking-tight leading-tight" x-text="item.name"></h3>
+                  <span class="text-xs px-2.5 py-1 rounded-md font-medium ml-3 border border-border bg-surface-2 text-muted shrink-0">Visita</span>
                 </div>
                 <p class="text-muted text-xs font-medium mb-1 uppercase tracking-wide">
                   Curatore: <span class="text-text" x-text="item.author || '—'"></span></p>
                 <p class="text-muted text-xs font-medium mb-6 uppercase tracking-wide">
-                  Prezzo: <span class="text-text"
-                    x-text="(!item.price || item.price === 0) ? 'Gratis' : '€ ' + item.price.toFixed(2)"></span></p>
+                  Prezzo: <span class="text-text" x-text="(!item.price || item.price === 0) ? 'Gratis' : '€ ' + item.price.toFixed(2)"></span></p>
                 <div class="mt-auto flex gap-3">
                   <button @click="apriDettaglio(item)" :aria-label="'Dettagli di ' + nomeContenuto(item)"
                     class="flex-grow bg-surface-2 border border-border text-text py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">Dettagli</button>
                   <template x-if="haIlPossesso(item)">
-                    <div class="flex-grow bg-surface-2 text-muted py-2.5 rounded-md font-medium text-sm text-center border border-border">
-                      Posseduto ✅</div>
+                    <div class="flex-grow bg-surface-2 text-muted py-2.5 rounded-md font-medium text-sm text-center border border-border">Posseduto ✅</div>
                   </template>
                   <template x-if="!haIlPossesso(item)">
                     <button @click="compraOra(item)" :aria-label="'Sblocca ' + nomeContenuto(item)"
@@ -443,30 +545,55 @@
                 class="pl-11 pr-5 py-3 bg-surface border border-border rounded-md w-full focus:border-accent outline-none transition-colors font-medium">
               <span class="absolute left-4 top-3 text-lg" aria-hidden="true">🔍</span>
             </div>
-            <div role="group" aria-label="Filtra la collezione per tipo" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit">
-              <button type="button" @click="filtroTipoCollezione = 'tutti'" :aria-pressed="filtroTipoCollezione === 'tutti'"
-                :class="filtroTipoCollezione === 'tutti' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
-                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Tutti</button>
-              <button type="button" @click="filtroTipoCollezione = 'item'" :aria-pressed="filtroTipoCollezione === 'item'"
-                :class="filtroTipoCollezione === 'item' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
-                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Item</button>
-              <button type="button" @click="filtroTipoCollezione = 'visite'" :aria-pressed="filtroTipoCollezione === 'visite'"
-                :class="filtroTipoCollezione === 'visite' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
-                class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Visite</button>
+            <div class="flex flex-wrap items-center gap-3">
+              <div role="group" aria-label="Filtra la collezione per tipo" class="flex bg-surface-2 border border-border p-1 rounded-md w-fit">
+                <button type="button" @click="filtroTipoCollezione = 'tutti'" :aria-pressed="filtroTipoCollezione === 'tutti'"
+                  :class="filtroTipoCollezione === 'tutti' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Tutti</button>
+                <button type="button" @click="filtroTipoCollezione = 'item'" :aria-pressed="filtroTipoCollezione === 'item'"
+                  :class="filtroTipoCollezione === 'item' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Item</button>
+                <button type="button" @click="filtroTipoCollezione = 'visite'" :aria-pressed="filtroTipoCollezione === 'visite'"
+                  :class="filtroTipoCollezione === 'visite' ? 'bg-surface shadow-sm text-accent' : 'text-muted hover:text-text'"
+                  class="px-4 py-1.5 rounded-md font-medium text-sm transition-colors">Visite</button>
+              </div>
+              <label class="sr-only" for="diff-collezione">Filtra per difficoltà</label>
+              <select id="diff-collezione" x-model="filtroDiffCollezione"
+                class="px-3 py-2 bg-surface border border-border rounded-md text-sm font-medium text-text focus:border-accent outline-none transition-colors">
+                <option value="tutti">Tutte le difficoltà</option>
+                <template x-for="d in difficoltaDisponibili()" :key="d"><option :value="d" x-text="d"></option></template>
+              </select>
+              <label class="sr-only" for="durata-collezione">Filtra per durata per opera</label>
+              <select id="durata-collezione" x-model="filtroDurataCollezione"
+                class="px-3 py-2 bg-surface border border-border rounded-md text-sm font-medium text-text focus:border-accent outline-none transition-colors">
+                <option value="tutti">Ogni durata</option>
+                <template x-for="n in durateDisponibili()" :key="n"><option :value="n" x-text="n + 's per opera'"></option></template>
+              </select>
             </div>
           </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          <template x-for="item in miaCollezione()" :key="item['@id']">
-            <button type="button" @click="apriDettaglio(item)" x-data="{ imgErr: false }"
-              class="group bg-surface p-8 rounded-lg border border-border shadow-sm flex flex-col items-center text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden">
-              <img x-show="item['@type'] === 'CreativeWork' && imgOpera(item.about) && !imgErr" :src="imgOpera(item.about)" @error="imgErr = true"
-                :alt="item.about?.name ? 'Immagine dell\'opera ' + item.about.name : ''"
+          <!-- Card per OPERA: al click mostra i tuoi item posseduti di quell'opera -->
+          <template x-for="g in raggruppaPerArtwork(miaCollezione())" :key="g.artwork['@id']">
+            <button type="button" @click="apriArtwork(g)" x-data="{ imgErr: false }"
+              :aria-label="'Apri i contenuti dell\'opera ' + (g.artwork.name || 'senza titolo') + ' (' + g.items.length + ')'"
+              class="group bg-surface p-8 rounded-lg border border-border shadow-sm flex flex-col items-center text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden relative">
+              <span class="absolute top-3 right-3 text-[10px] px-2 py-0.5 rounded-md font-medium bg-surface-2 border border-border text-muted" x-text="g.items.length"></span>
+              <img x-show="imgOpera(g.artwork) && !imgErr" :src="imgOpera(g.artwork)" @error="imgErr = true"
+                :alt="'Immagine dell\'opera ' + (g.artwork.name || '')"
                 class="w-20 h-20 rounded-md object-contain bg-surface-2 mb-5 group-hover:scale-105 transition">
-              <div x-show="item['@type'] === 'ItemList' || !imgOpera(item.about) || imgErr" class="text-5xl mb-5 text-center" aria-hidden="true"
-                x-text="item['@type'] === 'ItemList' ? '🗺️' : '🖼️'"></div>
-              <h3 class="text-base font-bold text-text text-center" x-text="item['@type'] === 'ItemList' ? item.name : item.about.name"></h3>
-              <p class="text-muted text-xs font-medium uppercase mt-1 tracking-wide" x-text="item['@type'] === 'ItemList' ? 'Visita' : 'Item'"></p>
+              <div x-show="!imgOpera(g.artwork) || imgErr" class="text-5xl mb-5 text-center" aria-hidden="true">🖼️</div>
+              <h3 class="text-base font-bold text-text text-center" x-text="g.artwork.name || 'Senza Titolo'"></h3>
+              <p class="text-muted text-xs font-medium uppercase mt-1 tracking-wide">Item</p>
+            </button>
+          </template>
+          <!-- Card VISITA -->
+          <template x-for="item in soloVisite(miaCollezione())" :key="item['@id']">
+            <button type="button" @click="apriDettaglio(item)"
+              class="group bg-surface p-8 rounded-lg border border-border shadow-sm flex flex-col items-center text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden">
+              <div class="text-5xl mb-5 text-center" aria-hidden="true">🗺️</div>
+              <h3 class="text-base font-bold text-text text-center" x-text="item.name"></h3>
+              <p class="text-muted text-xs font-medium uppercase mt-1 tracking-wide">Visita</p>
             </button>
           </template>
         </div>
@@ -498,11 +625,12 @@
               </div>
               <!-- Visita guidata con parola chiave (solo autore/docente) -->
               <div class="col-span-2" x-show="nuovaOpera.type === 'Visita' && currentUserType === 'autore'">
-                <label class="flex items-start gap-3 cursor-pointer p-3 bg-surface-2 border border-border rounded-md">
-                  <input type="checkbox" x-model="nuovaOpera.guidata" class="mt-1 h-4 w-4 accent-[var(--accent)]">
+                <label class="flex items-start gap-3 p-3 bg-surface-2 border border-border rounded-md" :class="!!editingId ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'">
+                  <input type="checkbox" x-model="nuovaOpera.guidata" :disabled="!!editingId" class="mt-1 h-4 w-4 accent-[var(--accent)]">
                   <span class="text-sm">
                     <span class="font-medium text-text"><span aria-hidden="true">🔑</span> Visita guidata (con parola chiave)</span>
                     <span class="block text-muted text-xs mt-0.5">Gratuita: gli studenti vi accedono digitando la parola chiave. Può contenere solo item gratuiti o tuoi (anche privati).</span>
+                    <span x-show="!!editingId" class="block text-muted text-xs mt-0.5">In modifica non puoi convertire tra visita normale e guidata.</span>
                   </span>
                 </label>
                 <div x-show="nuovaOpera.guidata" class="mt-3">
@@ -510,16 +638,52 @@
                   <input id="editor-passkey" type="text" x-model="nuovaOpera.accessKey" placeholder="Es: Fenice rossa"
                     class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
                 </div>
+                <!-- Quiz di fine visita (facoltativo, solo visite guidate): svolto
+                     dagli studenti nel navigator a fine visita. -->
+                <div x-show="nuovaOpera.guidata" class="mt-4">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium uppercase tracking-wide text-muted">Quiz di fine visita (facoltativo)</span>
+                    <button type="button" @click="aggiungiDomandaQuiz()"
+                      class="text-accent text-sm font-medium hover:opacity-80 transition-opacity">+ Aggiungi domanda</button>
+                  </div>
+                  <p class="text-muted text-xs mb-3">Domande a scelta multipla (4 opzioni, una corretta) che gli studenti svolgeranno a fine visita. Se non aggiungi domande, la visita non avrà quiz.</p>
+                  <div class="space-y-4">
+                    <template x-for="(q, qi) in nuovaOpera.quiz" :key="qi">
+                      <fieldset class="border border-border rounded-md p-4 bg-surface-2">
+                        <div class="flex items-center justify-between mb-2">
+                          <legend class="text-xs font-medium uppercase tracking-wide text-muted" x-text="'Domanda ' + (qi + 1)"></legend>
+                          <button type="button" @click="rimuoviDomandaQuiz(qi)" :aria-label="'Rimuovi la domanda ' + (qi + 1)"
+                            class="text-danger text-sm font-medium hover:opacity-80 transition-opacity">Rimuovi</button>
+                        </div>
+                        <input type="text" x-model="q.question" :aria-label="'Testo della domanda ' + (qi + 1)" placeholder="Testo della domanda"
+                          class="w-full p-2.5 mb-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium">
+                        <div role="radiogroup" :aria-label="'Opzioni della domanda ' + (qi + 1) + ': seleziona quella corretta'" class="space-y-2">
+                          <template x-for="(opt, oi) in q.options" :key="oi">
+                            <label class="flex items-center gap-3 p-2 bg-surface border border-border rounded-md">
+                              <input type="radio" :name="'correct-' + qi" :value="oi" x-model.number="q.correct"
+                                :aria-label="'Segna l\'opzione ' + (oi + 1) + ' come corretta'"
+                                class="h-4 w-4 accent-[var(--accent)] shrink-0">
+                              <input type="text" x-model="q.options[oi]" :aria-label="'Testo opzione ' + (oi + 1) + ' della domanda ' + (qi + 1)" :placeholder="'Opzione ' + (oi + 1)"
+                                class="flex-grow p-2 bg-surface-2 border border-border focus:border-accent rounded outline-none text-sm">
+                            </label>
+                          </template>
+                        </div>
+                        <p class="text-muted text-[11px] mt-2">Seleziona il pallino accanto all'opzione corretta.</p>
+                      </fieldset>
+                    </template>
+                  </div>
+                </div>
               </div>
               <div class="col-span-2" x-show="nuovaOpera.type === 'Item'">
                 <label for="editor-opera" class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">Seleziona Opera dal Database</label>
-                <select id="editor-opera" x-model="nuovaOpera.selectedArtworkUri" :required="nuovaOpera.type === 'Item'"
-                  class="w-full p-4 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium text-lg appearance-none cursor-pointer">
+                <select id="editor-opera" x-model="nuovaOpera.selectedArtworkUri" :required="nuovaOpera.type === 'Item'" :disabled="!!editingId"
+                  class="w-full p-4 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium text-lg appearance-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                   <option value="" disabled>Scegli un'opera...</option>
                   <template x-for="art in opereDisponibili()" :key="art['@id']">
                     <option :value="art['@id']" x-text="art.name"></option>
                   </template>
                 </select>
+                <p x-show="!!editingId" class="text-muted text-xs mt-2">In modifica puoi aggiornare solo <span class="text-text font-medium">testo e prezzo</span>. Opera, tono, durata, diritti e visibilità restano fissi (cambiarli danneggerebbe chi già possiede l'item).</p>
               </div>
               <div x-show="currentUserType === 'autore' && !(nuovaOpera.type === 'Item' && nuovaOpera.privato) && !(nuovaOpera.type === 'Visita' && nuovaOpera.guidata)">
                 <label for="editor-prezzo" class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Prezzo (€)</label>
@@ -527,21 +691,24 @@
                   class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors">
               </div>
               <div x-show="currentUserType === 'autore'">
-                <label for="editor-licenza" class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Licenza</label>
-                <select id="editor-licenza" x-model="nuovaOpera.license"
-                  class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors appearance-none cursor-pointer">
+                <label for="editor-licenza" class="block text-xs font-medium uppercase mb-2 tracking-wide text-muted">Licenza (diritti)</label>
+                <select id="editor-licenza" x-model="nuovaOpera.license" :disabled="!!editingId"
+                  class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none font-medium text-lg transition-colors appearance-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                   <template x-for="lic in licenze" :key="lic">
                     <option :value="lic" x-text="lic"></option>
                   </template>
                 </select>
+                <p x-show="!!editingId" class="text-muted text-xs mt-2">I diritti non sono modificabili: cambiarli sarebbe scorretto verso chi ha già acquistato e usato il contenuto secondo la vecchia licenza.</p>
               </div>
-              <!-- Item privato: riservato alle proprie visite guidate (no vendita) -->
+              <!-- Item privato: riservato alle proprie visite guidate (no vendita).
+                   NON modificabile in modifica: chi lo possiede smetterebbe di vederlo. -->
               <div class="col-span-2" x-show="currentUserType === 'autore' && nuovaOpera.type === 'Item'">
-                <label class="flex items-start gap-3 cursor-pointer p-3 bg-surface-2 border border-border rounded-md">
-                  <input type="checkbox" x-model="nuovaOpera.privato" class="mt-1 h-4 w-4 accent-[var(--accent)]">
+                <label class="flex items-start gap-3 p-3 bg-surface-2 border border-border rounded-md" :class="!!editingId ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'">
+                  <input type="checkbox" x-model="nuovaOpera.privato" :disabled="!!editingId" class="mt-1 h-4 w-4 accent-[var(--accent)]">
                   <span class="text-sm">
                     <span class="font-medium text-text"><span aria-hidden="true">🔒</span> Tieni privato</span>
                     <span class="block text-muted text-xs mt-0.5">Non pubblicato nel marketplace e non vendibile (prezzo 0): usabile solo nelle tue visite guidate.</span>
+                    <span x-show="!!editingId" class="block text-muted text-xs mt-0.5">Non modificabile: cambiarla renderebbe invisibile/non vendibile un item già posseduto.</span>
                   </span>
                 </label>
               </div>
@@ -555,9 +722,9 @@
                         <div role="group" aria-labelledby="label-tono" class="flex flex-wrap gap-2">
                             <template x-for="tono in ['infantile', 'semplice', 'medio', 'avanzato']" :key="tono">
                                 <button type="button" @click="nuovaOpera.tono = tono"
-                                    :disabled="tonoGiaUsato(tono)"
+                                    :disabled="tonoGiaUsato(tono) || !!editingId"
                                     :aria-pressed="nuovaOpera.tono === tono"
-                                    :class="nuovaOpera.tono === tono ? 'border-accent text-accent shadow-sm' : (tonoGiaUsato(tono) ? 'opacity-50 cursor-not-allowed text-muted' : 'text-muted hover:text-text')"
+                                    :class="nuovaOpera.tono === tono ? 'border-accent text-accent shadow-sm' : ((tonoGiaUsato(tono) || !!editingId) ? 'opacity-50 cursor-not-allowed text-muted' : 'text-muted hover:text-text')"
                                     class="px-4 py-2 rounded-md font-medium text-sm border border-border bg-surface transition-colors capitalize">
                                     <span aria-hidden="true" x-text="tono === 'infantile' ? '👶 ' : (tono === 'semplice' ? '🧑‍🎓 ' : (tono === 'medio' ? '🧐 ' : '🎓 '))"></span>
                                     <span x-text="tono"></span>
@@ -568,8 +735,8 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <label for="editor-durata" class="text-xs font-medium uppercase text-muted">Durata (sec)</label>
-                        <input id="editor-durata" type="number" min="0" x-model="nuovaOpera.durata"
-                            class="w-24 p-2 rounded-md font-medium border border-border focus:border-accent bg-surface text-center outline-none transition-colors">
+                        <input id="editor-durata" type="number" min="0" x-model="nuovaOpera.durata" :disabled="!!editingId"
+                            class="w-24 p-2 rounded-md font-medium border border-border focus:border-accent bg-surface text-center outline-none transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                     </div>
                     <textarea x-model="nuovaOpera.testo" placeholder="Scrivi qui la descrizione..." aria-label="Testo della descrizione" rows="5"
                         class="w-full p-4 bg-surface rounded-md outline-none font-medium border border-border focus:border-accent text-base transition-colors"></textarea>
@@ -579,6 +746,26 @@
             <!-- Editor Timeline per Visite (Autore e Visitatore) -->
             <div x-show="nuovaOpera.type === 'Visita'" class="pt-10 border-t border-border">
                 <h3 class="text-xl font-bold text-text mb-6">Percorso della Visita</h3>
+
+                <!-- Parti da una visita gratuita esistente (l'originale resta
+                     invariato). Autore -> ne fa una guidata (parola chiave/quiz);
+                     visitatore -> una propria visita personalizzata da salvare. -->
+                <div x-show="!editingId && visiteBaseImportabili().length > 0"
+                  class="bg-surface-2 p-4 rounded-lg mb-6 border border-border">
+                  <label for="importa-visita-base" class="block text-xs font-medium uppercase tracking-wide text-muted mb-2">
+                    Parti da una visita gratuita esistente (facoltativo)
+                  </label>
+                  <select id="importa-visita-base"
+                    @change="importaVisitaBase($event.target.value); $event.target.value = ''"
+                    class="w-full p-3 bg-surface border border-border focus:border-accent rounded-md outline-none transition-colors font-medium">
+                    <option value="">Scegli una visita da cui partire…</option>
+                    <template x-for="v in visiteBaseImportabili()" :key="v['@id']">
+                      <option :value="v['@id']" x-text="v.name + (v.author ? ' — ' + v.author : '')"></option>
+                    </template>
+                  </select>
+                  <p class="text-muted text-xs mt-2" x-show="currentUserType === 'autore'">Ne copia gli item nel percorso qui sotto e attiva la modalità guidata. Potrai poi modificare il percorso, la parola chiave e il quiz.</p>
+                  <p class="text-muted text-xs mt-2" x-show="currentUserType === 'visitatore'">Ne copia gli item nel percorso qui sotto: puoi aggiungerne o rimuoverne (gratuiti o posseduti) e poi salvarla nella tua collezione.</p>
+                </div>
 
                 <div class="bg-surface-2 p-6 rounded-lg mb-6 border border-dashed border-border">
                     <p class="text-xs font-medium uppercase text-muted mb-5 text-center">Aggiungi contenuti dalla tua libreria:</p>
@@ -597,24 +784,36 @@
                           class="px-4 py-1.5 rounded-md font-medium text-xs transition-colors">Da acquistare</button>
                       </div>
                     </div>
-                    <div class="mb-5">
+                    <div class="mb-5 flex flex-col sm:flex-row gap-3">
                         <input type="search" x-model="ricercaLibreria"
                           placeholder="Cerca un'opera nella libreria..."
                           aria-label="Cerca un'opera nella libreria"
-                          class="w-full bg-surface border border-border rounded-md px-4 py-2 text-sm text-text placeholder:text-muted outline-none focus:border-accent">
+                          class="flex-grow bg-surface border border-border rounded-md px-4 py-2 text-sm text-text placeholder:text-muted outline-none focus:border-accent">
+                        <label class="sr-only" for="diff-libreria">Filtra la libreria per difficoltà</label>
+                        <select id="diff-libreria" x-model="filtroDiffLibreria"
+                          class="px-3 py-2 bg-surface border border-border rounded-md text-sm font-medium text-text focus:border-accent outline-none transition-colors">
+                          <option value="tutti">Tutte le difficoltà</option>
+                          <template x-for="d in difficoltaDisponibili()" :key="d"><option :value="d" x-text="d"></option></template>
+                        </select>
+                        <label class="sr-only" for="durata-libreria">Filtra la libreria per durata per opera</label>
+                        <select id="durata-libreria" x-model="filtroDurataLibreria"
+                          class="px-3 py-2 bg-surface border border-border rounded-md text-sm font-medium text-text focus:border-accent outline-none transition-colors">
+                          <option value="tutti">Ogni durata</option>
+                          <template x-for="n in durateDisponibili()" :key="n"><option :value="n" x-text="n + 's per opera'"></option></template>
+                        </select>
                     </div>
+                    <!-- Card per OPERA: al click si aprono gli item da aggiungere al percorso -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <template x-for="op in listaOpereSelezionabili()" :key="op._id || op['@id']">
-                            <button type="button" @click="aggiungiTappa('item', op['@id'] || op._id)"
-                              :disabled="itemGiaInVisita(op['@id'] || op._id)"
-                              :class="itemGiaInVisita(op['@id'] || op._id) ? 'opacity-50 cursor-not-allowed' : 'hover:border-accent'"
-                              class="bg-surface p-3 rounded-md border border-border transition-colors text-left flex items-center gap-3 relative overflow-hidden">
-                              <span class="absolute top-1 right-2 text-[9px] font-medium uppercase px-2 py-0.5 rounded-md bg-surface-2 text-muted border border-border" x-text="op.educationalLevel"></span>
-                              <span class="text-lg" aria-hidden="true">🖼️</span>
-                              <div>
-                                <p class="text-sm font-medium leading-none text-text" x-text="trovaNomeItem(op['@id'] || op._id)"></p>
-                                <p class="text-xs font-medium mt-1" :class="itemGiaInVisita(op['@id'] || op._id) ? 'text-muted' : 'text-accent'"
-                                  x-text="itemGiaInVisita(op['@id'] || op._id) ? '✓ Aggiunto' : (disponibileSubito(op) ? '+ Aggiungi' : '+ Aggiungi · 🔒 € ' + (op.price || 0).toFixed(2))"></p>
+                        <template x-for="g in raggruppaPerArtwork(listaOpereSelezionabili())" :key="g.artwork['@id']">
+                            <button type="button" @click="apriArtwork(g)"
+                              :aria-label="'Apri i contenuti dell\'opera ' + (g.artwork.name || 'senza titolo') + ' (' + g.items.length + ')'"
+                              class="bg-surface p-3 rounded-md border border-border hover:border-accent transition-colors text-left flex items-center gap-3 relative overflow-hidden" x-data="{ imgErr: false }">
+                              <span class="absolute top-1 right-2 text-[9px] font-medium px-2 py-0.5 rounded-md bg-surface-2 text-muted border border-border" x-text="g.items.length"></span>
+                              <img x-show="imgOpera(g.artwork) && !imgErr" :src="imgOpera(g.artwork)" @error="imgErr = true" alt="" class="w-10 h-10 rounded object-contain bg-surface-2 shrink-0">
+                              <span x-show="!imgOpera(g.artwork) || imgErr" class="text-lg shrink-0" aria-hidden="true">🖼️</span>
+                              <div class="min-w-0">
+                                <p class="text-sm font-medium leading-none text-text truncate" x-text="g.artwork.name || 'Opera'"></p>
+                                <p class="text-xs font-medium mt-1 text-accent">Vedi i contenuti →</p>
                               </div>
                             </button>
                         </template>
@@ -675,13 +874,67 @@
 
     </main>
 
+    <!-- MODALE OPERA: elenco degli item dell'opera aperta, con l'azione giusta
+         secondo la schermata (marketplace=sblocca, crea percorso=aggiungi,
+         collezione/i miei lavori=apri). -->
+    <div x-show="artworkAperto" @keydown.escape.window="chiudiArtwork()"
+      class="fixed inset-0 z-[105] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm" x-transition.opacity>
+      <div role="dialog" aria-modal="true" :aria-label="'Contenuti dell\'opera ' + (artworkAperto?.artwork?.name || '')"
+        x-trap.inert.noscroll="artworkAperto"
+        class="bg-surface w-full max-w-2xl rounded-lg border border-border shadow-lg overflow-hidden max-h-[90vh] flex flex-col" @click.away="chiudiArtwork()">
+        <div class="h-24 shrink-0 bg-accent flex items-end p-6 relative">
+          <button @click="chiudiArtwork()" aria-label="Chiudi" class="absolute top-4 right-5 text-on-accent/70 hover:text-on-accent text-3xl leading-none">&times;</button>
+          <h2 class="text-2xl font-bold text-on-accent leading-tight" x-text="artworkAperto?.artwork?.name || 'Opera'"></h2>
+        </div>
+        <div class="p-6 space-y-3 overflow-y-auto flex-1">
+          <p class="text-muted text-xs uppercase tracking-wide" x-text="(artworkAperto?.items?.length || 0) + ((artworkAperto?.items?.length || 0) === 1 ? ' contenuto disponibile' : ' contenuti disponibili')"></p>
+          <template x-for="it in (artworkAperto?.items || [])" :key="it['@id']">
+            <div class="flex items-center gap-3 p-3 bg-surface-2 rounded-md border border-border">
+              <div class="flex-grow min-w-0">
+                <div class="flex flex-wrap gap-2 mb-1">
+                  <span class="text-[10px] px-2 py-0.5 rounded-md border border-border bg-surface text-muted uppercase tracking-wide" x-text="it.educationalLevel"></span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-md border border-border bg-surface text-muted uppercase tracking-wide" x-text="it.timeRequired + 's'"></span>
+                </div>
+                <p class="text-xs text-muted truncate">Curatore: <span class="text-text" x-text="it.author || '—'"></span> ·
+                  <span x-text="(!it.price || it.price === 0) ? 'Gratis' : '€ ' + it.price.toFixed(2)"></span></p>
+              </div>
+              <!-- Marketplace: sblocca / posseduto -->
+              <template x-if="currentView === 'dashboard'">
+                <div class="shrink-0">
+                  <template x-if="haIlPossesso(it)"><span class="text-xs text-muted font-medium">Posseduto ✅</span></template>
+                  <template x-if="!haIlPossesso(it)">
+                    <button @click="compraOra(it)" :aria-label="'Sblocca ' + nomeContenuto(it)"
+                      class="bg-accent text-on-accent px-4 py-2 rounded-md font-medium text-sm hover:opacity-90 transition-opacity whitespace-nowrap"
+                      x-text="(!it.price || it.price === 0) ? 'Ottieni' : 'Sblocca € ' + it.price.toFixed(2)"></button>
+                  </template>
+                </div>
+              </template>
+              <!-- Crea percorso: aggiungi alla visita -->
+              <template x-if="currentView === 'editor'">
+                <button type="button" @click="aggiungiTappa('item', it['@id'])" :disabled="itemGiaInVisita(it['@id'])"
+                  :aria-label="(itemGiaInVisita(it['@id']) ? 'Già aggiunto: ' : 'Aggiungi ') + nomeContenuto(it)"
+                  :class="itemGiaInVisita(it['@id']) ? 'opacity-50 cursor-not-allowed text-muted border-border' : 'text-accent border-accent hover:bg-accent hover:text-on-accent'"
+                  class="shrink-0 px-4 py-2 rounded-md font-medium text-sm border transition-colors whitespace-nowrap"
+                  x-text="itemGiaInVisita(it['@id']) ? '✓ Aggiunto' : '+ Aggiungi'"></button>
+              </template>
+              <!-- Collezione / I miei Lavori: apri dettaglio (lettura) -->
+              <template x-if="currentView === 'my_collection' || currentView === 'my_works'">
+                <button @click="chiudiArtwork(); apriDettaglio(it)" :aria-label="'Apri ' + nomeContenuto(it)"
+                  class="shrink-0 bg-surface border border-border text-text px-4 py-2 rounded-md font-medium text-sm hover:bg-bg transition-colors whitespace-nowrap">Apri</button>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
     <!-- DETTAGLIO MODALE -->
     <div x-show="modalDettaglio" @keydown.escape.window="chiudiDettaglio()"
       class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm" x-transition.opacity>
       <div role="dialog" aria-modal="true" aria-label="Dettaglio contenuto"
         x-trap.inert.noscroll="modalDettaglio"
-        class="bg-surface w-full max-w-2xl rounded-lg border border-border shadow-lg overflow-hidden" @click.away="chiudiDettaglio()">
-        <div class="h-32 bg-accent flex items-end p-8 relative">
+        class="bg-surface w-full max-w-2xl rounded-lg border border-border shadow-lg overflow-hidden max-h-[90vh] flex flex-col" @click.away="chiudiDettaglio()">
+        <div class="h-32 shrink-0 bg-accent flex items-end p-8 relative">
           <!-- Freccia indietro: visibile solo se c'e' una schermata precedente nel modale -->
           <button x-show="storiaModale.length > 0" @click="tornaIndietroModale()"
             aria-label="Torna alla schermata precedente"
@@ -691,7 +944,7 @@
           <button @click="chiudiDettaglio()" aria-label="Chiudi dettaglio" class="absolute top-5 right-5 text-on-accent/70 hover:text-on-accent text-3xl leading-none">&times;</button>
           <h2 class="text-2xl font-bold text-on-accent leading-tight" x-text="itemSelezionato?.['@type'] === 'ItemList' ? itemSelezionato?.name : itemSelezionato?.about.name"></h2>
         </div>
-        <div class="p-8 space-y-5">
+        <div class="p-8 space-y-5 overflow-y-auto flex-1">
           <img x-show="itemSelezionato?.['@type'] === 'CreativeWork' && imgOpera(itemSelezionato?.about)" :src="imgOpera(itemSelezionato?.about)" @error="$event.target.style.display='none'"
             :alt="itemSelezionato?.about?.name ? 'Immagine dell\'opera ' + itemSelezionato.about.name : ''"
             class="w-full h-56 object-contain bg-surface-2 rounded-md border border-border mb-4">
@@ -737,6 +990,35 @@
                 </ul>
               </div>
             </template>
+            <!-- Quiz di fine visita (visite guidate): domande e opzioni, con la
+                 risposta corretta evidenziata (vista dell'autore). -->
+            <template x-if="itemSelezionato?.quiz && itemSelezionato.quiz.length > 0">
+              <div class="mt-6">
+                <h4 class="text-xs font-medium uppercase text-muted mb-4 tracking-wide">
+                  <span aria-hidden="true">📝</span> Quiz di fine visita
+                  (<span x-text="itemSelezionato.quiz.length"></span> <span x-text="itemSelezionato.quiz.length === 1 ? 'domanda' : 'domande'"></span>)
+                </h4>
+                <ol class="space-y-4">
+                  <template x-for="(q, qi) in itemSelezionato.quiz" :key="qi">
+                    <li class="p-4 bg-surface-2 rounded-md border border-border">
+                      <p class="text-sm font-medium text-text mb-3">
+                        <span x-text="(qi + 1) + '. '"></span><span x-text="q.question"></span>
+                      </p>
+                      <ul class="space-y-1.5">
+                        <template x-for="(opt, oi) in q.options" :key="oi">
+                          <li class="flex items-center gap-2 text-sm"
+                            :class="oi === q.correct ? 'text-accent font-medium' : 'text-muted'">
+                            <span aria-hidden="true" x-text="oi === q.correct ? '✓' : '•'" class="w-4 shrink-0 text-center"></span>
+                            <span x-text="opt"></span>
+                            <span x-show="oi === q.correct" class="sr-only">(risposta corretta)</span>
+                          </li>
+                        </template>
+                      </ul>
+                    </li>
+                  </template>
+                </ol>
+              </div>
+            </template>
           </div>
 
           <div class="pt-5 border-t border-border flex flex-wrap justify-between items-center gap-3">
@@ -752,6 +1034,11 @@
                 <button @click="apriEliminaVisita(itemSelezionato)"
                   class="bg-surface-2 border border-border text-danger px-5 py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">🗑️ Elimina</button>
               </div>
+            </template>
+            <!-- Item creato dall'autore: può modificarlo (testo, prezzo, licenza, visibilità) -->
+            <template x-if="itemSelezionato?.['@type'] === 'CreativeWork' && currentUserType === 'autore' && itemSelezionato?.author === currentUser">
+              <button @click="modificaItem(itemSelezionato)"
+                class="bg-surface-2 border border-border text-text px-5 py-2.5 rounded-md font-medium text-sm hover:bg-bg transition-colors">✏️ Modifica</button>
             </template>
             <template x-if="currentUserType === 'visitatore' && !haIlPossesso(itemSelezionato)">
               <button @click="compraOra(itemSelezionato)" class="bg-accent text-on-accent px-6 py-2.5 rounded-md font-medium text-sm hover:opacity-90 transition-opacity"

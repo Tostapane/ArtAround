@@ -73,6 +73,33 @@ router.post("/", async (req, res) => {
       if (!artwork)
         return res.status(400).json({ error: "Artwork non trovato nel database." });
 
+      const privatoFlag =
+        payload.privato === true || payload.visibility === "privato";
+
+      // --- MODIFICA di un item esistente (editId = il suo @id) ---
+      // Si aggiornano SOLO testo e prezzo. Restano immutabili: opera/tono/durata
+      // (formano l'@id, referenziato da visite e collezioni), i DIRITTI (licenza)
+      // e la VISIBILITÀ (pubblico/privato) — cambiarli danneggerebbe chi già
+      // possiede l'item (usi resi illeciti, o item che sparisce dalla collezione).
+      if (payload.editId) {
+        const esistente = await ItemModel.findOne({ "@id": payload.editId });
+        if (!esistente)
+          return res.status(404).json({ error: "Item da modificare non trovato." });
+        if (esistente.author !== payload.autore)
+          return res
+            .status(403)
+            .json({ error: "Puoi modificare solo i tuoi item." });
+        const desc = payload.descrizioni?.[0] || {};
+        esistente.text = desc.testo ?? esistente.text;
+        // Il prezzo resta 0 se l'item è privato (visibilità immutata).
+        esistente.price =
+          esistente.visibility === "privato" ? 0 : Number(payload.prezzo) || 0;
+        await esistente.save();
+        return res
+          .status(200)
+          .send({ message: "Item aggiornato con successo" });
+      }
+
       // Un autore puo' pubblicare UN solo item per coppia opera+tono:
       // i duplicati vengono rifiutati (niente sovrascrittura silenziosa).
       for (const desc of payload.descrizioni) {

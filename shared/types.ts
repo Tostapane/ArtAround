@@ -79,6 +79,18 @@ export interface Visit {
   // visitatori; gli studenti vi accedono in modo temporaneo digitando questa
   // chiave (univoca nel DB). Prezzo ignorato (di fatto 0).
   accessKey?: string;
+  // Quiz a scelta multipla eseguito nel navigator a FINE visita (modulo 18-27).
+  // Esiste solo nelle visite guidate ed è FACOLTATIVO (può mancare). Le risposte
+  // corrette (`correct`) restano lato server e non vengono mai inviate agli
+  // studenti: la correzione è server-side.
+  quiz?: QuizQuestion[];
+}
+
+// Una domanda del quiz di fine visita: 4 opzioni, una sola corretta.
+export interface QuizQuestion {
+  question: string; // testo della domanda
+  options: string[]; // esattamente 4 opzioni
+  correct: number; // indice 0..3 dell'opzione corretta
 }
 
 // Unione per il Marketplace
@@ -87,13 +99,16 @@ export type Contenuto = Item | Visit;
 // Profilo utente (esteso)
 export interface User {
   username: string;
-  // Un account NON ha più un ruolo fisso: "autore" e "visitatore" sono ora
-  // modalità dell'interfaccia che lo stesso utente sceglie dopo il login
-  // (crea contenuti come autore, acquista/compone percorsi come visitatore).
-  // Campo mantenuto opzionale solo per retrocompatibilità con dati esistenti.
-  role?: UserRole;
-  wallet: number;
-  collezione: string[]; // ID degli item/visit acquistati
+  // Il ruolo fa parte dell'IDENTITÀ dell'account: un account è "autore" OPPURE
+  // "visitatore", scelto alla registrazione e fissato al login. Due account con
+  // lo stesso username ma ruolo diverso sono account DISTINTI e non collegati
+  // (wallet, collezione e contenuti separati): esistono solo se creati uno alla
+  // volta. La chiave d'identità è quindi la coppia (username, role).
+  role: UserRole;
+  // Budget d'acquisto: presente SOLO sugli account visitatore (gli autori non
+  // comprano). Assente/undefined per gli autori.
+  wallet?: number;
+  collezione: string[]; // ID degli item/visit acquistati (visitatore)
 }
 
 export interface Museum {

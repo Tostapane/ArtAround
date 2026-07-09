@@ -1,7 +1,7 @@
-import { Contenuto, Artwork, Item, Museum, User } from '../../../shared/types.js';
+import { Contenuto, Artwork, Item, Museum, User, UserRole } from '../../../shared/types.js';
 
 // Utente restituito dal server (senza password)
-export type UserDTO = Pick<User, 'username' | 'wallet' | 'collezione'>;
+export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
 
 async function readError(response: Response, fallback: string): Promise<string> {
   const data = await response.json().catch(() => ({} as any));
@@ -13,29 +13,29 @@ async function readError(response: Response, fallback: string): Promise<string> 
  */
 export const ArtAPI = {
   // --- Autenticazione / utenti (persistiti su MongoDB) ---
-  async login(username: string, password: string): Promise<UserDTO> {
+  async login(username: string, password: string, role: UserRole): Promise<UserDTO> {
     const response = await fetch('/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, role }),
     });
     if (!response.ok) throw new Error(await readError(response, 'Credenziali non valide'));
     return response.json();
   },
 
-  async register(username: string, password: string): Promise<UserDTO> {
+  async register(username: string, password: string, role: UserRole): Promise<UserDTO> {
     const response = await fetch('/api/users/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, role }),
     });
     if (!response.ok) throw new Error(await readError(response, 'Errore in registrazione'));
     return response.json();
   },
 
-  // Acquisto persistente: il server scala il wallet, aggiorna la collezione e
-  // accredita l'autore. Il prezzo passato è solo un fallback (il server usa
-  // quello autoritativo del contenuto).
+  // Acquisto persistente (solo visitatori): il server scala il wallet del
+  // compratore e aggiorna la sua collezione. Il prezzo passato è solo un
+  // fallback (il server usa quello autoritativo del contenuto).
   async buy(username: string, itemId: string, price: number): Promise<UserDTO> {
     const response = await fetch(`/api/users/${encodeURIComponent(username)}/buy`, {
       method: 'POST',
@@ -48,11 +48,15 @@ export const ArtAPI = {
 
   // Visita guidata: lo studente entra nella sala d'attesa digitando la parola
   // chiave. Ritorna la vista sessione (con id + visitName) o lancia se 404/errore.
-  async joinGuidedSession(accessKey: string, username: string): Promise<any> {
+  async joinGuidedSession(
+    accessKey: string,
+    username: string,
+    museum?: string,
+  ): Promise<any> {
     const response = await fetch('/api/guided-sessions/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessKey, username }),
+      body: JSON.stringify({ accessKey, username, museum }),
     });
     if (!response.ok)
       throw new Error(

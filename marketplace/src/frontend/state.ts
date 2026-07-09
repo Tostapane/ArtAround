@@ -6,7 +6,7 @@ import {
   Artwork,
   Museum,
 } from "../../../shared/types.js";
-import { licenses } from "../../../shared/constants.js";
+import { licenses, educationalLevels } from "../../../shared/constants.js";
 import { ArtAPI } from "./api.js";
 
 /**
@@ -18,17 +18,31 @@ import { ArtAPI } from "./api.js";
 export class AppState {
   currentView: string = "login";
   currentUser: string | null = null;
-  // Modalità dell'interfaccia scelta dall'utente DOPO il login (non è il ruolo
-  // dell'account: lo stesso utente può passare da autore a visitatore quando
-  // vuole tramite il toggle in navbar). Default: visitatore.
+  // Ruolo dell'account con cui si è entrati (autore o visitatore): scelto al
+  // login e FISSO per tutta la sessione, determina l'interfaccia mostrata.
+  // Non è commutabile (per cambiare ruolo si fa logout e si rientra).
   currentUserType: UserRole | null = null;
   ricerca: string = "";
   ricercaCollezione: string = "";
   ricercaLavori: string = "";
-  // Filtro per tipo di contenuto (Tutti / solo Item / solo Visite), nelle viste
-  // "I miei Lavori" (autore) e "La mia Collezione" (visitatore).
+  // Filtri strutturati affiancati alla barra di ricerca. Ogni vista che elenca
+  // contenuti (Marketplace, La mia Collezione, I miei Lavori) ha la sua terna:
+  //  - tipo:       "tutti" | "item" | "visite"
+  //  - difficolta: "tutti" | una delle difficoltà presenti (item.educationalLevel
+  //                o visita.level)
+  //  - durata:     "tutti" | secondi PER OPERA (solo item: le visite non hanno una
+  //                durata per-opera singola, cfr. nota nel missing.txt)
   filtroTipoLavori: "tutti" | "item" | "visite" = "tutti";
+  filtroDiffLavori: string = "tutti";
+  filtroDurataLavori: string = "tutti";
   filtroTipoCollezione: "tutti" | "item" | "visite" = "tutti";
+  filtroDiffCollezione: string = "tutti";
+  filtroDurataCollezione: string = "tutti";
+  filtroTipoDashboard: "tutti" | "item" | "visite" = "tutti";
+  filtroDiffDashboard: string = "tutti";
+  filtroDurataDashboard: string = "tutti";
+  // Filtro prezzo, solo nel marketplace: tutte / solo gratis / solo a pagamento.
+  filtroPrezzoDashboard: "tutti" | "gratis" | "pagamento" = "tutti";
   // Visita guidata (studente): parola chiave digitata e sessione trovata dopo
   // l'ingresso in sala d'attesa (id sessione + nome visita per conferma).
   passkeyInput: string = "";
@@ -37,6 +51,10 @@ export class AppState {
   collezioneUtente: string[] = []; // Array di @id
   modalDettaglio: boolean = false;
   itemSelezionato: Contenuto | null = null;
+  // Card per OPERA: quando se ne apre una, `artworkAperto` contiene l'opera e i
+  // suoi item (già filtrati dalla schermata corrente). Il modale ne elenca gli
+  // item con l'azione giusta secondo la schermata.
+  artworkAperto: { artwork: any; items: any[] } | null = null;
   // Cronologia delle schermate mostrate nel modale dettaglio: ogni volta che
   // il contenuto del modale cambia (es. visita -> suo item) la schermata
   // precedente viene impilata qui, cosi' si puo' sempre tornare indietro
@@ -55,11 +73,15 @@ export class AppState {
   private toastTimer: any = null;
   editingId: string | null = null;
 
-  formLogin = { username: "", password: "" };
+  // Il ruolo scelto nella schermata di login/registrazione fa parte delle
+  // credenziali (default visitatore): individua a QUALE account (autore o
+  // visitatore) accedere / da creare.
+  formLogin = { username: "", password: "", role: "visitatore" as UserRole };
   formReg = {
     username: "",
     password: "",
     conferma: "",
+    role: "visitatore" as UserRole,
   };
 
   contenuti: Contenuto[] = []; // Visite (Tour) globali
@@ -82,6 +104,9 @@ export class AppState {
   // Filtro della libreria item nell'editor visite: "tutti", "posseduti"
   // (posseduti + gratis) o "non_posseduti" (a pagamento non ancora acquistati).
   filtroLibreria: "tutti" | "posseduti" | "non_posseduti" = "tutti";
+  // Filtri strutturati della libreria editor (coerenti con le altre viste).
+  filtroDiffLibreria: string = "tutti";
+  filtroDurataLibreria: string = "tutti";
 
   // Ricerca testuale nella libreria di item dell'editor visite (gestione della
   // scala: con centinaia/migliaia di contenuti si filtra per nome).
@@ -90,20 +115,6 @@ export class AppState {
   tornaHome() {
     this.currentView =
       this.currentUserType === "autore" ? "my_works" : "dashboard";
-  }
-
-  // Passa dalla modalità visitatore a quella autore (e viceversa) sullo stesso
-  // account, senza logout. Chiude editor/modali e porta alla home della
-  // modalità scelta.
-  cambiaModalita(tipo: UserRole) {
-    if (this.currentUserType === tipo) return;
-    this.currentUserType = tipo;
-    this.modalDettaglio = false;
-    this.itemSelezionato = null;
-    this.editingId = null;
-    this.nuovaOpera = this.resetNuovaOpera();
-    if (this.museoSelezionato) this.tornaHome();
-    else this.currentView = "select_museum";
   }
 
   // Etichetta leggibile della vista corrente, annunciata dagli screen reader
@@ -178,10 +189,13 @@ export class AppState {
       // 2b. Carichiamo gli item (contenuti) acquistabili singolarmente
       this.itemsMarket = await ArtAPI.fetchItems();
 
-      // 3. Carichiamo i lavori pubblicati dall'utente: essendo l'account unico,
-      // può passare in modalità autore in qualsiasi momento.
-      if (this.currentUser) {
+      // 3. Solo per gli AUTORI carichiamo i propri item pubblicati (i propri
+      // "lavori"). Un visitatore non ha contenuti propri: mieOpere resta vuoto
+      // (account autore e visitatore sono distinti, anche a parità di username).
+      if (this.currentUser && this.currentUserType === "autore") {
         this.mieOpere = await ArtAPI.fetchMyItems(this.currentUser);
+      } else {
+        this.mieOpere = [];
       }
 
       // 4. Prima di operare, l'utente deve scegliere un museo (pannello di
@@ -207,38 +221,45 @@ export class AppState {
       const u = await ArtAPI.login(
         this.formLogin.username,
         this.formLogin.password,
+        this.formLogin.role,
       );
       this.currentUser = u.username;
-      // L'account è unico: si entra di default in modalità visitatore, con il
-      // toggle in navbar per passare a autore quando si vuole.
-      this.currentUserType = "visitatore";
-      this.wallet = u.wallet;
+      // Il ruolo è quello dell'account con cui si è entrati: fissa l'interfaccia
+      // (autore o visitatore) per tutta la sessione, senza commutazione.
+      this.currentUserType = u.role;
+      this.wallet = u.wallet ?? 0; // undefined per gli autori (nessun wallet)
       this.collezioneUtente = u.collezione;
-      this.formLogin = { username: "", password: "" };
+      this.formLogin = { username: "", password: "", role: "visitatore" };
       await this.initApp(); // carica musei/opere/visite/lavori
     } catch (e) {
       this.mostraToast((e as Error).message, "error");
     }
   }
 
-  // Mostra la vista di registrazione (account unico, nessun ruolo da scegliere).
+  // Mostra la vista di registrazione (mantiene il ruolo scelto nel login come
+  // default, così il toggle resta coerente passando da login a registrazione).
   preparaRegistrazione() {
-    this.formReg = { username: "", password: "", conferma: "" };
+    this.formReg = {
+      username: "",
+      password: "",
+      conferma: "",
+      role: this.formLogin.role,
+    };
     this.currentView = "register";
   }
 
   async concludiRegistrazione() {
-    const { username, password, conferma } = this.formReg;
+    const { username, password, conferma, role } = this.formReg;
     if (!username || !password || password !== conferma)
       return this.mostraToast("Dati non validi o password non coincidenti", "error");
 
     try {
-      const u = await ArtAPI.register(username, password);
+      const u = await ArtAPI.register(username, password, role);
       this.currentUser = u.username;
-      this.currentUserType = "visitatore";
-      this.wallet = u.wallet;
+      this.currentUserType = u.role;
+      this.wallet = u.wallet ?? 0; // undefined per gli autori (nessun wallet)
       this.collezioneUtente = u.collezione;
-      this.formReg = { username: "", password: "", conferma: "" };
+      this.formReg = { username: "", password: "", conferma: "", role: "visitatore" };
       await this.initApp();
     } catch (e) {
       this.mostraToast((e as Error).message, "error");
@@ -260,22 +281,43 @@ export class AppState {
     this.ricerca = "";
     this.ricercaCollezione = "";
     this.ricercaLibreria = "";
+    this.filtroLibreria = "tutti";
+    this.filtroDiffLibreria = "tutti";
+    this.filtroDurataLibreria = "tutti";
     this.ricercaLavori = "";
     this.filtroTipoLavori = "tutti";
+    this.filtroDiffLavori = "tutti";
+    this.filtroDurataLavori = "tutti";
     this.filtroTipoCollezione = "tutti";
+    this.filtroDiffCollezione = "tutti";
+    this.filtroDurataCollezione = "tutti";
+    this.filtroTipoDashboard = "tutti";
+    this.filtroDiffDashboard = "tutti";
+    this.filtroDurataDashboard = "tutti";
+    this.filtroPrezzoDashboard = "tutti";
     this.passkeyInput = "";
     this.guidedTrovata = null;
     this.vendite = [];
     this.editingId = null;
+    this.artworkAperto = null;
     this.nuovaOpera = this.resetNuovaOpera();
   }
 
   haIlPossesso(item: Contenuto) {
     if (!item) return false;
-    return (
-      item.author === this.currentUser ||
-      this.collezioneUtente.includes(item["@id"])
-    );
+    // Un AUTORE possiede implicitamente i contenuti che ha creato lui.
+    if (this.currentUserType === "autore" && item.author === this.currentUser)
+      return true;
+    // Un VISITATORE possiede le VISITE che ha creato/personalizzato lui in "crea
+    // percorso" (salvate nella sua collezione). NON gli item di un autore omonimo
+    // (account distinti): solo le sue visite.
+    if (
+      this.currentUserType === "visitatore" &&
+      (item as any)["@type"] === "ItemList" &&
+      item.author === this.currentUser
+    )
+      return true;
+    return this.collezioneUtente.includes(item["@id"]);
   }
 
   // Acquisto: i contenuti GRATIS vengono aggiunti subito alla collezione,
@@ -297,7 +339,7 @@ export class AppState {
     if (!this.currentUser) return;
     try {
       const u = await ArtAPI.buy(this.currentUser, item["@id"], item.price || 0);
-      this.wallet = u.wallet;
+      this.wallet = u.wallet ?? 0; // undefined per gli autori (nessun wallet)
       this.collezioneUtente = u.collezione;
       this.mostraToast("Contenuto sbloccato!");
     } catch (e) {
@@ -320,11 +362,39 @@ export class AppState {
   }
 
   // Apre l'editor precompilato con i dati di una visita esistente per modificarla
+  // Apre l'editor precompilato con un ITEM esistente per modificarlo. Opera,
+  // tono e durata (che formano l'@id, referenziato da visite/collezioni) restano
+  // fissi: si modificano testo, prezzo, licenza e visibilità.
+  modificaItem(item: any) {
+    if (
+      !item ||
+      (item as any)["@type"] !== "CreativeWork" ||
+      item.author !== this.currentUser
+    )
+      return;
+    this.chiudiDettaglio();
+    this.chiudiArtwork();
+    this.currentView = "editor";
+    this.editingId = item["@id"];
+    this.nuovaOpera = this.resetNuovaOpera();
+    this.nuovaOpera.type = "Item";
+    this.nuovaOpera.selectedArtworkUri =
+      (typeof item.about === "object" ? item.about?.["@id"] : item.about) || "";
+    this.nuovaOpera.tono = (item.educationalLevel || "").toLowerCase();
+    this.nuovaOpera.durata = String(item.timeRequired ?? "");
+    this.nuovaOpera.testo = item.text || "";
+    this.nuovaOpera.price = item.price || 0;
+    this.nuovaOpera.license = item.license || licenses[0];
+    this.nuovaOpera.privato = item.visibility === "privato";
+  }
+
   modificaVisita(visit: any) {
     if (!visit || visit.author !== this.currentUser) return;
     this.chiudiDettaglio();
     this.currentView = "editor";
     this.filtroLibreria = "tutti";
+    this.filtroDiffLibreria = "tutti";
+    this.filtroDurataLibreria = "tutti";
     this.ricercaLibreria = "";
     this.editingId = visit["@id"];
     this.nuovaOpera = this.resetNuovaOpera();
@@ -337,6 +407,13 @@ export class AppState {
     // Ripristina lo stato "visita guidata" quando si modifica.
     this.nuovaOpera.guidata = !!visit.accessKey;
     this.nuovaOpera.accessKey = visit.accessKey || "";
+    // Ricarica il quiz (copia difensiva: opzioni clonate, così l'editor non
+    // muta l'oggetto originale della lista).
+    this.nuovaOpera.quiz = (visit.quiz || []).map((q: any) => ({
+      question: q.question || "",
+      options: [...(q.options || ["", "", "", ""])],
+      correct: Number(q.correct) || 0,
+    }));
     const opzionali = new Set<string>(visit.optionalItems || []);
     this.nuovaOpera.tappe = [
       ...(visit.itemListElement || []).map((id: string) => ({
@@ -417,7 +494,7 @@ export class AppState {
       try {
         for (const it of this.itemsMancanti(visita)) {
           const u = await ArtAPI.buy(this.currentUser, it["@id"], it.price || 0);
-          this.wallet = u.wallet;
+          this.wallet = u.wallet ?? 0; // undefined per gli autori (nessun wallet)
           this.collezioneUtente = u.collezione;
         }
         this.mostraToast("Item acquistati: ora puoi usare la visita!");
@@ -490,42 +567,145 @@ export class AppState {
       );
   }
 
-  // Filtro basato sui nuovi nomi delle proprietà (sempre ristretto al museo scelto)
-  contenutiFiltrati() {
-    // Per i visitatori: mostra SIA i singoli item SIA le visite del museo,
-    // entrambi acquistabili (slide 20: "contenuti ... sia gratuiti sia in vendita").
-    if (this.currentUserType === "visitatore") {
-      const tutto = [...this.itemsMarket, ...this.contenuti] as any[];
-      return tutto.filter(
-        (c) =>
-          this.appartieneAlMuseo(c) &&
-          this.visibileNelMercato(c) &&
-          this.corrispondeRicerca(c, this.ricerca),
-      );
-    }
-    // Per gli autori nella dashboard: mostra i propri item del museo selezionato
-    return this.mieOpere.filter(
-      (i) =>
-        this.appartieneAlMuseo(i) && this.corrispondeRicerca(i, this.ricerca),
-    );
+  // Difficoltà della singola opera/visita (item.educationalLevel o visita.level).
+  private difficoltaDi(c: any): string {
+    return (c?.["@type"] === "ItemList" ? c?.level : c?.educationalLevel) || "";
   }
 
-  // Filtra una lista per tipo di contenuto: "item" (CreativeWork), "visite"
-  // (ItemList) o "tutti".
-  private filtraPerTipo(
+  // Difficoltà presenti tra i contenuti del museo selezionato, in ordine canonico
+  // (Principiante, Intermedio, Avanzato...); usate per popolare il menu del filtro.
+  difficoltaDisponibili(): string[] {
+    const presenti = new Set<string>();
+    for (const c of [
+      ...this.itemsMarket,
+      ...this.mieOpere,
+      ...this.contenuti,
+    ] as any[]) {
+      if (!this.appartieneAlMuseo(c)) continue;
+      const d = this.difficoltaDi(c);
+      if (d) presenti.add(d);
+    }
+    const ordinate = educationalLevels.filter((l) => presenti.has(l));
+    // eventuali difficoltà non previste dalle costanti, in coda
+    for (const d of presenti) if (!ordinate.includes(d)) ordinate.push(d);
+    return ordinate;
+  }
+
+  // Durate PER OPERA (secondi) presenti tra gli item del museo selezionato: usate
+  // per il filtro durata. Le visite non hanno una durata per-opera singola.
+  durateDisponibili(): number[] {
+    const presenti = new Set<number>();
+    for (const c of [...this.itemsMarket, ...this.mieOpere] as any[]) {
+      if (!this.appartieneAlMuseo(c)) continue;
+      const n = Number(c?.timeRequired);
+      if (n) presenti.add(n);
+    }
+    return [...presenti].sort((a, b) => a - b);
+  }
+
+  // Filtro strutturato riusabile: restringe `lista` per tipo, difficoltà e durata
+  // per-opera. La durata si applica ai soli item (una visita non ha una durata
+  // per-opera singola): selezionandone una si escludono quindi le visite.
+  private filtraAvanzato(
     lista: any[],
-    filtro: "tutti" | "item" | "visite",
+    tipo: "tutti" | "item" | "visite",
+    difficolta: string,
+    durata: string,
   ): any[] {
-    if (filtro === "item")
-      return lista.filter((c) => c["@type"] === "CreativeWork");
-    if (filtro === "visite")
-      return lista.filter((c) => c["@type"] === "ItemList");
-    return lista;
+    return lista.filter((c) => {
+      if (tipo === "item" && c["@type"] !== "CreativeWork") return false;
+      if (tipo === "visite" && c["@type"] !== "ItemList") return false;
+      if (difficolta !== "tutti" && this.difficoltaDi(c) !== difficolta)
+        return false;
+      if (durata !== "tutti") {
+        if (c["@type"] !== "CreativeWork") return false;
+        if (Number(c.timeRequired) !== Number(durata)) return false;
+      }
+      return true;
+    });
+  }
+
+
+  // --- Card per OPERA (raggruppamento degli item per artwork) ---
+
+  // Id dell'opera (artwork) a cui si riferisce un item.
+  private artworkIdDi(c: any): string {
+    const art = c?.about;
+    return (art && typeof art === "object" ? art["@id"] : art) || "?";
+  }
+
+  // Raggruppa gli ITEM di una lista per opera: un gruppo per artwork con i suoi
+  // item. Le visite (ItemList) sono escluse (mostrate come card a sé). L'ordine
+  // dei gruppi segue la prima comparsa nell'elenco già filtrato/ordinato.
+  raggruppaPerArtwork(lista: any[]): { artwork: any; items: any[] }[] {
+    const gruppi = new Map<string, { artwork: any; items: any[] }>();
+    for (const c of lista) {
+      if (c["@type"] !== "CreativeWork") continue;
+      const id = this.artworkIdDi(c);
+      if (!gruppi.has(id)) {
+        const art = c.about;
+        gruppi.set(id, {
+          artwork:
+            art && typeof art === "object" ? art : { "@id": id, name: id },
+          items: [],
+        });
+      }
+      gruppi.get(id)!.items.push(c);
+    }
+    return [...gruppi.values()];
+  }
+
+  // Le sole VISITE di una lista (mostrate come card separate accanto alle opere).
+  soloVisite(lista: any[]): any[] {
+    return lista.filter((c) => c["@type"] === "ItemList");
+  }
+
+  // Apre la card di un'opera: il modale ne elencherà gli item già filtrati.
+  apriArtwork(gruppo: { artwork: any; items: any[] }) {
+    this.artworkAperto = gruppo;
+  }
+
+  chiudiArtwork() {
+    this.artworkAperto = null;
+  }
+
+  // Filtro basato sui nuovi nomi delle proprietà (sempre ristretto al museo scelto)
+  contenutiFiltrati() {
+    // Per i visitatori il marketplace mostra SIA i contenuti gratuiti SIA quelli
+    // a pagamento (slide 20: "visualizzazione di contenuti esistenti sia gratuiti
+    // sia in vendita"). Sono esclusi solo i contenuti non mostrabili nel mercato
+    // (visite guidate a parola chiave, gestite da visibileNelMercato).
+    const base =
+      this.currentUserType === "visitatore"
+        ? ([...this.itemsMarket, ...this.contenuti] as any[]).filter(
+            (c) =>
+              this.appartieneAlMuseo(c) &&
+              this.visibileNelMercato(c) &&
+              this.corrispondeRicerca(c, this.ricerca),
+          )
+        : // Per gli autori nella dashboard: i propri item del museo selezionato
+          this.mieOpere.filter(
+            (i) =>
+              this.appartieneAlMuseo(i) &&
+              this.corrispondeRicerca(i, this.ricerca),
+          );
+    const perTipo = this.filtraAvanzato(
+      base,
+      this.filtroTipoDashboard,
+      this.filtroDiffDashboard,
+      this.filtroDurataDashboard,
+    );
+    // Filtro prezzo (solo marketplace): gratis = prezzo 0/assente, pagamento > 0.
+    if (this.filtroPrezzoDashboard === "tutti") return perTipo;
+    return perTipo.filter((c: any) => {
+      const gratis = !c.price || Number(c.price) === 0;
+      return this.filtroPrezzoDashboard === "gratis" ? gratis : !gratis;
+    });
   }
 
   miaCollezione() {
     // Collezione (VISITATORE) = item e visite POSSEDUTI (propri + acquistati) nel
-    // museo selezionato, filtrati da ricerca e filtro-tipo.
+    // museo selezionato, filtrati da ricerca e dai filtri strutturati.
     const tutto = [...this.itemsMarket, ...this.contenuti] as any[];
     const filtrati = tutto.filter(
       (c) =>
@@ -534,7 +714,12 @@ export class AppState {
         this.visibileNelMercato(c) &&
         this.corrispondeRicerca(c, this.ricercaCollezione),
     );
-    return this.filtraPerTipo(filtrati, this.filtroTipoCollezione);
+    return this.filtraAvanzato(
+      filtrati,
+      this.filtroTipoCollezione,
+      this.filtroDiffCollezione,
+      this.filtroDurataCollezione,
+    );
   }
 
   // Una visita GUIDATA (con parola chiave) non compare nel marketplace né si
@@ -554,9 +739,11 @@ export class AppState {
     const visite = this.contenuti.filter(
       (v: any) => v.author === this.currentUser && this.appartieneAlMuseo(v),
     );
-    const base = this.filtraPerTipo(
+    const base = this.filtraAvanzato(
       [...items, ...visite],
       this.filtroTipoLavori,
+      this.filtroDiffLavori,
+      this.filtroDurataLavori,
     );
     return base.filter((c) => this.corrispondeRicerca(c, this.ricercaLavori));
   }
@@ -636,7 +823,11 @@ export class AppState {
     if (!key || !this.currentUser)
       return this.mostraToast("Inserisci la parola chiave della visita.", "error");
     try {
-      const s = await ArtAPI.joinGuidedSession(key, this.currentUser);
+      const s = await ArtAPI.joinGuidedSession(
+        key,
+        this.currentUser,
+        this.museoEntityId() || undefined,
+      );
       this.guidedTrovata = { id: s.id, visitName: s.visitName || "Visita guidata" };
       this.mostraToast(`Sei in sala d'attesa per «${this.guidedTrovata.visitName}».`);
     } catch (e) {
@@ -675,6 +866,8 @@ export class AppState {
     this.currentView = "editor";
     this.editingId = null;
     this.filtroLibreria = "tutti";
+    this.filtroDiffLibreria = "tutti";
+    this.filtroDurataLibreria = "tutti";
     this.ricercaLibreria = "";
     this.nuovaOpera = this.resetNuovaOpera();
     // Se è un visitatore, di default l'editor crea una visita
@@ -712,6 +905,8 @@ export class AppState {
       // Visita guidata (18-27): se true, la visita è protetta da parola chiave.
       guidata: false,
       accessKey: "",
+      // Quiz di fine visita (solo guidate, facoltativo): domande a 4 opzioni.
+      quiz: [] as { question: string; options: string[]; correct: number }[],
       tappe: [] as {
         tipo: "item" | "logistica";
         value: string;
@@ -719,6 +914,73 @@ export class AppState {
       }[],
       titolo: "",
     };
+  }
+
+  // --- Editor del quiz di fine visita (solo visite guidate) ---
+  aggiungiDomandaQuiz() {
+    this.nuovaOpera.quiz.push({
+      question: "",
+      options: ["", "", "", ""],
+      correct: 0,
+    });
+  }
+
+  rimuoviDomandaQuiz(index: number) {
+    this.nuovaOpera.quiz.splice(index, 1);
+  }
+
+  // Visite GRATUITE e non guidate del museo selezionato (di qualunque autore):
+  // un docente può partirne da una come base per una nuova visita guidata.
+  visiteBaseImportabili(): any[] {
+    return (this.contenuti as any[]).filter(
+      (v) =>
+        v["@type"] === "ItemList" &&
+        this.appartieneAlMuseo(v) &&
+        !v.accessKey && // non è già una visita guidata
+        (!v.price || Number(v.price) === 0), // gratuita
+    );
+  }
+
+  // Importa nell'editor gli item (e le note logistiche) di una visita esistente
+  // come BASE per una NUOVA visita guidata di proprietà del docente: l'originale
+  // NON viene toccato (nessun editingId → al salvataggio nasce una nuova visita
+  // con autore = docente). Il docente aggiunge poi parola chiave e quiz.
+  importaVisitaBase(visitId: string) {
+    if (!visitId) return;
+    const src: any = (this.contenuti as any[]).find(
+      (v) => v["@id"] === visitId,
+    );
+    if (!src) return;
+    const opzionali = new Set<string>(src.optionalItems || []);
+    this.nuovaOpera.tappe = [
+      ...(src.itemListElement || []).map((id: string) => ({
+        tipo: "item" as const,
+        value: id,
+        opzionale: opzionali.has(id),
+      })),
+      ...(src.logistics || [])
+        .filter((n: string) => n && n.trim() !== "")
+        .map((n: string) => ({ tipo: "logistica" as const, value: n })),
+    ];
+    // Nuova visita (l'originale resta invariato). Per l'AUTORE diventa una visita
+    // guidata (aggiunge parola chiave/quiz); per il VISITATORE una propria visita
+    // personalizzata da salvare in collezione.
+    this.editingId = null;
+    if (this.currentUserType === "autore") {
+      this.nuovaOpera.guidata = true;
+      if (!this.nuovaOpera.titolo.trim())
+        this.nuovaOpera.titolo = src.name ? `${src.name} (guidata)` : "";
+      this.mostraToast(
+        "Visita importata come base: aggiungi parola chiave e (facoltativo) quiz.",
+      );
+    } else {
+      this.nuovaOpera.guidata = false;
+      if (!this.nuovaOpera.titolo.trim())
+        this.nuovaOpera.titolo = src.name ? `${src.name} (personalizzata)` : "";
+      this.mostraToast(
+        "Visita importata: personalizzala aggiungendo/rimuovendo item, poi salvala.",
+      );
+    }
   }
 
   // Restituisce gli item che l'utente può inserire in una visita
@@ -753,6 +1015,14 @@ export class AppState {
     if (this.nuovaOpera.guidata) {
       base = base.filter((op) => this.usabileInGuidata(op));
     }
+    // Filtri strutturati (difficoltà e durata per opera), coerenti con le altre
+    // viste. La libreria contiene solo item, quindi il filtro tipo è "item".
+    base = this.filtraAvanzato(
+      base,
+      "item",
+      this.filtroDiffLibreria,
+      this.filtroDurataLibreria,
+    );
     // Ricerca robusta (nome opera / autore opera / curatore / difficoltà, con
     // tolleranza ad accenti e spazi), coerente con dashboard e collezione.
     return base.filter((op) => this.corrispondeRicerca(op, this.ricercaLibreria));
@@ -830,7 +1100,8 @@ export class AppState {
     return this.mieOpere.some(
       (i: any) =>
         (typeof i.about === "object" ? i.about?.["@id"] : i.about) === art &&
-        i.educationalLevel === cap,
+        i.educationalLevel === cap &&
+        i["@id"] !== this.editingId, // l'item in modifica non blocca se stesso
     );
   }
 
@@ -879,8 +1150,9 @@ export class AppState {
       if (this.nuovaOpera.testo.trim() === "")
         return this.mostraToast("Scrivi il testo della descrizione.", "error");
 
-      // Un solo item per coppia opera+tono (il server lo verifica comunque)
-      if (this.tonoGiaUsato(this.nuovaOpera.tono))
+      // Un solo item per coppia opera+tono (il server lo verifica comunque).
+      // In modifica (editingId) l'item mantiene la sua identità: nessun controllo.
+      if (!this.editingId && this.tonoGiaUsato(this.nuovaOpera.tono))
         return this.mostraToast(
           "Hai già pubblicato una descrizione con questo tono per quest'opera.",
           "error",
@@ -888,6 +1160,8 @@ export class AppState {
 
       payload = {
         tipo: "Item",
+        // In modifica aggiorna l'item esistente (per @id); altrimenti ne crea uno.
+        editId: this.editingId || undefined,
         id_oper_universale: this.nuovaOpera.selectedArtworkUri,
         autore: this.currentUser!,
         // Un item privato non ha prezzo (non è in vendita): forzato a 0.
@@ -923,6 +1197,9 @@ export class AppState {
       // Visita GUIDATA (solo autore): richiede la parola chiave e ammette solo
       // item gratuiti o posseduti dall'autore (il server rivalida comunque).
       const guidata = this.currentUserType === "autore" && this.nuovaOpera.guidata;
+      // Quiz di fine visita: solo per le guidate e FACOLTATIVO (può mancare). Se
+      // ci sono domande, ognuna dev'essere completa (4 opzioni + una corretta).
+      let quizPayload: { question: string; options: string[]; correct: number }[] | undefined;
       if (guidata) {
         if (this.nuovaOpera.accessKey.trim() === "")
           return this.mostraToast(
@@ -937,6 +1214,25 @@ export class AppState {
             "Una visita guidata può contenere solo item gratuiti o tuoi. Rimuovi gli item a pagamento non tuoi.",
             "error",
           );
+
+        const pulito = this.nuovaOpera.quiz.map((q) => ({
+          question: q.question.trim(),
+          options: q.options.map((o) => o.trim()),
+          correct: Number(q.correct),
+        }));
+        for (const q of pulito) {
+          if (
+            !q.question ||
+            q.options.length !== 4 ||
+            q.options.some((o) => o === "") ||
+            !(q.correct >= 0 && q.correct <= 3)
+          )
+            return this.mostraToast(
+              "Completa ogni domanda del quiz: testo, 4 opzioni e una risposta corretta.",
+              "error",
+            );
+        }
+        if (pulito.length > 0) quizPayload = pulito;
       }
 
       payload = {
@@ -948,6 +1244,8 @@ export class AppState {
         // Visita guidata: gratuita (parola chiave). Altrimenti prezzo autore
         // (i visitatori non mettono prezzi → 0).
         accessKey: guidata ? this.nuovaOpera.accessKey.trim() : undefined,
+        // Quiz solo per le guidate (facoltativo): se assente non viene inviato.
+        quiz: quizPayload,
         prezzo:
           guidata || this.currentUserType !== "autore"
             ? 0

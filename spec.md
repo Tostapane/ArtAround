@@ -115,15 +115,21 @@ marketplace at `/`, compiled JS at `/dist`. Navigator runs on its own Vite dev s
   `GET /api/items`, prezzo forzato a 0, usati solo nelle visite guidate del loro autore.
 - **Visit** (= ItemList): `@id`, `name`, `level`, `duration`, `price?`, `ofMuseum`,
   `itemListElement` (Item `@id`[]), `optionalItems?` (subset marked "optional"),
-  `logistics` (string[]), `author?`, `accessKey?` (parola chiave univoca). **Visita guidata**
+  `logistics` (string[]), `author?`, `accessKey?` (parola chiave univoca), `quiz?`
+  (`QuizQuestion[]`: `{question, options[4], correct}`). **Visita guidata**
   (modulo 18-27): con `accessKey` è gratuita, non comprabile e non listata nel marketplace dei
-  visitatori; gli studenti vi accedono in modo temporaneo con la parola chiave.
+  visitatori; gli studenti vi accedono in modo temporaneo con la parola chiave. Il **quiz** di fine
+  visita è **facoltativo** ed esiste solo sulle guidate; le risposte corrette (`correct`) restano lato
+  server (mai inviate agli studenti).
 - **Museum**: `@id`, `qid`, `name`, `created`, `location`, `mapPath`.
-- **User**: `username`, `wallet`, `collezione` (id[]). **Account unico, senza ruolo:**
-  `role` è opzionale nel tipo e **rimosso dallo schema Mongoose** — "autore" e "visitatore" sono
-  ora **modalità dell'interfaccia** che lo stesso utente sceglie dopo il login (toggle in navbar,
-  `state.ts:cambiaModalita`), non l'identità dell'account. L'autorship dei contenuti resta legata
-  allo `username` (`Item.author`/`Visit.author`), indipendente dalla modalità. **Persistito** in
+- **User**: `username`, `role`, `wallet`, `collezione` (id[]). **Account basato su ruolo:**
+  `role` (`"autore" | "visitatore"`) fa parte dell'**identità** dell'account ed è **obbligatorio**
+  nello schema. L'unicità è sulla **coppia `(username, role)`** (indice composito unico): lo stesso
+  username può esistere come account autore E come account visitatore, **distinti e non collegati**
+  (wallet/collezione/contenuti separati), solo se creati esplicitamente uno alla volta. Il ruolo è
+  scelto al login/registrazione (toggle, default visitatore) e **fissa** l'interfaccia per la sessione
+  (nessuna commutazione: per cambiare ruolo si fa logout). L'autorship dei contenuti resta legata allo
+  `username` (`Item.author`/`Visit.author`). **Persistito** in
   MongoDB (`models/user.ts`, `password` in chiaro — security non valutata). CRUD via `/api/users`
   (see §4); seeded con i 4 account richiesti (`seedUsers.ts`).
 - **Match**: `{artwork, item}` (navigator joins item.about ↔ artwork["@id"]).
@@ -184,9 +190,20 @@ Base path `/api`. All mounted in `server/src/index.ts`.
 - **Guided sessions** `/api/guided-sessions` (modulo 18-27, sincronizzazione — **backbone effimero
   in memoria, nessuna persistenza**; consumato dal navigator, vedi `missing.txt`). Trasporto:
   **polling REST** (no WebSocket/SSE). Endpoint: `POST /` (docente apre la sala), `POST /join`
-  (studente entra con `accessKey`), `POST /:id/ready|leave|start|step|end`, `GET /:id` (vista docente
-  con lista d'attesa), `GET /:id/state` (vista studente; **410** a fine visita → "nessuna traccia"),
+  (studente entra con `accessKey`), `POST /:id/leave|start|step|end`,
+  `POST /:id/quiz/start|answer|end` (quiz di fine visita, vedi §5), `POST /:id/ask` (lo studente
+  notifica una domanda al docente, consegna-una-volta), `GET /:id` (vista docente con lista d'attesa),
+  `GET /:id/state` (vista studente; **410** a fine visita → "nessuna traccia"),
   `GET /:id/items?username=` (accesso **temporaneo** ai contenuti per i partecipanti, 403 se estraneo).
+  La **presenza** degli studenti è ora determinata da un heartbeat di polling (`lastSeen` + TTL): il
+  docente vede solo chi è ancora collegato (niente più flag "sono pronto"). **Gating del join** — uno
+  studente non può entrare prima che il docente abbia aperto la sala: la sessione esiste solo dopo
+  `POST /`; `POST /join` respinge con **409** ("il docente non ha ancora avviato la sala d'attesa") se
+  una visita con quella parola chiave esiste ma non c'è sala aperta, e **404** se la parola chiave non
+  esiste affatto. **Scoping per museo** — la parola chiave va inserita nel museo giusto: la `Sessione`
+  memorizza il `museum` della visita (da `visit.ofMuseum`) e `POST /join` (che riceve il museo
+  selezionato dal marketplace) rifiuta con **409** ("Questa visita guidata non esiste nel museo
+  selezionato") se lo studente ha scelto un museo diverso da quello della visita.
 - **Museums** `/api/museums`
   - `GET /` → all. `GET /:id` → museum by **qid**. `GET /:id/artworks` → artworks where
     `ofMuseum === "http://www.wikidata.org/entity" + id` (⚠️ note: **no `/` before qid**).
@@ -194,14 +211,16 @@ Base path `/api`. All mounted in `server/src/index.ts`.
     artwork qid). The curator's "foglio di carta" for QR localization; fully generic (driven by
     the museum's artworks). Uses the `qrcode` npm module server-side.
 - **Users** `/api/users` (marketplace auth + persistence)
-  - `POST /register` `{username, password}` → creates a user, returns it **without password**
-    (409 if the username exists). **No role** (account unico).
-  - `POST /login` `{username, password}` → validates username+password only, returns the user
-    (`wallet`+`collezione` included). **No role/portal.**
-  - `POST /:username/buy` `{itemId}` → **server-side** budget check, deducts `wallet`, adds
-    `itemId` to `collezione` (idempotent if already owned), and **credits the seller's wallet**:
-    price+author are read from the content doc (Item or Visit) server-side, and `$inc`'d onto the
-    author's wallet when price>0 and author≠buyer (system/AI tours have no real author → no credit).
+  - `POST /register` `{username, password, role}` → crea un account con ruolo, lo restituisce **senza
+    password** (409 se esiste già quel `(username, role)`; lo stesso username con l'altro ruolo è
+    consentito, account distinto).
+  - `POST /login` `{username, password, role}` → valida le credenziali dello **specifico** account
+    del ruolo indicato, restituisce l'utente (`role`+`wallet`+`collezione` inclusi).
+  - `POST /:username/buy` `{itemId}` → riservato ai **visitatori** (`findOne{username, role:visitatore}`):
+    controllo budget **server-side**, scala `wallet`, aggiunge `itemId` alla `collezione` (idempotente
+    se già posseduto). Il prezzo è letto dal doc del contenuto lato server. **Nessun accredito
+    all'autore** (opzione A): i ricavi si vedono nel report `/sales`, non su un wallet — account
+    autore e visitatore sono separati, nessun portafoglio condiviso.
     So author earnings become spendable by the same account in visitor mode. **A user never buys
     their own content**: if `content.author === buyer` the route is a no-op (no charge, no change) —
     own creations are implicitly owned. Mirrors the client's `haIlPossesso` (true when
@@ -304,15 +323,34 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   i **propri item (pubblici e privati) + gli item gratuiti** del marketplace; nelle visite guidate il
   campo **prezzo è nascosto** (gratuite). ⚠️ **Navigator NON toccato** (accordo col collega): UI
   docente (sala d'attesa, conduzione) e la schermata di attesa/sync studente restano da fare —
-  contratto API + deep-link in **`missing.txt`**. **Quiz di fine visita (Fase 3) non iniziato.**
-- **Account unico + saldo autore — DONE.** L'account non ha più ruolo (`User.role` opzionale, tolto
-  dallo schema): "autore"/"visitatore" sono **modalità** dell'interfaccia commutabili via toggle in
-  navbar (`state.ts:cambiaModalita`); login/register senza ruolo. **All'acquisto il wallet del
-  venditore viene accreditato** (`$inc`, prezzo+autore dal doc lato server; salta contenuti gratis,
-  tour di sistema/AI e acquisto dei propri contenuti); i ricavi diventano spendibili in modalità
-  visitatore. Un utente **non compra i propri contenuti** (già suoi: `haIlPossesso` client + guardia
-  server). **Login-first:** all'accesso si apre direttamente la pagina di login (vista `welcome`
-  rimossa; branding ArtAround spostato sulla pagina di login).
+  contratto API + deep-link in **`missing.txt`**.
+- **Quiz di fine visita (modulo 18-27) — DONE lato marketplace + server.** Facoltativo, solo sulle
+  visite guidate. **Authoring:** l'editor di una visita guidata offre una sezione "Quiz di fine visita"
+  (aggiungi/rimuovi domande, 4 opzioni, radio per la corretta); validazione client+server; salvato in
+  `Visit.quiz` (`{question, options[4], correct}`). **Orchestrazione** (guided-sessions, effimera): fase
+  sessione `"quiz"` + `POST /:id/quiz/start {teacher,durationSec}` (il docente sceglie la durata in base
+  al tempo residuo; parte ~simultaneo via `quizStartAt`, scadenza `quizEndsAt`), `POST /:id/quiz/answer
+  {username,answers[]}` (**correzione server-side**, riconsegna bloccata, 409 se scaduto/chiuso),
+  `POST /:id/quiz/end {teacher}` ("termina per tutti"; i non consegnati = 0, mancanti = errate). La vista
+  docente espone gli **esiti di tutti** (`{username,consegnato,score}`), quella studente le **domande
+  senza `correct`** + il **proprio punteggio**. **Voto = risposte corrette / totali** (es. 7/12). Tutto
+  effimero (risposte/punteggi in memoria → nessuna traccia; la definizione del quiz vive sulla Visita).
+  ⚠️ **Navigator NON toccato** (accordo col collega): UI studente (svolgimento obbligatorio + countdown)
+  e UI docente (avvia quiz con durata, esiti live, "termina per tutti") — vedi `missing.txt`.
+- **Account basato su ruolo (autore/visitatore separati) — DONE.** Ripristinati gli account per ruolo
+  (reversione dell'ex "account unico"): `User.role` obbligatorio, identità = coppia `(username, role)`
+  con indice composito unico. Un account autore e uno visitatore con lo stesso username sono
+  **distinti e non collegati**; esistono solo se creati esplicitamente. **Login/registrazione:** unica
+  schermata con username + password + **toggle ruolo (default visitatore)** che seleziona a quale
+  account accedere / da creare; il ruolo è **fisso** per la sessione (nessun toggle in navbar — solo un
+  indicatore del ruolo corrente; `cambiaModalita` rimosso). **Wallet per account, nessun portafoglio
+  condiviso (opzione A):** l'acquisto scala solo il wallet del compratore (visitatore); l'autore vede i
+  ricavi nel report `/sales`, **non** accreditati su un wallet. `haIlPossesso` è ora consapevole del
+  ruolo (un autore possiede i propri contenuti; un visitatore possiede solo la sua collezione — niente
+  accesso gratuito ai contenuti di un autore omonimo). `mieOpere` caricato solo per gli autori.
+  **Login-first** invariato (branding ArtAround sulla pagina di login). *(Verificato contro slides.pdf:
+  i 4 account richiesti si mappano su 2 autori + 2 visitatori — il modello per ruolo è pienamente
+  conforme, anzi più aderente; login/logout sono "parti marginali".)*
 - **"I miei Lavori" (autore) ≈ "La mia Collezione" (visitatore) — DONE.** Le due viste ora hanno la
   **stessa impaginazione** (griglia di card item+visite, barra di ricerca robusta, **filtro per tipo**
   Tutti/Item/Visite — `filtroTipoLavori`/`filtroTipoCollezione`). ⚠️ **Sottigliezza importante: i
@@ -327,6 +365,31 @@ Cloud** Speech-to-Text (STT), Text-to-Speech (TTS) and Translation — all under
   match multi-token in AND su **nome opera/visita, autore-contenuto (curatore), difficoltà, e per gli
   item autore-opera (pittore) e stile**, con normalizzazione accenti/punteggiatura e tolleranza agli
   spazi mancanti ("davinci"/"leonardodavinci" trovano "Leonardo da Vinci"). Verificato su dati reali.
+- **Filtri strutturati affiancati alla ricerca — DONE.** Oltre alla barra, ogni vista che elenca
+  contenuti (Marketplace, La mia Collezione, I miei Lavori, e la **libreria di selezione item
+  dell'editor visite**) offre filtri combinabili:
+  **tipo** (Tutti/Item/Visite, controllo segmentato), **difficoltà** (menu: valori presenti tra
+  `item.educationalLevel`/`visita.level`) e **durata per opera** (menu: secondi da `item.timeRequired`).
+  ⚠️ La durata è *per singola opera*, non totale della visita: selezionandone una si escludono le
+  visite (che non hanno una durata per-opera). Le opzioni dei menu sono derivate dinamicamente dai dati
+  del museo selezionato (`difficoltaDisponibili()`/`durateDisponibili()`, difficoltà in ordine canonico
+  da `shared/constants.ts:educationalLevels`). Logica unica riusabile:
+  `state.ts:filtraAvanzato(lista, tipo, difficoltà, durata)`. Nella libreria dell'editor il filtro tipo
+  è implicito ("item": la libreria contiene solo item), quindi lì si affiancano solo difficoltà e durata
+  al filtro esistente Tutti/Posseduti/Da-acquistare. Menu con `<label sr-only>` per gli screen
+  reader; il controllo tipo mantiene `role="group"` + `:aria-pressed`.
+- **Marketplace = solo contenuti a pagamento — DONE.** Gli ITEM gratuiti sono considerati già sbloccati
+  e **non compaiono più nel marketplace** del visitatore (`state.ts:itemGratuito` escluso in
+  `contenutiFiltrati`); restano usabili solo in **"crea percorso"** (libreria editor). Le visite non sono
+  toccate. *(Filtro gratis/pagamento nel marketplace non introdotto, per scelta.)*
+- **Card per OPERA (artwork) — DONE.** Marketplace, La mia Collezione, Crea percorso (libreria editor) e
+  I miei Lavori mostrano **una card per opera** (foto + nome + n. contenuti) invece della lista piatta di
+  item — gestione della scala (centinaia di item → poche card). Al click, un **modale condiviso**
+  (`artworkAperto`) elenca gli item di quell'opera **già filtrati**, con l'azione della schermata:
+  marketplace = Sblocca/Posseduto (`compraOra`), crea percorso = + Aggiungi (`aggiungiTappa`),
+  collezione / i miei lavori = Apri (`apriDettaglio`). Le **visite** restano card a sé (filtro tipo).
+  Helper: `state.ts:raggruppaPerArtwork()` (raggruppa per `about`), `soloVisite()`, `apriArtwork()`.
+  Modale con focus-trap + scroll interno (`max-h-[90vh]`); card come `<button>` accessibili.
 - **Marketplace code review vs slides.pdf — DONE (2026-07).** Full audit of the marketplace against
   the slide-20 mandatory requirements: all covered (museum panel, edit/create visit, free+paid
   content listing with scale handling, visit editing with reorder/multi-depth/optional, content
