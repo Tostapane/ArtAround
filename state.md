@@ -837,7 +837,99 @@ isn't running.
 
 ---
 
-## 10. Quick reference for the restyle
+## 10. Compatibility defects — verified, and all three fail silently
+
+These are not style opinions and not "odd parts": they are **defects that make working
+features stop working** on a platform or in a situation we do not currently test. All three
+share the same shape — no exception, no error in the console, no visible breakage during
+development on a Linux laptop over `localhost`. They are listed here rather than in §9 because
+each needs a code fix, not a rewrite.
+
+### 10.1 Voice commands are broken on Safari / iOS — a **mandatory** 18-24 feature
+
+**What happens.** On any iPhone or on macOS Safari, pressing "Comando vocale", speaking and
+releasing produces no command and no error. The announcer says "Comando non riconosciuto" at
+best.
+
+**Why.** The recorder never negotiates a format and the whole pipeline then *asserts* one:
+
+| Where | Code |
+| --- | --- |
+| `navigator/.../speech/useMediaRecorder.ts:24` | `new MediaRecorder(stream)` — no `mimeType` requested |
+| `navigator/.../speech/useMediaRecorder.ts:34` | `new Blob(audioChunks, { type: "audio/webm" })` — the blob is **labelled** webm regardless of what was actually recorded |
+| `navigator/src/api.ts:153` | uploaded as `"recording.webm"` |
+| `server/src/services/stt.ts:14` | `encoding: "WEBM_OPUS"`, `sampleRateHertz: 48000` — hardcoded |
+
+Safari's `MediaRecorder` (since 14.1) emits **MP4/AAC**, not WebM/Opus. So the container is
+mislabelled client-side and then decoded server-side as something it is not; Google STT
+returns no alternatives and `mapRequest` receives an empty transcript. The source comment at
+`useMediaRecorder.ts:22-23` ("Safari might fallback to mp4 … MediaRecorder handles it mostly")
+is the assumption that produced the bug.
+
+**Why it matters.** Controlled-vocabulary voice input is a **black, mandatory** requirement of
+the 18-24 base (slide 25), and the navigator is explicitly *"pensata per smartphone"* — so the
+feature is broken on the device class the slides name as primary. Roughly half of any exam
+audience opening the demo on an iPhone sees a dead button.
+
+**Fix.** Pick the format with `MediaRecorder.isTypeSupported()` (prefer
+`audio/webm;codecs=opus`, fall back to `audio/mp4`), tag the `Blob` with the format that was
+actually used, send it as a field alongside the audio, and map it to the Google STT `encoding`
+server-side (`WEBM_OPUS` ↔ `MP3`/`MP4` variants — for AAC-in-MP4 the practical route is to let
+Google auto-detect by omitting `encoding` and `sampleRateHertz`, which it supports for
+containerized formats).
+
+### 10.2 The marketplace stops existing without a CDN
+
+**What happens.** With no route to `cdn.jsdelivr.net`, the marketplace loads its own CSS and
+its own compiled JS, and then renders **every view at once, stacked**, with no working control
+— because without Alpine, `x-data`, `x-show`, `x-if` and `@click` are inert attributes. It
+does not error; it just becomes a very long dead page.
+
+**Why.** `marketplace/public/index.html:40-41` loads both `@alpinejs/focus` and `alpinejs`
+from jsDelivr. They are the only runtime dependencies not served by our own server — Tailwind
+output, the compiled TS and the shared types are all local.
+
+**Why it matters.** The deploy target is a **department docker** and the written exam machines
+are described in the slides as isolated from the internet. A demo that depends on a third-party
+host being reachable and unblocked from a university network is a risk taken for no benefit,
+and the failure mode gives no clue about its cause.
+
+**Fix.** Vendor both files into `marketplace/public/vendor/` and load them with relative paths
+(pin the version while doing it — `alpinejs@3.x.x` currently floats). Same principle for any
+future font: **zero external requests at runtime, in either app.**
+
+### 10.3 QR localization has no path for a blind visitor — and no fallback at all
+
+**What happens.** The only way to tell the navigator "I am standing in front of this artwork"
+is to aim a phone camera at a QR code taped beside it.
+
+**Why it matters, twice over.**
+
+- **Accessibility.** Aiming a camera at a small printed square is precisely the task a blind or
+  severely visually impaired person cannot perform — in an app whose whole purpose is to
+  *speak* to that person. This is not a corner case: it is the product's most sympathetic user
+  meeting its most visual interaction.
+- **Compatibility.** `getUserMedia` is unavailable outside a secure context, so opening the
+  navigator over a LAN IP (`http://192.168.x.x:5173` — the normal way to test on a real phone)
+  disables the camera. `useQRScanner.ts:21-24` does detect this and shows *"Fotocamera non
+  disponibile (serve https o localhost)"*, so at least it is honest — but there is nothing
+  behind that message.
+
+**The half-solution already on paper.** `GET /api/museums/:qid/qrcodes` already prints the
+artwork's `qid` under each QR (`routes/museums.ts:128-135`) — but as an 11px grey caption,
+styled as a label rather than as something a human is meant to read out or type, and **the
+navigator has no field to type it into**.
+
+**Fix.** One input closes both gaps: promote that code on the printed sheet (short, uppercase,
+large, high contrast) and accept it typed in the navigator, next to — not instead of — the
+scanner. Note for the implementation: it must be a single pasteable field, never split across
+character boxes, and never timed (WCAG 2.2 **3.3.8 Accessible Authentication**). Reusing the
+raw QID is possible but poor (`Q137925932` is ten characters of database leakage, cf. §9.11);
+a short per-museum code is better.
+
+---
+
+## 11. Quick reference for the restyle
 
 **Every marketplace surface to style**: `login`, `register`, `select_museum`, `dashboard`,
 `my_collection`, `my_works`, `editor` (item mode / visit mode / guided extras / quiz editor /
