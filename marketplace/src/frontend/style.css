@@ -71,17 +71,33 @@
 
 /*
   IL FONDALE DELLA SOGLIA.
-  Il disegno lo fa l'automa cellulare in app.ts; qui si stabilisce solo che
+  Il disegno lo fa lo sciame di punti in app.ts; qui si stabilisce solo che
   copre tutta la sezione, che non intercetta il puntatore e che sta sotto al
-  contenuto. Una velatura sopra i punti impedisce al fondale di avvicinarsi
-  troppo al testo lungo i bordi.
+  contenuto.
 */
-.automa {
+.sciame {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+/*
+  Velo: scurisce i bordi e lascia in luce il centro, dove sta la figura. Serve
+  a due cose insieme — dare profondita' allo sciame, e staccare il titolo dal
+  fondale lungo i margini, dove altrimenti i punti gli si avvicinano troppo.
+*/
+.sciame-velo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    115% 85% at 50% 45%,
+    transparent 30%,
+    rgb(0 0 0 / 0.22) 70%,
+    rgb(0 0 0 / 0.45) 100%
+  );
 }
 
 /* Il marchio: grande sulla soglia, ma sempre sotto al titolo per peso visivo. */

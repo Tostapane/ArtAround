@@ -112,6 +112,82 @@ disegnato su canvas (`automaton()` in `marketplace/src/frontend/app.ts`): ogni c
 di stato appena una vicina le è un passo avanti, e da rumore casuale la regola si
 auto-organizza in fronti d'onda che si rincorrono senza fermarsi mai.
 
+**Terza passata (28/07): da automa a SCIAME che compone figure.**
+L'automa cellulare è stato sostituito da una nuvola di punti che si raduna a formare, una
+dopo l'altra, le **piante dei musei** e i **contorni di alcune opere**, poi si sfalda in una
+tempesta e si ricompone nella successiva (`swarm()` in `app.ts`). Le sorgenti sono le stesse
+mappe annotate da cui il server ricava il grafo delle sale e le stesse immagini delle opere
+in vendita: il fondale cambia da solo quando si aggiunge un museo.
+
+Come si ricava una figura: la sorgente si disegna piccola fuori schermo, se ne misura il
+**contrasto locale** e si tengono i punti dove cambia di più. Vale sia per le mappe (al
+tratto) sia per i dipinti (fotografie): restano i contorni, mai una macchia piena.
+
+**Quarta passata: via il rimbalzo, e sfumatura ai bordi.**
+- **Tolta del tutto la fase di dispersione.** I punti ora sono *sempre* attratti da un
+  bersaglio e passano da una figura all'altra scivolando. La dispersione rimbalzava, e il
+  riavvolgimento ai bordi che l'accompagnava faceva sparire i punti da un lato per farli
+  ricomparire dall'altro. Restano due fasi: `morph` e `hold`.
+- Ogni punto parte con un **piccolo ritardo suo**, così la figura si compone a ondate invece
+  che tutta in una volta; a figura ferma resta un respiro appena percettibile.
+- **Sfumatura ai bordi**: l'opacità dei punti cala avvicinandosi al margine (`EDGE`), così la
+  nuvola sfuma nel buio invece di finire tagliata di netto. Sopra, un **velo radiale**
+  (`.sciame-velo`) scurisce i bordi e stacca il titolo dal fondale.
+
+**Quinta passata: la figura non si leggeva.** La sfumatura ai bordi, appena introdotta,
+**stava cancellando proprio la figura**: il disegno veniva inquadrato all'82% dell'altezza,
+lasciando 97 px di margine, mentre la fascia di sfumatura era larga 238 px. I muri
+orizzontali in alto e in basso — la parte che più definisce una pianta — finivano sotto il
+10% di opacità, e restavano solo due striature verticali. Correzioni:
+- inquadratura della figura **0.82 → 0.62**, fascia di sfumatura **0.22 → 0.10**: la figura
+  ora sta tutta fuori dalla zona smorzata (bordo superiore a 205 px contro una fascia di
+  108 px);
+- caselle di campionamento **3 → 2** e soglia **0.14 → 0.12**: da 788 a **1220 punti**;
+- particelle **4000 → ~2300**: prima erano sei per bersaglio e il disegno si impastava, ora
+  sono circa una o due.
+Le tre piante danno 1220, 1232 e 1414 punti, **tutti pienamente visibili, nessuno smorzato**.
+
+Il difetto è stato trovato simulando la pipeline **intera** fuori dal browser — rasterizzare
+la mappa, estrarre i contorni, calcolare i bersagli, applicare la sfumatura e stampare il
+risultato in ASCII. Le prove precedenti verificavano un pezzo per volta e passavano tutte:
+il guasto stava nella *combinazione* fra inquadratura e sfumatura, che nessuna prova isolata
+poteva vedere. Vale la pena rifarlo così se si ritocca `margin`, `EDGE` o `SAMPLE_W`.
+
+*(Nota: un test precedente sembrava dire che le piante rendessero solo il perimetro. Era il
+rasterizzatore di prova a non ereditare gli attributi dai `<g>`, e i muri stanno dentro
+`<g stroke="#333" stroke-width="4">`. Il browser li disegna: la mappa vera ha più struttura
+di quanto quella prova mostrasse.)*
+
+Tre difetti trovati nel proprio codice quando la resa è risultata "lampeggiante e rumorosa":
+1. **il riavvolgimento ai bordi valeva anche mentre i punti raggiungevano un bersaglio** —
+   qualunque punto tirato attraverso il riquadro spariva e ricompariva altrove: era quello a
+   far lampeggiare tutto;
+2. **i bersagli erano assegnati a caso**, quindi metà sciame attraversava il riquadro e la
+   figura si componeva in un groviglio — ora punti e particelle si ordinano per angolo
+   attorno al centro e ognuna riceve un bersaglio dalla propria parte;
+3. **i contorni erano scelti mescolando e tagliando**, il che su una fotografia teneva la
+   grana sparsa ovunque — ora si divide il campione in caselle e in ognuna si tiene il
+   contorno più netto, così i punti seguono la struttura e restano distribuiti.
+
+Verificato senza poter guardare lo schermo:
+- la matematica dei contorni, su un campo sintetico: traccia i bordi e trova **zero** punti
+  dentro le campiture — che era il rischio vero;
+- l'iniezione di `width`/`height` nelle mappe, che hanno solo il `viewBox` e altrimenti
+  verrebbero disegnate larghe zero;
+- che le tre sorgenti siano davvero servite (`/api/museums`, `/maps/*.svg`,
+  `/images/artworks/*.jpg`, tutte 200 col tipo giusto e tutte di pari origine, quindi il
+  canvas non si "sporca" e i pixel si possono rileggere).
+
+Due difetti trovati rileggendo il proprio codice e corretti: le figure normalizzavano x e y
+separatamente e venivano disegnate in un 4:3 fisso (**un dipinto verticale sarebbe stato
+schiacciato** — ora ogni figura porta con sé le proporzioni), e i punti venivano scelti per
+intensità del contorno, il che avrebbe tenuto solo i tratti più spessi facendo sparire
+l'interno delle piante (ora si mescola e poi si taglia).
+
+⚠️ La soglia ora carica fino a sei sorgenti (tre mappe, tre immagini). Arrivano in modo
+asincrono e la prima figura si compone appena è pronta, ma è traffico in più sulla pagina
+d'ingresso: se dà fastidio, si riduce `slice(0, 3)` sulle opere in `loadShapes`.
+
 **Seconda passata (28/07): punti più piccoli, più fitti, e moto continuo.**
 - `CELL 13 → 10`, `DOT 0.30 → 0.24`: diametro massimo da 7,8 a **4,8 px**, e circa il doppio
   delle celle. `PERIOD 260 → 150`.

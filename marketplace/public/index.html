@@ -135,7 +135,8 @@
 
     <section x-show="view === 'soglia'" class="relative min-h-[100dvh] overflow-hidden bg-structure text-on-structure">
       <!-- fondale animato -->
-      <canvas class="automa" aria-hidden="true" x-data="automaton()" x-init="start($el)"></canvas>
+      <canvas class="sciame" aria-hidden="true" x-data="swarm()" x-init="start($el)"></canvas>
+      <div class="sciame-velo" aria-hidden="true"></div>
 
       <div class="relative flex min-h-[100dvh] flex-col justify-between p-6 sm:p-10 lg:p-16">
         <div class="flex items-center justify-between">
