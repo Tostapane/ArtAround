@@ -17,7 +17,10 @@ router.post("/", upload.single("audioFile"), async (req, res) => {
     if (!file) return res.status(400).json({ error: "No audio file provided" });
     // lingua in cui parla l'utente (BCP-47); default italiano
     const sttLang = (req.body?.lang as string) || "it-IT";
-    const transcript = await recognizeAudio(req.file.buffer, sttLang);
+    const transcript = await recognizeAudio(file.buffer, sttLang);
+    // Nessuna parola riconosciuta: si risponde comunque, e il client dirà
+    // "non ho capito" invece di restare in attesa di nulla.
+    if (!transcript) return res.json({ mappedTranscript: "" });
     const mappedTranscript = await mapRequest(transcript);
     res.json({ mappedTranscript });
   } catch (err) {

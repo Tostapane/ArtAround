@@ -182,6 +182,31 @@ router.post("/", async (req, res) => {
       payload.optionalItems ||
       [];
 
+    // --- Note logistiche ANCORATE alla loro posizione ---
+    // Slide 21: una visita e' "una sequenza di descrizioni di item PIU'
+    // indicazioni logistiche ... per passare da un item all'altro". Una nota
+    // che perde il suo posto nella sequenza non puo' dire come si va da una
+    // tappa alla successiva: e' esattamente il suo scopo. Il `percorso` che
+    // arriva dall'editor e' gia' ordinato, quindi ogni nota registra dopo
+    // quale tappa si trova (`after: null` = nota d'apertura, prima di tutto).
+    let logistics: { after: string | null; text: string }[] = [];
+    if (Array.isArray(payload.percorso)) {
+      let ultimoItem: string | null = null;
+      for (const t of payload.percorso) {
+        if (t.tipo === "item") {
+          ultimoItem = t.id_item;
+        } else if (t.tipo === "logistica") {
+          const text = typeof t.indicazione === "string" ? t.indicazione.trim() : "";
+          if (text !== "") logistics.push({ after: ultimoItem, text });
+        }
+      }
+    } else if (Array.isArray(payload.logistics)) {
+      // Formato vecchio (solo testi): si conserva senza posizione.
+      logistics = payload.logistics
+        .filter((n: any) => typeof n === "string" && n.trim() !== "")
+        .map((n: string) => ({ after: null, text: n.trim() }));
+    }
+
     // `level` e `duration` sono obbligatori nello schema Visit. Una visita
     // creata dal marketplace non ne ha di espliciti: usiamo un livello generico
     // e ricaviamo la durata sommando i `timeRequired` (secondi) degli item scelti.
@@ -279,12 +304,7 @@ router.post("/", async (req, res) => {
         // Quiz solo per le guidate: null lo rimuove se la visita non è guidata o
         // non ha domande (es. modifica che toglie il quiz).
         quiz: quiz ?? null,
-        logistics:
-          payload.percorso
-            ?.filter((t: any) => t.tipo === "logistica")
-            .map((t: any) => t.indicazione) ||
-          payload.logistics ||
-          [],
+        logistics,
       },
       { upsert: true },
     );

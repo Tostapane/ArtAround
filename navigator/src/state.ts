@@ -2,14 +2,30 @@ import { ref } from "vue";
 import type { Artwork, Visit, Museum, Match } from "../../shared/types";
 import { languages, type Language } from "../../shared/constants";
 import { getMuseum, getVisitItems } from "./api";
+import { mediaOrigin } from "./config";
 
 export const visit = ref<Visit>();
 export const museum = ref<Museum>();
 export const map = ref<string>("");
 
-// Lingua scelta dall'utente: tutti i contenuti (titolo, autore, testo, risposte
-// LLM) vengono tradotti e sintetizzati live in questa lingua. Default: italiano
-// (la lingua di partenza dei contenuti nel DB). La scelta e' persistita.
+/** Chi sta visitando (arriva dal marketplace con ?user=). Vuoto in modalita'
+ *  esempio: in quel caso si vedono solo le visite gratuite. */
+export const utente = ref<string>("");
+
+/** Cosa mostra il palcoscenico: la mappa o l'elenco. Sono due modi di
+ *  navigare la stessa visita, non un contenuto e la sua barra laterale —
+ *  quindi sono pari, e la scelta si ricorda. */
+export const vistaStage = ref<"mappa" | "elenco">(
+  (localStorage.getItem("artaround-stage") as "mappa" | "elenco") || "mappa",
+);
+
+export function setVistaStage(v: "mappa" | "elenco") {
+  vistaStage.value = v;
+  localStorage.setItem("artaround-stage", v);
+}
+
+// Lingua scelta dall'utente: tutti i contenuti vengono tradotti e sintetizzati
+// live in questa lingua. Default: italiano (lingua di partenza nel DB).
 const STORAGE_KEY = "artaround-lang";
 
 function defaultLanguage(): Language {
@@ -34,12 +50,12 @@ export function setLanguage(lang: Language) {
 }
 
 // Popolato dal server (GET /api/visits/:id/items, con `about` gia' espanso),
-// oppure iniettato direttamente per le visite su misura (setCustomVisit).
-// Niente piu' join lato client tra item e artwork.
+// oppure iniettato direttamente per le visite su misura e guidate.
 export const matchedContent = ref<Match[]>([]);
 
-// Tappe opzionali (slide 23): da toggle spento Prossimo/Precedente le saltano;
-// restano apribili direttamente (click/QR = "su domanda del visitatore").
+// Tappe opzionali (slide 23): a interruttore spento Prossimo/Precedente le
+// saltano; restano apribili direttamente (elenco, mappa, QR) — cioe' "se
+// rimane tempo, o su domanda del visitatore".
 export const includeOptional = ref(false);
 
 export function isOptionalItem(itemId: string): boolean {
@@ -48,13 +64,43 @@ export function isOptionalItem(itemId: string): boolean {
   return visit.value.optionalItems.includes(itemId);
 }
 
+/**
+ * Indicazioni logistiche ancorate DOPO una certa tappa.
+ * Slide 21: la visita e' "una sequenza di descrizioni di item piu' indicazioni
+ * logistiche ... per passare da un item all'altro". Finora il navigator non le
+ * leggeva affatto: erano scritte, salvate, mostrate nel marketplace e invisibili
+ * alla persona per cui erano state scritte.
+ */
+export function logisticaDopo(itemId: string): string[] {
+  const v = visit.value;
+  if (!v || !v.logistics) return [];
+  const note: string[] = [];
+  for (const n of v.logistics) {
+    if (n && typeof n === "object" && n.after === itemId && n.text) {
+      note.push(n.text);
+    }
+  }
+  return note;
+}
+
+/** Note d'apertura: quelle senza posizione (o salvate nel vecchio formato). */
+export function logisticaIniziale(): string[] {
+  const v = visit.value;
+  if (!v || !v.logistics) return [];
+  const note: string[] = [];
+  for (const n of v.logistics) {
+    if (typeof n === "string" && n.trim() !== "") note.push(n);
+    else if (n && typeof n === "object" && !n.after && n.text) note.push(n.text);
+  }
+  return note;
+}
+
 // id della visita di cui matchedContent contiene gia' il contenuto: evita di
-// ricaricarlo (e, per le visite su misura, di sovrascrivere quello iniettato).
+// ricaricarlo (e, per le visite iniettate, di sovrascriverlo).
 let contentVisitId = "";
 
 let museumLoadingPromise: Promise<void> | null = null;
 
-// funzioni di pulizia
 export function clearVisit() {
   visit.value = undefined;
   matchedContent.value = [];
@@ -62,9 +108,8 @@ export function clearVisit() {
   includeOptional.value = false;
 }
 
-// inietta una visita SU MISURA (generata dai vincoli dell'utente) direttamente
-// nello stato, senza passare dal DB: la visita vive solo nel client. Il guard
-// contentVisitId impedisce a loadVisit/loadVisitContent di ri-fetcharla.
+// inietta una visita costruita altrove (su misura, oppure guidata) senza
+// passare dal database: vive solo nel client.
 export function setCustomVisit(v: Visit, content: Match[]) {
   visit.value = v;
   matchedContent.value = content;
@@ -72,10 +117,7 @@ export function setCustomVisit(v: Visit, content: Match[]) {
   includeOptional.value = false;
 }
 
-// imposta i metadati della visita normale scelta nel Selector: il Selector ha
-// gia' l'oggetto Visit completo, quindi evitiamo un secondo fetch dal server.
-// Le visite su misura usano invece setCustomVisit; il contenuto della visita
-// (matchedContent) viene caricato a parte da loadVisitContent.
+// imposta i metadati della visita scelta: il contenuto arriva da loadVisitContent.
 export function setVisit(v: Visit) {
   visit.value = v;
   includeOptional.value = false;
@@ -83,7 +125,6 @@ export function setVisit(v: Visit) {
 
 // carica gli item della visita gia' uniti al rispettivo artwork
 export async function loadVisitContent(visitId: string) {
-  // gia' presente (caricata in precedenza o iniettata, visita su misura)
   if (contentVisitId === visitId) return;
   matchedContent.value = [];
   try {
@@ -93,10 +134,7 @@ export async function loadVisitContent(visitId: string) {
       .map((it) => ({ artwork: it.about as Artwork, item: it }));
     contentVisitId = visitId;
   } catch (err) {
-    console.error(
-      "Errore durante il caricamento del contenuto della visita",
-      err,
-    );
+    console.error("Errore durante il caricamento del contenuto della visita", err);
   }
 }
 
@@ -120,9 +158,7 @@ export async function loadMuseum(id: string) {
 // scarica l'SVG della mappa usando il mapPath del museo (unica fonte di verita')
 export async function loadMap(target: Museum) {
   try {
-    const response = await fetch(
-      `http://localhost:8000${encodeURI(target.mapPath)}`,
-    );
+    const response = await fetch(`${mediaOrigin()}${encodeURI(target.mapPath)}`);
     if (!response.ok)
       throw new Error(`Failed to fetch map: ${response.statusText}`);
     map.value = await response.text();

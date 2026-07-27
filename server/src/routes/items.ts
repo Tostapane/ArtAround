@@ -157,19 +157,4 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * POST /api/items/batch
- * Recupero massivo di item per ID.
- */
-router.post("/batch", async (req, res) => {
-  try {
-    const idsArray = req.body.ids;
-    const items = await ItemModel.find({ "@id": { $in: idsArray } });
-    res.json(items);
-  } catch (error: any) {
-    console.error(error);
-    res.status(500).json({ error: "Errore nel caricamento batch" });
-  }
-});
-
 export default router;

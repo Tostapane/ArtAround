@@ -1,183 +1,152 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import Header from "./components/Header.vue";
-import Footer from "./components/Footer.vue";
-import Selector from "./components/selection/Selector.vue";
-import MainView from "./components/map/MainView.vue";
+import { onMounted, ref, computed } from "vue";
+import Biglietteria from "./components/selection/Biglietteria.vue";
+import Visita from "./components/visita/Visita.vue";
 import GuidedGate from "./components/GuidedGate.vue";
-import { loadMuseum, setCustomVisit, setVisit } from "./state";
+import { loadMuseum, setCustomVisit, setVisit, visit, utente } from "./state";
 import { getVisit } from "./api";
+import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
 import { useAnnouncer } from "./composables/useAnnouncer";
 import type { Visit, Match } from "../../shared/types";
 
 const { message, announce } = useAnnouncer();
 
-// museo mostrato quando il navigator viene aperto senza parametri
-const DEFAULT_MUSEUM_QID = "Q6373";
+const pronto = ref(false);
+const erroreAvvio = ref("");
+const started = ref(false);
+const choice = ref<string>("");
 
 // qid del museo a partire dal suo @id/URI wikidata (ultimo segmento)
 function museumQidFromUri(uri: string): string {
-  const parts = uri.split("/");
-  return parts[parts.length - 1] || "";
+  const parti = uri.split("/");
+  return parti[parti.length - 1] || "";
 }
 
 onMounted(async () => {
-  const params = new URLSearchParams(window.location.search);
-  const visitId = params.get("visit");
-  const museumParam = params.get("museum");
+  // Il museo e l'indirizzo del server arrivano dal FILE DI CONFIGURAZIONE
+  // (slide 25/33), non da una costante nel codice.
+  await loadConfig();
 
-  // deep link VISITA GUIDATA (modulo 18-27) dal marketplace:
-  //  - studente: ?guidedSession=<id>&role=studente&user=<username>
-  //  - docente:  ?guidedVisit=<visitId>&role=docente&user=<username>
+  const params = new URLSearchParams(window.location.search);
+  utente.value = params.get("user") || "";
+
   const role = params.get("role");
   const guidedSessionParam = params.get("guidedSession");
   const guidedVisitParam = params.get("guidedVisit");
-  const userParam = params.get("user") || "";
+
   if (role === "studente" && guidedSessionParam) {
     try {
-      await attachAsStudent(guidedSessionParam, userParam);
+      await attachAsStudent(guidedSessionParam, utente.value);
+      pronto.value = true;
       return;
     } catch (err) {
       console.error("Impossibile agganciare la visita guidata", err);
+      erroreAvvio.value =
+        "Non è stato possibile entrare nella visita guidata. Chiedi al docente di riaprire la sala d'attesa.";
     }
   }
   if (role === "docente" && guidedVisitParam) {
     try {
-      await startAsTeacher(guidedVisitParam, userParam);
+      await startAsTeacher(guidedVisitParam, utente.value);
+      pronto.value = true;
       return;
     } catch (err) {
       console.error("Impossibile avviare la visita guidata", err);
+      erroreAvvio.value = "Non è stato possibile aprire la sala d'attesa.";
     }
   }
 
-  // deep link dal marketplace (?museum=<qid>&visit=<id>): la visita arriva dal
-  // database, il museo dal suo file di configurazione; si parte direttamente.
+  // Collegamento diretto dal marketplace: ?museum=<qid>&visit=<id>
+  const visitId = params.get("visit");
+  const museumParam = params.get("museum");
   if (visitId) {
     try {
       const v = await getVisit(visitId);
-      let museumQid = museumParam;
-      if (v.ofMuseum) museumQid = museumQidFromUri(v.ofMuseum);
-      if (museumQid) await loadMuseum(museumQid);
+      let qid = museumParam || "";
+      if (v.ofMuseum) qid = museumQidFromUri(v.ofMuseum);
+      if (qid) await loadMuseum(qid);
       onStart(v);
+      pronto.value = true;
       return;
     } catch (err) {
-      console.error("Impossibile aprire la visita dal link", err);
-      // si ricade sulla normale selezione della visita
+      console.error("Impossibile aprire la visita dal collegamento", err);
     }
   }
 
-  // accesso diretto: museo dal parametro ?museum=, altrimenti quello di default
-  let museumQid = museumParam;
-  if (!museumQid) museumQid = DEFAULT_MUSEUM_QID;
-  loadMuseum(museumQid);
+  // Accesso normale: il museo dal parametro, altrimenti dal file di configurazione.
+  const qid = museumParam || museumQid();
+  if (!qid) {
+    erroreAvvio.value =
+      "Nessun museo configurato. Il curatore deve indicarlo in config.json.";
+    pronto.value = true;
+    return;
+  }
+  await loadMuseum(qid);
+  pronto.value = true;
 });
 
-// la visita scelta (id) e la fase corrente: prima si sceglie, poi si visita
-const choice = ref<string>("");
-const started = ref(false);
-const summary = ref<{ level: string; duration: number } | null>(null);
-
-// visita normale: il Selector passa l'oggetto Visit gia' completo (lo ha gia'
-// caricato per popolare i menu), quindi lo iniettiamo nello stato senza un
-// secondo fetch dal server
 function onStart(v: Visit) {
   setVisit(v);
   choice.value = v["@id"];
-  summary.value = { level: v.level, duration: v.duration };
   started.value = true;
-  announce("Visita avviata");
+  announce(`Visita avviata: ${v.name}`);
 }
 
-// visita su misura: il Selector ha gia' creato visita+contenuto (non persistiti),
-// qui li iniettiamo nello stato e avviamo la visita
 function onCustomStart(payload: { visit: Visit; content: Match[] }) {
   setCustomVisit(payload.visit, payload.content);
   choice.value = payload.visit["@id"];
-  summary.value = {
-    level: payload.visit.level,
-    duration: payload.visit.duration,
-  };
   started.value = true;
-  announce("Visita avviata");
+  announce(`Visita avviata: ${payload.visit.name}`);
 }
 
-function goBack() {
+function esci() {
   started.value = false;
-  announce("Selezione della visita");
+  announce("Scelta della visita");
 }
+
+const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-bg text-text">
-    <!-- Salta direttamente al contenuto (utile per chi naviga da tastiera) -->
-    <a
-      href="#contenuto"
-      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-on-accent"
-    >
-      Salta al contenuto
-    </a>
+  <div class="flex min-h-[100dvh] flex-col bg-bg text-text">
+    <a href="#contenuto" class="salta">Salta al contenuto</a>
 
-    <Header class="relative z-20 shrink-0" />
-
-    <main
-      id="contenuto"
-      tabindex="-1"
-      class="relative flex flex-1 flex-col overflow-hidden bg-surface-2"
-      aria-label="Contenuto principale"
-    >
-      <!-- Visita guidata (modulo 18-27): sala d'attesa, visita, fine -->
-      <GuidedGate v-if="guidedActive" />
-
-      <!-- Fase 1: scelta di livello e durata -->
-      <div
-        v-else-if="!started"
-        class="flex flex-1 items-start justify-center overflow-y-auto p-4 sm:items-center"
-      >
-        <Selector
-          class="w-full max-w-md"
-          @start="onStart"
-          @customStart="onCustomStart"
-        />
+    <main id="contenuto" tabindex="-1" class="flex flex-1 flex-col">
+      <!-- Avvio: il museo e la configurazione stanno arrivando -->
+      <div v-if="!pronto" class="flex flex-1 items-center justify-center p-8">
+        <p class="text-small text-muted" role="status">Apertura del museo…</p>
       </div>
 
-      <!-- Fase 2: mappa e opere -->
-      <template v-else>
-        <div
-          class="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2.5"
-        >
-          <button
-            type="button"
-            @click="goBack"
-            class="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface-2"
-          >
-            <svg
-              class="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Cambia visita
-          </button>
-          <span v-if="summary" class="text-sm text-muted">
-            {{ summary.level }} ·
-            {{ Math.max(1, Math.round(summary.duration / 60)) }} min
-          </span>
-        </div>
+      <!-- Visita guidata (modulo 18-27) -->
+      <GuidedGate v-else-if="guidedActive" />
 
-        <div class="relative flex-1 overflow-hidden">
-          <MainView :currVisit="choice" />
+      <!-- Errore d'avvio: si dice cosa è successo e cosa fare -->
+      <div
+        v-else-if="erroreAvvio"
+        class="flex flex-1 items-center justify-center p-8"
+      >
+        <div class="lastra max-w-md p-6 text-center">
+          <p class="text-body">{{ erroreAvvio }}</p>
         </div>
-      </template>
+      </div>
+
+      <!-- Fase 1: la biglietteria -->
+      <Biglietteria
+        v-else-if="!started"
+        @start="onStart"
+        @customStart="onCustomStart"
+      />
+
+      <!-- Fase 2: la visita -->
+      <Visita
+        v-else
+        :curr-visit="choice"
+        :titolo="titoloVisita"
+        @esci="esci"
+      />
     </main>
 
-    <Footer v-if="!started && !guidedActive" class="shrink-0" />
-
-    <!-- Live region globale: annunci di stato per screen reader -->
     <p class="sr-only" role="status" aria-live="polite">{{ message }}</p>
   </div>
 </template>

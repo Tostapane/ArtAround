@@ -3,6 +3,7 @@ import express from "express";
 import mongoose from "mongoose";
 import path from "path";
 import cors from "cors";
+import QRCode from "qrcode";
 
 // Routes
 import artworkRoutes from "./routes/artworks";
@@ -17,7 +18,9 @@ import wayfindingRoutes from "./routes/wayfinding";
 import guidedSessionRoutes from "./routes/guidedSessions";
 
 const app = express();
-const PORT = 8000;
+// La porta era una costante: sul docker del dipartimento, e per far girare due
+// istanze in parallelo, deve poter cambiare senza toccare il codice.
+const PORT = Number(process.env.PORT) || 8000;
 
 app.use(cors());
 app.use(express.json());
@@ -65,6 +68,47 @@ app.get("/api/health", (req, res) => {
     message: "Unified Backend running",
     node_version: process.version,
   });
+});
+
+/**
+ * GET /api/config
+ * Configurazione d'ambiente per i client. Serve a togliere host e porte
+ * scritti a mano dal codice del marketplace (prelude.md §6 C5): il navigator
+ * gira su un'altra origine e solo il server sa quale.
+ * In deploy si imposta NAVIGATOR_ORIGIN; in sviluppo si ricava dall'host della
+ * richiesta con la porta di Vite.
+ */
+/**
+ * GET /api/qr?text=<contenuto>
+ * Un QR come SVG, generato dal server. Serve al marketplace per il passaggio
+ * PC → telefono: il marketplace e' un'app da scrivania, il navigator un'app da
+ * museo, e fino a ieri il prodotto non riconosceva mai che la persona deve
+ * cambiare dispositivo. Sta qui e non nel client perche' il modulo `qrcode` c'e'
+ * gia' (lo usa il foglio stampabile) e il marketplace non ha un bundler.
+ */
+app.get("/api/qr", async (req, res) => {
+  try {
+    const text = String(req.query.text || "");
+    if (!text) return res.status(400).json({ error: "Parametro 'text' richiesto" });
+    const svg = await QRCode.toString(text, {
+      type: "svg",
+      margin: 1,
+      errorCorrectionLevel: "M",
+    });
+    res.type("image/svg+xml").set("Cache-Control", "no-store").send(svg);
+  } catch {
+    res.status(500).json({ error: "Errore nella generazione del QR" });
+  }
+});
+
+app.get("/api/config", (req, res) => {
+  let navigatorOrigin = process.env.NAVIGATOR_ORIGIN;
+  if (!navigatorOrigin) {
+    const host = String(req.hostname || "localhost");
+    const protocol = req.protocol || "http";
+    navigatorOrigin = `${protocol}://${host}:5173`;
+  }
+  res.json({ navigatorOrigin });
 });
 
 app.listen(PORT, () => {

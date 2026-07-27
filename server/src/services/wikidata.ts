@@ -18,9 +18,11 @@ export interface MuseumMetadata {
  * ritorna le informazioni di ArtworkMetadata raccogliendole da wikidata
  */
 
+// Ritorna null quando Wikidata non conosce l'opera: il chiamante (manager.ts)
+// lo verifica già, ma il tipo diceva il contrario.
 export async function fetchArtwork(
   wikiDataUri: string,
-): Promise<ArtworkMetadata> {
+): Promise<ArtworkMetadata | null> {
   const sparqlQuery = `
     SELECT ?itemLabel ?authorLabel ?authorQid ?image (GROUP_CONCAT(DISTINCT ?styleLabel; separator=", ") AS ?styles) (GROUP_CONCAT(DISTINCT ?styleQid; separator=", ") AS ?styleQids) WHERE {
       BIND(wd:${wikiDataUri} AS ?item)

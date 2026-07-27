@@ -19,28 +19,6 @@ const MONGO_URI =
   process.env.MONGO_URI ||
   "mongodb://localuser:localpassword@localhost:27017/artaround?authSource=admin";
 
-// Lista di QID di opere famose per il test
-const testArtworks = [
-  "Q12418",
-  "Q45585",
-  "Q185372",
-  "Q18891156",
-  "Q128910",
-  "Q175036",
-  "Q151047",
-  "Q208758",
-  "Q219831",
-  "Q328523",
-  "Q321303",
-  "Q29530",
-  "Q220859",
-  // "Q152124",
-  // "Q30343",
-  // "Q5110738",
-  // "Q2712211",
-  // "Q1452140",
-];
-
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function seed() {
   try {
@@ -140,15 +118,6 @@ async function seed() {
     await mongoose.disconnect();
     console.log("Connessione chiusa. Uscita...");
   }
-}
-
-async function printStored() {
-  await mongoose.connect(MONGO_URI);
-  const artworks = await ArtworkModel.find();
-  for (const artwork of artworks) {
-    console.log(`${artwork.qid}`);
-  }
-  await mongoose.disconnect();
 }
 
 async function seedDownload() {
@@ -307,7 +276,13 @@ async function seedSpecialVisits() {
 }
 
 async function completeSeed() {
-  // await seedMuseums();
+  // I MUSEI VANNO PER PRIMI. Era commentato, e un database appena popolato
+  // restava senza musei: il pannello di scelta del marketplace vuoto, la
+  // configurazione del navigator irrecuperabile, il wayfinding senza mappa —
+  // e nessun indizio sul perche'. Rigenera anche i file di configurazione
+  // per-museo in data/museums/ (i loro mapPath puntano agli SVG annotati a
+  // mano in public/maps/, che NON vengono toccati).
+  await seedMuseums();
   await seed();
   await seedDownload();
   await seedSpecialVisits();

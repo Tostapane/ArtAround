@@ -53,20 +53,54 @@ router.post("/register", async (req, res) => {
 });
 
 /**
- * POST /api/users/login  { username, password, role }
- * Verifica le credenziali per lo specifico account (username + password +
- * ruolo scelto al login) e lo restituisce. Un account autore e uno visitatore
- * con lo stesso username sono distinti: si accede a quello del ruolo indicato.
+ * POST /api/users/login  { username, password, role? }
+ *
+ * Il RUOLO NON SI CHIEDE all'utente: "sei un autore o un visitatore?" e' una
+ * domanda sul nostro modello dati, posta prima che la persona abbia modo di
+ * rispondere. Lo risolve il server dalle credenziali:
+ *   - un solo account corrisponde  -> si entra, e il ruolo torna nella risposta;
+ *   - nessuno                      -> 401;
+ *   - due (stesso username E stessa password, creati apposta uno per ruolo)
+ *                                  -> 300 con l'elenco, e SOLO allora il client
+ *                                     chiede quale profilo aprire.
+ * Il modello dati non cambia: l'identita' resta la coppia (username, role).
  */
 router.post("/login", async (req, res) => {
   try {
     const { username, password, role } = req.body;
-    if (!ruoloValido(role))
-      return res.status(400).json({ error: "Ruolo non valido" });
-    const user = await UserModel.findOne({ username, password, role });
-    if (!user)
-      return res.status(401).json({ error: "Credenziali non valide" });
-    res.json(sanitize(user));
+    if (!username || !password)
+      return res.status(400).json({ error: "Inserisci username e password" });
+
+    // Secondo passo: il client ha gia' scelto il profilo fra quelli proposti.
+    if (role) {
+      if (!ruoloValido(role))
+        return res.status(400).json({ error: "Ruolo non valido" });
+      const user = await UserModel.findOne({ username, password, role });
+      if (!user)
+        return res.status(401).json({
+          error: "Credenziali non valide. Controlla username e password.",
+        });
+      return res.json(sanitize(user));
+    }
+
+    // Solo account con un ruolo VALIDO: nel database possono esserci documenti
+    // senza ruolo, rimasti dal vecchio modello "account unico". Prima non
+    // potevano entrare (il login esigeva la corrispondenza del ruolo); ora che
+    // il ruolo lo deduciamo noi, entrerebbero con role=undefined e si
+    // troverebbero davanti un'interfaccia vuota — né autore né visitatore.
+    const candidati = (await UserModel.find({ username, password })).filter(
+      (u) => ruoloValido(u.role),
+    );
+    if (candidati.length === 0)
+      return res.status(401).json({
+        error: "Credenziali non valide. Controlla username e password.",
+      });
+    if (candidati.length === 1) return res.json(sanitize(candidati[0]));
+
+    res.status(300).json({
+      scelta: true,
+      ruoli: candidati.map((u) => u.role),
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore in login" });
   }
@@ -96,10 +130,17 @@ router.post("/:username/buy", async (req, res) => {
       ? Number(contenuto.price) || 0
       : Number(req.body.price) || 0;
 
-    if (user.wallet < costo)
-      return res.status(400).json({ error: "Budget insufficiente" });
+    // Il wallet esiste solo sui visitatori e lo schema non gli dà un default:
+    // un documento vecchio potrebbe non averlo. Si tratta come credito zero.
+    let credito = 0;
+    if (typeof user.wallet === "number") credito = user.wallet;
 
-    user.wallet -= costo;
+    if (credito < costo)
+      return res.status(400).json({
+        error: `Credito insufficiente: servono € ${costo.toFixed(2)}, ne hai € ${credito.toFixed(2)}.`,
+      });
+
+    user.wallet = credito - costo;
     user.collezione.push(itemId);
     await user.save();
 

@@ -2,9 +2,7 @@ import { createHash } from "crypto";
 import { IArtwork, ArtworkModel } from "./models/artwork";
 import { IItem, ItemModel } from "./models/item";
 import { IVisit, VisitModel } from "./models/visit";
-import { fetchArtwork } from "./services/wikidata";
-import { createDescription, createTwistedDescription } from "./services/llm";
-import { downloadImage } from "./services/imageDownloader";
+import { createTwistedDescription } from "./services/llm";
 import { IMuseum, MuseumModel } from "./models/museum";
 // il vantaggio di usare una lista di opere e' che il museo
 // deve solo fornire gli uri delle loro opere

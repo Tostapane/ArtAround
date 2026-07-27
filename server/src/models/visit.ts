@@ -22,7 +22,10 @@ const visitSchema = new Schema<IVisit>({
   ofMuseum: String,
   itemListElement: [String],
   optionalItems: [String],
-  logistics: [String],
+  // Note logistiche: oggetti { after, text } (vedi shared/types: LogisticNote).
+  // Mixed perche' i documenti creati prima contengono stringhe nude: i client
+  // sanno leggere entrambe le forme, e testers.ts le riallinea.
+  logistics: [Schema.Types.Mixed],
   // Parola chiave della visita guidata (univoca; assente = visita normale).
   accessKey: String,
   // Quiz di fine visita (solo guidate, facoltativo): domande a 4 opzioni con

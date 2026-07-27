@@ -7,13 +7,17 @@
 > about architecture. Sections 1–6 describe the system as built; sections 7–9 are the
 > analysis requested: **Improvements**, **Useless things**, **Odd parts**.
 >
+> **Updated 2026-07-27 after the restyle.** §4 and §5 were rewritten against the new
+> structure; §7–§9 still describe the *pre-restyle* analysis and several of their entries
+> are now closed — each is marked where that is the case.
+>
 > Relationship to the other docs:
 > - `slides.pdf` — the assignment. Authoritative for *requirements*.
-> - `spec.md` — the durable dev reference. **Partly stale** (see §9.1); where the two
->   disagree, this file reflects the code as actually read on 2026-07-27.
-> - `stylespec-v2.md` — the visual direction for the restyle. Its per-screen walkthrough
->   (§7.1–7.2) describes screens that **no longer exist** (see §9.2).
+> - `prelude.md` — the redesign brief the restyle implements (§7 marketplace, §8 navigator).
+>   Authoritative for *intent*: what each screen should be and why.
+> - `left.md` — running handoff: what is done, what is verified, what is still open.
 > - `missing.txt` — the team's running to-do / open questions between the two developers.
+> - `spec.md`, `stylespec.md`, `stylespec-v2.md` — **deleted**; superseded by the above.
 
 ---
 
@@ -29,6 +33,43 @@ Two blockers remain for the declared 18-33 target: **the quiz has no navigator U
 **teleport module does not exist**. Everything else is in place and type-checks cleanly
 (`vue-tsc` and `tsc` both pass on all three parts).
 
+### 0.1 What the 2026-07 restyle closed
+
+Implementing `prelude.md` resolved a number of the items listed below. They are kept in
+§7–§9 for the reasoning, but **these are done**:
+
+| Was | Now |
+| --- | --- |
+| §7.2 logistics never shown in the navigator | shown as a transition step between stops; notes are position-anchored (`LogisticNote`) |
+| §7.3 level×duration cross-product selector | `Biglietteria`: a list of visits, the two menus demoted to filters that can't dead-end |
+| §7.4 navigator plays any visit, guided ones included | `GET /museums/:qid/visits?user=` — guided never listed, paid only if owned |
+| §7.5 no progress indicator | `Tappa N di M` + progress line, announced on every change |
+| §7.9 QR sheet reachable only by typing the URL | `Stampa i QR delle opere` in the author area; codes now legible |
+| §8.1 three endpoints nobody called | `GET /artworks/:qid/items`, `POST /items/batch`, `GET /museums/:qid` — removed |
+| §8.2 dead build artifacts / 0-byte configs | `marketplace/dist/{backend,frontend}`, `server/dist`, both `tailwind.config.js`, the `#dropDown` div — all removed |
+| §8.3 dead imports and functions | `llm.ts` (also breaking the `llm ↔ dbActions` cycle), `dbActions.ts`, `seed.ts`'s `testArtworks`/`printStored`, `useVoce.ts`'s leaking `audioUrl` — all removed |
+| §8.4 tokens duplicated, theme toggle ×3 | `shared/theme.css` + `shared/components.css`; one toggle component |
+| §9.2 stylespec targets non-existent screens | those files deleted; `prelude.md` replaces them |
+| §9.4 two tone vocabularies | one vocabulary, the slides' four tones; **DB migrated** (130 items + 6 visits) via `testers.ts` |
+| §9.10 server TypeScript unchecked | `strict: true` + `skipLibCheck` + `shared/` in the program — `tsc --noEmit` now exits 0. Enabling it surfaced **6 real defects**, all fixed |
+| §9.5 `seedMuseums()` commented out | uncommented and moved first in `completeSeed()` |
+| §9.6 logistics lose their position | anchored `{after, text}`, round-trip preserved |
+| §9.7 `Map.vue` shipped with a `TODO TEMP` | toggle appears only when there are optional stops |
+| §9.8 hardcoded `localhost` / `Q6373` | `navigator/public/config.json` + `GET /api/config` |
+| §9.9 `visitaUtilizzabile` treats unknown items as owned | unresolvable ids now count as **missing**, not owned |
+
+Still open from those sections: §7.1 (quiz UI, teleport), §7.6 (UI translation), §7.7
+(`stepStartAt` sync), §7.8 (spatial ordering of custom visits), §9.11 (naming), and all
+of §10.
+
+The six defects `strict` surfaced on the server, for the record: `req.file` used without
+its own guard; a transcript that could be `undefined` passed to `mapRequest`; `user.wallet`
+treated as a number on a schema that gives it no default (a visitor document without one
+would have thrown at purchase); `fetchArtwork` typed as never returning `null` while
+returning it; plus the `dotenv` types. Note **`ts-node` does not load ambient `.d.ts` from
+tsconfig `include`** — `src/env.ts` needs its `/// <reference>` line or `npm run start`
+stops compiling.
+
 ---
 
 ## 1. Architecture and hard constraints
@@ -42,12 +83,15 @@ shared/                types.ts (Artwork, Item, Visit, Museum, User, Match, Quiz
                        languages, controlled-vocabulary options)
 server/    :8000       Node + Express + Mongoose + ts-node. Also serves the marketplace
                        statically ("/" → marketplace/public, "/dist" → marketplace/dist).
-navigator/ :5173       Vue 3 + Vite + TS + Tailwind v4 + headlessui/vue. Own dev server.
-marketplace/           Alpine.js (CDN) + vanilla TS compiled by `tsc` + Tailwind CLI.
-                       No bundler. Served by the server.
+navigator/ :5173       Vue 3 + Vite + TS + Tailwind v4. Own dev server.
+                       public/config.json = the curator's configuration file.
+marketplace/           Alpine.js (served LOCALLY from public/vendor/) + vanilla TS compiled
+                       by `tsc` + Tailwind CLI. No bundler. Served by the server.
+shared/theme.css       design tokens + fonts, imported by BOTH apps
+shared/components.css  component vocabulary, imported by BOTH apps
 ```
 
-- **No framework** in the marketplace ✔ (Alpine + vanilla TS, one 1097-line `index.html`).
+- **No framework** in the marketplace ✔ (Alpine + vanilla TS, one `index.html`).
 - **A framework** in the navigator ✔ (Vue 3, `<script setup>`, no router, no store library).
 - **Node-only server** ✔; MongoDB only ✔; two docker containers (`mongo:7.0` + `node:22`) ✔.
 - **Genericity** ✔: no museum-specific code anywhere. A museum = a DB document + a JSON
@@ -93,8 +137,12 @@ space (corridors included) must be a `data-room`. Single floor per map.
   and server-side (**409**).
 - **Visit** (= `ItemList`) — `@id`, `name`, `level`, `duration` (**total** seconds),
   `price?`, `license?`, `ofMuseum`, `itemListElement` (Item `@id`[]), `optionalItems?`
-  (subset), `logistics` (string[]), `author?`, `accessKey?`, `quiz?`.
+  (subset), `logistics`, `author?`, `accessKey?`, `quiz?`.
   `accessKey` present ⇒ **guided visit**: free, not purchasable, not listed to visitors.
+- **LogisticNote** — `{after: string | null, text}`. `Visit.logistics` is now
+  `(string | LogisticNote)[]`: notes are **anchored to the stop they follow**, so the
+  navigator can show "how to get to the next item" at the moment it matters (slide 21).
+  Bare strings are pre-restyle rows, still readable; `testers.ts logistica` converts them.
 - **QuizQuestion** — `{question, options[4], correct}`. `correct` never leaves the server.
 - **User** — identity is the **pair `(username, role)`** (unique compound index). An
   `autore` and a `visitatore` with the same username are *distinct, unlinked accounts*.
@@ -107,17 +155,25 @@ The four slide-mandated metadata are covered: **lunghezza** (`timeRequired`), **
 
 ### 2.1 Constants (`shared/constants.ts`)
 
-- `educationalLevels = ["Principiante","Intermedio","Avanzato"]` — used by the seed, the
-  custom-visit planner enum and the marketplace difficulty filter. **The editor's tone
-  buttons use a different, hardcoded set** (`infantile/semplice/medio/avanzato`) — see §9.4.
+- `educationalLevels = ["Infantile","Semplice","Medio","Avanzato"]` — **the slides' four
+  tones** (slide 22), now the *single* vocabulary of the system: editor, seed, LLM planner
+  enum and every filter. The old `Principiante/Intermedio/Avanzato` split is gone (§9.4 was
+  closed by this change). ⚠️ **Existing DB rows still carry the old values until
+  `npx ts-node src/testers.ts toni` is run.**
+- `educationalLevelHints` — one line per tone, shown to the author choosing: the choice is
+  made on the consequence, not on the label.
 - `secPerArt = [15, 60]` — seed durations and planner enum.
 - `licenses[5]`, `SOURCE_LANG = "it"`, `languages[13]` (name + translate/tts/stt codes,
   only fully-supported languages).
-- `options: CommandOption[]` — the **controlled vocabulary**, single source for both the
-  on-screen buttons and the LLM voice mapping. Each entry carries a `surface` tag:
-  `"panel"` (rendered by `OptionsBar`) or `"card"` (`Prossimo`/`Precedente`, rendered as the
-  Card's navigation buttons). `id` and `label` must stay identical — `mapRequest` matches on
-  labels, handlers compare ids.
+- `options: CommandOption[]` — the **controlled vocabulary**, single source for the
+  on-screen buttons and the LLM voice mapping. **`id` and `label` are now decoupled**:
+  `id` is the canonical token (`mapRequest` maps onto ids, handlers compare ids), `label` is
+  free display text — which is why the labels are finally correct Italian, accents and
+  apostrophes included. `surface` says *where* the equivalent button lives:
+  `"chiedi"` (artwork questions → LLM), `"orientati"` (building questions → room graph),
+  `"scheda"` (direct sheet controls: read, next, previous).
+- `labelForCommand(id)` and `formatDurata(seconds)` — the latter enforces a product rule:
+  a user is never shown raw seconds.
 
 ---
 
@@ -230,236 +286,155 @@ Notable server-side rules:
 
 ## 4. Marketplace — every screen and state
 
+> **Rewritten in the 2026-07 restyle** (`prelude.md` §7). The previous structure —
+> `dashboard`/`my_collection`/`my_works` plus four stacked modals — no longer exists.
+
 Single `x-data="appData()"` root over the `AppState` singleton
-(`marketplace/src/frontend/state.ts`, 1316 lines). `currentView` is the router; overlays are
-independent booleans. Login-first: nothing is reachable while `currentUser === null`.
+(`marketplace/src/frontend/state.ts`). **`vista` is driven by a hash router**, so every
+screen has an address, the back button works, and a reload keeps its place. Alpine, its
+focus and collapse plugins are **served locally** from `public/vendor/`.
 
-### 4.1 Global chrome
+### 4.1 Chrome
 
-- **Live region** (`sr-only`, `role="status"`) announcing `etichettaVista()` on every view
-  change.
-- **Floating theme toggle** when logged out; **in-navbar toggle** when logged in
-  (duplicated for the mobile and desktop rows).
-- **Navbar** (`x-show="currentUser !== null"`): wordmark tile "A" + "ArtAround" (button →
-  `tornaHome()`), museum pill with "Cambia" (≥ sm), role-scoped nav (only when a museum is
-  selected), a **role indicator** (🖋️ Autore / 👤 Visitatore — *not* a switch), wallet
-  (visitors only), theme toggle, "Esci".
-- **Overlays**, all with `x-trap.inert.noscroll` + Esc + click-away: artwork modal
-  (`z-105`), detail modal (`z-100`), confirm modal (`z-110`), toast (`z-120`).
-- **Footer**: "ArtAround Suite © 2026".
+- **No top header.** A **left rail** (`bg-structure`) holds the wordmark, the museum
+  switcher, 3–4 role-scoped destinations with `aria-current`, the wallet, the user and the
+  theme toggle. Below `lg` it becomes a **bottom tab bar** (destinations only) plus a slim
+  top bar for wallet/theme/exit.
+- Two skip links (`#contenuto`, `#binario`), a `role="status"` live region fed by
+  `annuncia()`, `[x-cloak]` on the root so views never render stacked before Alpine boots.
+- **Only two overlays remain**: the confirm dialog and the toast. Everything that used to be
+  a modal is now a page.
 
-### 4.2 View: `login` (entry point)
+### 4.2 `soglia` — the front door *(new)*
 
-Branding block ("ArtAround." + "MANAGEMENT & DISCOVERY"), card with username, password, and
-a **role segmented control** (`role="group"`, default *Visitatore*) — the role is part of
-the credentials and **fixes the interface for the session**. `Accedi` submit + "Registrati
-ora". Errors arrive as an error toast.
+Full-bleed `bg-structure`. `ART AROUND.` at `text-hero` in Bricolage Grotesque over
+**La Pianta**: a real museum floor-plan SVG, fetched at random from `/api/museums` and
+stripped to strokes, edges self-drawing once (killed by `prefers-reduced-motion`). Two doors:
+`Entra` and `Guarda com'è fatta una visita` (opens the navigator with no account — free
+visits only). Nothing is asked before something is shown.
 
-### 4.3 View: `register`
+### 4.3 `accedi` / `registrati`
 
-Back link, username, password, confirm, the same role control ("Tipo di account", carried
-over from the login form), `Crea Account`, "Hai già un account? Accedi ora". Client
-validation: non-empty + matching passwords. Server: 409 if `(username, role)` exists.
+Login takes **username + password only** — the role is resolved server-side. The role
+question survives in exactly one place: a `300` response listing both profiles, rendered as
+two *described* choices. Registration keeps the role as a real decision, again as two
+described panels. Every field has a **visible label**; errors are `role="alert"` blocks that
+name the fix.
 
-### 4.4 View: `select_museum` (mandatory green requirement, slide 20)
+### 4.4 `musei`
 
-Grid of museum cards (🏛️ tile, name, location, qid, "Entra →"). Empty state: "Nessun museo
-disponibile…". Selecting sets `museoSelezionato` and lands on the role home. Auto-selected
-when exactly one museum exists. **Everything downstream is filtered by
-`ofMuseum === http://www.wikidata.org/entity/<qid>`**, including items (via `about.ofMuseum`).
+The mandatory multiple-choice panel (slide 20), now shown **once** and remembered in
+`localStorage`; afterwards it is a switcher in the rail. Cards show name, location and
+`N opere · M visite` — the QID is gone from the UI.
 
-### 4.5 View: `dashboard` (visitor marketplace)
+### 4.5 `banco` — visitor home
 
-1. Title + hint banner pointing at "Crea Percorso".
-2. **Toolbar**: search (`ricerca`), type segmented control (Tutti/Item/Visite), difficulty
-   `<select>`, per-artwork duration `<select>`, price segmented control
-   (Tutte/Gratis/A pagamento). Menu options are derived from the data actually present in
-   the selected museum (`difficoltaDisponibili()`, `durateDisponibili()`).
-3. **Guided-visit entry box** — "🔑 Hai una parola chiave?" → `POST /guided-sessions/join`.
-   On success it shows a confirmation line plus **"Vai alla sala d'attesa →"**, a deep link
-   to the navigator (`?guidedSession&role=studente&user`). This is the *only* student
-   entrance to a guided visit.
-4. **Content grid**: one **card per artwork** (image, name, "N contenuti") — the scale
-   answer to "centinaia o migliaia di contenuti" — plus separate **visit cards** (author,
-   price, `Dettagli`, `Sblocca`/`Posseduto ✅`).
+Three doors: **Scegli una visita pronta** → `visite`, **Componi il tuo percorso** →
+`componi`, **Ho una parola chiave** (inline field → `POST /guided-sessions/join`, then a
+deep link to the navigator's waiting room). Below, a **Riprendi** strip of owned visits with
+`Inizia` directly on each row. No list of 300 cards on arrival.
 
-Filtering pipeline: `contenutiFiltrati()` = museum scope → `visibileNelMercato` (hides other
-people's guided visits) → text search → `filtraAvanzato` (type/difficulty/duration) → price.
+### 4.6 `visite` / 4.7 `opere` — two catalogues, one object type each
 
-### 4.6 View: `my_collection` (visitor)
+`visite`: title + count, one search field and **two** filters (livello, durata in *minutes*,
+bucketed). Cards carry a **typographic cover**, `N tappe · N min · livello`, curator, price,
+and the strongest action available (`Inizia` / `Completa` / `Sblocca`).
+`opere`: one card per artwork (the scale answer), matted image, `N descrizioni · da € X`.
+The old per-artwork duration filter is **deleted** — it silently excluded every visit.
 
-Same shape, own search + type/difficulty/duration filters, source = **owned** content
-(`haIlPossesso`: own creations + `collezione`). Compact artwork cards + visit cards; a visit
-card opens the detail modal directly.
+### 4.8 `opera/<qid>` · 4.9 `visita/<id>` — pages, not modals
 
-### 4.7 View: `my_works` (author)
+**`opera`** — two columns: matted image + painter/style left; the descriptions as a list of
+plaques right, each with tone, length, author, licence, price and one action. Owned rows
+**expand in place** (`x-collapse`) to reveal the text: no navigation, no overlay.
+**`visita`** — metadata, the strongest action first, the access key when guided, and the
+**percorso** as a numbered list with the **logistics notes rendered between the stops they
+belong to**. Quiz shown with the correct answer marked (author's view).
 
-Same layout as the collection but a **different data set**: only the author's *own
-production* — their items (`mieOpere`, private included) and their visits — never anything
-adopted from others. Visit cards additionally expose **"▶ Avvia (docente)"** when the visit
-has an `accessKey`: the deep link that opens the navigator as teacher.
+### 4.10 `libreria` (visitor) / 4.11 `lavori` (author)
 
-### 4.8 View: `editor` (items and visits)
+Same component, different sets, each titled with *what it contains*. `libreria` groups
+**Visite first** (they're actionable) then Descrizioni. `lavori` shows only the author's own
+production, with adoption counts, the guided visit's key, `Sala d'attesa`, and a
+**`Stampa i QR delle opere`** link (previously a URL only we knew about).
 
-One form, two modes; the type toggle is author-only (a visitor can only build visits).
+### 4.12 `nuovo` — item editor
 
-**Item mode** (author): artwork `<select>` (museum-scoped), price (hidden when private),
-license `<select>`, **"🔒 Tieni privato"** checkbox, tone buttons
-(infantile/semplice/medio/avanzato — already-used tones disabled), duration, text area.
-**In edit mode** (`editingId`) everything except text and price is disabled, with an
-explanation of why (identity, rights and visibility must not change under existing owners).
+Single column. Artwork → **tone** (four described choices) → duration → text → price →
+licence → private. A live **`stimaLettura()`** ties the written text back to the declared
+duration. In edit mode the frozen fields are shown as read-only facts with one shared reason.
 
-**Visit mode**: title; **"🔑 Visita guidata"** checkbox + unique key field (author only,
-locked in edit mode); **quiz editor** (add/remove questions, 4 options each, radio for the
-correct one) shown only for guided visits; price (hidden for guided); license (author only);
-**"Parti da una visita gratuita esistente"** import (copies the stops; for an author it
-becomes the base of a *new guided* visit, for a visitor a personalized one — the original is
-never touched); item library (card-per-artwork, search, Tutti/Posseduti e gratis/Da
-acquistare for visitors, difficulty and duration filters); "+ Aggiungi Nota Logistica"; and
-the **timeline** with position number, ▲▼ reorder, name or free-text logistics input,
-"Opzionale" toggle (`aria-pressed`), remove.
+### 4.13 `componi` — visit workbench
 
-Client validation before publishing: artwork chosen, non-negative price/duration, tone
-chosen, non-empty text, no duplicate tone; for visits: title, **at least one item**, and for
-guided visits a key plus only free/owned items plus complete quiz questions.
+Three steps: **Percorso · Impostazioni · Quiz**. Step 1 is two panes ≥`lg` (the percorso
+being built, always visible, beside the searchable library) and two tabs below. Timeline rows
+carry the stop number, ▲▼ keyboard-safe reorder, an `aria-pressed` **Opzionale** pill and
+remove; **logistics notes are visually distinct rows with no number** — they aren't stops.
+A sticky bar states `validazioneVisita()` **as text** at all times, and the publish button
+says `Attiva la visita guidata` when guided — it is not published to the marketplace.
 
-### 4.9 View: `sales` (author)
+### 4.14 `vendite`
 
-Adoption/revenue table (`Contenuto | Tipo | Licenza | Prezzo | Adozioni | Ricavo`), museum
-scoped, with totals. Adoptions are **derived** from `User.collezione` — no duplicated
-counter anywhere.
-
-### 4.10 Overlays
-
-- **Artwork modal** (`artworkAperto`): lists that artwork's already-filtered items; the
-  action per row depends on the current view — `dashboard` → Ottieni/Sblocca € / "Posseduto
-  ✅"; `editor` → "+ Aggiungi" / "✓ Aggiunto"; `my_collection`/`my_works` → "Apri".
-- **Detail modal** (`modalDettaglio`): image, level/reading-time, text (or "Contenuto
-  Protetto…" when not owned); for visits the clickable stop timeline (with "Opzionale"
-  badges), logistics notes, and the **quiz preview with the correct answer marked** (author
-  view). Footer: curator + licence, then contextually `✏️ Modifica`/`🗑️ Elimina` (own
-  content), `Ottieni gratis`/`Sblocca per € X`, `Sblocca N item mancanti (€ X)`, or
-  **`Inizia la visita ➜`** (only when `visitaUtilizzabile`). An internal history
-  (`storiaModale`) provides "← Indietro" when the modal switches content.
-- **Confirm modal**: three variants — purchase, bulk purchase of a visit's missing items,
-  delete visit (danger styling). Native `alert`/`confirm` are banned project-wide.
-- **Toast**: aria-live, success/error, auto-dismiss after 3.5 s.
-
-### 4.11 Search and filtering engine
-
-One engine for all four search bars: `normalizzaRicerca` (lowercase, strip accents, collapse
-non-alphanumerics) + `campiRicercabili` (name, curator, difficulty, and for items also the
-painter and the style) + `corrispondeRicerca` (multi-token **AND**, matching both the spaced
-and the space-stripped haystack, so "davinci" finds "Leonardo da Vinci"). `filtraAvanzato`
-is the shared type/difficulty/duration filter. Note that **duration is per-artwork**:
-choosing one necessarily excludes visits.
+Real `<table>` with `scope`, tabular figures, museum-scoped totals. Free content shows
+adoptions with revenue `—`: the revenue of free content isn't `€ 0,00`, it doesn't exist.
 
 ---
 
 ## 5. Navigator — every screen and state
 
-No router. `App.vue` reads the query string once on mount and picks one of four entries:
+> **Rewritten in the 2026-07 restyle** (`prelude.md` §8). `MainView`/`Map`/`Card`/
+> `OptionsBar`/`Selector` no longer exist.
 
-| URL | Branch |
-| --- | --- |
-| `?role=studente&guidedSession=<id>&user=<u>` | `attachAsStudent` → guided mode |
-| `?role=docente&guidedVisit=<visitId>&user=<u>` | `startAsTeacher` → guided mode |
-| `?visit=<id>[&museum=<qid>]` | load the visit, derive the museum from `ofMuseum`, start immediately |
-| *(nothing)* / `?museum=<qid>` | load the museum, show the Selector. Fallback museum: **hardcoded `Q6373`** |
+### 5.1 Entry and configuration
 
-Three top-level phases: **guided** (`GuidedGate`), **selection** (`Selector`, with the
-`Footer`), **visit** (visit bar + `MainView`).
+`App.vue` loads **`public/config.json`** first — `{museumQid, museumTitle, apiBase}`, the
+"file di configurazione" of slides 25/33. This removed the hardcoded `Q6373` and every
+`localhost` literal (`apiBase()` falls back to the page's own host on port 8000, so opening
+the navigator from a phone on the LAN works). Then it branches: guided student / guided
+teacher / `?visit=` deep link / normal entry.
 
-### 5.1 Phase — Selector ("scegli la visita")
+### 5.2 `Biglietteria` — visit selection
 
-`LanguageSelector` (headless Combobox, searchable, persisted in `localStorage`), a **Livello**
-dropdown and a **Durata (secondi)** dropdown whose options are derived from the visits
-actually in the DB, an estimated-time line, and `Inizia la visita`, enabled only when a visit
-exactly matches the (level, duration) pair — otherwise a status line invites another
-combination. Below a hairline: the **custom visit** block — a free-text textarea and
-"Crea visita su misura", with in-place loading ("Preparazione in corso…") and error states.
-No AI is ever mentioned.
+An **elenco** of visits (name, `N tappe · N min · livello`), with livello and durata demoted
+to filters that can no longer produce a dead end. The visit list is **ownership-aware**
+(`GET /museums/:qid/visits?user=`): guided visits never appear, and without a user only free
+ones do. Below a rule, the **su misura** block with example chips.
 
-### 5.2 Phase — visit bar
+### 5.3 The visit runtime
 
-`← Cambia visita` and, on the right, "`<livello>` · `N` min".
+- **Progress rail** — `Esci`, visit name, **`Tappa 3 di 13`** (counting only the stops
+  `Prossimo` will actually reach) and a 2px progress line.
+- **`Stage`** — `Mappa` and `Elenco` are **peers**, toggled by a segmented control and
+  remembered. Map stops are **numbered discs** drawn onto the SVG (`getBBox`, re-run when the
+  map becomes visible again), each a real keyboard target with `aria-label` **and** an SVG
+  `<title>`. Optional stops keep the three-signal encoding. The `TODO TEMP` is gone: the
+  toggle appears only when `optionalCount > 0`.
+- **`Scheda`** — the bottom sheet, three snaps (`riposo`/`media`/`piena`). Only at `piena`,
+  and only below `lg`, does it become `role="dialog"` and mark the stage `inert`; from `lg`
+  it is a side column and never modal. Inside: matted image, badges, description, then the
+  **Chiedi / Orientati** split (artwork questions → LLM; building questions → room graph),
+  the language selector, and a **permanent microphone** in the footer.
+- **Logistics transitions** — pressing `Prossimo` when the author left a note for that
+  passage shows it as a step before the next stop (opening notes appear before stop 1).
+  This is `Visit.logistics` finally reaching the person it was written for.
+- **`Posizione`** — one entry, two equal ways: scan the QR, or **type the code** (the tab is
+  disabled with a stated reason outside a secure context).
 
-### 5.3 Phase — `MainView` (the visit itself)
+### 5.4 `GuidedGate`
 
-Always mounted: **`Map`**. Conditionally: the QR FAB, the QR dialog, the artwork **Card**
-dialog, and the options/info side column.
+Four phases. **`attesa`** is a full-bleed stage with the access key at `text-display` — it
+gets read aloud across a room. **`attiva`** puts class-level commands in a *conduzione bar*
+separate from visit controls, with one panel sheet instead of two overlapping asides;
+joins, leaves and questions are announced. **`quiz`** has its own neutral screen (the UI is
+deferred, but the state exists server-side and must not read as "ended"). **`terminata`**
+distinguishes *the teacher ended it* from *the session vanished*.
 
-**`Map.vue`** — the museum SVG injected with `v-html`, plus a **non-spatial artwork list**
-next to it (this pairing is the accessibility model: everything doable on the map is doable
-in the list). On mount and on every `map`/`matchedContent` change, `setupListeners()` walks
-`matchedContent`, finds each `locationId` node and turns it into a real control
-(`tabindex="0"`, `role="button"`, `aria-label`, click + Enter/Space, `.active-artwork`, plus
-`.optional-artwork` and an "(tappa opzionale)" suffix for optional stops). A separate
-`highlightCurrent()` moves a pulsing `.current-artwork` "you are here" ring without rebuilding
-the listeners. States: with content (toggle + list) / **empty** ("Seleziona livello e
-durata…").
+### 5.5 Cross-cutting
 
-**Optional stops** (slide 23): `includeOptional` (default off) makes `stepIndex()` skip them
-in Prossimo/Precedente, while they remain directly openable from the map, the list or a QR
-scan — i.e. "se rimane tempo, o su domanda del visitatore". They are signalled three ways
-(dashed stroke + dimming, "Opzionale" badge, aria-label suffix), never by colour alone.
-
-**`Card.vue`** — headless `Dialog` (focus trap, Esc, focus restore). Image (with
-`imagePath` → `imageUri` → hidden-on-error chain), title and author **already translated by
-the parent**, one of two notices ("Non fa parte di questa visita" / "Tappa opzionale"),
-description, then `Precedente` / `Opzioni` / `Prossimo`, whose labels come from the shared
-controlled vocabulary. TTS play/stop and close sit top-right.
-
-**`OptionsBar.vue`** — the `surface:"panel"` commands grouped by `group`
-(Lettura / Contenuto / Dettaglio / Posizionale) as buttons, plus `AudioRecorder`
-(idle → recording → "Elaborazione…" → error, each announced through `useAnnouncer`).
-
-**`Info.vue`** — the answer panel. Positional commands are routed to `/api/wayfinding`
-(first the **simple** answer: just the room name from the SVG; then, on demand,
-"Indicazioni dettagliate" → the graph route verbalized by the LLM); everything else is
-rewritten into a natural-language request and sent to `/api/llm/newInfo`. States: loading,
-answer, error; a `requestId` token discards late responses so a language switch cannot be
-overwritten by a stale answer.
-
-**`QRScanner.vue`** — `getUserMedia` + `jsqr` in-app decoding (never a deep link, so the
-in-progress visit, language and progress never leave memory). Tolerant payload extraction
-(`/Q\d+/`). Error states: no camera / permission denied / insecure context.
-
-**Selection model.** `currentArtwork` is a `Match`, not an index, so an artwork **outside**
-the visit can be displayed; `lastVisitIndex` remembers the real position so "Prossimo"
-resumes the visit after a detour. `hasNext`/`hasPrev` clamp at the ends (no modulo wrap).
-
-### 5.4 Phase — `GuidedGate` (module 18-27)
-
-- **`attesa`** — teacher: the access key as a reminder, the live list of connected students,
-  `Annulla` / `Avvia visita`. Student: "In attesa che il/la docente avvii la visita",
-  connected count, `Esci`.
-- **`attiva`** — a top bar (visit name; for the teacher `Studenti (n)`, `Domande (n)`,
-  `Termina`; for the student "Guidata dal docente") over the normal `MainView`, plus two
-  mutually exclusive right-hand panels: connected students, and the **questions log** the
-  teacher's client accumulates from the drained queue (username, time, question, artwork).
-- **anything else** — "Visita terminata" + "Torna alla selezione" (which resets the guided
-  state and strips the deep link from the URL).
-
-Student restrictions during `attiva`: `hasNext`/`hasPrev` are forced false, the QR FAB is
-hidden, map clicks only re-open *their current* stop, and `watch(guidedCurrentStep)` makes
-the view follow the teacher. They may still close the Card to look at the map, and may still
-ask questions — each of which is reported to the teacher via `studentAsk` (fire-and-forget).
-Content is loaded once through the session endpoint, so possession is temporary by
-construction.
-
-### 5.5 Cross-cutting navigator services
-
-- **`useTTS`** (singleton) — server-side synthesis (Google TTS → MP3), `requestId` guard so
-  a stale request cannot interrupt a newer read, `AbortError` tolerated. It is **pure
-  synthesis**: callers must pass text already in the target language.
-- **`useTranslation`** — reactive translation of a text list; short-circuits when the chosen
-  language is `SOURCE_LANG`; falls back to the originals on error. Lives in `MainView` (not
-  `Card`) so the "Leggi" command reuses the same translated text.
-- **`useAnnouncer`** — global live-region singleton; blanks before writing so identical
-  messages are re-announced.
-- **`useTheme`** — `light`/`dark`/`system`, `.dark` on `<html>`, `artaround-theme` key shared
-  with the marketplace, anti-FOUC inline script in both apps.
+`useTTS` (server-side synthesis, request-id guarded), `useTranslation` (lives in `Visita` so
+`Leggi` reuses the translated text), `useAnnouncer`, `useVoce`.
+⚠️ `useTheme.ts` is currently **unreferenced** — the navigator lost its theme toggle with the
+old header and now only inherits the marketplace's stored preference.
 
 ---
 
@@ -871,12 +846,18 @@ the 18-24 base (slide 25), and the navigator is explicitly *"pensata per smartph
 feature is broken on the device class the slides name as primary. Roughly half of any exam
 audience opening the demo on an iPhone sees a dead button.
 
-**Fix.** Pick the format with `MediaRecorder.isTypeSupported()` (prefer
-`audio/webm;codecs=opus`, fall back to `audio/mp4`), tag the `Blob` with the format that was
-actually used, send it as a field alongside the audio, and map it to the Google STT `encoding`
-server-side (`WEBM_OPUS` ↔ `MP3`/`MP4` variants — for AAC-in-MP4 the practical route is to let
-Google auto-detect by omitting `encoding` and `sampleRateHertz`, which it supports for
-containerized formats).
+**Fix — and format negotiation is *not* enough.** Google STT v1 accepts `LINEAR16`, `FLAC`,
+`MULAW`, `AMR`, `AMR_WB`, `OGG_OPUS`, `SPEEX_WITH_HEADER_BYTE`, `WEBM_OPUS`, `MP3` — and
+**nothing else**. There is no AAC/MP4 encoding, so *no* format Safari's `MediaRecorder` can
+produce is decodable server-side. Negotiating the mime type would just move the failure.
+
+The working fix is to stop using `MediaRecorder` for this and capture PCM directly: Web Audio
+(`AudioContext` → `createMediaStreamSource` → a processor node) collecting `Float32`, downsampled
+to 16 kHz mono and written into a WAV header client-side, uploaded as `LINEAR16` /
+`sampleRateHertz: 16000`. One code path on every browser, no negotiation, no mislabelled
+container, and it deletes the class of bug entirely. Cost: ~60 lines and an uncompressed upload
+(a 5-second command ≈ 160 KB — irrelevant on a LAN). Note `AudioContext` needs `resume()` inside
+the user gesture on iOS, which the existing tap already provides.
 
 ### 10.2 The marketplace stops existing without a CDN
 

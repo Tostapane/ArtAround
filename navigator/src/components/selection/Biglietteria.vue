@@ -1,0 +1,293 @@
+<script setup lang="ts">
+import { ref, watch, computed } from "vue";
+import LanguageSelector from "./LanguageSelector.vue";
+import { getVisitsByMuseum, createCustomVisit } from "@/api";
+import { museum, utente } from "@/state";
+import { museumTitle, mediaOrigin } from "@/config";
+import { useTheme } from "@/composables/useTheme";
+import { formatDurata } from "../../../../shared/constants";
+import type { Visit, Match } from "../../../../shared/types";
+
+/**
+ * LA BIGLIETTERIA — si sceglie una visita da un ELENCO.
+ *
+ * Prima qui c'erano due menu a tendina (livello × durata-in-secondi) e la visita
+ * partiva solo se la combinazione esisteva ESATTAMENTE: le visite che
+ * condividevano una coppia erano irraggiungibili, quelle create dagli utenti
+ * inquinavano i menu con "Personalizzata" e "195", e il nome della visita —
+ * l'unica cosa che una persona riconosce — non compariva mai.
+ * La slide 25 chiede "selezione di una delle molteplici forme di visita
+ * disponibili": un elenco, non un prodotto cartesiano. I due menu restano, ma
+ * come FILTRI: non possono piu' produrre un vicolo cieco.
+ */
+
+const emit = defineEmits<{
+  start: [visit: Visit];
+  customStart: [payload: { visit: Visit; content: Match[] }];
+}>();
+
+const visits = ref<Visit[]>([]);
+const caricamento = ref(true);
+
+const filtroLivello = ref("tutti");
+const filtroDurata = ref<"tutti" | "breve" | "media" | "lunga">("tutti");
+
+watch(
+  museum,
+  async (m) => {
+    if (!m) return;
+    caricamento.value = true;
+    try {
+      visits.value = await getVisitsByMuseum(m.qid, utente.value || undefined);
+    } catch (err) {
+      console.error("Impossibile caricare le visite", err);
+      visits.value = [];
+    } finally {
+      caricamento.value = false;
+    }
+  },
+  { immediate: true },
+);
+
+const livelliDisponibili = computed(() => [
+  ...new Set(visits.value.map((v) => v.level).filter(Boolean)),
+]);
+
+function minuti(v: Visit): number {
+  return Math.round((Number(v.duration) || 0) / 60);
+}
+
+const visiteFiltrate = computed(() =>
+  visits.value.filter((v) => {
+    if (filtroLivello.value !== "tutti" && v.level !== filtroLivello.value)
+      return false;
+    if (filtroDurata.value === "tutti") return true;
+    const m = minuti(v);
+    if (filtroDurata.value === "breve") return m < 30;
+    if (filtroDurata.value === "media") return m >= 30 && m <= 60;
+    return m > 60;
+  }),
+);
+
+const filtriAttivi = computed(
+  () => filtroLivello.value !== "tutti" || filtroDurata.value !== "tutti",
+);
+
+function azzera() {
+  filtroLivello.value = "tutti";
+  filtroDurata.value = "tutti";
+}
+
+/** Riga di metadati: quello su cui si sceglie davvero una visita. */
+function riepilogo(v: Visit): string {
+  const tappe = (v.itemListElement || []).length;
+  const parti = [
+    `${tappe} ${tappe === 1 ? "tappa" : "tappe"}`,
+    formatDurata(v.duration),
+  ];
+  if (v.level) parti.push(v.level);
+  return parti.join(" · ");
+}
+
+const nomeMuseo = computed(() => {
+  if (museumTitle()) return museumTitle();
+  return museum.value ? museum.value.name : "";
+});
+
+// Il marketplace e' servito dalla stessa origine delle API (il server lo espone
+// alla radice). Slide 25: "Accesso al marketplace" e' un requisito della base.
+const urlMarketplace = computed(() => `${mediaOrigin()}/`);
+
+const { isDark, toggle } = useTheme();
+const etichettaTema = computed(() =>
+  isDark() ? "Attiva il tema chiaro" : "Attiva il tema scuro",
+);
+
+// --- Visita su misura ------------------------------------------------------
+const customRequest = ref("");
+const creating = ref(false);
+const customError = ref("");
+
+const esempi = [
+  "Ho solo mezz'ora, mostrami le cose più importanti",
+  "Siamo due adulti e due bambini di 5 e 8 anni",
+  "Abbiamo già visto questo museo: stupiscici con dettagli insoliti",
+];
+
+async function createCustom() {
+  const m = museum.value;
+  if (!m || customRequest.value.trim() === "" || creating.value) return;
+  creating.value = true;
+  customError.value = "";
+  try {
+    const result = await createCustomVisit(m.qid, customRequest.value.trim());
+    emit("customStart", result);
+  } catch (err) {
+    console.error("Errore nella creazione della visita su misura", err);
+    customError.value =
+      "Non è stato possibile preparare la visita. Riprova fra poco.";
+  } finally {
+    creating.value = false;
+  }
+}
+</script>
+
+<template>
+  <div class="mx-auto w-full max-w-2xl px-5 py-6 sm:px-8 sm:py-10">
+    <!-- Utilità: il marketplace (requisito della base) e il tema. Vivono qui e
+         non in un'intestazione fissa: durante la visita ogni pixel serve alla
+         mappa, e una barra sempre presente sarebbe solo ingombro. -->
+    <div class="mb-8 flex items-center justify-between gap-3">
+      <a :href="urlMarketplace" class="btn-fantasma -ml-3">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14 5h5v5" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="m19 5-8 8" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 14v5H5V6h5" />
+        </svg>
+        Marketplace
+      </a>
+      <button
+        type="button"
+        class="icona-tonda"
+        :aria-pressed="isDark()"
+        :aria-label="etichettaTema"
+        :title="etichettaTema"
+        @click="toggle"
+      >
+        <svg v-if="!isDark()" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+        <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path stroke-linecap="round" d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- L'unico gesto di scala della schermata: il titolo -->
+    <p class="text-caption uppercase tracking-[0.18em] text-muted">
+      {{ nomeMuseo }}
+    </p>
+    <h1 class="mt-2 font-display text-display leading-[1.02] tracking-tight">
+      Scegli la tua visita.
+    </h1>
+
+    <div class="mt-8">
+      <LanguageSelector />
+    </div>
+
+    <!-- Filtri: non producono mai un vicolo cieco silenzioso -->
+    <div class="mt-8 flex flex-wrap gap-3">
+      <div>
+        <label for="f-livello" class="sr-only">Filtra per livello</label>
+        <select id="f-livello" v-model="filtroLivello" class="campo-select">
+          <option value="tutti">Ogni livello</option>
+          <option v-for="l in livelliDisponibili" :key="l" :value="l">
+            {{ l }}
+          </option>
+        </select>
+      </div>
+      <div>
+        <label for="f-durata" class="sr-only">Filtra per durata</label>
+        <select id="f-durata" v-model="filtroDurata" class="campo-select">
+          <option value="tutti">Ogni durata</option>
+          <option value="breve">Meno di 30 min</option>
+          <option value="media">Da 30 a 60 min</option>
+          <option value="lunga">Più di 60 min</option>
+        </select>
+      </div>
+      <button v-if="filtriAttivi" type="button" class="btn-fantasma" @click="azzera">
+        Azzera i filtri
+      </button>
+    </div>
+
+    <p class="mt-4 text-small text-muted" role="status">
+      <span v-if="caricamento">Caricamento delle visite…</span>
+      <span v-else>
+        {{ visiteFiltrate.length }}
+        {{ visiteFiltrate.length === 1 ? "visita disponibile" : "visite disponibili" }}
+      </span>
+    </p>
+
+    <!-- L'elenco -->
+    <ul v-if="visiteFiltrate.length" class="mt-4 flex flex-col gap-3">
+      <li v-for="v in visiteFiltrate" :key="v['@id']">
+        <button
+          type="button"
+          class="lastra flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-surface-2"
+          @click="emit('start', v)"
+        >
+          <span class="min-w-0 flex-1">
+            <span class="block font-display text-title-2 leading-tight">{{ v.name }}</span>
+            <span class="tabular mt-1 block text-small text-muted">{{ riepilogo(v) }}</span>
+          </span>
+          <svg
+            class="h-6 w-6 shrink-0 text-accent"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+          </svg>
+        </button>
+      </li>
+    </ul>
+
+    <div v-else-if="!caricamento" class="vuoto mt-4">
+      <p v-if="filtriAttivi">Nessuna visita con questi filtri.</p>
+      <p v-else>In questo museo non ci sono ancora visite disponibili.</p>
+      <button v-if="filtriAttivi" type="button" class="btn-secondario mt-4" @click="azzera">
+        Azzera i filtri
+      </button>
+    </div>
+
+    <!-- Su misura: pari dignità, non una coda in fondo alla pagina -->
+    <section class="mt-12 border-t border-line pt-8" aria-labelledby="su-misura">
+      <h2 id="su-misura" class="font-display text-title-2">
+        Oppure raccontaci che visita vorresti
+      </h2>
+      <p class="mt-1 text-small text-muted">
+        Descrivi il tempo che hai, con chi sei, cosa ti interessa.
+      </p>
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button
+          v-for="e in esempi"
+          :key="e"
+          type="button"
+          class="pastiglia-bottone normal-case"
+          @click="customRequest = e"
+        >
+          {{ e }}
+        </button>
+      </div>
+
+      <label for="su-misura-testo" class="sr-only">
+        Descrizione della visita che desideri
+      </label>
+      <textarea
+        id="su-misura-testo"
+        v-model="customRequest"
+        rows="3"
+        :disabled="creating"
+        class="campo mt-4 resize-y"
+        placeholder="Ho solo mezz'ora e vorrei vedere i ritratti."
+      ></textarea>
+
+      <button
+        type="button"
+        class="btn-secondario mt-3 w-full justify-center"
+        :disabled="!customRequest.trim() || creating"
+        @click="createCustom"
+      >
+        {{ creating ? "Prepariamo il percorso…" : "Crea la visita" }}
+      </button>
+
+      <p v-if="customError" class="avviso mt-3" role="alert">
+        {{ customError }}
+      </p>
+    </section>
+  </div>
+</template>

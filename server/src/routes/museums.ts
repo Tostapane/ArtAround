@@ -5,6 +5,7 @@ import path from "path";
 import { MuseumModel } from "../models/museum";
 import { ArtworkModel } from "../models/artwork";
 import { VisitModel } from "../models/visit";
+import { UserModel } from "../models/user";
 const router = Router();
 
 // directory dei file di configurazione per-museo generati dal seed
@@ -29,21 +30,6 @@ router.get("/", async (req, res) => {
     res.json(museums);
   } catch (err) {
     res.status(500).json({ error: "Errore nel caricamento dei musei" });
-  }
-});
-
-/**
- * GET /api/museums/:id
- * ritorna il museo con l'"@id" specificato
- */
-router.get("/:qid", async (req, res) => {
-  try {
-    const { qid } = req.params;
-    const museum = await MuseumModel.findOne({ qid });
-    if (!museum) return res.status(404).json({ error: "Museo non trovato" });
-    res.json(museum);
-  } catch (err: any) {
-    res.status(500).json({ err: err.message || "Errore nel caricamento del museo richiesto" });
   }
 });
 
@@ -90,15 +76,45 @@ router.get("/:qid/artworks", async (req, res) => {
 });
 
 /**
- * GET /api/museums/:qid/visits
- * ritorna tutte le visite associate a quel museo
+ * GET /api/museums/:qid/visits?user=<username>
+ * Visite del museo che la persona indicata puo' effettivamente iniziare.
+ *
+ * Prima questa rotta restituiva TUTTO, e il navigator avviava qualunque visita
+ * gli venisse passata: quelle a pagamento mai comprate e perfino quelle
+ * GUIDATE, che comparivano nell'elenco come le altre. Il marketplace protegge
+ * con cura il pulsante "Inizia la visita", e il senso stesso della parola
+ * chiave e' che una visita guidata non sia liberamente giocabile: entrambe le
+ * garanzie svanivano un URL piu' in la'. Non e' una questione di sicurezza
+ * (non e' materia d'esame) ma di coerenza.
+ *
+ *  - le visite GUIDATE non compaiono mai: ci si entra con la parola chiave;
+ *  - senza `user` (modalita' esempio) si vedono solo le visite gratuite;
+ *  - con `user` si aggiungono quelle possedute e quelle di cui e' autore.
  */
 router.get("/:qid/visits", async (req, res) => {
   try {
     const { qid } = req.params;
     const museumId = `http://www.wikidata.org/entity/${qid}`;
     const visits = await VisitModel.find({ ofMuseum: museumId });
-    res.json(visits);
+
+    const username = String(req.query.user || "");
+    let posseduti = new Set<string>();
+    if (username) {
+      const utenti = await UserModel.find({ username });
+      for (const u of utenti) {
+        for (const id of u.collezione || []) posseduti.add(id);
+      }
+    }
+
+    const visibili = visits.filter((v: any) => {
+      if (v.accessKey) return false;
+      const gratuita = !v.price || Number(v.price) === 0;
+      if (gratuita) return true;
+      if (!username) return false;
+      return posseduti.has(v["@id"]) || v.author === username;
+    });
+
+    res.json(visibili);
   } catch (err: any) {
     res.status(500).json({ error: "Errore nel caricamento delle visite del museo" });
   }
@@ -129,30 +145,56 @@ router.get("/:qid/qrcodes", async (req, res) => {
            <div class="qr">${svg}</div>
            <figcaption>
              <strong>${escapeHtml(art.name)}</strong>
-             <span>${escapeHtml(art.qid)}</span>
+             <span class="codice">${escapeHtml(art.qid)}</span>
+             <span class="istruzione">Inquadra il QR, oppure scrivi il codice nell'app</span>
            </figcaption>
          </figure>`,
       );
     }
 
+    /*
+     * Il CODICE sotto il QR non e' una didascalia: e' l'altra meta' della
+     * funzione. Inquadrare un quadratino stampato accanto a un quadro e'
+     * esattamente il gesto che una persona cieca non puo' compiere, in un'app il
+     * cui scopo e' parlarle — ed e' anche quello che fallisce fuori da un
+     * contesto sicuro (aprendo il navigator con l'IP della rete locale). Perche'
+     * quel codice serva a qualcosa dev'essere LEGGIBILE: grande, monospaziato,
+     * nero su bianco. Prima era un grigio da 11px.
+     */
     const html = `<!doctype html>
 <html lang="it">
 <head>
   <meta charset="utf-8" />
-  <title>QR opere — ${escapeHtml(museum.name)}</title>
+  <title>QR delle opere — ${escapeHtml(museum.name)}</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 24px; }
-    h1 { font-size: 18px; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .cell { border: 1px solid #ccc; border-radius: 8px; padding: 12px; text-align: center; break-inside: avoid; }
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+           margin: 24px; color: #111; background: #fff; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .nota { font-size: 13px; color: #444; margin: 0 0 20px; max-width: 60ch; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .cell { border: 1px solid #333; border-radius: 6px; padding: 12px;
+            text-align: center; break-inside: avoid; }
     .qr svg { width: 100%; height: auto; }
-    figcaption strong { display: block; font-size: 13px; margin-top: 8px; }
-    figcaption span { display: block; font-size: 11px; color: #666; }
-    @media print { .grid { grid-template-columns: repeat(3, 1fr); } }
+    figcaption strong { display: block; font-size: 13px; margin-top: 10px;
+                        line-height: 1.25; }
+    .codice { display: block; margin-top: 8px; padding: 4px 0;
+              font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+              font-size: 22px; font-weight: 700; letter-spacing: 0.06em;
+              color: #000; border-top: 1px solid #333; }
+    .istruzione { display: block; font-size: 10px; color: #444; margin-top: 2px; }
+    @media print {
+      body { margin: 10mm; }
+      .nota { display: none; }
+    }
   </style>
 </head>
 <body>
-  <h1>QR delle opere — ${escapeHtml(museum.name)} (${escapeHtml(museum.qid)})</h1>
+  <h1>Opere di ${escapeHtml(museum.name)}</h1>
+  <p class="nota">
+    Ritaglia e affianca ogni riquadro alla sua opera. Il visitatore può inquadrare il QR
+    oppure — se non può usare la fotocamera — digitare il codice stampato sotto.
+  </p>
   <div class="grid">${cells.join("")}</div>
 </body>
 </html>`;

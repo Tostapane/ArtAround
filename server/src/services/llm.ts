@@ -1,7 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { options, educationalLevels, secPerArt } from "../../../shared/constants";
-import { ItemModel } from "../models/item";
-import { insertArtwork } from "../dbActions";
 import { RouteIR } from "./wayfinding";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -254,7 +252,10 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
 
 export async function mapRequest(transcript: string) {
   try {
-    const range = options.map((o) => o.label);
+    // Si mappa sugli ID (il token canonico che i gestori confrontano), non
+    // sulle etichette: cosi' le etichette a schermo possono essere italiano
+    // corretto — accenti e apostrofi — senza rompere il protocollo.
+    const range = options.map((o) => o.id);
     const request = `La tua funzione e' quella di mappare la richiesta
                     di un utente con l'opzione fornita dal servizio che piu' si addice.
                     l'utente dice "${transcript}", le opzioni possibili sono: ${range}.

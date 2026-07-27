@@ -1,53 +1,90 @@
-import { Contenuto, Artwork, Item, Museum, User, UserRole } from '../../../shared/types.js';
+import {
+  Contenuto,
+  Artwork,
+  Item,
+  Museum,
+  User,
+  UserRole,
+} from '../../../shared/types.js';
 
 // Utente restituito dal server (senza password)
 export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
 
+/** Risposta del login quando le stesse credenziali valgono per due profili:
+ *  il server non sceglie al posto nostro, restituisce le opzioni. */
+export type ScelteRuolo = { scelta: true; ruoli: UserRole[] };
+
 async function readError(response: Response, fallback: string): Promise<string> {
-  const data = await response.json().catch(() => ({} as any));
+  const data = await response.json().catch(() => ({}) as any);
   return data.error || fallback;
 }
 
 /**
- * Servizio per la comunicazione con il server (Network Layer)
+ * Servizio per la comunicazione con il server (Network Layer).
+ * Tutti i percorsi sono RELATIVI: il marketplace e' servito dallo stesso
+ * server delle API, quindi nessun host e nessuna porta compaiono qui.
  */
 export const ArtAPI = {
-  // --- Autenticazione / utenti (persistiti su MongoDB) ---
-  async login(username: string, password: string, role: UserRole): Promise<UserDTO> {
+  /** Configurazione d'ambiente (origine del navigator): niente porte scritte
+   *  a mano nel codice del client. */
+  async fetchConfig(): Promise<{ navigatorOrigin: string }> {
+    const response = await fetch('/api/config');
+    if (!response.ok) throw new Error('Configurazione non disponibile');
+    return response.json();
+  },
+
+  /**
+   * Accesso. Il ruolo NON e' una domanda: lo risolve il server dalle
+   * credenziali. Viene passato solo al secondo tentativo, quando lo stesso
+   * username+password esiste sia come autore sia come visitatore.
+   */
+  async login(
+    username: string,
+    password: string,
+    role?: UserRole,
+  ): Promise<UserDTO | ScelteRuolo> {
     const response = await fetch('/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, role }),
     });
-    if (!response.ok) throw new Error(await readError(response, 'Credenziali non valide'));
+    if (response.status === 300) return response.json(); // due profili possibili
+    if (!response.ok)
+      throw new Error(
+        await readError(response, 'Credenziali non valide. Controlla username e password.'),
+      );
     return response.json();
   },
 
-  async register(username: string, password: string, role: UserRole): Promise<UserDTO> {
+  async register(
+    username: string,
+    password: string,
+    role: UserRole,
+  ): Promise<UserDTO> {
     const response = await fetch('/api/users/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, role }),
     });
-    if (!response.ok) throw new Error(await readError(response, 'Errore in registrazione'));
+    if (!response.ok)
+      throw new Error(await readError(response, 'Errore in registrazione'));
     return response.json();
   },
 
   // Acquisto persistente (solo visitatori): il server scala il wallet del
-  // compratore e aggiorna la sua collezione. Il prezzo passato è solo un
-  // fallback (il server usa quello autoritativo del contenuto).
+  // compratore e aggiorna la sua collezione, usando il prezzo autoritativo.
   async buy(username: string, itemId: string, price: number): Promise<UserDTO> {
     const response = await fetch(`/api/users/${encodeURIComponent(username)}/buy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ itemId, price }),
     });
-    if (!response.ok) throw new Error(await readError(response, 'Errore nell\'acquisto'));
+    if (!response.ok)
+      throw new Error(await readError(response, "Non è stato possibile completare l'acquisto"));
     return response.json();
   },
 
-  // Visita guidata: lo studente entra nella sala d'attesa digitando la parola
-  // chiave. Ritorna la vista sessione (con id + visitName) o lancia se 404/errore.
+  // Visita guidata: lo studente entra in sala d'attesa con la parola chiave.
   async joinGuidedSession(
     accessKey: string,
     username: string,
@@ -60,77 +97,67 @@ export const ArtAPI = {
     });
     if (!response.ok)
       throw new Error(
-        await readError(response, 'Nessuna visita guidata attiva con questa parola chiave'),
+        await readError(
+          response,
+          'Nessuna visita guidata aperta con questa parola chiave',
+        ),
       );
     return response.json();
   },
 
-  // Vendite/adozioni dei contenuti pubblicati da un autore
   async fetchSales(username: string): Promise<any[]> {
     const response = await fetch(`/api/users/${encodeURIComponent(username)}/sales`);
     if (!response.ok) throw new Error('Errore caricamento vendite');
     return response.json();
   },
 
-  // Recupera la lista dei musei disponibili (per il pannello di selezione)
   async fetchMuseums(): Promise<Museum[]> {
     const response = await fetch('/api/museums');
     if (!response.ok) throw new Error('Errore caricamento musei');
     return response.json();
   },
 
-  // Recupera la lista di tutte le opere dal database (per la selezione nell'editor)
   async fetchArtworks(): Promise<Artwork[]> {
     const response = await fetch('/api/artworks');
-    if (!response.ok) throw new Error('Errore caricamento artworks');
+    if (!response.ok) throw new Error('Errore caricamento opere');
     return response.json();
   },
 
-  // Recupera le visite (tour) dal marketplace
   async fetchVisite(): Promise<Contenuto[]> {
     const response = await fetch('/api/visits');
     if (!response.ok) throw new Error('Errore caricamento visite');
     return response.json();
   },
 
-  // Recupera tutti gli item (contenuti) in vendita, con l'artwork popolato
   async fetchItems(): Promise<Item[]> {
     const response = await fetch('/api/items');
-    if (!response.ok) throw new Error('Errore caricamento item');
+    if (!response.ok) throw new Error('Errore caricamento contenuti');
     return response.json();
   },
 
-  // Recupera i contenuti creati da uno specifico autore
   async fetchMyItems(authorName: string): Promise<Item[]> {
     const response = await fetch(`/api/items/author/${encodeURIComponent(authorName)}`);
-    if (!response.ok) throw new Error('Errore caricamento tuoi contenuti');
+    if (!response.ok) throw new Error('Errore caricamento dei tuoi contenuti');
     return response.json();
   },
 
-  // Elimina una visita creata dall'utente
   async eliminaVisita(id: string): Promise<void> {
     const response = await fetch(`/api/visits/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || "Errore durante l'eliminazione della visita");
-    }
+    if (!response.ok)
+      throw new Error(await readError(response, "Errore durante l'eliminazione"));
   },
 
-  // Invia un nuovo contenuto al server
+  // Pubblica un contenuto: l'endpoint dipende dal tipo.
   async pubblica(payload: any): Promise<void> {
-    // Determina l'endpoint in base al tipo di contenuto
     const endpoint = payload.tipo === 'Visita' ? '/api/visits' : '/api/items';
-    
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Errore durante la pubblicazione');
-    }
-  }
+    if (!response.ok)
+      throw new Error(await readError(response, 'Errore durante la pubblicazione'));
+  },
 };

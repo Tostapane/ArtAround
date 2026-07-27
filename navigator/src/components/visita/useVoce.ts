@@ -1,6 +1,5 @@
 import { ref } from "vue";
 export const isRecording = ref(false);
-export const audioUrl = ref<string | null>(null);
 export const finalBlob = ref<Blob | null>(null);
 export const errorMsg = ref<string | null>(null);
 
@@ -30,18 +29,11 @@ export const startRecording = async () => {
     };
 
     mediaRecorder.onstop = () => {
-      // Create the final audio blob
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-      finalBlob.value = audioBlob;
-      // Cleanup old URL
-      if (audioUrl.value) {
-        URL.revokeObjectURL(audioUrl.value);
-      }
-
-      // Create a new URL for the audio player (salvato nel browser per ora)
-      audioUrl.value = URL.createObjectURL(audioBlob);
-
-      // Stop all tracks to release the microphone completely
+      // L'audio serve solo per essere spedito al server: non c'e' (e non c'e'
+      // mai stata) un'interfaccia per riascoltarlo, quindi niente object URL da
+      // creare e poi dimenticare.
+      finalBlob.value = new Blob(audioChunks, { type: "audio/webm" });
+      // Rilascia il microfono
       stream.getTracks().forEach((track) => track.stop());
     };
 

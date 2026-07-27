@@ -1,0 +1,212 @@
+/*
+  ArtAround — vocabolario di componenti condiviso fra navigator e marketplace.
+  Riferimento: prelude.md §9.
+
+  Perche' sta in shared/ e non dentro le due app: le due app sono "la stessa
+  istituzione in due stanze". Se il bottone primario esiste in due file, entro
+  una settimana sono due bottoni diversi. Qui c'e' UNA definizione di ogni
+  componente; le classi specifiche di una sola app restano nel suo foglio
+  (il binario del marketplace, la mappa del navigator).
+
+  Va importato DOPO shared/theme.css, da cui prende tutti i token.
+*/
+
+@layer components {
+  /* --- Salto rapido: primo elemento focalizzabile, visibile solo a fuoco --- */
+  .salta {
+    @apply sr-only;
+  }
+  .salta:focus {
+    @apply not-sr-only fixed left-4 top-4 z-[100] rounded-plate bg-accent px-4 py-3
+           font-medium text-on-accent;
+  }
+
+  /* --- La lastra: la superficie montata sul muro ------------------------- */
+  .lastra {
+    @apply rounded-card border border-line bg-surface;
+  }
+  .scheda-click {
+    @apply transition-colors hover:bg-surface-2;
+  }
+
+  /* --- Bottoni ----------------------------------------------------------- */
+  .btn-primario,
+  .btn-secondario,
+  .btn-fantasma,
+  .btn-fantasma-chiaro,
+  .btn-pericolo,
+  .btn-pericolo-pieno {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-plate px-4 py-2.5
+           text-small font-semibold transition-colors;
+  }
+  .btn-primario {
+    @apply bg-accent text-on-accent hover:opacity-90;
+  }
+  .btn-secondario {
+    @apply border border-line-strong text-text hover:bg-surface-2;
+  }
+  .btn-fantasma {
+    @apply text-text hover:bg-surface-2;
+  }
+  /* Su fondo Notte (soglia, sala d'attesa) */
+  .btn-fantasma-chiaro {
+    @apply border border-on-structure/40 text-on-structure hover:bg-on-structure/10;
+  }
+  .btn-pericolo {
+    @apply border border-danger text-danger hover:bg-danger/10;
+  }
+  .btn-pericolo-pieno {
+    @apply bg-danger text-on-danger hover:opacity-90;
+  }
+  .btn-primario:disabled,
+  .btn-secondario:disabled,
+  .btn-fantasma:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
+  /* --- Bottoni-icona ----------------------------------------------------- */
+  .icona-mini {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-plate text-muted
+           transition-colors hover:bg-surface-2 hover:text-text
+           disabled:cursor-not-allowed disabled:opacity-30;
+  }
+  /* Tondo e grande: comandi che si premono in piedi, con una mano sola */
+  .icona-tonda {
+    @apply inline-flex h-12 w-12 items-center justify-center rounded-full text-text
+           transition-colors hover:bg-surface-2
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .icona-tonda-attiva {
+    @apply bg-accent text-on-accent hover:opacity-90;
+  }
+
+  /* --- Campi: pozzetto + filo spesso in basso.
+         Un campo si riconosce dal sottolineato, non da una cornice. -------- */
+  .etichetta {
+    @apply block text-small font-medium text-text;
+  }
+  .campo {
+    @apply mt-1.5 block min-h-11 w-full rounded-t-plate border-0 border-b-2 border-line-strong
+           bg-surface-2 px-3 py-2.5 text-body text-text
+           placeholder:text-muted focus:border-accent focus:outline-none;
+  }
+  .campo:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+  .campo-piatto {
+    @apply mt-0 border-b border-line bg-transparent px-2 py-1.5 text-small;
+  }
+  .campo-select {
+    @apply min-h-11 rounded-plate border border-line-strong bg-surface px-3 py-2
+           text-small font-medium text-text focus:border-accent focus:outline-none;
+  }
+  .campo-cerca {
+    @apply flex min-h-11 flex-1 items-center gap-2 rounded-plate border border-line-strong
+           bg-surface px-3 focus-within:border-accent;
+  }
+  .campo-cerca input {
+    @apply min-h-11 w-full border-0 bg-transparent text-small text-text
+           placeholder:text-muted focus:outline-none;
+  }
+
+  /* --- Barra di strumenti ------------------------------------------------ */
+  .barra {
+    @apply flex flex-col gap-3 md:flex-row md:items-center;
+  }
+
+  /* --- Controllo segmentato: la selezione e' un filo, non un riempimento -- */
+  .segmenti {
+    @apply inline-flex gap-1 rounded-plate border border-line bg-surface p-1;
+  }
+  .segmento {
+    @apply min-h-9 rounded-plate px-3 py-1.5 text-small font-medium text-muted
+           transition-colors hover:text-text;
+  }
+  .segmento-attivo {
+    @apply border-b-2 border-accent text-accent;
+  }
+
+  /* --- Scelte descritte (radio grandi): si sceglie sulla conseguenza ------ */
+  .scelta {
+    @apply block rounded-card border border-line bg-surface p-4 transition-colors hover:bg-surface-2;
+  }
+  .scelta-attiva {
+    @apply border-accent bg-surface-2;
+  }
+
+  /* --- Comandi del vocabolario controllato (scheda del navigator) -------- */
+  .comando {
+    @apply flex min-h-11 w-full items-center rounded-plate border-l-[3px] border-transparent
+           px-3 py-2.5 text-left text-small font-medium text-text
+           transition-colors hover:bg-surface-2;
+  }
+  .comando-attivo {
+    @apply border-l-accent bg-surface-2 text-accent;
+  }
+
+  /* --- Pastiglie: informazione, mai un'azione ---------------------------- */
+  .pastiglia {
+    @apply inline-flex items-center gap-1 rounded-plate border border-line bg-surface-2
+           px-2 py-0.5 text-caption font-medium uppercase tracking-wider text-muted;
+  }
+  /* Una pastiglia CLICCABILE e' un bottone travestito: ha aria-pressed */
+  .pastiglia-bottone {
+    @apply inline-flex min-h-9 items-center rounded-plate border border-line px-2.5
+           text-caption font-medium uppercase tracking-wider text-muted
+           transition-colors hover:text-text;
+  }
+  .pastiglia-attiva {
+    @apply border-accent text-accent;
+  }
+
+  /* --- Immagini: sempre "passe-partout", mai ritagliate ------------------ */
+  .mat {
+    @apply flex items-center justify-center overflow-hidden rounded-plate border border-line
+           bg-surface-2;
+    aspect-ratio: 4 / 3;
+  }
+  .mat img {
+    @apply h-full w-full object-contain;
+  }
+  .mat-grande {
+    aspect-ratio: 1 / 1;
+  }
+  .mat-piccolo {
+    @apply h-14 w-14;
+    aspect-ratio: 1 / 1;
+  }
+  .mat-vuoto {
+    @apply px-3 text-center text-caption text-muted;
+  }
+
+  /* --- Note logistiche: non sono tappe, e si vede ------------------------ */
+  .nota-logistica {
+    @apply ml-6 mt-2 flex items-center gap-2 border-l-2 border-dashed border-line
+           py-2 pl-4 text-small italic text-muted;
+  }
+
+  /* --- Stati vuoti: una frase e un'azione, mai una griglia fantasma ------ */
+  .vuoto {
+    @apply rounded-card border border-line bg-surface-2 px-6 py-10 text-center;
+  }
+
+  /* --- Avvisi in linea --------------------------------------------------- */
+  .avviso {
+    @apply flex items-start gap-3 rounded-card border border-line bg-surface-2 p-4
+           text-small text-muted;
+  }
+
+  /* --- Collegamenti ------------------------------------------------------ */
+  .link {
+    @apply font-medium text-accent underline underline-offset-4 hover:opacity-80;
+  }
+  /*
+    Verderame come TESTO su Cemento fa 4.06:1 — sotto la soglia AA per il testo
+    normale (prelude.md §3.1, l'unica eccezione dichiarata). Sulle lastre (Gesso)
+    fa 5.74:1 e va bene. Qui il collegamento resta inchiostro e si distingue per
+    la sottolineatura, non per il colore.
+  */
+  .link-scuro {
+    @apply text-text underline decoration-line underline-offset-4 hover:decoration-accent;
+  }
+}

@@ -31,7 +31,11 @@ import {
 // ============================================================================
 
 type Role = "docente" | "studente" | "";
-type Stato = "attesa" | "attiva" | "terminata";
+// Il server conosce anche la fase "quiz": se il client non la modellasse,
+// all'avvio del quiz tutti finirebbero nel ramo finale mostrando "Visita
+// terminata" a meta' visita. L'interfaccia del quiz non c'e' ancora, ma lo
+// STATO va rappresentato lo stesso, altrimenti si mostra una cosa falsa.
+type Stato = "attesa" | "attiva" | "quiz" | "terminata";
 
 export const guidedActive = ref(false);
 export const guidedRole = ref<Role>("");
@@ -136,15 +140,26 @@ async function pollOnce() {
       );
     }
   } catch (err) {
-    // sessione finita: usciamo senza traccia. Altri errori (rete): si ritenta.
-    if (err instanceof GuidedEndedError) endLocally();
+    // La sessione e' sparita mentre eravamo dentro: NON e' una chiusura attesa.
+    // Altri errori (rete momentanea): si ritenta al prossimo giro.
+    if (err instanceof GuidedEndedError) endLocally(false);
   }
 }
 
+/**
+ * La visita e' finita in modo ATTESO (il docente ha premuto Termina, o lo
+ * studente e' uscito) oppure la sessione e' semplicemente sparita sotto i piedi
+ * (server riavviato, rete caduta). Sono due cose diverse e vanno dette in modo
+ * diverso: riusare "terminata" per "non sappiamo cos'e' successo" e' il modo in
+ * cui un guasto diventa invisibile.
+ */
+export const guidedChiusuraPrevista = ref(true);
+
 // La sessione non c'e' piu': fermiamo il polling e svuotiamo la visita (nessun
 // possesso permanente). guidedActive resta true per mostrare la schermata di fine.
-function endLocally() {
+function endLocally(prevista = true) {
   stopPolling();
+  guidedChiusuraPrevista.value = prevista;
   guidedStato.value = "terminata";
   clearVisit();
   contentLoaded = false;
@@ -226,6 +241,7 @@ export function resetGuided() {
   guidedParticipants.value = [];
   guidedParticipantsCount.value = 0;
   guidedQuestions.value = [];
+  guidedChiusuraPrevista.value = true;
   contentLoaded = false;
   clearVisit();
 }

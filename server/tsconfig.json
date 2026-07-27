@@ -1,11 +1,25 @@
 {
-    "compilerOptions": {
-        "module": "nodenext",
-        "moduleResolution": "nodenext",
-        "target": "es2020",
-        "sourceMap": true,
-        "outDir": "dist",
-        "esModuleInterop": true
-    },
-    "include": ["src/**/*"]
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2020",
+    "sourceMap": true,
+    "outDir": "dist",
+    "esModuleInterop": true,
+    // Il server è dove vive la logica di dominio ed era l'unica parte senza
+    // alcun controllo dei tipi (né strict né include dei tipi condivisi).
+    // Accenderlo è costato sei correzioni, tutte reali: un `req.file` non
+    // verificato, una trascrizione che poteva essere undefined, un wallet
+    // assente trattato come numero, e un fetch che dichiarava di non
+    // restituire mai null mentre lo restituiva.
+    "strict": true,
+    // Le dichiarazioni delle dipendenze non sono affar nostro: @google/genai
+    // referenzia un peer opzionale (@modelcontextprotocol/sdk) che non
+    // installiamo, e senza questo `tsc --noEmit` fallisce su un errore che non
+    // possiamo correggere e che non riguarda il nostro codice.
+    "skipLibCheck": true
+  },
+  // I tipi condivisi stanno fuori da src/: ts-node li risolveva comunque, ma
+  // per `tsc` erano fuori dal programma.
+  "include": ["src/**/*", "../shared/**/*"]
 }

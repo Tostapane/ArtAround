@@ -1,10 +1,47 @@
-/*
- * TODO:
- * - definire un modo per selezionare il museo nel navigator via file di configurazione
- * - debloatare alcune routes
+/**
+ * Tipi condivisi da server, navigator e marketplace.
+ *
+ * Il modello segue Schema.org: un Item e' un CreativeWork, una Visit e' una
+ * ItemList. I nomi dei campi con la chiocciola ("@id", "@type") vengono da li'
+ * e non vanno rinominati: sono il contratto con cui i dati sono serializzati.
+ *
+ * Note sui campi meno ovvi:
+ * - Artwork.imageUri e' l'indirizzo remoto su Wikidata, Artwork.imagePath il
+ *   percorso della copia scaricata sul server; i client provano il secondo e
+ *   ripiegano sul primo.
+ * - Artwork.locationId e' l'id del nodo dentro la mappa SVG del museo: e' cio'
+ *   che lega un'opera alla sua posizione fisica.
+ * - Item["@id"] ha la forma QID-autore-tono-durata ed e' OPACO: e' referenziato
+ *   da Visit.itemListElement e da User.collezione, quindi non si riscrive
+ *   nemmeno quando cambia il tono.
+ * - Item.timeRequired sono secondi nudi in forma di stringa ("15"), non una
+ *   durata ISO.
+ * - Visit.duration e' la durata TOTALE in secondi, non quella per opera.
+ * - Visit.accessKey, se presente, marca la visita come guidata: gratuita, fuori
+ *   dal catalogo, accessibile solo digitando la parola chiave.
+ * - L'identita' di un User e' la COPPIA (username, role): lo stesso username
+ *   puo' esistere come autore e come visitatore, e sono due account distinti e
+ *   non collegati.
  */
 
+// ============================================================================
+//                                  Utenti
+// ============================================================================
+
 export type UserRole = "autore" | "visitatore";
+
+export interface User {
+  username: string;
+  role: UserRole;
+  /** Budget d'acquisto: solo sugli account visitatore. */
+  wallet?: number;
+  /** ID dei contenuti posseduti. */
+  collezione: string[];
+}
+
+// ============================================================================
+//                                   Opere
+// ============================================================================
 
 export interface Author {
   name: string;
@@ -17,105 +54,84 @@ export interface Style {
 }
 
 export interface Artwork {
-  "@id": string; // link a wikidata
-  qid: string; // QXXXXXXX
+  "@id": string;
+  qid: string;
   name: string;
-  imageUri: string; // link all'immagine di wikidata
-  imagePath: string; // percorso dell'immagine dentro il server
+  imageUri: string;
+  imagePath: string;
   author: Author;
   style: Style;
-  ofMuseum: string; // indica il museo
+  ofMuseum: string;
   locationId: string;
   lastUpdated: Date;
 }
 
-/**
- * Rappresenta il contenuto creativo/audioguida (CreativeWork su Schema.org)
- */
-export interface Item {
-  "@id": string; // ID unico generato (es. QID-Level-Time)
-  about: string | Artwork; // ID dell'artwork o oggetto popolato
-  text: string;
-  timeRequired: string; // Durata in secondi, senza suffisso (es. "30")
-  educationalLevel: string;
-  author: string;
-  license: string;
-  price?: number; // Prezzo nel marketplace
-  // Visibilità del contenuto: "pubblico" (default) compare e si vende nel
-  // marketplace; "privato" è nascosto e non vendibile — l'autore lo tiene per
-  // le proprie visite guidate (modulo 18-27, "contenuti privati non resi
-  // pubblici"). Un item privato ha sempre prezzo 0.
-  visibility?: "pubblico" | "privato";
-}
-
-/*
- * Rappresenta l'unione tra item selezionati e il corrispettivo artwork
- */
-export interface Match {
-  artwork: Artwork;
-  item: Item;
-}
-
-/**
- * Rappresenta un percorso/lista di item.
- * NOTA: le visite "su misura" (generate dai vincoli dell'utente) NON vengono
- * persistite: vivono solo nel client (navigator) e non compaiono nei listini.
- */
-export interface Visit {
-  "@id": string;
-  name: string;
-  level: string;
-  duration: number; // durata TOTALE della visita in secondi (somma dei suoi item)
-  price?: number;
-  ofMuseum: string; // indica il museo a cui appartiene
-  itemListElement: string[]; // Array di ID di Item
-  optionalItems?: string[]; // Sottoinsieme di itemListElement marcato come "opzionale"
-  // (contenuti da mostrare solo se rimane tempo o su domanda del visitatore)
-  logistics: string[]; // Indicazioni testuali
-  author?: string;
-  license?: string; // licenza di pubblicazione (vedi shared/constants: licenses)
-  // Parola chiave ("nome mnemonico" della slide 18-27, es. "Fenice rossa") che
-  // marca la visita come GUIDATA: non si compra né compare nel marketplace dei
-  // visitatori; gli studenti vi accedono in modo temporaneo digitando questa
-  // chiave (univoca nel DB). Prezzo ignorato (di fatto 0).
-  accessKey?: string;
-  // Quiz a scelta multipla eseguito nel navigator a FINE visita (modulo 18-27).
-  // Esiste solo nelle visite guidate ed è FACOLTATIVO (può mancare). Le risposte
-  // corrette (`correct`) restano lato server e non vengono mai inviate agli
-  // studenti: la correzione è server-side.
-  quiz?: QuizQuestion[];
-}
-
-// Una domanda del quiz di fine visita: 4 opzioni, una sola corretta.
-export interface QuizQuestion {
-  question: string; // testo della domanda
-  options: string[]; // esattamente 4 opzioni
-  correct: number; // indice 0..3 dell'opzione corretta
-}
-
-// Unione per il Marketplace
-export type Contenuto = Item | Visit;
-
-// Profilo utente (esteso)
-export interface User {
-  username: string;
-  // Il ruolo fa parte dell'IDENTITÀ dell'account: un account è "autore" OPPURE
-  // "visitatore", scelto alla registrazione e fissato al login. Due account con
-  // lo stesso username ma ruolo diverso sono account DISTINTI e non collegati
-  // (wallet, collezione e contenuti separati): esistono solo se creati uno alla
-  // volta. La chiave d'identità è quindi la coppia (username, role).
-  role: UserRole;
-  // Budget d'acquisto: presente SOLO sugli account visitatore (gli autori non
-  // comprano). Assente/undefined per gli autori.
-  wallet?: number;
-  collezione: string[]; // ID degli item/visit acquistati (visitatore)
-}
-
 export interface Museum {
   "@id": string;
-  qid: string; // uri di wikidata QXXXXXXX
+  qid: string;
   name: string;
   created: string;
   location: string;
   mapPath: string;
 }
+
+// ============================================================================
+//                          Contenuti (item e visite)
+// ============================================================================
+
+export interface Item {
+  "@id": string;
+  about: string | Artwork;
+  text: string;
+  timeRequired: string;
+  educationalLevel: string;
+  author: string;
+  license: string;
+  price?: number;
+  /** "privato": fuori dal catalogo e non vendibile, riservato alle visite guidate del suo autore. */
+  visibility?: "pubblico" | "privato";
+}
+
+/**
+ * Indicazione logistica dentro una visita ("prosegui a sinistra della scala
+ * verso la sala 12"). Non e' un item e non fa parte di un item.
+ * `after` e' l'@id della tappa dopo la quale mostrarla; null = nota d'apertura.
+ */
+export interface LogisticNote {
+  after: string | null;
+  text: string;
+}
+
+/** Domanda del quiz di fine visita. `correct` non lascia mai il server. */
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct: number;
+}
+
+export interface Visit {
+  "@id": string;
+  name: string;
+  level: string;
+  duration: number;
+  price?: number;
+  license?: string;
+  ofMuseum: string;
+  itemListElement: string[];
+  /** Sottoinsieme di itemListElement da mostrare solo se resta tempo. */
+  optionalItems?: string[];
+  /** Le stringhe nude sono documenti creati prima delle note posizionate. */
+  logistics: (string | LogisticNote)[];
+  author?: string;
+  accessKey?: string;
+  quiz?: QuizQuestion[];
+}
+
+/** Un item unito all'opera che descrive: la giunzione avviene sul server. */
+export interface Match {
+  artwork: Artwork;
+  item: Item;
+}
+
+/** Unione usata dal marketplace, dove item e visite stanno negli stessi elenchi. */
+export type Contenuto = Item | Visit;
