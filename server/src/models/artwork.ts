@@ -1,3 +1,6 @@
+/**
+ * Documento Mongoose di un'opera.
+ */
 import { Schema, model } from "mongoose";
 import { Artwork as SharedArtwork } from "../../../shared/types";
 

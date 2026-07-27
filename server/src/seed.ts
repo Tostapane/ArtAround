@@ -1,3 +1,14 @@
+/**
+ * Ricostruzione del database da zero.
+ *
+ * Ordine obbligato: prima i musei (senza, il pannello di scelta del marketplace
+ * resta vuoto e il navigator non trova la configurazione), poi opere e item, poi
+ * le immagini, infine le due visite dimostrative che il seed omogeneo non sa
+ * produrre: una con tappe opzionali e una guidata con parola chiave.
+ *
+ * E' lento per costruzione: ogni item e' una chiamata all'LLM, con una pausa fra
+ * una e l'altra per non superare i limiti di frequenza.
+ */
 import "./env";
 import mongoose from "mongoose";
 import { ArtworkModel } from "./models/artwork";
@@ -26,13 +37,11 @@ async function seed() {
     await mongoose.connect(MONGO_URI);
     console.log("Connesso!");
 
-    // Pulizia
     await ArtworkModel.deleteMany({});
     await ItemModel.deleteMany({});
     await VisitModel.deleteMany({});
     console.log("Database pulito.");
 
-    // Totali e contatori per il progresso
     const museumList = Object.values(museums);
     const totalMuseums = museumList.length;
     const itemsPerArtwork = educationalLevels.length * secPerArt.length;
@@ -63,7 +72,6 @@ async function seed() {
           `http://www.wikidata.org/entity/${museum.qid}`,
           `art-${artworkIdx}`,
         );
-        // Opera senza immagine: saltata (niente item ne' inclusione nelle visite)
         if (!inserita) {
           console.log(`   opera ${qid} saltata (nessuna immagine).`);
           continue;
@@ -84,8 +92,6 @@ async function seed() {
         }
       }
 
-      // gli @id degli artwork di QUESTO museo: una visita deve contenere solo
-      // item che descrivono opere del proprio museo (non di altri musei)
       const aboutIds = museum.artworks.map(
         (q) => `http://www.wikidata.org/entity/${q}`,
       );
@@ -129,7 +135,7 @@ async function seedDownload() {
   for (const artwork of artworks) {
     console.log(`Downloading ${artwork.name}`);
     await downloadImage(artwork.imageUri, `${artwork.qid}`);
-    await delay(2000); // 1-second delay between requests
+    await delay(2000); 
   }
   await mongoose.disconnect();
 }
@@ -173,7 +179,6 @@ async function seedSpecialVisits() {
     await mongoose.connect(MONGO_URI);
     console.log("Connesso!");
 
-    // Primo museo disponibile: le due visite useranno le sue opere.
     const museum = Object.values(museums)[0];
     if (!museum) {
       console.log("Nessun museo configurato: niente visite da seminare.");
@@ -184,8 +189,6 @@ async function seedSpecialVisits() {
       (q) => `http://www.wikidata.org/entity/${q}`,
     );
 
-    // Item omogenei (stesso livello e durata) del museo scelto: sono la base
-    // condivisa delle due visite. Servono gli item gia' generati da seed().
     const level = educationalLevels[0];
     const duration = secPerArt[0];
     const items = await ItemModel.find({
@@ -202,8 +205,6 @@ async function seedSpecialVisits() {
     const itemIds = items.map((it) => it["@id"]);
     const durataTotale = duration * itemIds.length;
 
-    // Contenuti opzionali: marchiamo come "opzionale" la seconda meta' delle
-    // opere (da mostrare solo se resta tempo o su domanda del visitatore).
     const primoOpzionale = Math.ceil(itemIds.length / 2);
     const opzionali: string[] = [];
     for (let i = primoOpzionale; i < itemIds.length; i++) {
@@ -233,7 +234,6 @@ async function seedSpecialVisits() {
       logistics: [],
     };
 
-    // Idempotenza: via le versioni precedenti, poi ricrea.
     await VisitModel.deleteMany({
       "@id": { $in: [visitaOpzionali["@id"], visitaGuidata["@id"]] },
     });
@@ -244,9 +244,6 @@ async function seedSpecialVisits() {
         `"${visitaGuidata.name}" (parola chiave: «${PAROLA_CHIAVE_GUIDATA}»).`,
     );
 
-    // Account che partecipano alla visita guidata: il docente (account AUTORE,
-    // avvia la visita dal marketplace) e gli studenti (account VISITATORE, si
-    // agganciano con la parola chiave). Il wallet è solo da visitatore.
     const account: { username: string; role: "autore" | "visitatore" }[] = [
       { username: DOCENTE, role: "autore" },
       ...STUDENTI.map((username) => ({ username, role: "visitatore" as const })),
@@ -276,12 +273,6 @@ async function seedSpecialVisits() {
 }
 
 async function completeSeed() {
-  // I MUSEI VANNO PER PRIMI. Era commentato, e un database appena popolato
-  // restava senza musei: il pannello di scelta del marketplace vuoto, la
-  // configurazione del navigator irrecuperabile, il wayfinding senza mappa —
-  // e nessun indizio sul perche'. Rigenera anche i file di configurazione
-  // per-museo in data/museums/ (i loro mapPath puntano agli SVG annotati a
-  // mano in public/maps/, che NON vengono toccati).
   await seedMuseums();
   await seed();
   await seedDownload();

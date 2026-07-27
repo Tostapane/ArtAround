@@ -1,3 +1,10 @@
+/**
+ * Popolamento di un museo a partire da Wikidata.
+ *
+ * Scarica i metadati di opere e musei, salva una copia locale delle immagini e
+ * genera le descrizioni mancanti. Un'opera senza immagine (P18) viene saltata:
+ * meglio non averla che averla senza volto.
+ */
 import { fetchArtwork, fetchMuseum } from "./services/wikidata";
 import { downloadImage } from "./services/imageDownloader";
 import {
@@ -21,16 +28,11 @@ export async function populateArtwork(
   const data = await fetchArtwork(qid);
   if (!data) throw new Error("Artwork non trovato");
 
-  // Nessuna immagine (P18) su Wikidata: l'opera non e' mostrabile con la sua
-  // immagine, quindi la saltiamo per garantire che ogni opera caricata abbia
-  // sempre un'immagine visibile.
   if (!data.image) {
     console.warn(`[seed] opera ${qid} senza immagine (P18): saltata`);
     return false;
   }
 
-  // downloadImage salva l'immagine sul server e ritorna il percorso relativo;
-  // in caso di fallita download ritorna l'URL remoto (usabile comunque come src).
   const imagePath = await downloadImage(data.image, `${qid}`);
 
   await insertArtwork({
@@ -53,9 +55,6 @@ export async function populateArtwork(
   return true;
 }
 
-/**
- * Crea e inserisce un Item (descrizione) associato a un artwork.
- */
 export async function populateItem(
   atworkQid: string,
   level: string,
@@ -81,7 +80,7 @@ export async function populateItem(
 
   await insertItem({
     "@id": id,
-    about: artwork["@id"], // Full Wikidata URL
+    about: artwork["@id"], 
     timeRequired: duration.toString(),
     educationalLevel: level,
     author: itemAuthor,
@@ -90,12 +89,9 @@ export async function populateItem(
   });
 }
 
-/**
- * Inserisce una visita (percorso) nel database.
- */
 export async function populateVisit(
   level: string,
-  durationPerArt: number, // secondi di descrizione per singola opera
+  durationPerArt: number, 
   museum: string,
   museumUri: string,
   items: string[],
@@ -103,12 +99,8 @@ export async function populateVisit(
   visitPrice?: number,
   visitAuthor?: string,
 ) {
-  // L'id resta stabile (basato su museo-livello-durata per opera), ma il NOME
-  // mostrato e' leggibile (le vecchie visite mostravano il codice grezzo).
   const id = `visit-${museum}-${level}-${durationPerArt}`;
   const name = `Visita ${level} · ${durationPerArt}s per opera`;
-  // Visit.duration e' la durata TOTALE in secondi: qui gli item sono omogenei
-  // (stessa durata per opera), quindi totale = durata per opera × numero opere.
   await insertVisit({
     "@id": id,
     name: name,
@@ -122,9 +114,6 @@ export async function populateVisit(
   });
 }
 
-/**
- * Fetcha il museo, ne crea il file di configurazione e inseirsce i suoi dati nel database
- */
 export async function populateMuseum(qid: string, artworks: readonly string[]) {
   const data = await fetchMuseum(qid);
   if (!data) throw new Error("Museum non trovato");

@@ -8,6 +8,16 @@
     Gesso #FFFFFF · Cemento #D9D9D9 · Grafite #353535 · Notte #284B63 · Verderame #3C6E71
   Regola che tiene in piedi tutta l'interfaccia:
     NOTTE e' dove sei (struttura), VERDERAME e' dove puoi andare (interazione).
+
+  A questi si affiancano tre tinte di SOLO SIGNIFICATO, mai cliccabili — se la
+  regola qui sopra resta vera, nessuno le scambia per un comando:
+    OTTONE   valore      prezzi, ricavi, credito
+    ARDESIA  categoria   tipo di contenuto, livello, metadati secondari
+    SALVIA   acquisito   posseduto, pronto da pubblicare, operazione riuscita
+    MINIO    allarme     errori e azioni distruttive (gia' presente)
+  Stanno nella stessa famiglia fredda della palette e sono state scelte per
+  passare AA su ENTRAMBI i fondi chiari, cosi' — a differenza del Verderame —
+  si possono usare anche come testo sul muro.
 */
 
 /* ---------------------------------------------------------------------------
@@ -58,6 +68,10 @@
   --color-on-structure: var(--on-structure);
   --color-danger: var(--danger);
   --color-on-danger: var(--on-danger);
+  --color-brass: var(--brass);
+  --color-slate: var(--slate);
+  --color-sage: var(--sage);
+  --color-tint: var(--tint);
 
   /* Caratteri: uno scaricato (display), gli altri di sistema (zero byte, resa
      corretta su ogni OS). Il contrasto fra display largo e UI neutra E' l'abbinamento. */
@@ -117,6 +131,10 @@
   --on-structure: #ffffff;
   --danger: #9e2b25; /* Minio (derivato: la palette non ha un colore d'allarme) */
   --on-danger: #ffffff;
+  --brass: #7a5722; /* Ottone — valore: prezzi, ricavi, credito */
+  --slate: #40606f; /* Ardesia — classificazione neutra: tipo, livello */
+  --sage: #456347; /* Salvia — stato acquisito: posseduto, pronto, riuscito */
+  --tint: rgb(64 96 111 / 0.08); /* velatura d'Ardesia per righe ed evidenze */
   --focus-ink: #353535;
   --focus-halo: #ffffff;
   color-scheme: light;
@@ -141,6 +159,10 @@
   --on-structure: #ffffff;
   --danger: #e8918a; /* Minio chiaro (derivato) */
   --on-danger: #2a2a2a;
+  --brass: #d6a85a; /* Ottone chiaro */
+  --slate: #8fb2c4; /* Ardesia chiara */
+  --sage: #9bc0a2; /* Salvia chiara */
+  --tint: rgb(143 178 196 / 0.12);
   --focus-ink: #ffffff;
   --focus-halo: #353535;
   color-scheme: dark;

@@ -70,49 +70,22 @@
 }
 
 /*
-  LA PIANTA — la mappa vera del museo come fondale della soglia.
-  L'SVG arriva dal server cosi' com'e': qui lo si spoglia (via i riempimenti,
-  solo tratto) e lo si fa respirare. Il tratteggio si disegna una volta sola.
+  IL FONDALE DELLA SOGLIA.
+  Il disegno lo fa l'automa cellulare in app.ts; qui si stabilisce solo che
+  copre tutta la sezione, che non intercetta il puntatore e che sta sotto al
+  contenuto. Una velatura sopra i punti impedisce al fondale di avvicinarsi
+  troppo al testo lungo i bordi.
 */
-.pianta svg {
-  width: 130%;
-  height: 130%;
+.automa {
   position: absolute;
-  top: -15%;
-  left: -15%;
-  opacity: 0.14;
-  transform: rotate(-4deg);
-}
-.pianta :is(rect, circle, polygon, path, line, ellipse) {
-  fill: none !important;
-  stroke: var(--on-structure) !important;
-  stroke-width: 1.2 !important;
-  vector-effect: non-scaling-stroke;
-}
-.pianta [data-qid] {
-  fill: var(--on-structure) !important;
-  stroke: none !important;
-}
-.pianta [data-edge] {
-  stroke-dasharray: 4 6 !important;
-}
-.pianta text {
-  display: none;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .pianta :is(rect, polygon, line, path) {
-    stroke-dasharray: 2000;
-    stroke-dashoffset: 2000;
-    animation: traccia 1200ms var(--ease-aa) forwards;
-  }
-  .pianta [data-edge] {
-    animation-delay: 400ms;
-  }
-}
-
-@keyframes traccia {
-  to {
-    stroke-dashoffset: 0;
-  }
+/* Il marchio: grande sulla soglia, ma sempre sotto al titolo per peso visivo. */
+.marchio {
+  width: clamp(3rem, 7vw, 4.5rem);
+  height: clamp(3rem, 7vw, 4.5rem);
 }

@@ -1,4 +1,20 @@
 <script setup lang="ts">
+/**
+ * IL PALCOSCENICO — mappa ed elenco, alla pari.
+ *
+ * Non sono un contenuto e la sua barra laterale: su uno schermo da 375px due
+ * pannelli affiancati danno due pannelli inutilizzabili. Renderli pari e' anche
+ * il modello di accessibilita': il percorso non spaziale dev'essere altrettanto
+ * capace, non solo presente. Cio' che si puo' fare sulla mappa si puo' fare
+ * nell'elenco, e i numeri delle tappe combaciano fra i due.
+ *
+ * I nodi della mappa vengono trasformati in veri controlli da tastiera (ruolo,
+ * tabindex, aria-label e <title>, che alcune tecnologie assistive leggono al
+ * posto dell'etichetta) e ci viene disegnato sopra il numero della tappa.
+ *
+ * Nota tecnica: getBBox non sa dire nulla su un SVG nascosto, percio' i numeri
+ * vengono ricalcolati quando si torna sulla mappa.
+ */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
   includeOptional,
@@ -6,42 +22,32 @@ import {
   map,
   matchedContent,
   visit,
-  vistaStage,
-  setVistaStage,
+  stageView,
+  setStageView,
 } from "@/state";
 
-/**
- * IL PALCOSCENICO — mappa ed elenco sono PARI, non un contenuto e la sua
- * barra laterale. Su uno schermo da 375px due pannelli affiancati danno due
- * pannelli inutilizzabili; e rendere l'elenco un pari della mappa è anche il
- * modello di accessibilità: il percorso non spaziale dev'essere altrettanto
- * capace, non solo presente.
- */
-
-const emit = defineEmits<{ select: [value: number]; posizione: [] }>();
+const emit = defineEmits<{ select: [value: number]; locate: [] }>();
 const props = defineProps<{
   currentLocationId?: string;
   currentIndex?: number;
 }>();
 
-const contenitore = ref<HTMLElement | null>(null);
+const container = ref<HTMLElement | null>(null);
 const listeners: { element: Element; type: string; handler: EventListener }[] = [];
 
-/** Numero mostrato accanto a una tappa: deve combaciare con quello dell'elenco. */
-function numeroDi(index: number): number {
+function stopNumber(index: number): number {
   return index + 1;
 }
 
-function pulisciListeners() {
+function clearListeners() {
   listeners.forEach(({ element, type, handler }) =>
     element.removeEventListener(type, handler),
   );
   listeners.length = 0;
 }
 
-/** Evidenzia il nodo dell'opera corrente ("sei qui"). */
 function highlightCurrent() {
-  const root = contenitore.value;
+  const root = container.value;
   if (!root) return;
   root.querySelectorAll(".nodo-corrente").forEach((el) =>
     el.classList.remove("nodo-corrente"),
@@ -51,15 +57,10 @@ function highlightCurrent() {
   if (el) el.classList.add("nodo-corrente");
 }
 
-/**
- * Trasforma i nodi della mappa in veri controlli da tastiera e ci disegna
- * sopra il numero della tappa (segnaletica da pianta), così mappa ed elenco
- * parlano la stessa lingua.
- */
-function preparaMappa() {
-  const root = contenitore.value;
+function prepareMap() {
+  const root = container.value;
   if (!root) return;
-  pulisciListeners();
+  clearListeners();
 
   root.querySelectorAll(".nodo-opera").forEach((el) => {
     el.classList.remove("nodo-opera", "nodo-opzionale");
@@ -81,20 +82,17 @@ function preparaMappa() {
     element.setAttribute("role", "button");
     element.classList.add("nodo-opera");
 
-    const opzionale = isOptionalItem(match.item["@id"]);
-    if (opzionale) element.classList.add("nodo-opzionale");
+    const optional = isOptionalItem(match.item["@id"]);
+    if (optional) element.classList.add("nodo-opzionale");
 
-    const etichetta = `Tappa ${numeroDi(index)}: ${art.name}${opzionale ? " (tappa opzionale)" : ""}`;
-    element.setAttribute("aria-label", etichetta);
-    // <title> dentro il nodo: alcune tecnologie assistive leggono quello
-    // invece di aria-label. Il cast serve perche' querySelector tipizza
-    // "title" come elemento HTML, mentre qui siamo dentro un SVG.
-    let titolo = element.querySelector("title") as SVGTitleElement | null;
-    if (!titolo) {
-      titolo = document.createElementNS("http://www.w3.org/2000/svg", "title");
-      element.appendChild(titolo);
+    const label = `Tappa ${stopNumber(index)}: ${art.name}${optional ? " (tappa opzionale)" : ""}`;
+    element.setAttribute("aria-label", label);
+    let title = element.querySelector("title") as SVGTitleElement | null;
+    if (!title) {
+      title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+      element.appendChild(title);
     }
-    titolo.textContent = etichetta;
+    title.textContent = label;
 
     const clickHandler = () => emit("select", index);
     element.addEventListener("click", clickHandler);
@@ -109,8 +107,6 @@ function preparaMappa() {
     element.addEventListener("keydown", keyHandler);
     listeners.push({ element, type: "keydown", handler: keyHandler });
 
-    // Numero sopra il nodo. getBBox fallisce se l'SVG non è visibile: in quel
-    // caso si rinuncia al numero, non alla mappa.
     if (!svg) return;
     try {
       const box = element.getBBox();
@@ -122,33 +118,30 @@ function preparaMappa() {
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "central");
       text.setAttribute("aria-hidden", "true");
-      text.textContent = String(numeroDi(index));
+      text.textContent = String(stopNumber(index));
       svg.appendChild(text);
     } catch {
-      // niente numero: la mappa resta usabile
     }
   });
 
   highlightCurrent();
 }
 
-async function ridisegna() {
+async function redraw() {
   await nextTick();
-  preparaMappa();
+  prepareMap();
 }
 
-onMounted(ridisegna);
-watch(map, ridisegna);
-watch(matchedContent, ridisegna, { deep: true });
-watch(includeOptional, ridisegna);
-// Tornando sulla mappa i nodi vanno rimisurati: mentre era nascosta getBBox
-// non poteva dire nulla.
-watch(vistaStage, (v) => {
-  if (v === "mappa") ridisegna();
+onMounted(redraw);
+watch(map, redraw);
+watch(matchedContent, redraw, { deep: true });
+watch(includeOptional, redraw);
+watch(stageView, (v) => {
+  if (v === "mappa") redraw();
 });
 watch(() => props.currentLocationId, () => nextTick(highlightCurrent));
 
-onBeforeUnmount(pulisciListeners);
+onBeforeUnmount(clearListeners);
 
 const optionalCount = computed(() => {
   if (!visit.value || !visit.value.optionalItems) return 0;
@@ -164,26 +157,26 @@ const optionalCount = computed(() => {
         <button
           type="button"
           role="radio"
-          :aria-checked="vistaStage === 'mappa'"
+          :aria-checked="stageView === 'mappa'"
           class="segmento"
-          :class="vistaStage === 'mappa' ? 'segmento-attivo' : ''"
-          @click="setVistaStage('mappa')"
+          :class="stageView === 'mappa' ? 'segmento-attivo' : ''"
+          @click="setStageView('mappa')"
         >
           Mappa
         </button>
         <button
           type="button"
           role="radio"
-          :aria-checked="vistaStage === 'elenco'"
+          :aria-checked="stageView === 'elenco'"
           class="segmento"
-          :class="vistaStage === 'elenco' ? 'segmento-attivo' : ''"
-          @click="setVistaStage('elenco')"
+          :class="stageView === 'elenco' ? 'segmento-attivo' : ''"
+          @click="setStageView('elenco')"
         >
           Elenco
         </button>
       </div>
 
-      <button type="button" class="btn-secondario ml-auto" @click="emit('posizione')">
+      <button type="button" class="btn-secondario ml-auto" @click="emit('locate')">
         <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
           <circle cx="12" cy="10" r="2.4" />
@@ -192,7 +185,6 @@ const optionalCount = computed(() => {
       </button>
     </div>
 
-    <!-- Interruttore delle tappe opzionali: compare solo se ce ne sono -->
     <label
       v-if="optionalCount > 0"
       class="mx-3 mb-2 flex shrink-0 cursor-pointer items-center gap-3 rounded-card border border-line bg-surface px-4 py-3"
@@ -210,11 +202,11 @@ const optionalCount = computed(() => {
 
     <!-- MAPPA -->
     <div
-      v-show="vistaStage === 'mappa'"
+      v-show="stageView === 'mappa'"
       class="min-h-0 flex-1 overflow-auto p-3"
     >
       <div
-        ref="contenitore"
+        ref="container"
         class="mappa mx-auto w-full max-w-3xl"
         :class="{ 'mappa-senza-opzionali': !includeOptional }"
         v-html="map"
@@ -225,7 +217,7 @@ const optionalCount = computed(() => {
     </div>
 
     <!-- ELENCO -->
-    <div v-show="vistaStage === 'elenco'" class="min-h-0 flex-1 overflow-auto p-3">
+    <div v-show="stageView === 'elenco'" class="min-h-0 flex-1 overflow-auto p-3">
       <ul v-if="matchedContent.length" class="mx-auto flex max-w-3xl flex-col gap-2">
         <li v-for="(match, i) in matchedContent" :key="match.artwork['@id']">
           <button
@@ -238,7 +230,7 @@ const optionalCount = computed(() => {
             @click="emit('select', i)"
           >
             <span class="tabular w-9 shrink-0 text-center font-display text-title-2 text-muted">
-              {{ String(numeroDi(i)).padStart(2, "0") }}
+              {{ String(stopNumber(i)).padStart(2, "0") }}
             </span>
             <span class="min-w-0 flex-1">
               <span class="block truncate font-medium">{{ match.artwork.name }}</span>

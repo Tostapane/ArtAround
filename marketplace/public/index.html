@@ -6,12 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="ArtAround — prepara, scopri e vivi la visita di un museo.">
   <title>ArtAround</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
   <link href="/dist/style.css" rel="stylesheet">
-  <!--
-    Anti-FOUC: applica il tema prima del primo paint. Deve restare inline (piu'
-    tardi sarebbe gia' tardi); tutto il resto della logica sta in app.js.
-    Stessa chiave localStorage del navigator: le due app condividono il tema.
-  -->
   <script>
     (function () {
       try {
@@ -23,11 +19,6 @@
     })();
   </script>
   <script type="module" src="/dist/marketplace/src/frontend/app.js"></script>
-  <!--
-    Alpine servito da NOI, non da una CDN: sul docker del dipartimento una
-    dipendenza esterna irraggiungibile trasformerebbe il marketplace in una
-    pagina morta senza un messaggio d'errore (state.md §10.2).
-  -->
   <script defer src="/vendor/alpine-focus-3.15.0.min.js"></script>
   <script defer src="/vendor/alpine-collapse-3.15.0.min.js"></script>
   <script defer src="/vendor/alpine-3.15.0.min.js"></script>
@@ -35,15 +26,20 @@
 
 <body class="bg-bg text-text font-sans antialiased">
 
-  <!-- ===================================================================
-       REPERTORIO ICONE — SVG in linea, tratto 1.75, currentColor.
-       Nessuna emoji nell'interfaccia: si disegnano diverse su ogni sistema
-       operativo, non seguono il tema e non ereditano il colore.
-       =================================================================== -->
   <svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
     <defs>
       <g id="i-base" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></g>
     </defs>
+    <!-- Il marchio: l'opera incorniciata e il percorso che le gira intorno,
+         con il visitatore sopra. Tratto aperto, non un cerchio chiuso: una
+         visita ha un inizio e una fine. -->
+    <symbol id="ico-marchio" viewBox="0 0 64 64">
+      <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="20" y="20" width="24" height="24" rx="1.5" />
+        <path d="M25.01 5.92 A 27 27 0 1 0 47.49 9.88" stroke-dasharray="1 7.117" />
+      </g>
+      <circle cx="47.49" cy="9.88" r="4.5" fill="currentColor" />
+    </symbol>
     <symbol id="ico-banco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 10.5 12 4l9 6.5" /><path d="M5 10v9h14v-9" /><path d="M9 19v-5h6v5" />
     </symbol>
@@ -130,39 +126,30 @@
     </symbol>
   </svg>
 
-  <div x-data="appData()" x-init="avvia()" x-cloak class="min-h-[100dvh]">
+  <div x-data="appData()" x-init="start()" x-cloak class="min-h-[100dvh]">
 
-    <!-- Scorciatoie di salto: primi elementi focalizzabili della pagina -->
     <a href="#contenuto" class="salta">Salta al contenuto</a>
     <a href="#binario" class="salta" x-show="currentUser">Salta alla navigazione</a>
 
-    <!-- Live region: in una SPA nessun cambiamento si annuncia da solo -->
-    <div class="sr-only" role="status" aria-live="polite" x-text="annuncio"></div>
+    <div class="sr-only" role="status" aria-live="polite" x-text="announcement"></div>
 
-    <!-- ===============================================================
-         SOGLIA — la porta d'ingresso. Non si chiede nulla prima di aver
-         mostrato qualcosa: il modulo di accesso e' un passo dentro il
-         flusso, non il flusso stesso.
-         =============================================================== -->
-    <section x-show="vista === 'soglia'" class="relative min-h-[100dvh] overflow-hidden bg-structure text-on-structure">
-      <!--
-        LA PIANTA: lo sfondo e' la pianta vera del museo — le stesse mappe SVG
-        annotate da cui il server ricava il grafo per le indicazioni. Non e'
-        decorazione: e' il dato su cui gira il prodotto, quindi cambia da solo
-        quando si aggiunge un museo. Se non si carica, la pagina resta intera.
-      -->
-      <div class="pianta pointer-events-none absolute inset-0" aria-hidden="true" x-data="pianta()" x-init="carica()" x-html="svg"></div>
+    <section x-show="view === 'soglia'" class="relative min-h-[100dvh] overflow-hidden bg-structure text-on-structure">
+      <!-- fondale animato -->
+      <canvas class="automa" aria-hidden="true" x-data="automaton()" x-init="start($el)"></canvas>
 
       <div class="relative flex min-h-[100dvh] flex-col justify-between p-6 sm:p-10 lg:p-16">
         <div class="flex items-center justify-between">
           <p class="text-caption uppercase tracking-[0.2em] text-on-structure/70">Tecnologie Web · Università di Bologna</p>
-          <button type="button" x-data="themeToggle()" @click="toggle()" :aria-pressed="dark" :aria-label="etichetta()"
+          <button type="button" x-data="themeToggle()" @click="toggle()" :aria-pressed="dark" :aria-label="label()"
             class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-structure/30 text-on-structure transition-colors hover:bg-on-structure/10">
             <svg class="h-5 w-5" aria-hidden="true"><use :href="dark ? '#ico-sole' : '#ico-luna'" /></svg>
           </button>
         </div>
 
         <div class="max-w-4xl py-16">
+          <svg class="marchio mb-8 text-accent" viewBox="0 0 64 64" role="img" aria-label="ArtAround">
+            <use href="#ico-marchio" />
+          </svg>
           <h1 class="font-display text-hero font-semibold leading-[0.9] tracking-[-0.03em]">
             ART<br>AROUND<span class="text-accent">.</span>
           </h1>
@@ -171,8 +158,8 @@
             Scegli un percorso già pronto, componi il tuo, o fatti guidare.
           </p>
           <div class="mt-10 flex flex-col gap-3 sm:flex-row">
-            <button type="button" @click="vaiA('accedi')" class="btn-primario text-title-3">Entra</button>
-            <a :href="urlEsempio()" class="btn-fantasma-chiaro text-title-3">
+            <button type="button" @click="goTo('accedi')" class="btn-primario text-title-3">Entra</button>
+            <a :href="sampleUrl()" class="btn-fantasma-chiaro text-title-3">
               Guarda com'è fatta una visita
               <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-esterno" /></svg>
             </a>
@@ -185,79 +172,71 @@
       </div>
     </section>
 
-    <!-- ===============================================================
-         ACCESSO
-         =============================================================== -->
-    <section x-show="vista === 'accedi'" class="flex min-h-[100dvh] items-center justify-center p-6">
+    <section x-show="view === 'accedi'" class="flex min-h-[100dvh] items-center justify-center p-6">
       <div class="w-full max-w-sm">
-        <button type="button" @click="vaiA('soglia')" class="btn-fantasma mb-8 -ml-3">
+        <button type="button" @click="goTo('soglia')" class="btn-fantasma mb-8 -ml-3">
           <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> Indietro
         </button>
         <h1 class="mb-1 font-display text-title-1">Accedi</h1>
         <p class="mb-8 text-small text-muted">Il profilo — autore o visitatore — lo riconosciamo noi.</p>
 
-        <!-- Caso raro: stesse credenziali per due profili. Solo qui si chiede. -->
-        <template x-if="scegliRuolo">
+        <template x-if="roleChoice">
           <div class="lastra p-6">
             <h2 class="mb-2 font-display text-title-3">Quale profilo apriamo?</h2>
             <p class="mb-5 text-small text-muted">Con queste credenziali esistono due profili distinti.</p>
             <div class="flex flex-col gap-3">
-              <template x-for="r in scegliRuolo" :key="r">
-                <button type="button" @click="confermaRuolo(r)" class="scelta text-left">
+              <template x-for="r in roleChoice" :key="r">
+                <button type="button" @click="confirmRole(r)" class="scelta text-left">
                   <span class="font-display text-title-3" x-text="r === 'autore' ? 'Autore' : 'Visitatore'"></span>
                   <span class="mt-1 block text-small text-muted"
                     x-text="r === 'autore' ? 'Pubblichi descrizioni e visite, ne fissi prezzo e licenza.' : 'Compri contenuti, componi percorsi e li vivi nel museo.'"></span>
                 </button>
               </template>
-              <button type="button" @click="scegliRuolo = null" class="btn-fantasma self-start">Annulla</button>
+              <button type="button" @click="roleChoice = null" class="btn-fantasma self-start">Annulla</button>
             </div>
           </div>
         </template>
 
-        <form x-show="!scegliRuolo" @submit.prevent="effettuaLogin()" class="lastra flex flex-col gap-5 p-6">
+        <form x-show="!roleChoice" @submit.prevent="login()" class="lastra flex flex-col gap-5 p-6">
           <div>
             <label for="login-user" class="etichetta">Username</label>
-            <input id="login-user" type="text" x-model="formLogin.username" required autocomplete="username" class="campo">
+            <input id="login-user" type="text" x-model="loginForm.username" required autocomplete="username" class="campo">
           </div>
           <div>
             <label for="login-pass" class="etichetta">Password</label>
-            <input id="login-pass" type="password" x-model="formLogin.password" required autocomplete="current-password" class="campo">
+            <input id="login-pass" type="password" x-model="loginForm.password" required autocomplete="current-password" class="campo">
           </div>
           <button type="submit" class="btn-primario w-full justify-center">Accedi</button>
         </form>
 
         <p class="mt-6 text-small text-muted">
           Non hai un profilo?
-          <button type="button" @click="vaiA('registrati')" class="link">Creane uno</button>
+          <button type="button" @click="goTo('registrati')" class="link">Creane uno</button>
         </p>
       </div>
     </section>
 
-    <!-- ===============================================================
-         REGISTRAZIONE — qui il ruolo E' una decisione vera, quindi si
-         presenta come due scelte descritte, non come un interruttore.
-         =============================================================== -->
-    <section x-show="vista === 'registrati'" class="flex min-h-[100dvh] items-center justify-center p-6">
+    <section x-show="view === 'registrati'" class="flex min-h-[100dvh] items-center justify-center p-6">
       <div class="w-full max-w-md">
-        <button type="button" @click="vaiA('accedi')" class="btn-fantasma mb-8 -ml-3">
+        <button type="button" @click="goTo('accedi')" class="btn-fantasma mb-8 -ml-3">
           <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> Indietro
         </button>
         <h1 class="mb-8 font-display text-title-1">Crea un profilo</h1>
 
-        <form @submit.prevent="concludiRegistrazione()" class="lastra flex flex-col gap-5 p-6">
+        <form @submit.prevent="register()" class="lastra flex flex-col gap-5 p-6">
           <div>
             <label for="reg-user" class="etichetta">Username</label>
-            <input id="reg-user" type="text" x-model="formReg.username" required autocomplete="username" class="campo">
+            <input id="reg-user" type="text" x-model="registerForm.username" required autocomplete="username" class="campo">
           </div>
           <div>
             <label for="reg-pass" class="etichetta">Password</label>
-            <input id="reg-pass" type="password" x-model="formReg.password" required autocomplete="new-password" class="campo">
+            <input id="reg-pass" type="password" x-model="registerForm.password" required autocomplete="new-password" class="campo">
           </div>
           <div>
             <label for="reg-conf" class="etichetta">Ripeti la password</label>
-            <input id="reg-conf" type="password" x-model="formReg.conferma" required autocomplete="new-password" class="campo"
-              :aria-describedby="formReg.conferma && formReg.password !== formReg.conferma ? 'reg-conf-err' : null">
-            <p x-show="formReg.conferma && formReg.password !== formReg.conferma" id="reg-conf-err"
+            <input id="reg-conf" type="password" x-model="registerForm.conferma" required autocomplete="new-password" class="campo"
+              :aria-describedby="registerForm.conferma && registerForm.password !== registerForm.conferma ? 'reg-conf-err' : null">
+            <p x-show="registerForm.conferma && registerForm.password !== registerForm.conferma" id="reg-conf-err"
               class="mt-2 flex items-center gap-2 text-caption text-danger" role="alert">
               <svg class="h-4 w-4 shrink-0" aria-hidden="true"><use href="#ico-attenzione" /></svg>
               Le due password non coincidono.
@@ -267,13 +246,13 @@
           <fieldset>
             <legend class="etichetta">Che cosa vuoi fare</legend>
             <div class="mt-2 flex flex-col gap-3" role="radiogroup" aria-label="Tipo di profilo">
-              <label class="scelta cursor-pointer" :class="formReg.role === 'visitatore' ? 'scelta-attiva' : ''">
-                <input type="radio" name="ruolo" value="visitatore" x-model="formReg.role" class="sr-only">
+              <label class="scelta cursor-pointer" :class="registerForm.role === 'visitatore' ? 'scelta-attiva' : ''">
+                <input type="radio" name="ruolo" value="visitatore" x-model="registerForm.role" class="sr-only">
                 <span class="font-display text-title-3">Visitatore</span>
                 <span class="mt-1 block text-small text-muted">Compro contenuti, compongo percorsi e li vivo nel museo.</span>
               </label>
-              <label class="scelta cursor-pointer" :class="formReg.role === 'autore' ? 'scelta-attiva' : ''">
-                <input type="radio" name="ruolo" value="autore" x-model="formReg.role" class="sr-only">
+              <label class="scelta cursor-pointer" :class="registerForm.role === 'autore' ? 'scelta-attiva' : ''">
+                <input type="radio" name="ruolo" value="autore" x-model="registerForm.role" class="sr-only">
                 <span class="font-display text-title-3">Autore</span>
                 <span class="mt-1 block text-small text-muted">Pubblico descrizioni e visite, ne fisso prezzo e licenza.</span>
               </label>
@@ -285,21 +264,15 @@
       </div>
     </section>
 
-    <!-- ===============================================================
-         GUSCIO DELL'APPLICAZIONE — binario a sinistra su schermo largo,
-         barra in basso sul telefono. L'intestazione in cima e' stata
-         rimossa: si avvolgeva su tre righe e spingeva il contenuto sotto
-         la piega senza dare nulla in cambio.
-         =============================================================== -->
-    <div x-show="currentUser && !['soglia','accedi','registrati'].includes(vista)" class="lg:flex">
+    <div x-show="currentUser && !['soglia','accedi','registrati'].includes(view)" class="lg:flex">
 
       <!-- Barra compatta (solo telefono) -->
       <header class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-structure px-4 py-3 text-on-structure lg:hidden">
-        <button type="button" @click="tornaHome()" class="font-display text-title-3">ArtAround<span class="text-accent">.</span></button>
+        <button type="button" @click="goHome()" class="font-display text-title-3">ArtAround<span class="text-accent">.</span></button>
         <div class="flex items-center gap-2">
-          <span x-show="currentUserType === 'visitatore'" class="tabular text-small" x-text="'€ ' + wallet.toFixed(2)"
+          <span x-show="currentUserRole === 'visitatore'" class="tabular text-small" x-text="'€ ' + wallet.toFixed(2)"
             :aria-label="'Credito disponibile: ' + wallet.toFixed(2) + ' euro'"></span>
-          <button type="button" x-data="themeToggle()" @click="toggle()" :aria-pressed="dark" :aria-label="etichetta()"
+          <button type="button" x-data="themeToggle()" @click="toggle()" :aria-pressed="dark" :aria-label="label()"
             class="inline-flex h-11 w-11 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10">
             <svg class="h-5 w-5" aria-hidden="true"><use :href="dark ? '#ico-sole' : '#ico-luna'" /></svg>
           </button>
@@ -317,50 +290,50 @@
         <div class="flex h-full flex-col">
 
           <div class="hidden px-6 pt-7 lg:block">
-            <button type="button" @click="tornaHome()" class="font-display text-title-2" aria-label="ArtAround, torna alla home">
-              ArtAround<span class="text-accent">.</span>
+            <button type="button" @click="goHome()" class="flex items-center gap-2.5 font-display text-title-2" aria-label="ArtAround, torna alla home">
+              <svg class="h-7 w-7 shrink-0 text-accent" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-marchio" /></svg>
+              <span>ArtAround<span class="text-accent">.</span></span>
             </button>
-            <button type="button" @click="cambiaMuseo()" class="mt-5 block w-full text-left"
-              :aria-label="'Museo: ' + (museoSelezionato ? museoSelezionato.name : '') + '. Cambia museo'">
+            <button type="button" @click="changeMuseum()" class="mt-5 block w-full text-left"
+              :aria-label="'Museo: ' + (selectedMuseum ? selectedMuseum.name : '') + '. Cambia museo'">
               <span class="block text-caption uppercase tracking-wider text-on-structure/60">Museo</span>
               <span class="mt-1 flex items-center gap-2 text-small">
                 <svg class="h-4 w-4 shrink-0" aria-hidden="true"><use href="#ico-museo" /></svg>
-                <span class="truncate" x-text="museoSelezionato ? museoSelezionato.name : ''"></span>
+                <span class="truncate" x-text="selectedMuseum ? selectedMuseum.name : ''"></span>
               </span>
               <span class="text-caption text-accent">Cambia</span>
             </button>
           </div>
 
-          <!-- Destinazioni: al massimo quattro, mai un menu a scomparsa -->
           <ul class="flex justify-around lg:mt-8 lg:flex-col lg:justify-start lg:gap-1 lg:px-3">
-            <template x-if="currentUserType === 'visitatore'">
+            <template x-if="currentUserRole === 'visitatore'">
               <li class="contents">
                 <template x-for="v in [
-                    {id:'banco',    ico:'#ico-banco',    testo:'Banco'},
-                    {id:'visite',   ico:'#ico-visite',   testo:'Visite'},
-                    {id:'opere',    ico:'#ico-opere',    testo:'Opere'},
-                    {id:'libreria', ico:'#ico-libreria', testo:'Libreria'}
+                    {id:'banco',    ico:'#ico-banco',    raw:'Banco'},
+                    {id:'visite',   ico:'#ico-visite',   raw:'Visite'},
+                    {id:'opere',    ico:'#ico-opere',    raw:'Opere'},
+                    {id:'libreria', ico:'#ico-libreria', raw:'Libreria'}
                   ]" :key="v.id">
-                  <a :href="'#/' + v.id" class="voce-binario" :class="vista === v.id ? 'voce-attiva' : ''"
-                    :aria-current="vista === v.id ? 'page' : false">
+                  <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
+                    :aria-current="view === v.id ? 'page' : false">
                     <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
-                    <span x-text="v.testo"></span>
+                    <span x-text="v.raw"></span>
                   </a>
                 </template>
               </li>
             </template>
-            <template x-if="currentUserType === 'autore'">
+            <template x-if="currentUserRole === 'autore'">
               <li class="contents">
                 <template x-for="v in [
-                    {id:'lavori',  ico:'#ico-lavori',  testo:'Contenuti'},
-                    {id:'nuovo',   ico:'#ico-opere',   testo:'Descrizione'},
-                    {id:'componi', ico:'#ico-componi', testo:'Visita'},
-                    {id:'vendite', ico:'#ico-vendite', testo:'Vendite'}
+                    {id:'lavori',  ico:'#ico-lavori',  raw:'Contenuti'},
+                    {id:'nuovo',   ico:'#ico-opere',   raw:'Descrizione'},
+                    {id:'componi', ico:'#ico-componi', raw:'Visita'},
+                    {id:'vendite', ico:'#ico-vendite', raw:'Vendite'}
                   ]" :key="v.id">
-                  <a :href="'#/' + v.id" class="voce-binario" :class="vista === v.id ? 'voce-attiva' : ''"
-                    :aria-current="vista === v.id ? 'page' : false">
+                  <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
+                    :aria-current="view === v.id ? 'page' : false">
                     <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
-                    <span x-text="v.testo"></span>
+                    <span x-text="v.raw"></span>
                   </a>
                 </template>
               </li>
@@ -369,15 +342,15 @@
 
           <!-- Piede del binario (solo schermo largo) -->
           <div class="mt-auto hidden px-6 pb-7 lg:block">
-            <div x-show="currentUserType === 'visitatore'" class="mb-4">
+            <div x-show="currentUserRole === 'visitatore'" class="mb-4">
               <span class="block text-caption uppercase tracking-wider text-on-structure/60">Credito</span>
-              <span class="tabular font-display text-title-3" x-text="'€ ' + wallet.toFixed(2)"
+              <span class="valore font-display text-title-3" x-text="'€ ' + wallet.toFixed(2)"
                 :aria-label="'Credito disponibile: ' + wallet.toFixed(2) + ' euro'"></span>
             </div>
             <div class="flex items-center justify-between gap-2 border-t border-on-structure/20 pt-4">
               <span class="min-w-0 truncate text-small" x-text="currentUser"></span>
               <div class="flex shrink-0 items-center">
-                <button type="button" x-data="themeToggle()" @click="toggle()" :aria-pressed="dark" :aria-label="etichetta()"
+                <button type="button" x-data="themeToggle()" @click="toggle()" :aria-pressed="dark" :aria-label="label()"
                   class="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-on-structure/10">
                   <svg class="h-5 w-5" aria-hidden="true"><use :href="dark ? '#ico-sole' : '#ico-luna'" /></svg>
                 </button>
@@ -391,37 +364,36 @@
         </div>
       </nav>
 
-      <!-- ============================================================= -->
       <main id="contenuto" tabindex="-1" class="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-10">
         <div class="mx-auto max-w-5xl">
 
           <!-- ---------- SCELTA DEL MUSEO ---------- -->
-          <section x-show="vista === 'musei'">
+          <section x-show="view === 'musei'">
             <h1 class="font-display text-title-1">Scegli il museo</h1>
             <p class="mt-2 text-small text-muted">Tutto quello che vedrai dopo riguarda il museo che scegli qui. Puoi cambiarlo quando vuoi.</p>
             <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <template x-for="m in musei" :key="m.qid">
-                <button type="button" @click="selezionaMuseo(m)" class="lastra scheda-click p-6 text-left"
+              <template x-for="m in museums" :key="m.qid">
+                <button type="button" @click="selectMuseum(m)" class="lastra scheda-click p-6 text-left"
                   :aria-label="'Entra nel museo ' + m.name">
                   <h2 class="font-display text-title-2 leading-tight" x-text="m.name"></h2>
                   <p class="mt-1 text-small text-muted" x-show="m.location" x-text="m.location"></p>
-                  <p class="tabular mt-4 text-caption uppercase tracking-wider text-muted" x-text="riepilogoMuseo(m)"></p>
+                  <p class="tabular mt-4 text-caption uppercase tracking-wider text-muted" x-text="museumSummary(m)"></p>
                   <span class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent">
                     Entra <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
                   </span>
                 </button>
               </template>
             </div>
-            <div x-show="musei.length === 0 && !caricamento" class="vuoto mt-8">
+            <div x-show="museums.length === 0 && !loading" class="vuoto mt-8">
               <p>Nessun museo nel database.</p>
               <p class="mt-1 text-small text-muted">Esegui il seed del server per popolarlo.</p>
             </div>
           </section>
 
           <!-- ---------- IL BANCO (visitatore) ---------- -->
-          <section x-show="vista === 'banco'">
+          <section x-show="view === 'banco'">
             <h1 class="font-display text-title-1">
-              Cosa vuoi fare <span class="whitespace-nowrap" x-text="'a ' + (museoSelezionato ? museoSelezionato.name : '')"></span>?
+              Cosa vuoi fare <span class="whitespace-nowrap" x-text="'a ' + (selectedMuseum ? selectedMuseum.name : '')"></span>?
             </h1>
 
             <div class="mt-8 grid gap-4 md:grid-cols-3">
@@ -433,7 +405,7 @@
                   Vedi le visite <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
                 </span>
               </a>
-              <a href="#/componi" @click="apriComponi()" class="lastra scheda-click flex flex-col p-6">
+              <a href="#/componi" @click="openComposer()" class="lastra scheda-click flex flex-col p-6">
                 <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-componi" /></svg>
                 <h2 class="mt-4 font-display text-title-2">Componi il tuo percorso</h2>
                 <p class="mt-2 flex-1 text-small text-muted">Scegli tu le opere, l'ordine e cosa è opzionale.</p>
@@ -445,7 +417,7 @@
                 <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-chiave" /></svg>
                 <h2 class="mt-4 font-display text-title-2">Ho una parola chiave</h2>
                 <p class="mt-2 text-small text-muted">Entra nella visita guidata della tua classe.</p>
-                <form @submit.prevent="entraConPasskey()" class="mt-4 flex flex-col gap-2">
+                <form @submit.prevent="joinWithPasskey()" class="mt-4 flex flex-col gap-2">
                   <label for="passkey" class="sr-only">Parola chiave della visita guidata</label>
                   <input id="passkey" type="text" x-model="passkeyInput" placeholder="Fenice rossa" autocomplete="off"
                     class="campo font-mono">
@@ -455,33 +427,32 @@
             </div>
 
             <!-- Sessione trovata: si passa al navigator -->
-            <div x-show="guidedTrovata" class="lastra mt-4 flex flex-col gap-3 border-l-4 border-l-accent p-5 sm:flex-row sm:items-center">
+            <div x-show="guidedSession" class="lastra mt-4 flex flex-col gap-3 border-l-4 border-l-accent p-5 sm:flex-row sm:items-center">
               <p class="flex-1 text-small">
-                Sei in sala d'attesa per <strong x-text="guidedTrovata?.visitName"></strong>.
+                Sei in sala d'attesa per <strong x-text="guidedSession?.visitName"></strong>.
                 Apri l'app da museo e aspetta che il docente dia il via.
               </p>
-              <a :href="salaAttesaUrl()" class="btn-primario shrink-0">
+              <a :href="waitingRoomUrl()" class="btn-primario shrink-0">
                 Vai alla sala d'attesa <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-esterno" /></svg>
               </a>
             </div>
 
-            <!-- Riprendi: cio' che si possiede gia' ed e' pronto da vivere -->
-            <template x-if="mieVisite().length > 0">
+            <template x-if="myVisits().length > 0">
               <div class="mt-12">
                 <h2 class="font-display text-title-2">Riprendi</h2>
                 <ul class="mt-4 flex flex-col gap-3">
-                  <template x-for="v in mieVisite().slice(0, 4)" :key="v['@id']">
+                  <template x-for="v in myVisits().slice(0, 4)" :key="v['@id']">
                     <li class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                       <div class="min-w-0 flex-1">
                         <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
-                        <p class="tabular text-small text-muted" x-text="riepilogoVisita(v)"></p>
+                        <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                       </div>
-                      <template x-if="visitaUtilizzabile(v)">
-                        <a :href="urlNavigator(v)" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
+                      <template x-if="visitUsable(v)">
+                        <a :href="navigatorUrl(v)" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
                           <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
                         </a>
                       </template>
-                      <template x-if="!visitaUtilizzabile(v)">
+                      <template x-if="!visitUsable(v)">
                         <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario shrink-0">Completa</a>
                       </template>
                     </li>
@@ -492,32 +463,32 @@
           </section>
 
           <!-- ---------- CATALOGO VISITE ---------- -->
-          <section x-show="vista === 'visite'">
+          <section x-show="view === 'visite'">
             <h1 class="font-display text-title-1">Visite</h1>
             <p class="mt-1 text-small text-muted">
-              <span class="tabular" x-text="visiteInVetrina().length"></span>
-              <span x-text="visiteInVetrina().length === 1 ? ' visita' : ' visite'"></span>
-              <span x-text="' · ' + (museoSelezionato ? museoSelezionato.name : '')"></span>
+              <span class="tabular" x-text="shownVisits().length"></span>
+              <span x-text="shownVisits().length === 1 ? ' visita' : ' visite'"></span>
+              <span x-text="' · ' + (selectedMuseum ? selectedMuseum.name : '')"></span>
             </p>
 
             <div class="barra mt-6">
               <div class="campo-cerca">
                 <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
                 <label for="cerca-visite" class="sr-only">Cerca fra le visite</label>
-                <input id="cerca-visite" type="search" x-model="ricercaVisite" placeholder="Cerca una visita…"
-                  @input="annuncia(visiteInVetrina().length + ' risultati')">
+                <input id="cerca-visite" type="search" x-model="visitSearch" placeholder="Cerca una visita…"
+                  @input="announce(shownVisits().length + ' risultati')">
               </div>
               <div class="flex flex-wrap gap-3">
                 <div>
                   <label for="f-liv-visite" class="sr-only">Filtra per livello</label>
-                  <select id="f-liv-visite" x-model="filtroLivelloVisite" class="campo-select">
+                  <select id="f-liv-visite" x-model="visitLevelFilter" class="campo-select">
                     <option value="tutti">Ogni livello</option>
-                    <template x-for="d in difficoltaDisponibili()" :key="d"><option :value="d" x-text="d"></option></template>
+                    <template x-for="d in availableLevels()" :key="d"><option :value="d" x-text="d"></option></template>
                   </select>
                 </div>
                 <div>
                   <label for="f-dur-visite" class="sr-only">Filtra per durata</label>
-                  <select id="f-dur-visite" x-model="filtroDurataVisite" class="campo-select">
+                  <select id="f-dur-visite" x-model="visitDurationFilter" class="campo-select">
                     <option value="tutti">Ogni durata</option>
                     <option value="breve">Meno di 30 min</option>
                     <option value="media">Da 30 a 60 min</option>
@@ -528,9 +499,8 @@
             </div>
 
             <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <template x-for="v in visiteInVetrina()" :key="v['@id']">
+              <template x-for="v in shownVisits()" :key="v['@id']">
                 <article class="lastra flex flex-col overflow-hidden">
-                  <!-- Copertina tipografica: una visita non ha una foto sola -->
                   <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="copertina" :aria-label="'Apri la scheda di ' + v.name">
                     <span class="font-display" x-text="v.name"></span>
                   </a>
@@ -538,22 +508,22 @@
                     <h2 class="font-display text-title-3 leading-tight">
                       <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="link-scuro" x-text="v.name"></a>
                     </h2>
-                    <p class="tabular mt-1 text-small text-muted" x-text="riepilogoVisita(v)"></p>
+                    <p class="tabular mt-1 text-small text-muted" x-text="visitSummary(v)"></p>
                     <p class="mt-1 text-caption uppercase tracking-wider text-muted">
                       Curatore: <span x-text="v.author || '—'"></span>
                     </p>
                     <div class="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
-                      <span class="tabular font-display text-title-3 text-structure dark:text-text-strong" x-text="prezzoLeggibile(v.price)"></span>
-                      <template x-if="visitaUtilizzabile(v)">
-                        <a :href="urlNavigator(v)" class="btn-primario" :aria-label="'Inizia la visita ' + v.name">
+                      <span class="valore font-display text-title-3" x-text="readablePrice(v.price)"></span>
+                      <template x-if="visitUsable(v)">
+                        <a :href="navigatorUrl(v)" class="btn-primario" :aria-label="'Inizia la visita ' + v.name">
                           <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
                         </a>
                       </template>
-                      <template x-if="!visitaUtilizzabile(v) && haIlPossesso(v)">
+                      <template x-if="!visitUsable(v) && owns(v)">
                         <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario">Completa</a>
                       </template>
-                      <template x-if="!haIlPossesso(v)">
-                        <button type="button" @click="compraOra(v)" class="btn-primario" :aria-label="'Sblocca ' + v.name">Sblocca</button>
+                      <template x-if="!owns(v)">
+                        <button type="button" @click="buy(v)" class="btn-primario" :aria-label="'Sblocca ' + v.name">Sblocca</button>
                       </template>
                     </div>
                   </div>
@@ -561,52 +531,52 @@
               </template>
             </div>
 
-            <div x-show="visiteInVetrina().length === 0" class="vuoto mt-8">
-              <p x-show="ricercaVisite || filtroLivelloVisite !== 'tutti' || filtroDurataVisite !== 'tutti'">
+            <div x-show="shownVisits().length === 0" class="vuoto mt-8">
+              <p x-show="visitSearch || visitLevelFilter !== 'tutti' || visitDurationFilter !== 'tutti'">
                 Nessuna visita con questi filtri.
               </p>
-              <p x-show="!ricercaVisite && filtroLivelloVisite === 'tutti' && filtroDurataVisite === 'tutti'">
+              <p x-show="!visitSearch && visitLevelFilter === 'tutti' && visitDurationFilter === 'tutti'">
                 In questo museo non ci sono ancora visite pubblicate.
               </p>
               <button type="button" class="btn-secondario mt-4"
-                x-show="ricercaVisite || filtroLivelloVisite !== 'tutti' || filtroDurataVisite !== 'tutti'"
-                @click="ricercaVisite=''; filtroLivelloVisite='tutti'; filtroDurataVisite='tutti'">Azzera i filtri</button>
+                x-show="visitSearch || visitLevelFilter !== 'tutti' || visitDurationFilter !== 'tutti'"
+                @click="visitSearch=''; visitLevelFilter='tutti'; visitDurationFilter='tutti'">Azzera i filtri</button>
             </div>
           </section>
 
           <!-- ---------- CATALOGO OPERE ---------- -->
-          <section x-show="vista === 'opere'">
+          <section x-show="view === 'opere'">
             <h1 class="font-display text-title-1">Opere</h1>
             <p class="mt-1 text-small text-muted">
-              <span class="tabular" x-text="opereInVetrina().length"></span>
-              <span x-text="opereInVetrina().length === 1 ? ' opera' : ' opere'"></span>
-              <span x-text="' · ' + (museoSelezionato ? museoSelezionato.name : '')"></span>
+              <span class="tabular" x-text="shownArtworks().length"></span>
+              <span x-text="shownArtworks().length === 1 ? ' opera' : ' opere'"></span>
+              <span x-text="' · ' + (selectedMuseum ? selectedMuseum.name : '')"></span>
             </p>
 
             <div class="barra mt-6">
               <div class="campo-cerca">
                 <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
                 <label for="cerca-opere" class="sr-only">Cerca fra le opere</label>
-                <input id="cerca-opere" type="search" x-model="ricercaOpere" placeholder="Cerca un'opera, un pittore, uno stile…"
-                  @input="annuncia(opereInVetrina().length + ' risultati')">
+                <input id="cerca-opere" type="search" x-model="artworkSearch" placeholder="Cerca un'opera, un pittore, uno stile…"
+                  @input="announce(shownArtworks().length + ' risultati')">
               </div>
               <div>
                 <label for="f-liv-opere" class="sr-only">Filtra per livello</label>
-                <select id="f-liv-opere" x-model="filtroLivelloOpere" class="campo-select">
+                <select id="f-liv-opere" x-model="artworkLevelFilter" class="campo-select">
                   <option value="tutti">Ogni livello</option>
-                  <template x-for="d in difficoltaDisponibili()" :key="d"><option :value="d" x-text="d"></option></template>
+                  <template x-for="d in availableLevels()" :key="d"><option :value="d" x-text="d"></option></template>
                 </select>
               </div>
             </div>
 
             <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <template x-for="g in opereInVetrina()" :key="g.artwork['@id']">
+              <template x-for="g in shownArtworks()" :key="g.artwork['@id']">
                 <article class="lastra flex flex-col overflow-hidden" x-data="{ rotta: false }">
                   <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])" class="mat block"
                     :aria-label="'Apri la scheda dell\'opera ' + (g.artwork.name || 'senza titolo')">
-                    <img x-show="imgOpera(g.artwork) && !rotta" :src="imgOpera(g.artwork)" @error="rotta = true"
+                    <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true"
                       :alt="'Immagine dell\'opera: ' + (g.artwork.name || '')" loading="lazy">
-                    <span x-show="!imgOpera(g.artwork) || rotta" class="mat-vuoto" x-text="g.artwork.name || 'Opera'"></span>
+                    <span x-show="!artworkImage(g.artwork) || rotta" class="mat-vuoto" x-text="g.artwork.name || 'Opera'"></span>
                   </a>
                   <div class="flex flex-1 flex-col p-5">
                     <h2 class="font-display text-title-3 leading-tight">
@@ -614,88 +584,86 @@
                         x-text="g.artwork.name || 'Senza titolo'"></a>
                     </h2>
                     <p class="mt-1 text-small text-muted" x-text="g.artwork.author ? g.artwork.author.name : ''"></p>
-                    <p class="tabular mt-auto pt-4 text-caption uppercase tracking-wider text-muted" x-text="riepilogoOpera(g)"></p>
+                    <p class="tabular mt-auto pt-4 text-caption uppercase tracking-wider text-muted" x-text="artworkSummary(g)"></p>
                   </div>
                 </article>
               </template>
             </div>
 
-            <div x-show="opereInVetrina().length === 0" class="vuoto mt-8">
+            <div x-show="shownArtworks().length === 0" class="vuoto mt-8">
               <p>Nessuna opera con questi filtri.</p>
-              <button type="button" class="btn-secondario mt-4" @click="ricercaOpere=''; filtroLivelloOpere='tutti'">Azzera i filtri</button>
+              <button type="button" class="btn-secondario mt-4" @click="artworkSearch=''; artworkLevelFilter='tutti'">Azzera i filtri</button>
             </div>
           </section>
 
-          <!-- ---------- SCHEDA OPERA (era una finestra dentro una finestra) ---------- -->
-          <section x-show="vista === 'opera'" x-data="{ rotta: false }">
+          <section x-show="view === 'opera'" x-data="{ rotta: false }">
             <a href="#/opere" class="btn-fantasma -ml-3 mb-6">
               <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> Torna alle opere
             </a>
-            <template x-if="operaCorrente()">
+            <template x-if="currentArtwork()">
               <div class="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
                 <div>
                   <div class="mat mat-grande">
-                    <img x-show="imgOpera(operaCorrente()) && !rotta" :src="imgOpera(operaCorrente())" @error="rotta = true"
-                      :alt="'Immagine dell\'opera: ' + (operaCorrente().name || '')">
-                    <span x-show="!imgOpera(operaCorrente()) || rotta" class="mat-vuoto" x-text="operaCorrente().name"></span>
+                    <img x-show="artworkImage(currentArtwork()) && !rotta" :src="artworkImage(currentArtwork())" @error="rotta = true"
+                      :alt="'Immagine dell\'opera: ' + (currentArtwork().name || '')">
+                    <span x-show="!artworkImage(currentArtwork()) || rotta" class="mat-vuoto" x-text="currentArtwork().name"></span>
                   </div>
                   <dl class="mt-5 flex flex-col gap-2 text-small">
                     <div class="flex gap-2">
                       <dt class="text-muted">Autore</dt>
-                      <dd x-text="operaCorrente().author ? operaCorrente().author.name : '—'"></dd>
+                      <dd x-text="currentArtwork().author ? currentArtwork().author.name : '—'"></dd>
                     </div>
                     <div class="flex gap-2">
                       <dt class="text-muted">Stile</dt>
-                      <dd x-text="operaCorrente().style ? operaCorrente().style.name : '—'"></dd>
+                      <dd x-text="currentArtwork().style ? currentArtwork().style.name : '—'"></dd>
                     </div>
                   </dl>
                 </div>
 
                 <div>
-                  <h1 class="font-display text-title-1 leading-tight" x-text="operaCorrente().name"></h1>
+                  <h1 class="font-display text-title-1 leading-tight" x-text="currentArtwork().name"></h1>
                   <p class="mt-2 text-small text-muted">
-                    <span class="tabular" x-text="itemDellOpera().length"></span>
-                    <span x-text="itemDellOpera().length === 1 ? ' descrizione disponibile' : ' descrizioni disponibili'"></span>
+                    <span class="tabular" x-text="artworkItems().length"></span>
+                    <span x-text="artworkItems().length === 1 ? ' descrizione disponibile' : ' descrizioni disponibili'"></span>
                   </p>
 
                   <ul class="mt-6 flex flex-col gap-3">
-                    <template x-for="it in itemDellOpera()" :key="it['@id']">
+                    <template x-for="it in artworkItems()" :key="it['@id']">
                       <li class="lastra p-4">
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-                          <span class="pastiglia" x-text="it.educationalLevel"></span>
+                          <span class="pastiglia pastiglia-ardesia" x-text="it.educationalLevel"></span>
                           <span class="tabular text-caption text-muted" x-text="it.timeRequired + 's di lettura'"></span>
                           <span class="text-caption text-muted" x-text="'di ' + (it.author || '—')"></span>
                           <span x-show="it.visibility === 'privato'" class="pastiglia">Privato</span>
-                          <span class="tabular ml-auto font-display text-title-3" x-text="prezzoLeggibile(it.price)"></span>
+                          <span class="valore ml-auto font-display text-title-3" x-text="readablePrice(it.price)"></span>
                         </div>
 
                         <div class="mt-4 flex flex-wrap items-center gap-2">
-                          <template x-if="haIlPossesso(it)">
-                            <button type="button" @click="alternaItem(it['@id'])" class="btn-secondario"
-                              :aria-expanded="itemAperti.includes(it['@id'])"
-                              :aria-label="(itemAperti.includes(it['@id']) ? 'Chiudi' : 'Leggi') + ' la descrizione ' + it.educationalLevel">
-                              <span x-text="itemAperti.includes(it['@id']) ? 'Chiudi' : 'Leggi'"></span>
-                              <svg class="h-4 w-4" aria-hidden="true"><use :href="itemAperti.includes(it['@id']) ? '#ico-su' : '#ico-giu'" /></svg>
+                          <template x-if="owns(it)">
+                            <button type="button" @click="toggleItem(it['@id'])" class="btn-secondario"
+                              :aria-expanded="openItems.includes(it['@id'])"
+                              :aria-label="(openItems.includes(it['@id']) ? 'Chiudi' : 'Leggi') + ' la descrizione ' + it.educationalLevel">
+                              <span x-text="openItems.includes(it['@id']) ? 'Chiudi' : 'Leggi'"></span>
+                              <svg class="h-4 w-4" aria-hidden="true"><use :href="openItems.includes(it['@id']) ? '#ico-su' : '#ico-giu'" /></svg>
                             </button>
                           </template>
-                          <template x-if="!haIlPossesso(it) && currentUserType === 'visitatore'">
-                            <button type="button" @click="compraOra(it)" class="btn-primario"
-                              :aria-label="'Sblocca la descrizione ' + it.educationalLevel + ' di ' + operaCorrente().name">
+                          <template x-if="!owns(it) && currentUserRole === 'visitatore'">
+                            <button type="button" @click="buy(it)" class="btn-primario"
+                              :aria-label="'Sblocca la descrizione ' + it.educationalLevel + ' di ' + currentArtwork().name">
                               <span x-text="(!it.price || it.price === 0) ? 'Ottieni' : 'Sblocca'"></span>
                             </button>
                           </template>
-                          <template x-if="currentUserType === 'autore' && it.author === currentUser">
-                            <button type="button" @click="modificaItem(it)" class="btn-secondario">
+                          <template x-if="currentUserRole === 'autore' && it.author === currentUser">
+                            <button type="button" @click="editItem(it)" class="btn-secondario">
                               <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> Modifica
                             </button>
                           </template>
-                          <span x-show="haIlPossesso(it)" class="inline-flex items-center gap-1 text-caption text-muted">
-                            <svg class="h-4 w-4 text-accent" aria-hidden="true"><use href="#ico-check" /></svg> Nella tua libreria
+                          <span x-show="owns(it)" class="inline-flex items-center gap-1 text-caption text-sage">
+                            <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-check" /></svg> Nella tua libreria
                           </span>
                         </div>
 
-                        <!-- Il testo si apre QUI dentro: niente navigazione, niente finestra -->
-                        <div x-show="itemAperti.includes(it['@id'])" x-collapse class="mt-4 border-t border-line pt-4">
+                        <div x-show="openItems.includes(it['@id'])" x-collapse class="mt-4 border-t border-line pt-4">
                           <p class="measure text-body" x-text="it.text"></p>
                           <p class="mt-3 text-caption uppercase tracking-wider text-muted">
                             Licenza: <span x-text="it.license || '—'"></span>
@@ -705,149 +673,143 @@
                     </template>
                   </ul>
 
-                  <div x-show="itemDellOpera().length === 0" class="vuoto mt-6">
+                  <div x-show="artworkItems().length === 0" class="vuoto mt-6">
                     <p>Quest'opera non ha ancora descrizioni.</p>
-                    <button x-show="currentUserType === 'autore'" type="button" class="btn-primario mt-4"
-                      @click="apriNuovoItem(); nuovaOpera.selectedArtworkUri = operaCorrente()['@id']">Scrivine una</button>
+                    <button x-show="currentUserRole === 'autore'" type="button" class="btn-primario mt-4"
+                      @click="openNewItem(); draft.selectedArtworkUri = currentArtwork()['@id']">Scrivine una</button>
                   </div>
                 </div>
               </div>
             </template>
-            <div x-show="!operaCorrente()" class="vuoto"><p>Opera non trovata.</p></div>
+            <div x-show="!currentArtwork()" class="vuoto"><p>Opera non trovata.</p></div>
           </section>
 
           <!-- ---------- SCHEDA VISITA ---------- -->
-          <section x-show="vista === 'visita'">
+          <section x-show="view === 'visita'">
             <button type="button" @click="history.back()" class="btn-fantasma -ml-3 mb-6">
               <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> Indietro
             </button>
-            <template x-if="visitaCorrente()">
+            <template x-if="currentVisit()">
               <div>
                 <div class="flex flex-wrap items-start justify-between gap-4">
                   <div class="min-w-0">
-                    <h1 class="font-display text-title-1 leading-tight" x-text="visitaCorrente().name"></h1>
-                    <p class="tabular mt-2 text-small text-muted" x-text="riepilogoVisita(visitaCorrente())"></p>
+                    <h1 class="font-display text-title-1 leading-tight" x-text="currentVisit().name"></h1>
+                    <p class="tabular mt-2 text-small text-muted" x-text="visitSummary(currentVisit())"></p>
                     <p class="mt-1 text-caption uppercase tracking-wider text-muted">
-                      Curatore: <span x-text="visitaCorrente().author || '—'"></span> ·
-                      Licenza: <span x-text="visitaCorrente().license || '—'"></span>
+                      Curatore: <span x-text="currentVisit().author || '—'"></span> ·
+                      Licenza: <span x-text="currentVisit().license || '—'"></span>
                     </p>
                   </div>
-                  <span class="tabular font-display text-title-1" x-text="prezzoLeggibile(visitaCorrente().price)"></span>
+                  <span class="valore font-display text-title-1" x-text="readablePrice(currentVisit().price)"></span>
                 </div>
 
-                <!-- Azioni: la piu' importante e' sempre la piu' forte -->
                 <div class="mt-6 flex flex-wrap gap-3">
-                  <template x-if="visitaUtilizzabile(visitaCorrente())">
-                    <a :href="urlNavigator(visitaCorrente())" class="btn-primario text-title-3">
+                  <template x-if="visitUsable(currentVisit())">
+                    <a :href="navigatorUrl(currentVisit())" class="btn-primario text-title-3">
                       <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia la visita
                     </a>
                   </template>
-                  <template x-if="!haIlPossesso(visitaCorrente()) && currentUserType === 'visitatore'">
-                    <button type="button" @click="compraOra(visitaCorrente())" class="btn-primario text-title-3"
-                      x-text="(!visitaCorrente().price || visitaCorrente().price === 0) ? 'Aggiungi alla libreria' : 'Sblocca la visita'"></button>
+                  <template x-if="!owns(currentVisit()) && currentUserRole === 'visitatore'">
+                    <button type="button" @click="buy(currentVisit())" class="btn-primario text-title-3"
+                      x-text="(!currentVisit().price || currentVisit().price === 0) ? 'Aggiungi alla libreria' : 'Sblocca la visita'"></button>
                   </template>
-                  <template x-if="haIlPossesso(visitaCorrente()) && !visitaUtilizzabile(visitaCorrente())">
-                    <button type="button" @click="apriAcquistoMancanti(visitaCorrente())" class="btn-primario"
-                      x-text="'Sblocca ' + itemsMancanti(visitaCorrente()).length + ' contenuti mancanti (€ ' + costoMancanti(visitaCorrente()).toFixed(2) + ')'"></button>
+                  <template x-if="owns(currentVisit()) && !visitUsable(currentVisit())">
+                    <button type="button" @click="openCompleteVisit(currentVisit())" class="btn-primario"
+                      x-text="'Sblocca ' + missingItems(currentVisit()).length + ' contenuti mancanti (€ ' + missingCost(currentVisit()).toFixed(2) + ')'"></button>
                   </template>
-                  <template x-if="visitaCorrente().author === currentUser">
+                  <template x-if="currentVisit().author === currentUser">
                     <span class="flex gap-3">
-                      <button type="button" @click="modificaVisita(visitaCorrente())" class="btn-secondario">
+                      <button type="button" @click="editVisit(currentVisit())" class="btn-secondario">
                         <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> Modifica
                       </button>
-                      <button type="button" @click="apriEliminaVisita(visitaCorrente())" class="btn-pericolo">
+                      <button type="button" @click="openDeleteVisit(currentVisit())" class="btn-pericolo">
                         <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-elimina" /></svg> Elimina
                       </button>
                     </span>
                   </template>
-                  <template x-if="visitaCorrente().accessKey && visitaCorrente().author === currentUser">
-                    <a :href="avviaGuidataUrl(visitaCorrente())" class="btn-primario">
+                  <template x-if="currentVisit().accessKey && currentVisit().author === currentUser">
+                    <a :href="startGuidedUrl(currentVisit())" class="btn-primario">
                       <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Apri la sala d'attesa
                     </a>
                   </template>
                 </div>
 
-                <p x-show="haIlPossesso(visitaCorrente()) && !visitaUtilizzabile(visitaCorrente())"
+                <p x-show="owns(currentVisit()) && !visitUsable(currentVisit())"
                   class="avviso mt-4" role="status">
                   <svg class="h-5 w-5 shrink-0" aria-hidden="true"><use href="#ico-attenzione" /></svg>
                   Per vivere questa visita servono anche i contenuti che la compongono.
                 </p>
 
-                <!-- PASSAGGIO AL TELEFONO. Il marketplace si usa al computer, la
-                     visita si vive nel museo: da qualche parte la persona deve
-                     cambiare dispositivo, e inquadrare un QR è il gesto con cui
-                     questo succede davvero. -->
-                <template x-if="visitaUtilizzabile(visitaCorrente())">
+                <template x-if="visitUsable(currentVisit())">
                   <div class="lastra mt-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-                    <img :src="urlQrVisita(visitaCorrente())" width="132" height="132"
+                    <img :src="visitQrUrl(currentVisit())" width="132" height="132"
                       class="h-33 w-33 shrink-0 rounded-plate bg-white p-2"
-                      :alt="'Codice QR per aprire «' + visitaCorrente().name + '» sul telefono'">
+                      :alt="'Codice QR per aprire «' + currentVisit().name + '» sul telefono'">
                     <div class="min-w-0">
                       <h2 class="font-display text-title-3">Portala sul telefono</h2>
                       <p class="mt-1 text-small text-muted">
                         Inquadra il codice con la fotocamera: la visita si apre nell'app da museo.
                         Tienila aperta mentre cammini.
                       </p>
-                      <a :href="urlNavigator(visitaCorrente())" class="link mt-2 inline-block text-small">
+                      <a :href="navigatorUrl(currentVisit())" class="link mt-2 inline-block text-small">
                         Oppure aprila qui
                       </a>
                     </div>
                   </div>
                 </template>
 
-                <template x-if="visitaCorrente().accessKey">
+                <template x-if="currentVisit().accessKey">
                   <div class="lastra mt-6 border-l-4 border-l-accent p-5">
                     <p class="text-caption uppercase tracking-wider text-muted">Parola chiave</p>
-                    <p class="font-mono text-title-2" x-text="visitaCorrente().accessKey"></p>
+                    <p class="font-mono text-title-2" x-text="currentVisit().accessKey"></p>
                     <p class="mt-2 text-small text-muted">Questa visita non è in vetrina: ci si entra solo con la parola chiave.</p>
                   </div>
                 </template>
 
-                <!-- Il percorso, con le note logistiche al posto giusto -->
                 <h2 class="mt-12 font-display text-title-2">Il percorso</h2>
                 <ol class="mt-4 flex flex-col gap-2">
-                  <template x-for="t in tappeDellaVisita(visitaCorrente())" :key="t.id">
+                  <template x-for="t in visitStops(currentVisit())" :key="t.id">
                     <li>
                       <div class="lastra flex items-center gap-4 p-4">
                         <span class="tabular font-display text-title-2 text-muted" x-text="String(t.numero).padStart(2,'0')"></span>
                         <div class="min-w-0 flex-1">
                           <p class="font-medium" x-text="t.nome"></p>
-                          <p class="text-caption text-muted" x-text="dettaglioItem(t.id)"></p>
+                          <p class="text-caption text-muted" x-text="itemDetail(t.id)"></p>
                         </div>
                         <span x-show="t.opzionale" class="pastiglia">Opzionale</span>
                       </div>
-                      <template x-for="nota in logisticaDopo(visitaCorrente(), t.id)">
+                      <template x-for="note in notesAfter(currentVisit(), t.id)">
                         <p class="nota-logistica">
                           <svg class="h-4 w-4 shrink-0" aria-hidden="true"><use href="#ico-nota" /></svg>
-                          <span x-text="nota"></span>
+                          <span x-text="note"></span>
                         </p>
                       </template>
                     </li>
                   </template>
                 </ol>
 
-                <template x-if="logisticaSenzaPosizione(visitaCorrente()).length > 0">
+                <template x-if="unplacedNotes(currentVisit()).length > 0">
                   <div class="mt-8">
                     <h2 class="font-display text-title-3">Indicazioni generali</h2>
                     <ul class="mt-3 flex flex-col gap-2">
-                      <template x-for="nota in logisticaSenzaPosizione(visitaCorrente())">
+                      <template x-for="note in unplacedNotes(currentVisit())">
                         <li class="nota-logistica">
                           <svg class="h-4 w-4 shrink-0" aria-hidden="true"><use href="#ico-nota" /></svg>
-                          <span x-text="nota"></span>
+                          <span x-text="note"></span>
                         </li>
                       </template>
                     </ul>
                   </div>
                 </template>
 
-                <template x-if="visitaCorrente().quiz && visitaCorrente().quiz.length > 0">
+                <template x-if="currentVisit().quiz && currentVisit().quiz.length > 0">
                   <div class="mt-12">
                     <h2 class="font-display text-title-2">
                       Quiz di fine visita
-                      <span class="tabular text-title-3 text-muted" x-text="'(' + visitaCorrente().quiz.length + ')'"></span>
+                      <span class="tabular text-title-3 text-muted" x-text="'(' + currentVisit().quiz.length + ')'"></span>
                     </h2>
                     <ol class="mt-4 flex flex-col gap-4">
-                      <template x-for="(q, qi) in visitaCorrente().quiz" :key="qi">
+                      <template x-for="(q, qi) in currentVisit().quiz" :key="qi">
                         <li class="lastra p-5">
                           <p class="font-medium"><span class="tabular" x-text="(qi+1) + '. '"></span><span x-text="q.question"></span></p>
                           <ul class="mt-3 flex flex-col gap-1.5">
@@ -867,60 +829,58 @@
                 </template>
               </div>
             </template>
-            <div x-show="!visitaCorrente()" class="vuoto"><p>Visita non trovata.</p></div>
+            <div x-show="!currentVisit()" class="vuoto"><p>Visita non trovata.</p></div>
           </section>
 
-          <!-- ---------- LA MIA LIBRERIA (visitatore) ---------- -->
-          <section x-show="vista === 'libreria'">
+          <section x-show="view === 'libreria'">
             <h1 class="font-display text-title-1">La mia libreria</h1>
-            <p class="mt-1 text-small text-muted">Quello che possiedi in <span x-text="museoSelezionato ? museoSelezionato.name : ''"></span>.</p>
+            <p class="mt-1 text-small text-muted">Quello che possiedi in <span x-text="selectedMuseum ? selectedMuseum.name : ''"></span>.</p>
 
             <div class="barra mt-6">
               <div class="campo-cerca">
                 <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
                 <label for="cerca-lib" class="sr-only">Cerca nella libreria</label>
-                <input id="cerca-lib" type="search" x-model="ricercaLibreria" placeholder="Cerca…">
+                <input id="cerca-lib" type="search" x-model="librarySearch" placeholder="Cerca…">
               </div>
-              <a href="#/componi" @click="apriComponi()" class="btn-secondario shrink-0">
+              <a href="#/componi" @click="openComposer()" class="btn-secondario shrink-0">
                 <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-componi" /></svg> Componi una visita
               </a>
             </div>
 
-            <!-- Le visite prima: sono la cosa piu' azionabile che si possiede -->
             <h2 class="mt-10 font-display text-title-2">Visite</h2>
             <ul class="mt-4 flex flex-col gap-3">
-              <template x-for="v in mieVisite()" :key="v['@id']">
+              <template x-for="v in myVisits()" :key="v['@id']">
                 <li class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                   <div class="min-w-0 flex-1">
                     <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
-                    <p class="tabular text-small text-muted" x-text="riepilogoVisita(v)"></p>
-                    <p x-show="!visitaUtilizzabile(v)" class="mt-1 text-caption text-muted"
-                      x-text="'Contiene ' + itemsMancanti(v).length + ' contenuti da sbloccare'"></p>
+                    <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
+                    <p x-show="!visitUsable(v)" class="mt-1 text-caption text-muted"
+                      x-text="'Contiene ' + missingItems(v).length + ' contenuti da sbloccare'"></p>
                   </div>
-                  <template x-if="visitaUtilizzabile(v)">
-                    <a :href="urlNavigator(v)" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
+                  <template x-if="visitUsable(v)">
+                    <a :href="navigatorUrl(v)" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
                       <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
                     </a>
                   </template>
-                  <template x-if="!visitaUtilizzabile(v)">
-                    <button type="button" @click="apriAcquistoMancanti(v)" class="btn-secondario shrink-0"
-                      x-text="'Sblocca (€ ' + costoMancanti(v).toFixed(2) + ')'"></button>
+                  <template x-if="!visitUsable(v)">
+                    <button type="button" @click="openCompleteVisit(v)" class="btn-secondario shrink-0"
+                      x-text="'Sblocca (€ ' + missingCost(v).toFixed(2) + ')'"></button>
                   </template>
                 </li>
               </template>
             </ul>
-            <div x-show="mieVisite().length === 0" class="vuoto mt-4">
+            <div x-show="myVisits().length === 0" class="vuoto mt-4">
               <p>Non hai ancora visite.</p>
               <a href="#/visite" class="btn-primario mt-4">Vai alle visite</a>
             </div>
 
             <h2 class="mt-12 font-display text-title-2">Descrizioni</h2>
             <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <template x-for="g in mieiItem()" :key="g.artwork['@id']">
+              <template x-for="g in myItemGroups()" :key="g.artwork['@id']">
                 <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
                   class="lastra scheda-click flex items-center gap-4 p-4" x-data="{ rotta: false }">
                   <span class="mat mat-piccolo shrink-0">
-                    <img x-show="imgOpera(g.artwork) && !rotta" :src="imgOpera(g.artwork)" @error="rotta = true" alt="" loading="lazy">
+                    <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
                   </span>
                   <span class="min-w-0">
                     <span class="block truncate font-medium" x-text="g.artwork.name"></span>
@@ -930,20 +890,19 @@
                 </a>
               </template>
             </div>
-            <div x-show="mieiItem().length === 0" class="vuoto mt-4">
+            <div x-show="myItemGroups().length === 0" class="vuoto mt-4">
               <p>Non hai ancora descrizioni.</p>
               <a href="#/opere" class="btn-primario mt-4">Sfoglia le opere</a>
             </div>
           </section>
 
-          <!-- ---------- I MIEI CONTENUTI (autore) ---------- -->
-          <section x-show="vista === 'lavori'">
+          <section x-show="view === 'lavori'">
             <div class="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <h1 class="font-display text-title-1">I miei contenuti</h1>
-                <p class="mt-1 text-small text-muted">Quello che hai pubblicato in <span x-text="museoSelezionato ? museoSelezionato.name : ''"></span>.</p>
+                <p class="mt-1 text-small text-muted">Quello che hai pubblicato in <span x-text="selectedMuseum ? selectedMuseum.name : ''"></span>.</p>
               </div>
-              <a :href="urlQrCodes()" target="_blank" rel="noopener" class="btn-secondario">
+              <a :href="qrSheetUrl()" target="_blank" rel="noopener" class="btn-secondario">
                 <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-qr" /></svg> Stampa i QR delle opere
               </a>
             </div>
@@ -952,42 +911,42 @@
               <div class="campo-cerca">
                 <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
                 <label for="cerca-lav" class="sr-only">Cerca nei tuoi contenuti</label>
-                <input id="cerca-lav" type="search" x-model="ricercaLavori" placeholder="Cerca…">
+                <input id="cerca-lav" type="search" x-model="worksSearch" placeholder="Cerca…">
               </div>
               <div role="radiogroup" aria-label="Filtra per tipo" class="segmenti">
                 <template x-for="f in [{v:'tutti',t:'Tutti'},{v:'item',t:'Descrizioni'},{v:'visite',t:'Visite'}]" :key="f.v">
-                  <button type="button" role="radio" :aria-checked="filtroTipoLavori === f.v"
-                    @click="filtroTipoLavori = f.v" :class="filtroTipoLavori === f.v ? 'segmento-attivo' : ''"
+                  <button type="button" role="radio" :aria-checked="worksTypeFilter === f.v"
+                    @click="worksTypeFilter = f.v" :class="worksTypeFilter === f.v ? 'segmento-attivo' : ''"
                     class="segmento" x-text="f.t"></button>
                 </template>
               </div>
             </div>
 
-            <template x-if="lavoriVisite().length > 0">
+            <template x-if="workVisits().length > 0">
               <div class="mt-10">
                 <h2 class="font-display text-title-2">Visite</h2>
                 <ul class="mt-4 flex flex-col gap-3">
-                  <template x-for="v in lavoriVisite()" :key="v['@id']">
+                  <template x-for="v in workVisits()" :key="v['@id']">
                     <li class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                       <div class="min-w-0 flex-1">
                         <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
-                        <p class="tabular text-small text-muted" x-text="riepilogoVisita(v)"></p>
+                        <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                         <p class="mt-1 flex flex-wrap items-center gap-2">
                           <span x-show="v.accessKey" class="pastiglia">
                             <svg class="h-3.5 w-3.5" aria-hidden="true"><use href="#ico-chiave" /></svg>
                             <span x-text="v.accessKey"></span>
                           </span>
-                          <span class="tabular text-caption text-muted" x-show="adozioniDi(v['@id']) !== null"
-                            x-text="adozioniDi(v['@id']) + ' adozioni'"></span>
+                          <span class="tabular text-caption text-muted" x-show="adoptionsOf(v['@id']) !== null"
+                            x-text="adoptionsOf(v['@id']) + ' adozioni'"></span>
                         </p>
                       </div>
                       <div class="flex shrink-0 gap-2">
                         <template x-if="v.accessKey">
-                          <a :href="avviaGuidataUrl(v)" class="btn-primario" :aria-label="'Apri la sala d\'attesa di ' + v.name">
+                          <a :href="startGuidedUrl(v)" class="btn-primario" :aria-label="'Apri la sala d\'attesa di ' + v.name">
                             <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Sala d'attesa
                           </a>
                         </template>
-                        <button type="button" @click="modificaVisita(v)" class="btn-secondario">
+                        <button type="button" @click="editVisit(v)" class="btn-secondario">
                           <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> Modifica
                         </button>
                       </div>
@@ -997,15 +956,15 @@
               </div>
             </template>
 
-            <template x-if="lavoriItem().length > 0">
+            <template x-if="workItemGroups().length > 0">
               <div class="mt-12">
                 <h2 class="font-display text-title-2">Descrizioni</h2>
                 <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <template x-for="g in lavoriItem()" :key="g.artwork['@id']">
+                  <template x-for="g in workItemGroups()" :key="g.artwork['@id']">
                     <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
                       class="lastra scheda-click flex items-center gap-4 p-4" x-data="{ rotta: false }">
                       <span class="mat mat-piccolo shrink-0">
-                        <img x-show="imgOpera(g.artwork) && !rotta" :src="imgOpera(g.artwork)" @error="rotta = true" alt="" loading="lazy">
+                        <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
                       </span>
                       <span class="min-w-0">
                         <span class="block truncate font-medium" x-text="g.artwork.name"></span>
@@ -1018,28 +977,28 @@
               </div>
             </template>
 
-            <div x-show="lavoriItem().length === 0 && lavoriVisite().length === 0" class="vuoto mt-8">
+            <div x-show="workItemGroups().length === 0 && workVisits().length === 0" class="vuoto mt-8">
               <p>Non hai ancora pubblicato nulla in questo museo.</p>
               <div class="mt-4 flex flex-wrap justify-center gap-3">
-                <button type="button" @click="apriNuovoItem()" class="btn-primario">Scrivi una descrizione</button>
-                <button type="button" @click="apriComponi()" class="btn-secondario">Componi una visita</button>
+                <button type="button" @click="openNewItem()" class="btn-primario">Scrivi una descrizione</button>
+                <button type="button" @click="openComposer()" class="btn-secondario">Componi una visita</button>
               </div>
             </div>
           </section>
 
           <!-- ---------- EDITOR DESCRIZIONE ---------- -->
-          <section x-show="vista === 'nuovo'" class="max-w-2xl">
+          <section x-show="view === 'nuovo'" class="max-w-2xl">
             <h1 class="font-display text-title-1" x-text="editingId ? 'Modifica la descrizione' : 'Nuova descrizione'"></h1>
             <p class="mt-1 text-small text-muted">
               I metadati sono il prodotto: lunghezza, linguaggio, autore e licenza accompagnano il testo ovunque vada.
             </p>
 
-            <form @submit.prevent="salvaItem()" class="mt-8 flex flex-col gap-8">
+            <form @submit.prevent="saveItem()" class="mt-8 flex flex-col gap-8">
               <div>
                 <label for="ed-opera" class="etichetta">Opera</label>
-                <select id="ed-opera" x-model="nuovaOpera.selectedArtworkUri" :disabled="!!editingId" class="campo">
+                <select id="ed-opera" x-model="draft.selectedArtworkUri" :disabled="!!editingId" class="campo">
                   <option value="">Scegli un'opera…</option>
-                  <template x-for="a in opereDisponibili()" :key="a['@id']">
+                  <template x-for="a in museumArtworks()" :key="a['@id']">
                     <option :value="a['@id']" x-text="a.name"></option>
                   </template>
                 </select>
@@ -1049,16 +1008,16 @@
                 <legend class="etichetta">Tono</legend>
                 <p class="mt-1 text-caption text-muted">Puoi pubblicare una descrizione per tono, per ogni opera.</p>
                 <div class="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tono della descrizione">
-                  <template x-for="t in toni" :key="t">
+                  <template x-for="t in tones" :key="t">
                     <label class="scelta" :class="[
-                        nuovaOpera.tono === t ? 'scelta-attiva' : '',
-                        (tonoGiaUsato(t) || !!editingId) ? 'opacity-50' : 'cursor-pointer'
+                        draft.tono === t ? 'scelta-attiva' : '',
+                        (toneAlreadyUsed(t) || !!editingId) ? 'opacity-50' : 'cursor-pointer'
                       ]">
-                      <input type="radio" name="tono" :value="t" x-model="nuovaOpera.tono"
-                        :disabled="tonoGiaUsato(t) || !!editingId" class="sr-only">
+                      <input type="radio" name="tono" :value="t" x-model="draft.tono"
+                        :disabled="toneAlreadyUsed(t) || !!editingId" class="sr-only">
                       <span class="font-medium" x-text="t"></span>
-                      <span class="mt-1 block text-caption text-muted" x-text="toniDescrizione[t]"></span>
-                      <span x-show="tonoGiaUsato(t)" class="mt-1 block text-caption text-muted">Già pubblicata</span>
+                      <span class="mt-1 block text-caption text-muted" x-text="toneHints[t]"></span>
+                      <span x-show="toneAlreadyUsed(t)" class="mt-1 block text-caption text-muted">Già pubblicata</span>
                     </label>
                   </template>
                 </div>
@@ -1066,32 +1025,32 @@
 
               <div>
                 <label for="ed-durata" class="etichetta">Durata della lettura (secondi)</label>
-                <input id="ed-durata" type="number" min="1" x-model="nuovaOpera.durata" :disabled="!!editingId" class="campo w-40 tabular">
+                <input id="ed-durata" type="number" min="1" x-model="draft.durata" :disabled="!!editingId" class="campo w-40 tabular">
               </div>
 
               <div>
                 <label for="ed-testo" class="etichetta">Testo</label>
-                <textarea id="ed-testo" x-model="nuovaOpera.testo" rows="9" class="campo"
+                <textarea id="ed-testo" x-model="draft.raw" rows="9" class="campo"
                   :aria-describedby="'ed-testo-stima'"></textarea>
-                <p id="ed-testo-stima" class="tabular mt-2 text-caption text-muted" x-text="stimaLettura()" aria-live="polite"></p>
+                <p id="ed-testo-stima" class="tabular mt-2 text-caption text-muted" x-text="readingEstimate()" aria-live="polite"></p>
               </div>
 
               <div class="grid gap-6 sm:grid-cols-2">
-                <div x-show="!nuovaOpera.privato">
+                <div x-show="!draft.privato">
                   <label for="ed-prezzo" class="etichetta">Prezzo (€)</label>
-                  <input id="ed-prezzo" type="number" step="0.10" min="0" x-model="nuovaOpera.price" class="campo tabular">
+                  <input id="ed-prezzo" type="number" step="0.10" min="0" x-model="draft.price" class="campo tabular">
                 </div>
                 <div>
                   <label for="ed-licenza" class="etichetta">Licenza</label>
-                  <select id="ed-licenza" x-model="nuovaOpera.license" :disabled="!!editingId" class="campo">
-                    <template x-for="l in licenze" :key="l"><option :value="l" x-text="l"></option></template>
+                  <select id="ed-licenza" x-model="draft.license" :disabled="!!editingId" class="campo">
+                    <template x-for="l in licenseOptions" :key="l"><option :value="l" x-text="l"></option></template>
                   </select>
                 </div>
               </div>
 
-              <label class="scelta cursor-pointer" :class="[nuovaOpera.privato ? 'scelta-attiva' : '', !!editingId ? 'opacity-50' : '']">
+              <label class="scelta cursor-pointer" :class="[draft.privato ? 'scelta-attiva' : '', !!editingId ? 'opacity-50' : '']">
                 <span class="flex items-start gap-3">
-                  <input type="checkbox" x-model="nuovaOpera.privato" :disabled="!!editingId" class="mt-1 h-5 w-5 shrink-0 accent-[var(--accent)]">
+                  <input type="checkbox" x-model="draft.privato" :disabled="!!editingId" class="mt-1 h-5 w-5 shrink-0 accent-[var(--accent)]">
                   <span>
                     <span class="font-medium">Tienila privata</span>
                     <span class="mt-1 block text-caption text-muted">Non compare in vetrina e non si vende: la usi solo nelle tue visite guidate.</span>
@@ -1104,98 +1063,91 @@
                 Opera, tono, durata, licenza e visibilità restano fissi: cambiarli danneggerebbe chi ha già adottato questa descrizione.
               </p>
 
-              <!-- Barra di salvataggio: dice sempre cosa manca, non tace e rifiuta -->
               <div class="barra-salva">
-                <p class="text-small" :class="validazioneItem().length ? 'text-muted' : 'text-accent'" role="status">
-                  <span x-show="validazioneItem().length" x-text="'Manca ancora: ' + validazioneItem().join(', ') + '.'"></span>
-                  <span x-show="!validazioneItem().length">Pronta da pubblicare.</span>
+                <p class="text-small" :class="itemIssues().length ? 'text-muted' : 'text-sage'" role="status">
+                  <span x-show="itemIssues().length" x-text="'Manca ancora: ' + itemIssues().join(', ') + '.'"></span>
+                  <span x-show="!itemIssues().length">Pronta da pubblicare.</span>
                 </p>
                 <button type="submit" class="btn-primario" x-text="editingId ? 'Salva le modifiche' : 'Pubblica'"></button>
               </div>
             </form>
           </section>
 
-          <!-- ---------- BANCO DI LAVORO DELLA VISITA ---------- -->
-          <section x-show="vista === 'componi'" class="max-w-none">
+          <section x-show="view === 'componi'" class="max-w-none">
             <h1 class="font-display text-title-1" x-text="editingId ? 'Modifica la visita' : 'Componi una visita'"></h1>
 
-            <!-- Passi: percorso / impostazioni / quiz (l'ultimo solo per le guidate) -->
             <nav class="passi mt-6" aria-label="Passi della composizione">
-              <template x-for="(p, i) in (currentUserType === 'autore'
+              <template x-for="(p, i) in (currentUserRole === 'autore'
                   ? [{id:'percorso',t:'Percorso'},{id:'impostazioni',t:'Impostazioni'},{id:'quiz',t:'Quiz'}]
                   : [{id:'percorso',t:'Percorso'},{id:'impostazioni',t:'Impostazioni'}])" :key="p.id">
-                <button type="button" @click="passoVisita = p.id" class="passo"
-                  :class="passoVisita === p.id ? 'passo-attivo' : ''" :aria-current="passoVisita === p.id ? 'step' : false"
-                  :disabled="p.id === 'quiz' && !nuovaOpera.guidata">
+                <button type="button" @click="visitStep = p.id" class="passo"
+                  :class="visitStep === p.id ? 'passo-attivo' : ''" :aria-current="visitStep === p.id ? 'step' : false"
+                  :disabled="p.id === 'quiz' && !draft.guidata">
                   <span class="tabular" x-text="(i+1) + '.'"></span> <span x-text="p.t"></span>
                 </button>
               </template>
             </nav>
 
             <!-- PASSO 1: il percorso, con la libreria accanto -->
-            <div x-show="passoVisita === 'percorso'" class="mt-6">
+            <div x-show="visitStep === 'percorso'" class="mt-6">
               <div role="tablist" aria-label="Pannelli del banco di lavoro" class="segmenti mb-4 lg:hidden">
-                <button type="button" role="tab" :aria-selected="pannelloEditor === 'percorso'" @click="pannelloEditor='percorso'"
-                  class="segmento" :class="pannelloEditor === 'percorso' ? 'segmento-attivo' : ''">
-                  Percorso (<span class="tabular" x-text="numeroTappe()"></span>)
+                <button type="button" role="tab" :aria-selected="editorPane === 'percorso'" @click="editorPane='percorso'"
+                  class="segmento" :class="editorPane === 'percorso' ? 'segmento-attivo' : ''">
+                  Percorso (<span class="tabular" x-text="stopCount()"></span>)
                 </button>
-                <button type="button" role="tab" :aria-selected="pannelloEditor === 'libreria'" @click="pannelloEditor='libreria'"
-                  class="segmento" :class="pannelloEditor === 'libreria' ? 'segmento-attivo' : ''">Libreria</button>
+                <button type="button" role="tab" :aria-selected="editorPane === 'libreria'" @click="editorPane='libreria'"
+                  class="segmento" :class="editorPane === 'libreria' ? 'segmento-attivo' : ''">Libreria</button>
               </div>
 
               <div class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                <!-- L'oggetto che si sta costruendo: sempre visibile.
-                     Le schede valgono solo sotto lg: da li' in su `lg:!block`
-                     batte l'inline style di x-show, senza dipendere da un
-                     listener sul ridimensionamento. -->
-                <div x-show="pannelloEditor === 'percorso'" class="lg:!block">
+                <div x-show="editorPane === 'percorso'" class="lg:!block">
                   <label for="v-titolo" class="etichetta">Titolo della visita</label>
-                  <input id="v-titolo" type="text" x-model="nuovaOpera.titolo" class="campo" placeholder="I capolavori in mezz'ora">
+                  <input id="v-titolo" type="text" x-model="draft.titolo" class="campo" placeholder="I capolavori in mezz'ora">
 
                   <div class="mt-6 flex items-baseline justify-between">
                     <h2 class="font-display text-title-3">Il percorso</h2>
-                    <span class="tabular text-caption text-muted" x-text="numeroTappe() + ' tappe · ' + durataLeggibile(durataStimataVisita())"></span>
+                    <span class="tabular text-caption text-muted" x-text="stopCount() + ' tappe · ' + readableDuration(estimatedDuration())"></span>
                   </div>
 
                   <ol class="mt-3 flex flex-col gap-2">
-                    <template x-for="(tappa, index) in nuovaOpera.tappe" :key="index">
-                      <li class="lastra flex items-center gap-3 p-3" :class="tappa.tipo === 'logistica' ? 'bg-surface-2' : ''">
-                        <span x-show="tappa.tipo === 'item'" class="tabular w-7 shrink-0 text-center font-display text-title-3 text-muted"
-                          x-text="String(numeroDiTappa(index)).padStart(2,'0')"></span>
-                        <svg x-show="tappa.tipo === 'logistica'" class="h-5 w-5 w-7 shrink-0 text-muted" aria-hidden="true"><use href="#ico-nota" /></svg>
+                    <template x-for="(stop, index) in draft.tappe" :key="index">
+                      <li class="lastra flex items-center gap-3 p-3" :class="stop.tipo === 'logistica' ? 'bg-surface-2' : ''">
+                        <span x-show="stop.tipo === 'item'" class="tabular w-7 shrink-0 text-center font-display text-title-3 text-muted"
+                          x-text="String(stopNumber(index)).padStart(2,'0')"></span>
+                        <svg x-show="stop.tipo === 'logistica'" class="h-5 w-5 w-7 shrink-0 text-muted" aria-hidden="true"><use href="#ico-nota" /></svg>
 
                         <div class="min-w-0 flex-1">
-                          <template x-if="tappa.tipo === 'item'">
+                          <template x-if="stop.tipo === 'item'">
                             <div>
-                              <p class="truncate font-medium" x-text="trovaNomeItem(tappa.value)"></p>
-                              <p class="text-caption text-muted" x-text="dettaglioItem(tappa.value)"></p>
+                              <p class="truncate font-medium" x-text="itemName(stop.value)"></p>
+                              <p class="text-caption text-muted" x-text="itemDetail(stop.value)"></p>
                             </div>
                           </template>
-                          <template x-if="tappa.tipo === 'logistica'">
+                          <template x-if="stop.tipo === 'logistica'">
                             <div>
                               <label :for="'nota-' + index" class="sr-only">Indicazione logistica</label>
-                              <input :id="'nota-' + index" type="text" x-model="tappa.value" class="campo campo-piatto italic"
+                              <input :id="'nota-' + index" type="text" x-model="stop.value" class="campo campo-piatto italic"
                                 placeholder="Prosegui a sinistra della scala verso la sala 12">
                             </div>
                           </template>
                         </div>
 
                         <div class="flex shrink-0 items-center gap-1">
-                          <button type="button" x-show="tappa.tipo === 'item'" @click="toggleOpzionale(index)"
-                            :aria-pressed="!!tappa.opzionale"
-                            :aria-label="(tappa.opzionale ? 'Rendi obbligatoria' : 'Rendi opzionale') + ' la tappa ' + numeroDiTappa(index)"
-                            class="pastiglia-bottone" :class="tappa.opzionale ? 'pastiglia-attiva' : ''">Opzionale</button>
+                          <button type="button" x-show="stop.tipo === 'item'" @click="toggleOptional(index)"
+                            :aria-pressed="!!stop.opzionale"
+                            :aria-label="(stop.opzionale ? 'Rendi obbligatoria' : 'Rendi opzionale') + ' la tappa ' + stopNumber(index)"
+                            class="pastiglia-bottone" :class="stop.opzionale ? 'pastiglia-attiva' : ''">Opzionale</button>
                           <div class="flex flex-col">
-                            <button type="button" @click="spostaTappa(index, -1)" :disabled="index === 0"
+                            <button type="button" @click="moveStop(index, -1)" :disabled="index === 0"
                               :aria-label="'Sposta in su la posizione ' + (index+1)" class="icona-mini">
                               <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-su" /></svg>
                             </button>
-                            <button type="button" @click="spostaTappa(index, 1)" :disabled="index === nuovaOpera.tappe.length - 1"
+                            <button type="button" @click="moveStop(index, 1)" :disabled="index === draft.tappe.length - 1"
                               :aria-label="'Sposta in giù la posizione ' + (index+1)" class="icona-mini">
                               <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-giu" /></svg>
                             </button>
                           </div>
-                          <button type="button" @click="rimuoviTappa(index)" :aria-label="'Rimuovi la posizione ' + (index+1)"
+                          <button type="button" @click="removeStop(index)" :aria-label="'Rimuovi la posizione ' + (index+1)"
                             class="icona-mini text-danger">
                             <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-chiudi" /></svg>
                           </button>
@@ -1204,22 +1156,22 @@
                     </template>
                   </ol>
 
-                  <div x-show="nuovaOpera.tappe.length === 0" class="vuoto mt-3">
+                  <div x-show="draft.tappe.length === 0" class="vuoto mt-3">
                     <p>Il percorso è vuoto.</p>
                     <p class="mt-1 text-small text-muted">Aggiungi le descrizioni dalla libreria qui accanto.</p>
                   </div>
 
-                  <button type="button" @click="aggiungiTappa('logistica')" class="btn-secondario mt-3 w-full justify-center">
+                  <button type="button" @click="addStop('logistica')" class="btn-secondario mt-3 w-full justify-center">
                     <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-nota" /></svg> Aggiungi un'indicazione logistica
                   </button>
 
-                  <template x-if="!editingId && visiteBaseImportabili().length > 0">
+                  <template x-if="!editingId && importableVisits().length > 0">
                     <div class="lastra mt-6 p-4">
                       <label for="importa" class="etichetta">Parti da una visita esistente</label>
                       <p class="mb-2 text-caption text-muted">Ne copia le tappe. L'originale non viene toccato.</p>
-                      <select id="importa" class="campo" @change="importaVisitaBase($event.target.value); $event.target.value=''">
+                      <select id="importa" class="campo" @change="importVisit($event.target.value); $event.target.value=''">
                         <option value="">Scegli…</option>
-                        <template x-for="v in visiteBaseImportabili()" :key="v['@id']">
+                        <template x-for="v in importableVisits()" :key="v['@id']">
                           <option :value="v['@id']" x-text="v.name + (v.author ? ' — ' + v.author : '')"></option>
                         </template>
                       </select>
@@ -1228,29 +1180,29 @@
                 </div>
 
                 <!-- La libreria da cui si pesca -->
-                <div x-show="pannelloEditor === 'libreria'" class="lg:!block lg:border-l lg:border-line lg:pl-8">
+                <div x-show="editorPane === 'libreria'" class="lg:!block lg:border-l lg:border-line lg:pl-8">
                   <h2 class="font-display text-title-3">La libreria</h2>
                   <div class="mt-3 flex flex-col gap-3">
                     <div class="campo-cerca">
                       <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
                       <label for="cerca-ed" class="sr-only">Cerca nella libreria</label>
-                      <input id="cerca-ed" type="search" x-model="ricercaEditor" placeholder="Cerca un'opera…">
+                      <input id="cerca-ed" type="search" x-model="editorSearch" placeholder="Cerca un'opera…">
                     </div>
-                    <div x-show="currentUserType === 'visitatore'" role="radiogroup" aria-label="Filtra la libreria" class="segmenti">
+                    <div x-show="currentUserRole === 'visitatore'" role="radiogroup" aria-label="Filtra la libreria" class="segmenti">
                       <template x-for="f in [{v:'tutti',t:'Tutte'},{v:'disponibili',t:'Che possiedo'},{v:'da_acquistare',t:'Da sbloccare'}]" :key="f.v">
-                        <button type="button" role="radio" :aria-checked="filtroEditor === f.v" @click="filtroEditor = f.v"
-                          class="segmento" :class="filtroEditor === f.v ? 'segmento-attivo' : ''" x-text="f.t"></button>
+                        <button type="button" role="radio" :aria-checked="editorFilter === f.v" @click="editorFilter = f.v"
+                          class="segmento" :class="editorFilter === f.v ? 'segmento-attivo' : ''" x-text="f.t"></button>
                       </template>
                     </div>
                   </div>
 
                   <ul class="mt-4 flex flex-col gap-2">
-                    <template x-for="g in libreriaEditor()" :key="g.artwork['@id']">
+                    <template x-for="g in editorLibrary()" :key="g.artwork['@id']">
                       <li class="lastra p-3" x-data="{ aperta: false, rotta: false }">
                         <button type="button" @click="aperta = !aperta" :aria-expanded="aperta"
                           class="flex w-full items-center gap-3 text-left">
                           <span class="mat mat-piccolo shrink-0">
-                            <img x-show="imgOpera(g.artwork) && !rotta" :src="imgOpera(g.artwork)" @error="rotta = true" alt="" loading="lazy">
+                            <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
                           </span>
                           <span class="min-w-0 flex-1">
                             <span class="block truncate font-medium" x-text="g.artwork.name"></span>
@@ -1264,12 +1216,12 @@
                             <li class="flex items-center gap-3">
                               <span class="min-w-0 flex-1">
                                 <span class="pastiglia" x-text="it.educationalLevel"></span>
-                                <span class="tabular ml-2 text-caption text-muted" x-text="it.timeRequired + 's · ' + prezzoLeggibile(it.price)"></span>
+                                <span class="tabular ml-2 text-caption text-muted" x-text="it.timeRequired + 's · ' + readablePrice(it.price)"></span>
                               </span>
-                              <button type="button" @click="aggiungiTappa('item', it['@id'])" :disabled="itemGiaInVisita(it['@id'])"
+                              <button type="button" @click="addStop('item', it['@id'])" :disabled="itemInVisit(it['@id'])"
                                 class="btn-secondario shrink-0"
-                                :aria-label="(itemGiaInVisita(it['@id']) ? 'Già nel percorso: ' : 'Aggiungi al percorso: ') + it.educationalLevel + ' di ' + g.artwork.name">
-                                <span x-text="itemGiaInVisita(it['@id']) ? 'Aggiunta' : 'Aggiungi'"></span>
+                                :aria-label="(itemInVisit(it['@id']) ? 'Già nel percorso: ' : 'Aggiungi al percorso: ') + it.educationalLevel + ' di ' + g.artwork.name">
+                                <span x-text="itemInVisit(it['@id']) ? 'Aggiunta' : 'Aggiungi'"></span>
                               </button>
                             </li>
                           </template>
@@ -1277,7 +1229,7 @@
                       </li>
                     </template>
                   </ul>
-                  <div x-show="libreriaEditor().length === 0" class="vuoto mt-4">
+                  <div x-show="editorLibrary().length === 0" class="vuoto mt-4">
                     <p>Nessuna descrizione disponibile.</p>
                   </div>
                 </div>
@@ -1285,18 +1237,18 @@
             </div>
 
             <!-- PASSO 2: impostazioni -->
-            <div x-show="passoVisita === 'impostazioni'" class="mt-6 max-w-2xl flex flex-col gap-8">
-              <template x-if="currentUserType === 'autore'">
+            <div x-show="visitStep === 'impostazioni'" class="mt-6 max-w-2xl flex flex-col gap-8">
+              <template x-if="currentUserRole === 'autore'">
                 <fieldset>
                   <legend class="etichetta">Come si accede a questa visita</legend>
                   <div class="mt-3 flex flex-col gap-3" role="radiogroup" aria-label="Tipo di visita">
-                    <label class="scelta cursor-pointer" :class="!nuovaOpera.guidata ? 'scelta-attiva' : ''">
-                      <input type="radio" :value="false" x-model="nuovaOpera.guidata" :disabled="!!editingId" class="sr-only">
+                    <label class="scelta cursor-pointer" :class="!draft.guidata ? 'scelta-attiva' : ''">
+                      <input type="radio" :value="false" x-model="draft.guidata" :disabled="!!editingId" class="sr-only">
                       <span class="font-medium">In vetrina</span>
                       <span class="mt-1 block text-caption text-muted">Chiunque la trova nel catalogo e la adotta.</span>
                     </label>
-                    <label class="scelta cursor-pointer" :class="nuovaOpera.guidata ? 'scelta-attiva' : ''">
-                      <input type="radio" :value="true" x-model="nuovaOpera.guidata" :disabled="!!editingId" class="sr-only">
+                    <label class="scelta cursor-pointer" :class="draft.guidata ? 'scelta-attiva' : ''">
+                      <input type="radio" :value="true" x-model="draft.guidata" :disabled="!!editingId" class="sr-only">
                       <span class="font-medium">Guidata, con parola chiave</span>
                       <span class="mt-1 block text-caption text-muted">Gratuita e fuori dal catalogo: la conduci tu, gli studenti entrano con la parola chiave.</span>
                     </label>
@@ -1304,36 +1256,36 @@
                 </fieldset>
               </template>
 
-              <div x-show="nuovaOpera.guidata">
+              <div x-show="draft.guidata">
                 <label for="v-chiave" class="etichetta">Parola chiave</label>
                 <p class="mb-2 text-caption text-muted">Facile da dire ad alta voce e da scrivere. Dev'essere unica.</p>
-                <input id="v-chiave" type="text" x-model="nuovaOpera.accessKey" class="campo font-mono" placeholder="Fenice rossa">
+                <input id="v-chiave" type="text" x-model="draft.accessKey" class="campo font-mono" placeholder="Fenice rossa">
               </div>
 
-              <div x-show="currentUserType === 'autore' && !nuovaOpera.guidata" class="grid gap-6 sm:grid-cols-2">
+              <div x-show="currentUserRole === 'autore' && !draft.guidata" class="grid gap-6 sm:grid-cols-2">
                 <div>
                   <label for="v-prezzo" class="etichetta">Prezzo (€)</label>
-                  <input id="v-prezzo" type="number" step="0.10" min="0" x-model="nuovaOpera.price" class="campo tabular">
+                  <input id="v-prezzo" type="number" step="0.10" min="0" x-model="draft.price" class="campo tabular">
                 </div>
                 <div>
                   <label for="v-licenza" class="etichetta">Licenza</label>
-                  <select id="v-licenza" x-model="nuovaOpera.license" class="campo">
-                    <template x-for="l in licenze" :key="l"><option :value="l" x-text="l"></option></template>
+                  <select id="v-licenza" x-model="draft.license" class="campo">
+                    <template x-for="l in licenseOptions" :key="l"><option :value="l" x-text="l"></option></template>
                   </select>
                 </div>
               </div>
 
-              <p x-show="nuovaOpera.guidata" class="avviso" role="note">
+              <p x-show="draft.guidata" class="avviso" role="note">
                 <svg class="h-5 w-5 shrink-0" aria-hidden="true"><use href="#ico-attenzione" /></svg>
                 Una visita guidata è sempre gratuita e non compare nel catalogo: non ha prezzo.
               </p>
             </div>
 
             <!-- PASSO 3: quiz -->
-            <div x-show="passoVisita === 'quiz'" class="mt-6 max-w-2xl">
+            <div x-show="visitStep === 'quiz'" class="mt-6 max-w-2xl">
               <div class="flex items-baseline justify-between">
                 <h2 class="font-display text-title-2">Quiz di fine visita</h2>
-                <span class="tabular text-caption text-muted" x-text="nuovaOpera.quiz.length + ' domande'"></span>
+                <span class="tabular text-caption text-muted" x-text="draft.quiz.length + ' domande'"></span>
               </div>
               <p class="mt-1 text-small text-muted">
                 Facoltativo. Gli studenti lo svolgono nell'app da museo quando decidi tu, e il voto è
@@ -1341,11 +1293,11 @@
               </p>
 
               <ol class="mt-6 flex flex-col gap-4">
-                <template x-for="(q, qi) in nuovaOpera.quiz" :key="qi">
+                <template x-for="(q, qi) in draft.quiz" :key="qi">
                   <li class="lastra p-5">
                     <div class="mb-3 flex items-center justify-between">
                       <h3 class="text-caption uppercase tracking-wider text-muted" x-text="'Domanda ' + (qi+1)"></h3>
-                      <button type="button" @click="rimuoviDomandaQuiz(qi)" class="icona-mini text-danger"
+                      <button type="button" @click="removeQuizQuestion(qi)" class="icona-mini text-danger"
                         :aria-label="'Rimuovi la domanda ' + (qi+1)">
                         <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-elimina" /></svg>
                       </button>
@@ -1372,34 +1324,34 @@
                 </template>
               </ol>
 
-              <button type="button" @click="aggiungiDomandaQuiz()" class="btn-secondario mt-4">
+              <button type="button" @click="addQuizQuestion()" class="btn-secondario mt-4">
                 <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-componi" /></svg> Aggiungi una domanda
               </button>
-              <div x-show="nuovaOpera.quiz.length === 0" class="vuoto mt-4">
+              <div x-show="draft.quiz.length === 0" class="vuoto mt-4">
                 <p>Nessuna domanda: la visita non avrà quiz.</p>
               </div>
             </div>
 
             <!-- Barra di salvataggio, comune ai tre passi -->
             <div class="barra-salva mt-8">
-              <p class="text-small" :class="validazioneVisita().length ? 'text-muted' : 'text-accent'" role="status" x-text="statoVisita()"></p>
-              <button type="button" @click="salvaVisita()" class="btn-primario" x-text="etichettaPubblica()"></button>
+              <p class="text-small" :class="visitIssues().length ? 'text-muted' : 'text-sage'" role="status" x-text="visitStatus()"></p>
+              <button type="button" @click="saveVisit()" class="btn-primario" x-text="publishLabel()"></button>
             </div>
           </section>
 
           <!-- ---------- VENDITE ---------- -->
-          <section x-show="vista === 'vendite'" x-init="$watch('vista', v => { if (v === 'vendite') caricaVendite() })">
+          <section x-show="view === 'vendite'" x-init="$watch('vista', v => { if (v === 'vendite') loadSales() })">
             <h1 class="font-display text-title-1">Vendite e adozioni</h1>
-            <p class="mt-1 text-small text-muted" x-text="museoSelezionato ? museoSelezionato.name : ''"></p>
+            <p class="mt-1 text-small text-muted" x-text="selectedMuseum ? selectedMuseum.name : ''"></p>
 
             <div class="mt-6 flex flex-wrap gap-4">
               <div class="lastra px-5 py-4">
                 <p class="text-caption uppercase tracking-wider text-muted">Adozioni</p>
-                <p class="tabular font-display text-title-1" x-text="totaleAdozioni()"></p>
+                <p class="tabular font-display text-title-1" x-text="totalAdoptions()"></p>
               </div>
               <div class="lastra px-5 py-4">
                 <p class="text-caption uppercase tracking-wider text-muted">Ricavo</p>
-                <p class="tabular font-display text-title-1" x-text="'€ ' + totaleRicavo().toFixed(2)"></p>
+                <p class="valore font-display text-title-1" x-text="'€ ' + totalRevenue().toFixed(2)"></p>
               </div>
             </div>
 
@@ -1417,19 +1369,19 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <template x-for="r in venditeFiltrate()" :key="r.id">
+                  <template x-for="r in filteredSales()" :key="r.id">
                     <tr class="border-b border-line last:border-0">
                       <th scope="row" class="px-4 py-3 font-medium" x-text="r.name"></th>
-                      <td class="px-4 py-3"><span class="pastiglia" x-text="r.type"></span></td>
+                      <td class="px-4 py-3"><span class="pastiglia pastiglia-ardesia" x-text="r.type"></span></td>
                       <td class="px-4 py-3 text-muted" x-text="r.license"></td>
-                      <td class="tabular px-4 py-3 text-right" x-text="prezzoLeggibile(r.price)"></td>
+                      <td class="valore px-4 py-3 text-right" x-text="readablePrice(r.price)"></td>
                       <td class="tabular px-4 py-3 text-right font-medium" x-text="r.adozioni"></td>
-                      <td class="tabular px-4 py-3 text-right font-medium" x-text="ricavoLeggibile(r)"></td>
+                      <td class="valore px-4 py-3 text-right font-medium" x-text="readableRevenue(r)"></td>
                     </tr>
                   </template>
                 </tbody>
               </table>
-              <div x-show="venditeFiltrate().length === 0" class="vuoto border-0">
+              <div x-show="filteredSales().length === 0" class="vuoto border-0">
                 <p>Non hai pubblicato nulla in questo museo.</p>
               </div>
             </div>
@@ -1442,37 +1394,29 @@
       </main>
     </div>
 
-    <!-- ===============================================================
-         CONFERMA — l'unica finestra modale rimasta, che e' anche l'unica
-         cosa per cui una finestra modale serve davvero.
-         =============================================================== -->
-    <div x-show="modalConferma" @keydown.escape.window="annullaAcquisto()"
+    <div x-show="confirmOpen" @keydown.escape.window="cancelConfirm()"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6" x-transition.opacity>
       <div role="alertdialog" aria-modal="true" aria-labelledby="conferma-titolo" aria-describedby="conferma-testo"
-        x-trap.inert.noscroll="modalConferma" @click.away="annullaAcquisto()"
+        x-trap.inert.noscroll="confirmOpen" @click.away="cancelConfirm()"
         class="w-full max-w-md rounded-card border border-line bg-surface p-7 shadow-l2">
-        <h2 id="conferma-titolo" class="font-display text-title-2" x-text="titoloConferma()"></h2>
-        <p id="conferma-testo" class="mt-3 text-body text-muted" x-text="messaggioConferma()"></p>
+        <h2 id="conferma-titolo" class="font-display text-title-2" x-text="confirmTitle()"></h2>
+        <p id="conferma-testo" class="mt-3 text-body text-muted" x-text="confirmMessage()"></p>
         <div class="mt-7 flex justify-end gap-3">
-          <!-- "Annulla" prima nel DOM e a fuoco: confermare per riflesso non deve distruggere nulla -->
-          <button type="button" @click="annullaAcquisto()" class="btn-secondario">Annulla</button>
-          <button type="button" @click="confermaAcquisto()"
-            :class="visitaDaEliminare ? 'btn-pericolo-pieno' : 'btn-primario'" x-text="verboConferma()"></button>
+          <button type="button" @click="cancelConfirm()" class="btn-secondario">Annulla</button>
+          <button type="button" @click="runConfirm()"
+            :class="visitToDelete ? 'btn-pericolo-pieno' : 'btn-primario'" x-text="confirmVerb()"></button>
         </div>
       </div>
     </div>
 
-    <!-- ===============================================================
-         AVVISI — mai a tutto colore: una barra di 3px basta a dire il tono
-         =============================================================== -->
     <div x-show="toast" x-transition class="fixed bottom-24 left-1/2 z-50 w-[min(28rem,90vw)] -translate-x-1/2 md:bottom-6 md:left-auto md:right-6 md:translate-x-0">
       <div :role="toast?.tipo === 'error' ? 'alert' : 'status'"
         class="flex items-start gap-3 rounded-card border border-line bg-surface p-4 shadow-l2"
-        :class="toast?.tipo === 'error' ? 'border-l-4 border-l-danger' : 'border-l-4 border-l-accent'">
+        :class="toast?.tipo === 'error' ? 'border-l-4 border-l-danger' : 'border-l-4 border-l-sage'">
         <svg x-show="toast?.tipo === 'error'" class="h-5 w-5 shrink-0 text-danger" aria-hidden="true"><use href="#ico-attenzione" /></svg>
-        <svg x-show="toast?.tipo !== 'error'" class="h-5 w-5 shrink-0 text-accent" aria-hidden="true"><use href="#ico-check" /></svg>
+        <svg x-show="toast?.tipo !== 'error'" class="h-5 w-5 shrink-0 text-sage" aria-hidden="true"><use href="#ico-check" /></svg>
         <p class="flex-1 text-small" x-text="toast?.messaggio"></p>
-        <button type="button" @click="chiudiToast()" aria-label="Chiudi l'avviso" class="icona-mini">
+        <button type="button" @click="closeToast()" aria-label="Chiudi l'avviso" class="icona-mini">
           <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-chiudi" /></svg>
         </button>
       </div>

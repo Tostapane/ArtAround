@@ -1,3 +1,10 @@
+/**
+ * Rotte della voce: riconoscimento e sintesi.
+ *
+ * Il riconoscimento passa poi dall'LLM, che mappa la frase libera su un comando
+ * del vocabolario controllato. Se non si e' capito nulla si risponde comunque, con
+ * un comando vuoto: il client dira' "non ho capito" invece di restare in attesa.
+ */
 import { Router } from "express";
 import multer from "multer";
 import { recognizeAudio } from "../services/stt";
@@ -15,11 +22,8 @@ router.post("/", upload.single("audioFile"), async (req, res) => {
   try {
     const file = req.file;
     if (!file) return res.status(400).json({ error: "No audio file provided" });
-    // lingua in cui parla l'utente (BCP-47); default italiano
     const sttLang = (req.body?.lang as string) || "it-IT";
     const transcript = await recognizeAudio(file.buffer, sttLang);
-    // Nessuna parola riconosciuta: si risponde comunque, e il client dirà
-    // "non ho capito" invece di restare in attesa di nulla.
     if (!transcript) return res.json({ mappedTranscript: "" });
     const mappedTranscript = await mapRequest(transcript);
     res.json({ mappedTranscript });
@@ -28,15 +32,10 @@ router.post("/", upload.single("audioFile"), async (req, res) => {
   }
 });
 
-/**
- * POST /api/speech/tts
- * ritorna l'audio (MP3) della sintesi vocale del testo fornito
- */
 router.post("/tts", async (req, res) => {
   try {
     const { text, lang } = req.body;
     if (!text) return res.status(400).json({ error: "No text provided" });
-    // lingua in cui sintetizzare (BCP-47); default italiano
     const audio = await synthesizeSpeech(text, lang || "it-IT");
     res.set("Content-Type", "audio/mpeg").send(audio);
   } catch (err) {

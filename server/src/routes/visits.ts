@@ -1,3 +1,18 @@
+/**
+ * Rotte delle visite.
+ *
+ * Il salvataggio fa tre cose non ovvie:
+ * - ricava la durata totale sommando i tempi degli item, perche' l'editor non la
+ *   chiede;
+ * - ancora ogni nota logistica alla tappa che segue, cosi' il navigator puo'
+ *   mostrarla al momento giusto (slide 21); una nota che perde il suo posto non
+ *   puo' piu' dire come si va da un'opera alla successiva;
+ * - per le visite guidate verifica che la parola chiave sia unica e che ogni item
+ *   sia gratuito o dell'autore: altrimenti la parola chiave regalerebbe contenuti
+ *   a pagamento di altri.
+ *
+ * `/custom` genera una visita dai vincoli espressi a parole e non salva nulla.
+ */
 import { Router } from "express";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
@@ -8,8 +23,6 @@ import { resolveOrGenerateItem } from "../dbActions";
 
 const router = Router();
 
-// tetto al numero di opere di una visita su misura: limita il costo di
-// generazione (ogni opera con twist e' una chiamata all'LLM).
 const MAX_CUSTOM_ARTWORKS = 30;
 
 /**
@@ -26,11 +39,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/visits/:id
- * Ritorna una singola visita. Usato dal navigator quando viene aperto con un
- * deep link dal marketplace (?visit=<id>): dalla visita ricava anche il museo.
- */
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -42,12 +50,6 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-/**
- * GET /api/visits/:id/items
- * Ritorna gli item della visita con il rispettivo artwork (`about`) gia' popolato,
- * preservando l'ordine definito in itemListElement.
- * Evita il join lato client nel navigator.
- */
 router.get("/:id/items", async (req, res) => {
   try {
     const { id } = req.params;
@@ -63,7 +65,6 @@ router.get("/:id/items", async (req, res) => {
       justOne: true,
     });
 
-    // ripristina l'ordine di itemListElement (find con $in non lo garantisce)
     const byId = new Map(items.map((it: any) => [it["@id"], it]));
     const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
     res.json(ordered);
@@ -72,18 +73,6 @@ router.get("/:id/items", async (req, res) => {
   }
 });
 
-/**
- * POST /api/visits/custom
- * Crea una visita SU MISURA dai vincoli espressi dall'utente in linguaggio
- * naturale (18-33: "creazione di visite sulla base di vincoli dell'utente").
- * Body: { museumQid, request }.
- * Pipeline: catalogo del museo -> planVisit (sceglie opere/tono/durata/twist) ->
- * resolveOrGenerateItem per opera (riuso o generazione) -> visita assemblata.
- * NON persiste nulla: la visita su misura vive nel client. Risponde con
- * { visit, content } dove content e' [{ artwork, item }] gia' pronto per il
- * navigator (niente join lato client). I contenuti restano in italiano: il
- * navigator li traduce live nella lingua scelta, come per le altre visite.
- */
 router.post("/custom", async (req, res) => {
   try {
     const { museumQid, request } = req.body;
@@ -113,7 +102,6 @@ router.post("/custom", async (req, res) => {
     const content: { artwork: unknown; item: unknown }[] = [];
     let totalSec = 0;
 
-    // tono e durata sono gia' garantiti dagli enum dello schema di planVisit
     for (const planned of plan.artworks.slice(0, MAX_CUSTOM_ARTWORKS)) {
       const artwork = byQid.get(planned.qid);
       if (!artwork) continue;
@@ -143,7 +131,6 @@ router.post("/custom", async (req, res) => {
       "@id": `custom-${museumQid}-${Date.now()}`,
       name,
       level: "Su misura",
-      // durata TOTALE in secondi, coerente con le altre visite
       duration: totalSec,
       ofMuseum: museumId,
       itemListElement: content.map((c) => (c.item as any)["@id"]),
@@ -158,10 +145,6 @@ router.post("/custom", async (req, res) => {
   }
 });
 
-/**
- * POST /api/visits
- * Salva o aggiorna una visita (tour).
- */
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
@@ -173,8 +156,6 @@ router.post("/", async (req, res) => {
       payload.itemListElement ||
       [];
 
-    // Item marcati come "opzionali" (da mostrare solo se resta tempo o su
-    // domanda del visitatore): sottoinsieme di itemListElement.
     const optionalItems: string[] =
       payload.percorso
         ?.filter((t: any) => t.tipo === "item" && t.opzionale)
@@ -183,12 +164,6 @@ router.post("/", async (req, res) => {
       [];
 
     // --- Note logistiche ANCORATE alla loro posizione ---
-    // Slide 21: una visita e' "una sequenza di descrizioni di item PIU'
-    // indicazioni logistiche ... per passare da un item all'altro". Una nota
-    // che perde il suo posto nella sequenza non puo' dire come si va da una
-    // tappa alla successiva: e' esattamente il suo scopo. Il `percorso` che
-    // arriva dall'editor e' gia' ordinato, quindi ogni nota registra dopo
-    // quale tappa si trova (`after: null` = nota d'apertura, prima di tutto).
     let logistics: { after: string | null; text: string }[] = [];
     if (Array.isArray(payload.percorso)) {
       let ultimoItem: string | null = null;
@@ -201,15 +176,11 @@ router.post("/", async (req, res) => {
         }
       }
     } else if (Array.isArray(payload.logistics)) {
-      // Formato vecchio (solo testi): si conserva senza posizione.
       logistics = payload.logistics
         .filter((n: any) => typeof n === "string" && n.trim() !== "")
         .map((n: string) => ({ after: null, text: n.trim() }));
     }
 
-    // `level` e `duration` sono obbligatori nello schema Visit. Una visita
-    // creata dal marketplace non ne ha di espliciti: usiamo un livello generico
-    // e ricaviamo la durata sommando i `timeRequired` (secondi) degli item scelti.
     const items = itemIds.length
       ? await ItemModel.find({ "@id": { $in: itemIds } })
       : [];
@@ -227,27 +198,21 @@ router.post("/", async (req, res) => {
         : undefined;
 
     if (accessKey) {
-      // 1) La parola chiave dev'essere UNIVOCA nel DB (un'altra visita non può
-      //    già usarla — altrimenti gli studenti non saprebbero quale attivare).
-      const conflitto = await VisitModel.findOne({
+      const clash = await VisitModel.findOne({
         accessKey,
         "@id": { $ne: visitId },
       });
-      if (conflitto)
+      if (clash)
         return res.status(409).json({
           error: `La parola chiave "${accessKey}" è già usata da un'altra visita. Scegline un'altra.`,
         });
 
-      // 2) Vincolo anti-scappatoia: ogni item dev'essere gratuito OPPURE
-      //    posseduto dall'autore (creato da lui — anche privato — oppure
-      //    acquistato). Vietato includere item a pagamento di ALTRI autori:
-      //    li si regalerebbe tramite una password magari condivisa.
-      const autoreUser = await UserModel.findOne({ username: author });
-      const posseduti = new Set(autoreUser?.collezione || []);
+      const authorAccount = await UserModel.findOne({ username: author });
+      const owned = new Set(authorAccount?.collezione || []);
       for (const it of items as any[]) {
-        const gratis = !it.price || Number(it.price) === 0;
-        const suo = it.author === author || posseduti.has(it["@id"]);
-        if (!gratis && !suo) {
+        const isFree = !it.price || Number(it.price) === 0;
+        const isOwn = it.author === author || owned.has(it["@id"]);
+        if (!isFree && !isOwn) {
           return res.status(400).json({
             error:
               "Una visita guidata può contenere solo item gratuiti o posseduti da te. " +
@@ -258,8 +223,6 @@ router.post("/", async (req, res) => {
     }
 
     // --- Quiz di fine visita (solo GUIDATE, facoltativo) ---
-    // Struttura attesa: [{ question, options[4], correct 0..3 }]. Se presente,
-    // va validato; un quiz su una visita NON guidata viene ignorato.
     let quiz: any[] | undefined;
     if (accessKey && Array.isArray(payload.quiz) && payload.quiz.length > 0) {
       quiz = [];
@@ -293,7 +256,6 @@ router.post("/", async (req, res) => {
         name: payload.titolo || payload.name,
         level: payload.level || "Personalizzata",
         duration,
-        // Le visite guidate sono gratuite (accesso a parola chiave): prezzo 0.
         price: accessKey ? 0 : payload.prezzo || payload.price,
         author,
         license: payload.licenza || payload.license || "Tutti i diritti riservati",
@@ -301,8 +263,6 @@ router.post("/", async (req, res) => {
         itemListElement: itemIds,
         optionalItems,
         accessKey: accessKey ?? null,
-        // Quiz solo per le guidate: null lo rimuove se la visita non è guidata o
-        // non ha domande (es. modifica che toglie il quiz).
         quiz: quiz ?? null,
         logistics,
       },
@@ -316,11 +276,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/visits/:id
- * Elimina una visita creata dal marketplace e la rimuove dalle collezioni
- * degli utenti che la possedevano.
- */
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;

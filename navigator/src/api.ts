@@ -1,30 +1,30 @@
+/**
+ * Chiamate al server.
+ *
+ * Nessun indirizzo scritto a mano: la base arriva dal file di configurazione del
+ * curatore, o si ricava dall'host da cui e' stata aperta la pagina.
+ *
+ * Le rotte delle visite guidate usano l'interrogazione periodica; `GuidedEndedError`
+ * distingue "la sessione non c'e' piu'" da un errore di rete, perche' le due cose
+ * vogliono reazioni diverse.
+ */
 import type { Item, Match, Museum, Visit } from "../../shared/types";
 import { apiBase } from "./config";
 
-// Nessun indirizzo scritto a mano: la base arriva dal file di configurazione
-// del curatore, o si ricava dall'host da cui e' stata aperta la pagina.
 const base = () => apiBase();
 
-// ============================================================================
-//                                 Visits
-// ============================================================================
-
-// ritorna una singola visita (usata dal deep link ?visit=<id> dal marketplace)
 export async function getVisit(id: string): Promise<Visit> {
   const res = await fetch(`${base()}/visits/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`Failed to fetch visit: ${res.statusText}`);
   return res.json();
 }
 
-// ritorna gli item della visita, gia' uniti al rispettivo artwork (`about` popolato)
 export async function getVisitItems(id: string): Promise<Item[]> {
   const res = await fetch(`${base()}/visits/${encodeURIComponent(id)}/items`);
   if (!res.ok) throw new Error(`Failed to fetch visit items: ${res.statusText}`);
   return res.json();
 }
 
-// ritorna il Match { artwork, item } di una singola opera anche se NON fa parte
-// della visita corrente (scansione QR, codice digitato, teletrasporto).
 export async function getArtworkPreview(
   qid: string,
   level: string,
@@ -42,8 +42,6 @@ export async function getArtworkPreview(
   return res.json();
 }
 
-// crea una visita SU MISURA dai vincoli espressi in linguaggio naturale.
-// La visita NON viene persistita: vive solo nel client.
 export async function createCustomVisit(
   museumQid: string,
   request: string,
@@ -76,22 +74,12 @@ export async function getVisitsByMuseum(
   return res.json();
 }
 
-// ============================================================================
-//                                 Museum
-// ============================================================================
-
-// ritorna il museo leggendolo dal suo FILE DI CONFIGURAZIONE sul server
-// (server/src/data/museums/<nome>.json).
 export async function getMuseum(qid: string): Promise<Museum> {
   const res = await fetch(`${base()}/museums/${encodeURIComponent(qid)}/config`);
   if (!res.ok)
     throw new Error(`Failed to fetch the desired museum: ${res.statusText}`);
   return res.json();
 }
-
-// ============================================================================
-//                                   LLM
-// ============================================================================
 
 export async function getInfo(
   previous: string,
@@ -107,10 +95,6 @@ export async function getInfo(
     throw new Error(`Failed to fetch new description: ${res.statusText}`);
   return res.json();
 }
-
-// ============================================================================
-//                                 Wayfinding
-// ============================================================================
 
 export async function getDirections(
   museumQid: string,
@@ -129,10 +113,6 @@ export async function getDirections(
   return data.directions;
 }
 
-// ============================================================================
-//                              Speech To Text
-// ============================================================================
-
 export async function sendAudioToBackend(
   audioBlob: Blob,
   lang: string,
@@ -148,10 +128,6 @@ export async function sendAudioToBackend(
   return res.json();
 }
 
-// ============================================================================
-//                              Text To Speech
-// ============================================================================
-
 export async function getSpeechAudio(
   text: string,
   lang: string,
@@ -164,10 +140,6 @@ export async function getSpeechAudio(
   if (!res.ok) throw new Error("Failed to synthesize speech");
   return res.blob();
 }
-
-// ============================================================================
-//                                 Translation
-// ============================================================================
 
 export async function translateTexts(
   texts: string[],
@@ -183,10 +155,6 @@ export async function translateTexts(
   return data.translations;
 }
 
-// ============================================================================
-//                        Guided sessions (modulo 18-27)
-// ============================================================================
-
 const gsBase = () => `${apiBase()}/guided-sessions`;
 
 export class GuidedEndedError extends Error {
@@ -201,7 +169,6 @@ async function readGuidedError(res: Response): Promise<string> {
     const data = await res.json();
     if (data && data.error) return data.error;
   } catch {
-    // corpo non-JSON: si usa il fallback
   }
   return `Errore ${res.status}`;
 }
@@ -301,8 +268,6 @@ export async function postGuidedLeave(
   if (!res.ok) throw new Error(await readGuidedError(res));
 }
 
-// Segnalazione al docente della domanda posta: best-effort, non deve mai
-// disturbare l'esperienza dello studente.
 export async function postGuidedAsk(
   id: string,
   username: string,
@@ -316,6 +281,5 @@ export async function postGuidedAsk(
       body: JSON.stringify({ username, question, artwork }),
     });
   } catch {
-    // ignorata di proposito
   }
 }

@@ -1,5 +1,14 @@
+/**
+ * Chiamate al server.
+ *
+ * Tutti i percorsi sono relativi: il marketplace e' servito dallo stesso server
+ * delle API, quindi qui non compaiono host ne' porte.
+ *
+ * Il login puo' rispondere 300 quando le stesse credenziali valgono per due
+ * profili: non e' un errore, e' una domanda.
+ */
 import {
-  Contenuto,
+  Content,
   Artwork,
   Item,
   Museum,
@@ -7,7 +16,6 @@ import {
   UserRole,
 } from '../../../shared/types.js';
 
-// Utente restituito dal server (senza password)
 export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
 
 /** Risposta del login quando le stesse credenziali valgono per due profili:
@@ -19,25 +27,13 @@ async function readError(response: Response, fallback: string): Promise<string> 
   return data.error || fallback;
 }
 
-/**
- * Servizio per la comunicazione con il server (Network Layer).
- * Tutti i percorsi sono RELATIVI: il marketplace e' servito dallo stesso
- * server delle API, quindi nessun host e nessuna porta compaiono qui.
- */
 export const ArtAPI = {
-  /** Configurazione d'ambiente (origine del navigator): niente porte scritte
-   *  a mano nel codice del client. */
   async fetchConfig(): Promise<{ navigatorOrigin: string }> {
     const response = await fetch('/api/config');
     if (!response.ok) throw new Error('Configurazione non disponibile');
     return response.json();
   },
 
-  /**
-   * Accesso. Il ruolo NON e' una domanda: lo risolve il server dalle
-   * credenziali. Viene passato solo al secondo tentativo, quando lo stesso
-   * username+password esiste sia come autore sia come visitatore.
-   */
   async login(
     username: string,
     password: string,
@@ -48,7 +44,7 @@ export const ArtAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, role }),
     });
-    if (response.status === 300) return response.json(); // due profili possibili
+    if (response.status === 300) return response.json(); 
     if (!response.ok)
       throw new Error(
         await readError(response, 'Credenziali non valide. Controlla username e password.'),
@@ -71,8 +67,6 @@ export const ArtAPI = {
     return response.json();
   },
 
-  // Acquisto persistente (solo visitatori): il server scala il wallet del
-  // compratore e aggiorna la sua collezione, usando il prezzo autoritativo.
   async buy(username: string, itemId: string, price: number): Promise<UserDTO> {
     const response = await fetch(`/api/users/${encodeURIComponent(username)}/buy`, {
       method: 'POST',
@@ -84,7 +78,6 @@ export const ArtAPI = {
     return response.json();
   },
 
-  // Visita guidata: lo studente entra in sala d'attesa con la parola chiave.
   async joinGuidedSession(
     accessKey: string,
     username: string,
@@ -123,7 +116,7 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async fetchVisite(): Promise<Contenuto[]> {
+  async fetchVisite(): Promise<Content[]> {
     const response = await fetch('/api/visits');
     if (!response.ok) throw new Error('Errore caricamento visite');
     return response.json();
@@ -149,7 +142,6 @@ export const ArtAPI = {
       throw new Error(await readError(response, "Errore durante l'eliminazione"));
   },
 
-  // Pubblica un contenuto: l'endpoint dipende dal tipo.
   async pubblica(payload: any): Promise<void> {
     const endpoint = payload.tipo === 'Visita' ? '/api/visits' : '/api/items';
     const response = await fetch(endpoint, {

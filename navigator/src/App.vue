@@ -1,9 +1,21 @@
 <script setup lang="ts">
+/**
+ * Guscio dell'applicazione.
+ *
+ * Prima di ogni altra cosa carica il file di configurazione del curatore: da li'
+ * arrivano il museo e l'indirizzo del server. Poi sceglie uno di quattro
+ * ingressi, letti dalla query string: studente di una visita guidata, docente
+ * che apre la sala d'attesa, collegamento diretto a una visita dal marketplace,
+ * oppure accesso normale alla biglietteria.
+ *
+ * Non c'e' intestazione fissa ne' piede durante la visita: su un telefono, in
+ * piedi dentro un museo, ogni pixel appartiene alla mappa.
+ */
 import { onMounted, ref, computed } from "vue";
 import Biglietteria from "./components/selection/Biglietteria.vue";
 import Visita from "./components/visita/Visita.vue";
 import GuidedGate from "./components/GuidedGate.vue";
-import { loadMuseum, setCustomVisit, setVisit, visit, utente } from "./state";
+import { loadMuseum, setCustomVisit, setVisit, visit, user } from "./state";
 import { getVisit } from "./api";
 import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
@@ -17,19 +29,16 @@ const erroreAvvio = ref("");
 const started = ref(false);
 const choice = ref<string>("");
 
-// qid del museo a partire dal suo @id/URI wikidata (ultimo segmento)
 function museumQidFromUri(uri: string): string {
-  const parti = uri.split("/");
-  return parti[parti.length - 1] || "";
+  const parts = uri.split("/");
+  return parts[parts.length - 1] || "";
 }
 
 onMounted(async () => {
-  // Il museo e l'indirizzo del server arrivano dal FILE DI CONFIGURAZIONE
-  // (slide 25/33), non da una costante nel codice.
   await loadConfig();
 
   const params = new URLSearchParams(window.location.search);
-  utente.value = params.get("user") || "";
+  user.value = params.get("user") || "";
 
   const role = params.get("role");
   const guidedSessionParam = params.get("guidedSession");
@@ -37,7 +46,7 @@ onMounted(async () => {
 
   if (role === "studente" && guidedSessionParam) {
     try {
-      await attachAsStudent(guidedSessionParam, utente.value);
+      await attachAsStudent(guidedSessionParam, user.value);
       pronto.value = true;
       return;
     } catch (err) {
@@ -48,7 +57,7 @@ onMounted(async () => {
   }
   if (role === "docente" && guidedVisitParam) {
     try {
-      await startAsTeacher(guidedVisitParam, utente.value);
+      await startAsTeacher(guidedVisitParam, user.value);
       pronto.value = true;
       return;
     } catch (err) {
@@ -57,7 +66,6 @@ onMounted(async () => {
     }
   }
 
-  // Collegamento diretto dal marketplace: ?museum=<qid>&visit=<id>
   const visitId = params.get("visit");
   const museumParam = params.get("museum");
   if (visitId) {
@@ -74,7 +82,6 @@ onMounted(async () => {
     }
   }
 
-  // Accesso normale: il museo dal parametro, altrimenti dal file di configurazione.
   const qid = museumParam || museumQid();
   if (!qid) {
     erroreAvvio.value =
@@ -100,7 +107,7 @@ function onCustomStart(payload: { visit: Visit; content: Match[] }) {
   announce(`Visita avviata: ${payload.visit.name}`);
 }
 
-function esci() {
+function exit() {
   started.value = false;
   announce("Scelta della visita");
 }
@@ -113,7 +120,6 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
     <a href="#contenuto" class="salta">Salta al contenuto</a>
 
     <main id="contenuto" tabindex="-1" class="flex flex-1 flex-col">
-      <!-- Avvio: il museo e la configurazione stanno arrivando -->
       <div v-if="!pronto" class="flex flex-1 items-center justify-center p-8">
         <p class="text-small text-muted" role="status">Apertura del museo…</p>
       </div>
@@ -121,7 +127,6 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
       <!-- Visita guidata (modulo 18-27) -->
       <GuidedGate v-else-if="guidedActive" />
 
-      <!-- Errore d'avvio: si dice cosa è successo e cosa fare -->
       <div
         v-else-if="erroreAvvio"
         class="flex flex-1 items-center justify-center p-8"
@@ -142,8 +147,8 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
       <Visita
         v-else
         :curr-visit="choice"
-        :titolo="titoloVisita"
-        @esci="esci"
+        :title="titoloVisita"
+        @exit="exit"
       />
     </main>
 

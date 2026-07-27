@@ -1,3 +1,17 @@
+/**
+ * Visita guidata sincronizzata, lato navigator.
+ *
+ * Stato unico condiviso, due ruoli. Il DOCENTE apre la sala, vede chi e'
+ * collegato e conduce: ogni avanzamento spinge la tappa a tutti. Lo STUDENTE
+ * segue, puo' chiedere approfondimenti ma non spostarsi.
+ *
+ * I contenuti si leggono dalla rotta di sessione, non dal catalogo: il possesso e'
+ * temporaneo e finisce con la visita.
+ *
+ * `guidedPlannedEnd` distingue una chiusura voluta dal docente da una sessione
+ * sparita sotto i piedi: riusare la stessa schermata per entrambe e' il modo in
+ * cui un guasto diventa invisibile.
+ */
 import { ref } from "vue";
 import type { Artwork, Match, Visit } from "../../shared/types";
 import { loadMuseum, setCustomVisit, clearVisit } from "./state";
@@ -15,26 +29,7 @@ import {
   GuidedEndedError,
 } from "./api";
 
-// ============================================================================
-// Visita guidata sincronizzata (modulo 18-27, "Fenice rossa"), lato navigator.
-//
-// Stato singleton (come useTTS/state.ts). Due ruoli, un'unica sessione:
-//  - DOCENTE: crea la sala d'attesa, vede i partecipanti, avvia e conduce la
-//    visita opera per opera (ogni "Prossimo" spinge lo step a tutti gli studenti);
-//  - STUDENTE: si aggancia alla sessione (il join e' gia' avvenuto nel
-//    marketplace) e SEGUE: la sua vista salta all'opera scelta dal docente e
-//     Non puo' andare avanti/indietro.
-//
-// Trasporto: polling REST (nessun WebSocket). I contenuti si leggono
-// dall'endpoint di sessione (accesso TEMPORANEO): quando la visita finisce
-// tutto sparisce e nulla resta nella collezione dell'utente.
-// ============================================================================
-
 type Role = "docente" | "studente" | "";
-// Il server conosce anche la fase "quiz": se il client non la modellasse,
-// all'avvio del quiz tutti finirebbero nel ramo finale mostrando "Visita
-// terminata" a meta' visita. L'interfaccia del quiz non c'e' ancora, ma lo
-// STATO va rappresentato lo stesso, altrimenti si mostra una cosa falsa.
 type Stato = "attesa" | "attiva" | "quiz" | "terminata";
 
 export const guidedActive = ref(false);
@@ -42,19 +37,11 @@ export const guidedRole = ref<Role>("");
 export const guidedSessionId = ref("");
 export const guidedUser = ref("");
 export const guidedVisitName = ref("");
-// parola chiave (nome mnemonico) della visita: mostrata al DOCENTE nella sala
-// d'attesa come promemoria, se la dimentica. Solo lato docente (la vista dello
-// studente non la include).
 export const guidedAccessKey = ref("");
 export const guidedStato = ref<Stato>("attesa");
-// indice dell'opera corrente decisa dal docente (-1 = non ancora iniziata)
 export const guidedCurrentStep = ref(-1);
-// vista docente: elenco dei partecipanti collegati
 export const guidedParticipants = ref<{ username: string }[]>([]);
-// vista studente: solo il numero dei collegati
 export const guidedParticipantsCount = ref(0);
-// DOMANDE degli studenti (solo lato DOCENTE): il server ce le consegna una volta
-// (le "drena" al polling) e le conserviamo QUI, nel client del docente.
 export type GuidedQuestion = {
   username: string;
   question: string;
@@ -64,10 +51,8 @@ export type GuidedQuestion = {
 export const guidedQuestions = ref<GuidedQuestion[]>([]);
 
 let pollTimer: number | null = null;
-// evita di ricaricare piu' volte contenuti + museo della stessa visita
 let contentLoaded = false;
 
-// qid del museo dall'@id/URI wikidata (ultimo segmento)
 function qidFromUri(uri: string): string {
   const parts = uri.split("/");
   const last = parts[parts.length - 1];
@@ -84,7 +69,6 @@ function applyTeacherView(v: any) {
     guidedParticipants.value = v.partecipanti;
     guidedParticipantsCount.value = v.partecipanti.length;
   }
-  // consegna-una-volta: accodiamo le nuove domande a quelle gia' conservate
   if (v.nuoveDomande && v.nuoveDomande.length) {
     guidedQuestions.value.push(...v.nuoveDomande);
   }
@@ -98,10 +82,6 @@ function applyStudentState(s: any) {
   if (s.visitName) guidedVisitName.value = s.visitName;
 }
 
-// Carica UNA volta i contenuti della visita guidata e il suo museo, iniettandoli
-// nello stato normale del navigator (setCustomVisit): da qui la visita viene
-// "giocata" dal solito MainView. I testi arrivano dall'endpoint di sessione,
-// cosi' l'accesso resta legato alla sessione viva (possesso temporaneo).
 async function ensureContent(visitId: string) {
   if (contentLoaded) return;
   const v: Visit = await getVisit(visitId);
@@ -140,8 +120,6 @@ async function pollOnce() {
       );
     }
   } catch (err) {
-    // La sessione e' sparita mentre eravamo dentro: NON e' una chiusura attesa.
-    // Altri errori (rete momentanea): si ritenta al prossimo giro.
     if (err instanceof GuidedEndedError) endLocally(false);
   }
 }
@@ -153,13 +131,11 @@ async function pollOnce() {
  * diverso: riusare "terminata" per "non sappiamo cos'e' successo" e' il modo in
  * cui un guasto diventa invisibile.
  */
-export const guidedChiusuraPrevista = ref(true);
+export const guidedPlannedEnd = ref(true);
 
-// La sessione non c'e' piu': fermiamo il polling e svuotiamo la visita (nessun
-// possesso permanente). guidedActive resta true per mostrare la schermata di fine.
 function endLocally(prevista = true) {
   stopPolling();
-  guidedChiusuraPrevista.value = prevista;
+  guidedPlannedEnd.value = prevista;
   guidedStato.value = "terminata";
   clearVisit();
   contentLoaded = false;
@@ -218,8 +194,6 @@ export async function studentLeave() {
   }
 }
 
-// Lo studente ha posto una domanda: la segnaliamo al docente (nome + testo +
-// opera). Solo durante una visita guidata attiva; best-effort (non blocca).
 export function studentAsk(question: string, artwork: string) {
   if (!guidedActive.value) return;
   if (guidedRole.value !== "studente") return;
@@ -227,7 +201,6 @@ export function studentAsk(question: string, artwork: string) {
   postGuidedAsk(guidedSessionId.value, guidedUser.value, question, artwork);
 }
 
-// Esce del tutto dalla modalita' guidata (torna al navigator normale).
 export function resetGuided() {
   stopPolling();
   guidedActive.value = false;
@@ -241,7 +214,7 @@ export function resetGuided() {
   guidedParticipants.value = [];
   guidedParticipantsCount.value = 0;
   guidedQuestions.value = [];
-  guidedChiusuraPrevista.value = true;
+  guidedPlannedEnd.value = true;
   contentLoaded = false;
   clearVisit();
 }

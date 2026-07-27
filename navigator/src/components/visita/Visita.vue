@@ -1,4 +1,23 @@
 <script setup lang="ts">
+/**
+ * IL SVOLGIMENTO DELLA VISITA.
+ *
+ * Tiene insieme tre cose: la guida d'avanzamento ("Tappa 3 di 13", che conta
+ * solo le tappe che "Prossimo" raggiungera' davvero), il palcoscenico e la
+ * scheda dell'opera.
+ *
+ * Due comportamenti meritano una spiegazione:
+ * - Andando avanti, se l'autore ha lasciato un'indicazione per arrivare
+ *   all'opera successiva, la si mostra PRIMA di aprirla; le note d'apertura
+ *   compaiono prima della prima tappa. E' lo scopo per cui esistono (slide 21).
+ * - Quando la scheda e' aperta a tutto schermo copre il palcoscenico, che
+ *   diventa inerte: altrimenti il fuoco da tastiera finisce su controlli
+ *   invisibili. Da lg in su la scheda e' una colonna affiancata, non un foglio,
+ *   quindi li' non si rende inerte nulla.
+ *
+ * QR e codice digitato approdano entrambi qui, in `goToArtwork`: un'opera fuori
+ * dalla visita viene mostrata comunque, senza toccare la progressione.
+ */
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import Stage from "./Stage.vue";
 import Scheda from "./Scheda.vue";
@@ -11,8 +30,8 @@ import {
   includeOptional,
   isOptionalItem,
   loadVisitContent,
-  logisticaDopo,
-  logisticaIniziale,
+  notesAfter,
+  openingNotes,
   matchedContent,
   visit,
 } from "@/state";
@@ -26,8 +45,8 @@ import {
 } from "@/guided";
 import type { Match } from "../../../../shared/types";
 
-const props = defineProps<{ currVisit: string; titolo: string }>();
-const emit = defineEmits<{ esci: [] }>();
+const props = defineProps<{ currVisit: string; title: string }>();
+const emit = defineEmits<{ exit: [] }>();
 
 const tts = useTTS();
 const { announce } = useAnnouncer();
@@ -37,37 +56,28 @@ watch(
   async (id) => {
     if (!id) return;
     await loadVisitContent(id);
-    // Le note d'apertura ("l'ingresso è da via Garibaldi 2") si mostrano prima
-    // della prima tappa: sono parte della visita quanto le descrizioni.
-    const iniziali = logisticaIniziale();
-    if (iniziali.length) transizione.value = { note: iniziali, target: -1 };
+    const opening = openingNotes();
+    if (opening.length) transition.value = { notes: opening, target: -1 };
   },
   { immediate: true },
 );
 
-/**
- * Quando la scheda è aperta a tutto schermo copre il palcoscenico: quello che
- * sta sotto deve diventare irraggiungibile anche col Tab, altrimenti il fuoco
- * finisce su controlli invisibili. Da lg in su la scheda NON è un foglio ma una
- * colonna affiancata, quindi lì non si rende inerte nulla.
- */
-const snapScheda = ref<"riposo" | "media" | "piena">("media");
-const schermoLargo = ref(false);
+const sheetSnap = ref<"riposo" | "media" | "piena">("media");
+const wideScreen = ref(false);
 if (typeof window !== "undefined" && window.matchMedia) {
   const mq = window.matchMedia("(min-width: 1024px)");
-  schermoLargo.value = mq.matches;
-  mq.addEventListener("change", (e) => (schermoLargo.value = e.matches));
+  wideScreen.value = mq.matches;
+  mq.addEventListener("change", (e) => (wideScreen.value = e.matches));
 }
-const stageInerte = computed(
-  () => snapScheda.value === "piena" && !schermoLargo.value,
+const stageInert = computed(
+  () => sheetSnap.value === "piena" && !wideScreen.value,
 );
 
 // --- Posizione corrente ----------------------------------------------------
 const currentArtwork = ref<Match | null>(null);
 const lastVisitIndex = ref(-1);
-const showPosizione = ref(false);
-/** Passaggio fra una tappa e la successiva: mostra le indicazioni logistiche */
-const transizione = ref<{ note: string[]; target: number } | null>(null);
+const showLocator = ref(false);
+const transition = ref<{ notes: string[]; target: number } | null>(null);
 
 function indexInVisit(): number {
   if (!currentArtwork.value) return -1;
@@ -81,7 +91,6 @@ function navBase(): number {
   return lastVisitIndex.value;
 }
 
-/** Prossima tappa navigabile: salta le opzionali a interruttore spento. */
 function stepIndex(from: number, step: number): number {
   for (let i = from + step; i >= 0 && i < matchedContent.value.length; i += step) {
     const match = matchedContent.value[i];
@@ -115,17 +124,15 @@ const hasPrev = computed(() => {
 });
 
 // --- Avanzamento: "Tappa 3 di 13" -----------------------------------------
-/** Le tappe che contano davvero per la navigazione, cioè quelle che
- *  Prossimo raggiungerà: il numero mostrato deve combaciare con quello. */
-const tappeNavigabili = computed(() =>
+const navigableStops = computed(() =>
   matchedContent.value.filter(
     (m) => includeOptional.value || !isOptionalItem(m.item["@id"]),
   ),
 );
-const posizioneCorrente = computed(() => {
+const currentPosition = computed(() => {
   if (!currentArtwork.value) return 0;
   const id = currentArtwork.value.artwork["@id"];
-  return tappeNavigabili.value.findIndex((m) => m.artwork["@id"] === id) + 1;
+  return navigableStops.value.findIndex((m) => m.artwork["@id"] === id) + 1;
 });
 
 function selectIndex(i: number) {
@@ -133,9 +140,9 @@ function selectIndex(i: number) {
   if (!match) return;
   currentArtwork.value = match;
   lastVisitIndex.value = i;
-  const pos = posizioneCorrente.value;
+  const pos = currentPosition.value;
   if (pos > 0) {
-    announce(`Tappa ${pos} di ${tappeNavigabili.value.length}: ${match.artwork.name}`);
+    announce(`Tappa ${pos} di ${navigableStops.value.length}: ${match.artwork.name}`);
   } else {
     announce(match.artwork.name);
   }
@@ -160,8 +167,8 @@ const currentLocationId = computed(() => {
 });
 
 // --- Navigazione -----------------------------------------------------------
-function vaiAllIndice(i: number) {
-  transizione.value = null;
+function goToIndex(i: number) {
+  transition.value = null;
   selectIndex(i);
   if (guidedTeacher.value) teacherGoToStep(i);
 }
@@ -176,35 +183,31 @@ function navigationHandler(direction: string) {
   const target = stepIndex(base, direction === "next" ? 1 : -1);
   if (target < 0) return;
 
-  // Andando AVANTI, se l'autore ha lasciato un'indicazione per arrivare alla
-  // prossima opera, la si mostra prima: è esattamente il suo scopo (slide 21).
   if (direction === "next" && currentArtwork.value) {
-    const note = logisticaDopo(currentArtwork.value.item["@id"]);
-    if (note.length > 0) {
-      transizione.value = { note, target };
-      announce(note.join(". "));
+    const notes = notesAfter(currentArtwork.value.item["@id"]);
+    if (notes.length > 0) {
+      transition.value = { notes, target };
+      announce(notes.join(". "));
       return;
     }
   }
-  vaiAllIndice(target);
+  goToIndex(target);
 }
 
-function chiudiTransizione() {
-  const t = transizione.value;
-  transizione.value = null;
+function closeTransition() {
+  const t = transition.value;
+  transition.value = null;
   if (!t) return;
-  if (t.target >= 0) vaiAllIndice(t.target);
+  if (t.target >= 0) goToIndex(t.target);
 }
 
-/** Teletrasporto e QR condividono lo stesso approdo: impostano la posizione. */
-async function vaiAOpera(qid: string) {
-  showPosizione.value = false;
+async function goToArtwork(qid: string) {
+  showLocator.value = false;
   const i = matchedContent.value.findIndex((m) => m.artwork.qid === qid);
   if (i >= 0) {
     selectIndex(i);
     return;
   }
-  // Opera fuori dalla visita: la mostriamo comunque, senza toccare il percorso.
   try {
     let level = "";
     let duration = 0;
@@ -223,7 +226,7 @@ async function vaiAOpera(qid: string) {
 }
 
 // --- Comandi ---------------------------------------------------------------
-const richiestaAperta = ref("");
+const openRequest = ref("");
 
 function actionHandler(option: string) {
   if (option === "Leggi") {
@@ -237,13 +240,11 @@ function actionHandler(option: string) {
   if (option === "Prossimo") return navigationHandler("next");
   if (option === "Precedente") return navigationHandler("prev");
 
-  richiestaAperta.value = option;
+  openRequest.value = option;
   const art = currentArtwork.value;
   studentAsk(option, art ? art.artwork.name : "");
 }
 
-// Traduzione live di titolo, autore e testo dell'opera corrente. Vive qui
-// (non dentro la scheda) così il comando "Leggi" riusa lo stesso testo.
 const translatedFields = useTranslation(() => {
   const art = currentArtwork.value;
   if (!art) return [];
@@ -251,7 +252,7 @@ const translatedFields = useTranslation(() => {
 });
 
 watch(currentArtwork, () => {
-  richiestaAperta.value = "";
+  openRequest.value = "";
   tts.stop();
 });
 
@@ -271,16 +272,14 @@ onUnmounted(() => tts.stop());
 
 <template>
   <div class="flex flex-1 flex-col lg:flex-row">
-    <!-- ========== Colonna principale: guida + palcoscenico ========== -->
     <div class="flex min-h-0 flex-1 flex-col">
-      <!-- GUIDA D'AVANZAMENTO: dove sei, in una visita che è una sequenza -->
       <div
         class="flex shrink-0 items-center gap-3 border-b border-line bg-surface px-3 py-2"
       >
         <button
           type="button"
           class="btn-fantasma shrink-0 px-2"
-          @click="emit('esci')"
+          @click="emit('exit')"
         >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19 8 12l7-7" />
@@ -288,27 +287,26 @@ onUnmounted(() => tts.stop());
           <span class="sr-only sm:not-sr-only">Esci</span>
         </button>
 
-        <p class="min-w-0 flex-1 truncate text-small font-medium">{{ titolo }}</p>
+        <p class="min-w-0 flex-1 truncate text-small font-medium">{{ title }}</p>
 
         <p
-          v-if="tappeNavigabili.length"
+          v-if="navigableStops.length"
           class="tabular shrink-0 text-small text-muted"
         >
-          <span v-if="posizioneCorrente > 0">
-            Tappa {{ posizioneCorrente }} di {{ tappeNavigabili.length }}
+          <span v-if="currentPosition > 0">
+            Tappa {{ currentPosition }} di {{ navigableStops.length }}
           </span>
-          <span v-else>{{ tappeNavigabili.length }} tappe</span>
+          <span v-else>{{ navigableStops.length }} tappe</span>
         </p>
       </div>
-      <!-- Barra di avanzamento: informazione ridondante al testo, non sostitutiva -->
       <div
-        v-if="tappeNavigabili.length"
+        v-if="navigableStops.length"
         class="h-0.5 shrink-0 bg-surface-2"
         aria-hidden="true"
       >
         <div
           class="h-full bg-accent transition-[width] duration-200"
-          :style="{ width: (posizioneCorrente / tappeNavigabili.length) * 100 + '%' }"
+          :style="{ width: (currentPosition / navigableStops.length) * 100 + '%' }"
         ></div>
       </div>
 
@@ -317,16 +315,12 @@ onUnmounted(() => tts.stop());
         class="min-h-0 flex-1"
         :current-location-id="currentLocationId"
         :current-index="lastVisitIndex"
-        :inert="stageInerte"
+        :inert="stageInert"
         @select="onStageSelect"
-        @posizione="showPosizione = true"
+        @locate="showLocator = true"
       />
     </div>
 
-    <!-- ========== LA SCHEDA ==========
-         Sul telefono è un foglio che sale dal basso sopra la mappa: "che cos'è
-         questo" e "dove sono" smettono di escludersi a vicenda. Da lg in su
-         diventa una colonna a destra e non è mai modale. -->
     <Scheda
       v-if="currentArtwork"
       :content="currentArtwork"
@@ -335,20 +329,19 @@ onUnmounted(() => tts.stop());
       :optional="isOptionalItem(currentArtwork.item['@id'])"
       :has-next="hasNext"
       :has-prev="hasPrev"
-      :numero="posizioneCorrente"
-      :totale="tappeNavigabili.length"
+      :numero="currentPosition"
+      :totale="navigableStops.length"
       :guided-student="guidedStudent"
       :guided-teacher="guidedTeacher"
-      :richiesta="richiestaAperta"
+      :richiesta="openRequest"
       @navigation="navigationHandler"
       @action="actionHandler"
-      @chiudi-richiesta="richiestaAperta = ''"
-      @snap="snapScheda = $event"
+      @close-request="openRequest = ''"
+      @snap="sheetSnap = $event"
     />
 
-    <!-- ========== Passaggio fra due tappe: le indicazioni logistiche ========== -->
     <div
-      v-if="transizione"
+      v-if="transition"
       class="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
@@ -359,11 +352,11 @@ onUnmounted(() => tts.stop());
           id="transizione-titolo"
           class="text-caption uppercase tracking-wider text-muted"
         >
-          {{ transizione.target < 0 ? "Prima di cominciare" : "Verso la prossima tappa" }}
+          {{ transition.target < 0 ? "Prima di cominciare" : "Verso la prossima tappa" }}
         </p>
         <ul class="mt-3 flex flex-col gap-3">
           <li
-            v-for="(n, i) in transizione.note"
+            v-for="(n, i) in transition.notes"
             :key="i"
             class="flex items-start gap-3 text-title-3 leading-snug"
           >
@@ -378,22 +371,21 @@ onUnmounted(() => tts.stop());
           <button
             type="button"
             class="btn-secondario"
-            @click="tts.speak(transizione.note.join('. '))"
+            @click="tts.speak(transition.notes.join('. '))"
           >
             Leggi
           </button>
-          <button type="button" class="btn-primario flex-1 justify-center" @click="chiudiTransizione">
+          <button type="button" class="btn-primario flex-1 justify-center" @click="closeTransition">
             Continua
           </button>
         </div>
       </div>
     </div>
 
-    <!-- ========== Dove sono: QR o codice digitato ========== -->
     <Posizione
-      v-if="showPosizione"
-      @trovata="vaiAOpera"
-      @close="showPosizione = false"
+      v-if="showLocator"
+      @found="goToArtwork"
+      @close="showLocator = false"
     />
   </div>
 </template>

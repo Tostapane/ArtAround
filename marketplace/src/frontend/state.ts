@@ -1,19 +1,3 @@
-import {
-  UserRole,
-  Contenuto,
-  Item,
-  Visit,
-  Artwork,
-  Museum,
-} from "../../../shared/types.js";
-import {
-  licenses,
-  educationalLevels,
-  educationalLevelHints,
-  formatDurata,
-} from "../../../shared/constants.js";
-import { ArtAPI } from "./api.js";
-
 /**
  * IL DEPOSITO — stato del marketplace (prelude.md §7).
  *
@@ -30,8 +14,24 @@ import { ArtAPI } from "./api.js";
  *     oggetto ciascuno, invece di una griglia mista con cinque filtri sopra.
  */
 
-/** Le schermate. Una vista = un indirizzo (vedi `parseHash`). */
-export type Vista =
+import {
+  UserRole,
+  Content,
+  Item,
+  Visit,
+  Artwork,
+  Museum,
+} from "../../../shared/types.js";
+import {
+  licenses,
+  educationalLevels,
+  educationalLevelHints,
+  formatDuration,
+} from "../../../shared/constants.js";
+import { ArtAPI } from "./api.js";
+
+
+export type View =
   | "soglia"
   | "accedi"
   | "registrati"
@@ -49,101 +49,86 @@ export type Vista =
 
 export class AppState {
   // --- Rotta corrente -------------------------------------------------------
-  vista: Vista = "soglia";
-  parametro: string = ""; // qid dell'opera o @id della visita, secondo la vista
+  view: View = "soglia";
+  param: string = ""; 
 
   currentUser: string | null = null;
-  currentUserType: UserRole | null = null;
+  currentUserRole: UserRole | null = null;
 
-  // Messaggio per la live region: ogni cambio di vista e ogni conteggio di
-  // risultati passano di qui (in una SPA nulla si annuncia da solo).
-  annuncio: string = "";
+  announcement: string = "";
 
   // --- Ricerca e filtri -----------------------------------------------------
-  // Una barra per catalogo e AL MASSIMO due filtri: cinque controlli sopra
-  // dodici risultati sono arredamento. Il filtro "durata per opera" e' stato
-  // rimosso del tutto perche' escludeva silenziosamente ogni visita.
-  ricercaVisite: string = "";
-  filtroLivelloVisite: string = "tutti";
-  filtroDurataVisite: "tutti" | "breve" | "media" | "lunga" = "tutti";
+  visitSearch: string = "";
+  visitLevelFilter: string = "tutti";
+  visitDurationFilter: "tutti" | "breve" | "media" | "lunga" = "tutti";
 
-  ricercaOpere: string = "";
-  filtroLivelloOpere: string = "tutti";
+  artworkSearch: string = "";
+  artworkLevelFilter: string = "tutti";
 
-  ricercaLibreria: string = "";
-  filtroTipoLibreria: "tutti" | "item" | "visite" = "tutti";
+  librarySearch: string = "";
+  libraryTypeFilter: "tutti" | "item" | "visite" = "tutti";
 
-  ricercaLavori: string = "";
-  filtroTipoLavori: "tutti" | "item" | "visite" = "tutti";
+  worksSearch: string = "";
+  worksTypeFilter: "tutti" | "item" | "visite" = "tutti";
 
-  ricercaEditor: string = "";
-  filtroEditor: "tutti" | "disponibili" | "da_acquistare" = "tutti";
+  editorSearch: string = "";
+  editorFilter: "tutti" | "disponibili" | "da_acquistare" = "tutti";
 
   // --- Visita guidata (studente) --------------------------------------------
   passkeyInput: string = "";
-  guidedTrovata: { id: string; visitName: string } | null = null;
+  guidedSession: { id: string; visitName: string } | null = null;
 
   // --- Portafoglio e possesso ----------------------------------------------
   wallet: number = 0;
-  collezioneUtente: string[] = [];
+  userCollection: string[] = [];
 
   // --- Conferme (l'unica finestra modale rimasta) ---------------------------
-  modalConferma: boolean = false;
-  itemDaAcquistare: Contenuto | null = null;
-  visitaAcquistoMancanti: any = null;
-  visitaDaEliminare: any = null;
+  confirmOpen: boolean = false;
+  itemToBuy: Content | null = null;
+  visitToComplete: any = null;
+  visitToDelete: any = null;
 
   // --- Notifiche ------------------------------------------------------------
   toast: { messaggio: string; tipo: "success" | "error" } | null = null;
   private toastTimer: any = null;
 
   // --- Dati -----------------------------------------------------------------
-  contenuti: Contenuto[] = []; // visite
-  itemsMarket: Item[] = []; // item pubblici
-  mieOpere: Item[] = []; // item dell'autore collegato (inclusi i privati)
+  visits: Content[] = []; 
+  marketItems: Item[] = []; 
+  myItems: Item[] = []; 
   availableArtworks: Artwork[] = [];
-  musei: Museum[] = [];
-  museoSelezionato: Museum | null = null;
-  vendite: any[] = [];
-  caricamento: boolean = false;
+  museums: Museum[] = [];
+  selectedMuseum: Museum | null = null;
+  sales: any[] = [];
+  loading: boolean = false;
 
-  // Origine del navigator: arriva dal server (/api/config), non e' piu' una
-  // porta scritta a mano in tre punti del file.
   private navigatorOrigin: string = "";
 
-  licenze: string[] = licenses;
-  toni: string[] = educationalLevels;
-  toniDescrizione: Record<string, string> = educationalLevelHints;
+  licenseOptions: string[] = licenses;
+  tones: string[] = educationalLevels;
+  toneHints: Record<string, string> = educationalLevelHints;
 
   // --- Editor ---------------------------------------------------------------
   editingId: string | null = null;
-  /** Passo del banco di lavoro della visita (prelude.md §M10) */
-  passoVisita: "percorso" | "impostazioni" | "quiz" = "percorso";
-  /** Su schermi stretti il banco di lavoro diventa due schede */
-  pannelloEditor: "percorso" | "libreria" = "percorso";
-  nuovaOpera = this.resetNuovaOpera();
+  visitStep: "percorso" | "impostazioni" | "quiz" = "percorso";
+  editorPane: "percorso" | "libreria" = "percorso";
+  draft = this.emptyDraft();
 
-  formLogin = { username: "", password: "" };
-  formReg = {
+  loginForm = { username: "", password: "" };
+  registerForm = {
     username: "",
     password: "",
     conferma: "",
     role: "visitatore" as UserRole,
   };
-  /** Popolato quando le stesse credenziali valgono per due account di ruolo
-   *  diverso: e' l'unico caso in cui il ruolo va ancora chiesto. */
-  scegliRuolo: UserRole[] | null = null;
+  roleChoice: UserRole[] | null = null;
 
-  // =========================================================================
-  //  ROUTER
-  // =========================================================================
-
-  /** Traduce `location.hash` in (vista, parametro). Sconosciuto -> home. */
-  private parseHash(): { vista: Vista; parametro: string } {
+  private parseHash(): { view: View; param: string } {
     const raw = (window.location.hash || "").replace(/^#\/?/, "");
-    const [testa, coda] = [raw.split("/")[0] || "", raw.split("/").slice(1).join("/")];
-    const param = decodeURIComponent(coda || "");
-    const note: Vista[] = [
+    const head = raw.split("/")[0] || "";
+    const tail = raw.split("/").slice(1).join("/");
+    const param = decodeURIComponent(tail || "");
+    const knownViews: View[] = [
       "soglia",
       "accedi",
       "registrati",
@@ -159,62 +144,55 @@ export class AppState {
       "lavori",
       "vendite",
     ];
-    for (const v of note) {
-      if (testa === v) return { vista: v, parametro: param };
+    for (const candidate of knownViews) {
+      if (head === candidate) return { view: candidate, param };
     }
-    return { vista: "soglia", parametro: "" };
+    return { view: "soglia", param: "" };
   }
 
-  /** Applica la rotta, facendo rispettare le due sole precondizioni:
-   *  serve un utente, e serve un museo. */
-  applicaRotta() {
-    const { vista, parametro } = this.parseHash();
-    const pubbliche: Vista[] = ["soglia", "accedi", "registrati"];
+  applyRoute() {
+    const { view, param } = this.parseHash();
+    const pubbliche: View[] = ["soglia", "accedi", "registrati"];
 
-    // Non collegato: si resta sulle schermate pubbliche.
     if (!this.currentUser) {
-      this.vista = pubbliche.includes(vista) ? vista : "soglia";
-      this.parametro = "";
-      this.annunciaVista();
+      this.view = pubbliche.includes(view) ? view : "soglia";
+      this.param = "";
+      this.announceView();
       return;
     }
-    // Collegato ma senza museo: il pannello di scelta e' l'unica tappa.
-    if (!this.museoSelezionato) {
-      this.vista = "musei";
-      this.parametro = "";
-      this.annunciaVista();
+    if (!this.selectedMuseum) {
+      this.view = "musei";
+      this.param = "";
+      this.announceView();
       return;
     }
-    // Collegato con museo: le schermate pubbliche non hanno piu' senso.
-    if (pubbliche.includes(vista)) {
-      this.vaiA(this.homeDelRuolo());
+    if (pubbliche.includes(view)) {
+      this.goTo(this.roleHome());
       return;
     }
-    this.vista = vista;
-    this.parametro = parametro;
-    this.annunciaVista();
+    this.view = view;
+    this.param = param;
+    this.announceView();
   }
 
-  /** Naviga: cambia l'hash e lascia che sia `applicaRotta` a reagire. */
-  vaiA(vista: Vista, parametro?: string) {
-    const nuovo = parametro
-      ? `#/${vista}/${encodeURIComponent(parametro)}`
-      : `#/${vista}`;
-    if (window.location.hash === nuovo) this.applicaRotta();
+  goTo(view: View, param?: string) {
+    const nuovo = param
+      ? `#/${view}/${encodeURIComponent(param)}`
+      : `#/${view}`;
+    if (window.location.hash === nuovo) this.applyRoute();
     else window.location.hash = nuovo;
   }
 
-  homeDelRuolo(): Vista {
-    return this.currentUserType === "autore" ? "lavori" : "banco";
+  roleHome(): View {
+    return this.currentUserRole === "autore" ? "lavori" : "banco";
   }
 
-  tornaHome() {
-    this.vaiA(this.homeDelRuolo());
+  goHome() {
+    this.goTo(this.roleHome());
   }
 
-  /** Titolo leggibile della vista: lo usano il <title>, l'h1 e la live region. */
-  etichettaVista(): string {
-    const nomi: Record<Vista, string> = {
+  viewLabel(): string {
+    const labels: Record<View, string> = {
       soglia: "ArtAround",
       accedi: "Accedi",
       registrati: "Crea un profilo",
@@ -230,190 +208,170 @@ export class AppState {
       lavori: "I miei contenuti",
       vendite: "Vendite e adozioni",
     };
-    return nomi[this.vista] || "";
+    return labels[this.view] || "";
   }
 
-  private annunciaVista() {
-    document.title = `${this.etichettaVista()} · ArtAround`;
-    this.annuncia(this.etichettaVista());
+  private announceView() {
+    document.title = `${this.viewLabel()} · ArtAround`;
+    this.announce(this.viewLabel());
   }
 
-  /** Scrive nella live region (azzerando prima, cosi' un messaggio identico
-   *  viene comunque riletto dagli screen reader). */
-  annuncia(testo: string) {
-    this.annuncio = "";
+  announce(testo: string) {
+    this.announcement = "";
     window.requestAnimationFrame(() => {
-      this.annuncio = testo;
+      this.announcement = testo;
     });
   }
 
-  // =========================================================================
-  //  AVVIO
-  // =========================================================================
-
-  async avvia() {
-    window.addEventListener("hashchange", () => this.applicaRotta());
+  async start() {
+    window.addEventListener("hashchange", () => this.applyRoute());
     try {
       const cfg = await ArtAPI.fetchConfig();
       this.navigatorOrigin = cfg.navigatorOrigin || "";
     } catch {
-      // il server non espone la configurazione: si ripiega sull'host corrente
       this.navigatorOrigin = "";
     }
-    this.applicaRotta();
+    this.applyRoute();
   }
 
   async initApp() {
-    this.caricamento = true;
+    this.loading = true;
     try {
-      this.musei = await ArtAPI.fetchMuseums();
+      this.museums = await ArtAPI.fetchMuseums();
       const arts = await ArtAPI.fetchArtworks();
       this.availableArtworks = arts.sort((a, b) =>
         (a.name || "").localeCompare(b.name || ""),
       );
-      this.contenuti = await ArtAPI.fetchVisite();
-      this.itemsMarket = await ArtAPI.fetchItems();
+      this.visits = await ArtAPI.fetchVisite();
+      this.marketItems = await ArtAPI.fetchItems();
 
-      if (this.currentUser && this.currentUserType === "autore") {
-        this.mieOpere = await ArtAPI.fetchMyItems(this.currentUser);
+      if (this.currentUser && this.currentUserRole === "autore") {
+        this.myItems = await ArtAPI.fetchMyItems(this.currentUser);
       } else {
-        this.mieOpere = [];
+        this.myItems = [];
       }
 
-      // Il museo si sceglie una volta sola: se ne resta uno solo, o se e' gia'
-      // stato scelto in una sessione precedente, non si richiede.
-      if (!this.museoSelezionato) {
+      if (!this.selectedMuseum) {
         const ricordato = localStorage.getItem("artaround-museo");
-        const trovato = this.musei.find((m) => m.qid === ricordato);
-        if (trovato) this.museoSelezionato = trovato;
-        else if (this.musei.length === 1) this.museoSelezionato = this.musei[0];
+        const trovato = this.museums.find((m) => m.qid === ricordato);
+        if (trovato) this.selectedMuseum = trovato;
+        else if (this.museums.length === 1) this.selectedMuseum = this.museums[0];
       }
-      this.vaiA(this.museoSelezionato ? this.homeDelRuolo() : "musei");
+      this.goTo(this.selectedMuseum ? this.roleHome() : "musei");
     } catch (e) {
       console.error("Errore durante l'inizializzazione dei dati:", e);
-      this.mostraToast(
+      this.showToast(
         "Non riesco a contattare il server. Controlla che sia avviato e riprova.",
         "error",
       );
     } finally {
-      this.caricamento = false;
+      this.loading = false;
     }
   }
 
-  // =========================================================================
-  //  ACCESSO
-  // =========================================================================
-
-  async effettuaLogin() {
-    const { username, password } = this.formLogin;
+  async login() {
+    const { username, password } = this.loginForm;
     if (!username || !password)
-      return this.mostraToast("Inserisci username e password.", "error");
+      return this.showToast("Inserisci username e password.", "error");
     try {
       const esito = await ArtAPI.login(username, password);
-      // Stesse credenziali valide per due profili: e' l'unico caso in cui il
-      // ruolo va chiesto, e si chiede DOPO, con le due opzioni descritte.
       if ((esito as any).scelta) {
-        this.scegliRuolo = (esito as any).ruoli as UserRole[];
+        this.roleChoice = (esito as any).ruoli as UserRole[];
         return;
       }
-      await this.entraCome(esito as any);
+      await this.enterAs(esito as any);
     } catch (e) {
-      this.mostraToast((e as Error).message, "error");
+      this.showToast((e as Error).message, "error");
     }
   }
 
-  /** Secondo passo del login ambiguo: l'utente ha scelto il profilo. */
-  async confermaRuolo(role: UserRole) {
+  async confirmRole(role: UserRole) {
     try {
       const u = await ArtAPI.login(
-        this.formLogin.username,
-        this.formLogin.password,
+        this.loginForm.username,
+        this.loginForm.password,
         role,
       );
-      this.scegliRuolo = null;
-      await this.entraCome(u as any);
+      this.roleChoice = null;
+      await this.enterAs(u as any);
     } catch (e) {
-      this.mostraToast((e as Error).message, "error");
+      this.showToast((e as Error).message, "error");
     }
   }
 
-  private async entraCome(u: {
+  private async enterAs(u: {
     username: string;
     role: UserRole;
     wallet?: number;
     collezione: string[];
   }) {
     this.currentUser = u.username;
-    this.currentUserType = u.role;
+    this.currentUserRole = u.role;
     this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
-    this.collezioneUtente = u.collezione || [];
-    this.formLogin = { username: "", password: "" };
+    this.userCollection = u.collezione || [];
+    this.loginForm = { username: "", password: "" };
     await this.initApp();
   }
 
-  async concludiRegistrazione() {
-    const { username, password, conferma, role } = this.formReg;
+  async register() {
+    const { username, password, conferma, role } = this.registerForm;
     if (!username || !password)
-      return this.mostraToast("Compila username e password.", "error");
+      return this.showToast("Compila username e password.", "error");
     if (password !== conferma)
-      return this.mostraToast("Le due password non coincidono.", "error");
+      return this.showToast("Le due password non coincidono.", "error");
     try {
       const u = await ArtAPI.register(username, password, role);
-      this.formReg = {
+      this.registerForm = {
         username: "",
         password: "",
         conferma: "",
         role: "visitatore",
       };
-      await this.entraCome(u as any);
+      await this.enterAs(u as any);
     } catch (e) {
-      this.mostraToast((e as Error).message, "error");
+      this.showToast((e as Error).message, "error");
     }
   }
 
   logout() {
     this.currentUser = null;
-    this.currentUserType = null;
+    this.currentUserRole = null;
     this.wallet = 0;
-    this.collezioneUtente = [];
-    this.contenuti = [];
-    this.itemsMarket = [];
-    this.mieOpere = [];
-    this.musei = [];
-    this.museoSelezionato = null;
-    this.vendite = [];
+    this.userCollection = [];
+    this.visits = [];
+    this.marketItems = [];
+    this.myItems = [];
+    this.museums = [];
+    this.selectedMuseum = null;
+    this.sales = [];
     this.editingId = null;
-    this.scegliRuolo = null;
-    this.guidedTrovata = null;
+    this.roleChoice = null;
+    this.guidedSession = null;
     this.passkeyInput = "";
-    this.ricercaVisite = "";
-    this.ricercaOpere = "";
-    this.ricercaLibreria = "";
-    this.ricercaLavori = "";
-    this.ricercaEditor = "";
-    this.filtroLivelloVisite = "tutti";
-    this.filtroDurataVisite = "tutti";
-    this.filtroLivelloOpere = "tutti";
-    this.filtroTipoLibreria = "tutti";
-    this.filtroTipoLavori = "tutti";
-    this.filtroEditor = "tutti";
-    this.nuovaOpera = this.resetNuovaOpera();
+    this.visitSearch = "";
+    this.artworkSearch = "";
+    this.librarySearch = "";
+    this.worksSearch = "";
+    this.editorSearch = "";
+    this.visitLevelFilter = "tutti";
+    this.visitDurationFilter = "tutti";
+    this.artworkLevelFilter = "tutti";
+    this.libraryTypeFilter = "tutti";
+    this.worksTypeFilter = "tutti";
+    this.editorFilter = "tutti";
+    this.draft = this.emptyDraft();
     localStorage.removeItem("artaround-museo");
-    this.vaiA("soglia");
+    this.goTo("soglia");
   }
 
-  // =========================================================================
-  //  MUSEO
-  // =========================================================================
-
-  private museoEntityId(): string | null {
-    return this.museoSelezionato
-      ? `http://www.wikidata.org/entity/${this.museoSelezionato.qid}`
+  private museumEntityId(): string | null {
+    return this.selectedMuseum
+      ? `http://www.wikidata.org/entity/${this.selectedMuseum.qid}`
       : null;
   }
 
-  private appartieneAlMuseo(c: any): boolean {
-    const museo = this.museoEntityId();
+  private belongsToMuseum(c: any): boolean {
+    const museo = this.museumEntityId();
     if (!museo) return false;
     const ofMuseum =
       c && c.ofMuseum
@@ -424,44 +382,38 @@ export class AppState {
     return ofMuseum === museo;
   }
 
-  selezionaMuseo(m: Museum) {
-    this.museoSelezionato = m;
+  selectMuseum(m: Museum) {
+    this.selectedMuseum = m;
     localStorage.setItem("artaround-museo", m.qid);
-    this.vaiA(this.homeDelRuolo());
+    this.goTo(this.roleHome());
   }
 
-  cambiaMuseo() {
-    this.vaiA("musei");
+  changeMuseum() {
+    this.goTo("musei");
   }
 
-  /** Quante opere e quante visite ha un museo: sono i numeri che aiutano a
-   *  scegliere, al posto del QID che non dice nulla a nessuno. */
-  riepilogoMuseo(m: Museum): string {
+  museumSummary(m: Museum): string {
     const uri = `http://www.wikidata.org/entity/${m.qid}`;
     const opere = this.availableArtworks.filter(
       (a: any) => a.ofMuseum === uri,
     ).length;
-    const visite = (this.contenuti as any[]).filter(
+    const visitList = (this.visits as any[]).filter(
       (v) => v.ofMuseum === uri && !v.accessKey,
     ).length;
-    return `${opere} opere · ${visite} visite`;
+    return `${opere} opere · ${visitList} visite`;
   }
 
-  opereDisponibili() {
-    return this.availableArtworks.filter((a) => this.appartieneAlMuseo(a));
+  museumArtworks() {
+    return this.availableArtworks.filter((a) => this.belongsToMuseum(a));
   }
 
-  // =========================================================================
-  //  RICERCA (motore invariato: funziona bene)
-  // =========================================================================
-
-  nomeContenuto(c: any): string {
+  contentName(c: any): string {
     if (c && c["@type"] === "ItemList") return c.name || "";
     const art = c ? c.about : null;
     return (typeof art === "object" && art ? art.name : "") || "";
   }
 
-  private normalizzaRicerca(s: string): string {
+  private normalizeSearch(s: string): string {
     return (s || "")
       .toLowerCase()
       .normalize("NFD")
@@ -470,222 +422,213 @@ export class AppState {
       .trim();
   }
 
-  private campiRicercabili(c: any): string {
-    const parti: string[] = [this.nomeContenuto(c), (c && c.author) || ""];
+  private searchableFields(c: any): string {
+    const parts: string[] = [this.contentName(c), (c && c.author) || ""];
     if (c && c["@type"] === "ItemList") {
-      parti.push(c.level || "");
+      parts.push(c.level || "");
     } else if (c) {
-      parti.push(c.educationalLevel || "");
+      parts.push(c.educationalLevel || "");
       const art = c.about;
       if (art && typeof art === "object") {
-        parti.push(
+        parts.push(
           art.name || "",
           (art.author && art.author.name) || "",
           (art.style && art.style.name) || "",
         );
       }
     }
-    return this.normalizzaRicerca(parti.join(" "));
+    return this.normalizeSearch(parts.join(" "));
   }
 
-  private corrispondeRicerca(c: any, query: string): boolean {
-    const q = this.normalizzaRicerca(query);
+  private matchesSearch(c: any, query: string): boolean {
+    const q = this.normalizeSearch(query);
     if (!q) return true;
-    const haystack = this.campiRicercabili(c);
+    const haystack = this.searchableFields(c);
     const compatto = haystack.replace(/ /g, "");
     return q
       .split(" ")
       .every((tok) => !tok || haystack.includes(tok) || compatto.includes(tok));
   }
 
-  private difficoltaDi(c: any): string {
+  private levelOf(c: any): string {
     if (!c) return "";
     return (c["@type"] === "ItemList" ? c.level : c.educationalLevel) || "";
   }
 
-  /** Difficolta' effettivamente presenti nel museo scelto, in ordine canonico. */
-  difficoltaDisponibili(): string[] {
-    const presenti = new Set<string>();
+  availableLevels(): string[] {
+    const present = new Set<string>();
     for (const c of [
-      ...this.itemsMarket,
-      ...this.mieOpere,
-      ...this.contenuti,
+      ...this.marketItems,
+      ...this.myItems,
+      ...this.visits,
     ] as any[]) {
-      if (!this.appartieneAlMuseo(c)) continue;
-      const d = this.difficoltaDi(c);
-      if (d) presenti.add(d);
+      if (!this.belongsToMuseum(c)) continue;
+      const d = this.levelOf(c);
+      if (d) present.add(d);
     }
-    const ordinate = educationalLevels.filter((l) => presenti.has(l));
-    for (const d of presenti) if (!ordinate.includes(d)) ordinate.push(d);
-    return ordinate;
+    const ordered = educationalLevels.filter((l) => present.has(l));
+    for (const d of present) if (!ordered.includes(d)) ordered.push(d);
+    return ordered;
   }
 
-  // =========================================================================
-  //  POSSESSO E ACQUISTO
-  // =========================================================================
-
-  haIlPossesso(item: Contenuto | null): boolean {
+  owns(item: Content | null): boolean {
     if (!item) return false;
-    if (this.currentUserType === "autore" && item.author === this.currentUser)
+    if (this.currentUserRole === "autore" && item.author === this.currentUser)
       return true;
     if (
-      this.currentUserType === "visitatore" &&
+      this.currentUserRole === "visitatore" &&
       (item as any)["@type"] === "ItemList" &&
       item.author === this.currentUser
     )
       return true;
-    return this.collezioneUtente.includes(item["@id"]);
+    return this.userCollection.includes(item["@id"]);
   }
 
-  /** Una visita guidata non si compra e non compare in vetrina: ci si entra
-   *  con la parola chiave. Resta visibile al suo autore, che la gestisce. */
-  private visibileNelMercato(c: any): boolean {
+  private visibleInMarket(c: any): boolean {
     if (!c || !c.accessKey) return true;
     return c.author === this.currentUser;
   }
 
-  async compraOra(item: Contenuto) {
-    if (!this.currentUser || this.haIlPossesso(item)) return;
+  async buy(item: Content) {
+    if (!this.currentUser || this.owns(item)) return;
     if ((item as any).accessKey) return;
     if (!item.price || item.price === 0) {
-      await this.eseguiAcquisto(item);
+      await this.performPurchase(item);
       return;
     }
-    this.itemDaAcquistare = item;
-    this.modalConferma = true;
+    this.itemToBuy = item;
+    this.confirmOpen = true;
   }
 
-  private async eseguiAcquisto(item: Contenuto) {
+  private async performPurchase(item: Content) {
     if (!this.currentUser) return;
     try {
       const u = await ArtAPI.buy(this.currentUser, item["@id"], item.price || 0);
       this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
-      this.collezioneUtente = u.collezione;
-      const nome = this.nomeContenuto(item) || "Contenuto";
-      this.mostraToast(`"${nome}" è ora nella tua libreria.`);
+      this.userCollection = u.collezione;
+      const nome = this.contentName(item) || "Contenuto";
+      this.showToast(`"${nome}" è ora nella tua libreria.`);
     } catch (e) {
-      this.mostraToast((e as Error).message, "error");
+      this.showToast((e as Error).message, "error");
     }
   }
 
-  itemsMancanti(visit: any): any[] {
+  missingItems(visit: any): any[] {
     if (!visit || visit["@type"] !== "ItemList") return [];
-    const mancanti: any[] = [];
+    const missing: any[] = [];
     for (const id of visit.itemListElement || []) {
-      const it = this.trovaItem(id);
-      // Un id che non si risolve NON e' "posseduto": e' un contenuto che non
-      // possiamo mostrare, e va segnalato come mancante (prima passava per buono).
+      const it = this.findItem(id);
       if (!it) {
-        mancanti.push({ "@id": id, price: 0, sconosciuto: true });
+        missing.push({ "@id": id, price: 0, sconosciuto: true });
         continue;
       }
-      if (!this.haIlPossesso(it)) mancanti.push(it);
+      if (!this.owns(it)) missing.push(it);
     }
-    return mancanti;
+    return missing;
   }
 
-  costoMancanti(visit: any): number {
-    return this.itemsMancanti(visit).reduce(
+  missingCost(visit: any): number {
+    return this.missingItems(visit).reduce(
       (s: number, it: any) => s + (it.price || 0),
       0,
     );
   }
 
-  visitaUtilizzabile(visit: any): boolean {
-    return this.haIlPossesso(visit) && this.itemsMancanti(visit).length === 0;
+  visitUsable(visit: any): boolean {
+    return this.owns(visit) && this.missingItems(visit).length === 0;
   }
 
-  apriAcquistoMancanti(visit: any) {
-    if (!this.currentUser || this.itemsMancanti(visit).length === 0) return;
-    this.visitaAcquistoMancanti = visit;
-    this.modalConferma = true;
+  openCompleteVisit(visit: any) {
+    if (!this.currentUser || this.missingItems(visit).length === 0) return;
+    this.visitToComplete = visit;
+    this.confirmOpen = true;
   }
 
-  apriEliminaVisita(visit: any) {
+  openDeleteVisit(visit: any) {
     if (!visit || visit.author !== this.currentUser) return;
-    this.visitaDaEliminare = visit;
-    this.modalConferma = true;
+    this.visitToDelete = visit;
+    this.confirmOpen = true;
   }
 
-  titoloConferma(): string {
-    if (this.visitaDaEliminare) return "Eliminare questa visita?";
-    if (this.visitaAcquistoMancanti) return "Sbloccare i contenuti mancanti?";
+  confirmTitle(): string {
+    if (this.visitToDelete) return "Eliminare questa visita?";
+    if (this.visitToComplete) return "Sbloccare i contenuti mancanti?";
     return "Confermi l'acquisto?";
   }
 
-  messaggioConferma(): string {
-    if (this.visitaDaEliminare) {
-      return `"${this.visitaDaEliminare.name}" sparirà dal marketplace e dalle librerie di chi l'ha adottata. L'operazione non è reversibile.`;
+  confirmMessage(): string {
+    if (this.visitToDelete) {
+      return `"${this.visitToDelete.name}" sparirà dal marketplace e dalle librerie di chi l'ha adottata. L'operazione non è reversibile.`;
     }
-    if (this.visitaAcquistoMancanti) {
-      const mancanti = this.itemsMancanti(this.visitaAcquistoMancanti);
-      const costo = this.costoMancanti(this.visitaAcquistoMancanti);
-      return `Per usare questa visita servono ${mancanti.length} contenuti che non hai ancora. Sbloccarli tutti costa € ${costo.toFixed(2)}.`;
+    if (this.visitToComplete) {
+      const missing = this.missingItems(this.visitToComplete);
+      const cost = this.missingCost(this.visitToComplete);
+      return `Per usare questa visita servono ${missing.length} contenuti che non hai ancora. Sbloccarli tutti costa € ${cost.toFixed(2)}.`;
     }
-    const item = this.itemDaAcquistare;
+    const item = this.itemToBuy;
     if (!item) return "";
-    const nome = this.nomeContenuto(item) || "questo contenuto";
+    const nome = this.contentName(item) || "questo contenuto";
     return `"${nome}" resterà nella tua libreria. Costa € ${(item.price || 0).toFixed(2)}, il tuo credito è € ${this.wallet.toFixed(2)}.`;
   }
 
-  verboConferma(): string {
-    if (this.visitaDaEliminare) return "Elimina";
-    if (this.visitaAcquistoMancanti) return "Sblocca tutto";
+  confirmVerb(): string {
+    if (this.visitToDelete) return "Elimina";
+    if (this.visitToComplete) return "Sblocca tutto";
     return "Acquista";
   }
 
-  annullaAcquisto() {
-    this.modalConferma = false;
-    this.itemDaAcquistare = null;
-    this.visitaAcquistoMancanti = null;
-    this.visitaDaEliminare = null;
+  cancelConfirm() {
+    this.confirmOpen = false;
+    this.itemToBuy = null;
+    this.visitToComplete = null;
+    this.visitToDelete = null;
   }
 
-  async confermaAcquisto() {
-    if (this.visitaDaEliminare) {
-      const visita = this.visitaDaEliminare;
-      this.annullaAcquisto();
+  async runConfirm() {
+    if (this.visitToDelete) {
+      const visit = this.visitToDelete;
+      this.cancelConfirm();
       try {
-        await ArtAPI.eliminaVisita(visita["@id"]);
-        this.contenuti = this.contenuti.filter(
-          (c: any) => c["@id"] !== visita["@id"],
+        await ArtAPI.eliminaVisita(visit["@id"]);
+        this.visits = this.visits.filter(
+          (c: any) => c["@id"] !== visit["@id"],
         );
-        this.collezioneUtente = this.collezioneUtente.filter(
-          (id) => id !== visita["@id"],
+        this.userCollection = this.userCollection.filter(
+          (id) => id !== visit["@id"],
         );
-        this.mostraToast("Visita eliminata.");
-        this.tornaHome();
+        this.showToast("Visita eliminata.");
+        this.goHome();
       } catch (e) {
-        this.mostraToast((e as Error).message, "error");
+        this.showToast((e as Error).message, "error");
       }
       return;
     }
 
-    if (this.visitaAcquistoMancanti) {
-      const visita = this.visitaAcquistoMancanti;
-      this.annullaAcquisto();
+    if (this.visitToComplete) {
+      const visit = this.visitToComplete;
+      this.cancelConfirm();
       if (!this.currentUser) return;
       try {
-        for (const it of this.itemsMancanti(visita)) {
+        for (const it of this.missingItems(visit)) {
           if (it.sconosciuto) continue;
           const u = await ArtAPI.buy(this.currentUser, it["@id"], it.price || 0);
           this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
-          this.collezioneUtente = u.collezione;
+          this.userCollection = u.collezione;
         }
-        this.mostraToast("Contenuti sbloccati: la visita è pronta.");
+        this.showToast("Contenuti sbloccati: la visita è pronta.");
       } catch (e) {
-        this.mostraToast((e as Error).message, "error");
+        this.showToast((e as Error).message, "error");
       }
       return;
     }
 
-    const item = this.itemDaAcquistare;
-    this.annullaAcquisto();
-    if (!item || !this.currentUser || this.haIlPossesso(item)) return;
-    await this.eseguiAcquisto(item);
+    const item = this.itemToBuy;
+    this.cancelConfirm();
+    if (!item || !this.currentUser || this.owns(item)) return;
+    await this.performPurchase(item);
   }
 
-  mostraToast(messaggio: string, tipo: "success" | "error" = "success") {
+  showToast(messaggio: string, tipo: "success" | "error" = "success") {
     this.toast = { messaggio, tipo };
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => {
@@ -693,130 +636,113 @@ export class AppState {
     }, 5500);
   }
 
-  chiudiToast() {
+  closeToast() {
     this.toast = null;
   }
 
-  // =========================================================================
-  //  CATALOGO VISITE  (#/visite)
-  // =========================================================================
-
-  /** Durata totale di una visita in minuti, per il filtro a fasce. */
-  private minutiVisita(v: any): number {
+  private visitMinutes(v: any): number {
     return Math.round((Number(v.duration) || 0) / 60);
   }
 
-  durataLeggibile(secondi: number): string {
-    return formatDurata(secondi);
+  readableDuration(secondi: number): string {
+    return formatDuration(secondi);
   }
 
-  /** Riga di metadati di una visita: quello su cui una persona sceglie. */
-  riepilogoVisita(v: any): string {
+  visitSummary(v: any): string {
     const tappe = (v.itemListElement || []).length;
-    const parti = [
+    const parts = [
       `${tappe} ${tappe === 1 ? "tappa" : "tappe"}`,
-      formatDurata(v.duration),
+      formatDuration(v.duration),
     ];
-    if (v.level) parti.push(v.level);
-    return parti.join(" · ");
+    if (v.level) parts.push(v.level);
+    return parts.join(" · ");
   }
 
-  visiteInVetrina(): any[] {
-    const base = (this.contenuti as any[]).filter(
+  shownVisits(): any[] {
+    const base = (this.visits as any[]).filter(
       (v) =>
         v["@type"] === "ItemList" &&
-        this.appartieneAlMuseo(v) &&
-        this.visibileNelMercato(v) &&
-        this.corrispondeRicerca(v, this.ricercaVisite),
+        this.belongsToMuseum(v) &&
+        this.visibleInMarket(v) &&
+        this.matchesSearch(v, this.visitSearch),
     );
     return base.filter((v) => {
       if (
-        this.filtroLivelloVisite !== "tutti" &&
-        v.level !== this.filtroLivelloVisite
+        this.visitLevelFilter !== "tutti" &&
+        v.level !== this.visitLevelFilter
       )
         return false;
-      if (this.filtroDurataVisite === "tutti") return true;
-      const min = this.minutiVisita(v);
-      if (this.filtroDurataVisite === "breve") return min < 30;
-      if (this.filtroDurataVisite === "media") return min >= 30 && min <= 60;
+      if (this.visitDurationFilter === "tutti") return true;
+      const min = this.visitMinutes(v);
+      if (this.visitDurationFilter === "breve") return min < 30;
+      if (this.visitDurationFilter === "media") return min >= 30 && min <= 60;
       return min > 60;
     });
   }
 
-  // =========================================================================
-  //  CATALOGO OPERE  (#/opere)  — una card per opera, gli item dentro
-  // =========================================================================
-
-  private artworkIdDi(c: any): string {
+  private artworkIdOf(c: any): string {
     const art = c ? c.about : null;
     return (art && typeof art === "object" ? art["@id"] : art) || "?";
   }
 
-  /** Item pubblici del museo scelto (piu' i propri, se autore). */
-  private itemVisibili(): any[] {
+  private visibleItems(): any[] {
     const perId = new Map<string, any>();
-    for (const i of this.itemsMarket as any[]) {
-      if (this.appartieneAlMuseo(i)) perId.set(i["@id"], i);
+    for (const i of this.marketItems as any[]) {
+      if (this.belongsToMuseum(i)) perId.set(i["@id"], i);
     }
-    if (this.currentUserType === "autore") {
-      for (const i of this.mieOpere as any[]) {
-        if (this.appartieneAlMuseo(i)) perId.set(i["@id"], i);
+    if (this.currentUserRole === "autore") {
+      for (const i of this.myItems as any[]) {
+        if (this.belongsToMuseum(i)) perId.set(i["@id"], i);
       }
     }
     return [...perId.values()];
   }
 
-  raggruppaPerArtwork(lista: any[]): { artwork: any; items: any[] }[] {
-    const gruppi = new Map<string, { artwork: any; items: any[] }>();
+  groupByArtwork(lista: any[]): { artwork: any; items: any[] }[] {
+    const groups = new Map<string, { artwork: any; items: any[] }>();
     for (const c of lista) {
       if (c["@type"] !== "CreativeWork") continue;
-      const id = this.artworkIdDi(c);
-      if (!gruppi.has(id)) {
+      const id = this.artworkIdOf(c);
+      if (!groups.has(id)) {
         const art = c.about;
-        gruppi.set(id, {
+        groups.set(id, {
           artwork:
             art && typeof art === "object" ? art : { "@id": id, name: id },
           items: [],
         });
       }
-      gruppi.get(id)!.items.push(c);
+      groups.get(id)!.items.push(c);
     }
-    return [...gruppi.values()];
+    return [...groups.values()];
   }
 
-  opereInVetrina(): { artwork: any; items: any[] }[] {
-    const items = this.itemVisibili().filter((i) => {
+  shownArtworks(): { artwork: any; items: any[] }[] {
+    const items = this.visibleItems().filter((i) => {
       if (
-        this.filtroLivelloOpere !== "tutti" &&
-        i.educationalLevel !== this.filtroLivelloOpere
+        this.artworkLevelFilter !== "tutti" &&
+        i.educationalLevel !== this.artworkLevelFilter
       )
         return false;
       return true;
     });
-    const gruppi = this.raggruppaPerArtwork(items);
-    if (!this.ricercaOpere.trim()) return gruppi;
-    // La ricerca sulle opere confronta l'opera stessa, non i singoli item
-    return gruppi.filter((g) =>
-      this.corrispondeRicerca({ about: g.artwork, "@type": "CreativeWork" }, this.ricercaOpere),
+    const groups = this.groupByArtwork(items);
+    if (!this.artworkSearch.trim()) return groups;
+    return groups.filter((g) =>
+      this.matchesSearch({ about: g.artwork, "@type": "CreativeWork" }, this.artworkSearch),
     );
   }
 
-  /** Sottotitolo di una card-opera: quanti contenuti e da che prezzo. */
-  riepilogoOpera(g: { artwork: any; items: any[] }): string {
+  artworkSummary(g: { artwork: any; items: any[] }): string {
     const n = g.items.length;
-    const prezzi = g.items.map((i: any) => Number(i.price) || 0);
-    const minimo = prezzi.length ? Math.min(...prezzi) : 0;
-    const testoPrezzo = minimo === 0 ? "da gratis" : `da € ${minimo.toFixed(2)}`;
-    return `${n} ${n === 1 ? "descrizione" : "descrizioni"} · ${testoPrezzo}`;
+    const prices = g.items.map((i: any) => Number(i.price) || 0);
+    const cheapest = prices.length ? Math.min(...prices) : 0;
+    const priceLabel = cheapest === 0 ? "da gratis" : `da € ${cheapest.toFixed(2)}`;
+    return `${n} ${n === 1 ? "descrizione" : "descrizioni"} · ${priceLabel}`;
   }
 
-  // =========================================================================
-  //  SCHEDA OPERA  (#/opera/<qid>)
-  // =========================================================================
-
-  operaCorrente(): any | null {
-    if (this.vista !== "opera" || !this.parametro) return null;
-    const p = this.parametro;
+  currentArtwork(): any | null {
+    if (this.view !== "opera" || !this.param) return null;
+    const p = this.param;
     return (
       this.availableArtworks.find(
         (a: any) => a.qid === p || a["@id"] === p,
@@ -824,12 +750,11 @@ export class AppState {
     );
   }
 
-  /** Le descrizioni disponibili per l'opera aperta, ordinate per tono. */
-  itemDellOpera(): any[] {
-    const art = this.operaCorrente();
+  artworkItems(): any[] {
+    const art = this.currentArtwork();
     if (!art) return [];
-    const items = this.itemVisibili().filter(
-      (i: any) => this.artworkIdDi(i) === art["@id"],
+    const items = this.visibleItems().filter(
+      (i: any) => this.artworkIdOf(i) === art["@id"],
     );
     return items.sort(
       (a: any, b: any) =>
@@ -838,191 +763,149 @@ export class AppState {
     );
   }
 
-  /** Righe che l'utente sta espandendo nella scheda opera (niente finestre). */
-  itemAperti: string[] = [];
+  openItems: string[] = [];
 
-  alternaItem(id: string) {
-    const i = this.itemAperti.indexOf(id);
-    if (i >= 0) this.itemAperti.splice(i, 1);
-    else this.itemAperti.push(id);
+  toggleItem(id: string) {
+    const i = this.openItems.indexOf(id);
+    if (i >= 0) this.openItems.splice(i, 1);
+    else this.openItems.push(id);
   }
 
-  // =========================================================================
-  //  SCHEDA VISITA  (#/visita/<id>)
-  // =========================================================================
-
-  visitaCorrente(): any | null {
-    if (this.vista !== "visita" || !this.parametro) return null;
+  currentVisit(): any | null {
+    if (this.view !== "visita" || !this.param) return null;
     return (
-      (this.contenuti as any[]).find((v) => v["@id"] === this.parametro) || null
+      (this.visits as any[]).find((v) => v["@id"] === this.param) || null
     );
   }
 
-  /** Il percorso della visita come sequenza leggibile: le tappe con il loro
-   *  numero e le note logistiche al posto giusto (vedi `logisticaDopo`). */
-  tappeDellaVisita(v: any): any[] {
+  visitStops(v: any): any[] {
     if (!v) return [];
     return (v.itemListElement || []).map((id: string, i: number) => ({
       id,
       numero: i + 1,
-      nome: this.trovaNomeItem(id),
+      nome: this.itemName(id),
       opzionale: (v.optionalItems || []).includes(id),
-      item: this.trovaItem(id),
+      item: this.findItem(id),
     }));
   }
 
-  /** Note logistiche ancorate DOPO una certa tappa. Il modello nuovo salva
-   *  `{after, text}`; quello vecchio (solo testo) finisce in coda. */
-  logisticaDopo(v: any, itemId: string): string[] {
-    const note: string[] = [];
+  notesAfter(v: any, itemId: string): string[] {
+    const notes: string[] = [];
     for (const n of v.logistics || []) {
       if (n && typeof n === "object" && n.after === itemId && n.text)
-        note.push(n.text);
+        notes.push(n.text);
     }
-    return note;
+    return notes;
   }
 
-  logisticaSenzaPosizione(v: any): string[] {
-    const note: string[] = [];
+  unplacedNotes(v: any): string[] {
+    const notes: string[] = [];
     for (const n of v.logistics || []) {
-      if (typeof n === "string" && n.trim() !== "") note.push(n);
-      else if (n && typeof n === "object" && !n.after && n.text) note.push(n.text);
+      if (typeof n === "string" && n.trim() !== "") notes.push(n);
+      else if (n && typeof n === "object" && !n.after && n.text) notes.push(n.text);
     }
-    return note;
+    return notes;
   }
 
-  // =========================================================================
-  //  LIBRERIA (visitatore)  e  LAVORI (autore)
-  // =========================================================================
-
-  /** Visite possedute e utilizzabili: sono la cosa piu' azionabile che esista
-   *  in tutta l'app, quindi vengono sempre per prime. */
-  mieVisite(): any[] {
-    const base = [...(this.contenuti as any[])].filter(
+  myVisits(): any[] {
+    const base = [...(this.visits as any[])].filter(
       (v) =>
-        this.appartieneAlMuseo(v) &&
-        this.haIlPossesso(v) &&
-        this.visibileNelMercato(v) &&
-        this.corrispondeRicerca(v, this.ricercaLibreria),
+        this.belongsToMuseum(v) &&
+        this.owns(v) &&
+        this.visibleInMarket(v) &&
+        this.matchesSearch(v, this.librarySearch),
     );
     return base;
   }
 
-  mieiItem(): { artwork: any; items: any[] }[] {
-    const posseduti = this.itemVisibili().filter(
+  myItemGroups(): { artwork: any; items: any[] }[] {
+    const posseduti = this.visibleItems().filter(
       (i: any) =>
-        this.haIlPossesso(i) && this.corrispondeRicerca(i, this.ricercaLibreria),
+        this.owns(i) && this.matchesSearch(i, this.librarySearch),
     );
-    return this.raggruppaPerArtwork(posseduti);
+    return this.groupByArtwork(posseduti);
   }
 
-  /** "I miei contenuti" (autore) = solo la sua produzione, non cio' che ha
-   *  adottato: item propri (privati inclusi) + visite proprie. */
-  lavoriItem(): { artwork: any; items: any[] }[] {
-    if (this.filtroTipoLavori === "visite") return [];
-    const items = (this.mieOpere as any[]).filter(
+  workItemGroups(): { artwork: any; items: any[] }[] {
+    if (this.worksTypeFilter === "visite") return [];
+    const items = (this.myItems as any[]).filter(
       (i) =>
-        this.appartieneAlMuseo(i) && this.corrispondeRicerca(i, this.ricercaLavori),
+        this.belongsToMuseum(i) && this.matchesSearch(i, this.worksSearch),
     );
-    return this.raggruppaPerArtwork(items);
+    return this.groupByArtwork(items);
   }
 
-  lavoriVisite(): any[] {
-    if (this.filtroTipoLavori === "item") return [];
-    return (this.contenuti as any[]).filter(
+  workVisits(): any[] {
+    if (this.worksTypeFilter === "item") return [];
+    return (this.visits as any[]).filter(
       (v) =>
         v.author === this.currentUser &&
-        this.appartieneAlMuseo(v) &&
-        this.corrispondeRicerca(v, this.ricercaLavori),
+        this.belongsToMuseum(v) &&
+        this.matchesSearch(v, this.worksSearch),
     );
   }
 
-  /** Quante persone hanno adottato un contenuto (dal report vendite). */
-  adozioniDi(id: string): number | null {
-    const riga = this.vendite.find((r: any) => r.id === id);
+  adoptionsOf(id: string): number | null {
+    const riga = this.sales.find((r: any) => r.id === id);
     return riga ? riga.adozioni : null;
   }
 
-  // =========================================================================
-  //  IMMAGINI
-  // =========================================================================
-
-  imgOpera(about: any): string {
+  artworkImage(about: any): string {
     if (!about || typeof about !== "object") return "";
     return about.imagePath || about.imageUri || "";
   }
 
-  // =========================================================================
-  //  COLLEGAMENTI AL NAVIGATOR
-  // =========================================================================
-
-  private origineNavigator(): string {
+  private navigatorBase(): string {
     if (this.navigatorOrigin) return this.navigatorOrigin;
     return `${window.location.protocol}//${window.location.hostname}:5173`;
   }
 
-  urlNavigator(v: any): string {
+  navigatorUrl(v: any): string {
     if (!v) return "#";
     const uri: string = v.ofMuseum || "";
     const museumQid = uri.split("/").pop() || "";
     return (
-      `${this.origineNavigator()}/` +
+      `${this.navigatorBase()}/` +
       `?museum=${encodeURIComponent(museumQid)}` +
       `&visit=${encodeURIComponent(v["@id"])}` +
       `&user=${encodeURIComponent(this.currentUser || "")}`
     );
   }
 
-  salaAttesaUrl(): string {
-    if (!this.guidedTrovata) return "#";
+  waitingRoomUrl(): string {
+    if (!this.guidedSession) return "#";
     return (
-      `${this.origineNavigator()}/` +
-      `?guidedSession=${encodeURIComponent(this.guidedTrovata.id)}` +
+      `${this.navigatorBase()}/` +
+      `?guidedSession=${encodeURIComponent(this.guidedSession.id)}` +
       `&role=studente&user=${encodeURIComponent(this.currentUser || "")}`
     );
   }
 
-  avviaGuidataUrl(visit: any): string {
+  startGuidedUrl(visit: any): string {
     return (
-      `${this.origineNavigator()}/` +
+      `${this.navigatorBase()}/` +
       `?guidedVisit=${encodeURIComponent(visit["@id"])}` +
       `&role=docente&user=${encodeURIComponent(this.currentUser || "")}`
     );
   }
 
-  /**
-   * QR del collegamento a una visita, per passare dal PC al telefono.
-   * Il marketplace e' un'app da scrivania e il navigator un'app da museo — per
-   * requisito, non per caso. Il prodotto non aveva mai riconosciuto che a un
-   * certo punto la persona deve cambiare dispositivo: inquadrare un QR e' il
-   * gesto con cui questo succede davvero.
-   */
-  urlQrVisita(v: any): string {
-    return `/api/qr?text=${encodeURIComponent(this.urlNavigator(v))}`;
+  visitQrUrl(v: any): string {
+    return `/api/qr?text=${encodeURIComponent(this.navigatorUrl(v))}`;
   }
 
-  /** "Guarda com'e' fatta una visita": apre l'app da museo senza profilo.
-   *  Nessuno dovrebbe dover creare un account per capire cosa fa un prodotto —
-   *  e senza utente il navigator mostra solo le visite gratuite. */
-  urlEsempio(): string {
-    return `${this.origineNavigator()}/?demo=1`;
+  sampleUrl(): string {
+    return `${this.navigatorBase()}/?demo=1`;
   }
 
-  /** Foglio stampabile dei QR delle opere: e' un deliverable, non un URL
-   *  segreto — dall'area autore ci si arriva con un click. */
-  urlQrCodes(): string {
-    if (!this.museoSelezionato) return "#";
-    return `/api/museums/${encodeURIComponent(this.museoSelezionato.qid)}/qrcodes`;
+  qrSheetUrl(): string {
+    if (!this.selectedMuseum) return "#";
+    return `/api/museums/${encodeURIComponent(this.selectedMuseum.qid)}/qrcodes`;
   }
 
-  // =========================================================================
-  //  VISITA GUIDATA (studente)
-  // =========================================================================
-
-  async entraConPasskey() {
+  async joinWithPasskey() {
     const key = this.passkeyInput.trim();
     if (!key || !this.currentUser)
-      return this.mostraToast(
+      return this.showToast(
         "Scrivi la parola chiave che ti ha dato il docente.",
         "error",
       );
@@ -1030,24 +913,20 @@ export class AppState {
       const s = await ArtAPI.joinGuidedSession(
         key,
         this.currentUser,
-        this.museoEntityId() || undefined,
+        this.museumEntityId() || undefined,
       );
-      this.guidedTrovata = {
+      this.guidedSession = {
         id: s.id,
         visitName: s.visitName || "Visita guidata",
       };
-      this.annuncia(`Sei in sala d'attesa per ${this.guidedTrovata.visitName}.`);
+      this.announce(`Sei in sala d'attesa per ${this.guidedSession.visitName}.`);
     } catch (e) {
-      this.guidedTrovata = null;
-      this.mostraToast((e as Error).message, "error");
+      this.guidedSession = null;
+      this.showToast((e as Error).message, "error");
     }
   }
 
-  // =========================================================================
-  //  EDITOR — descrizione (item)
-  // =========================================================================
-
-  private resetNuovaOpera() {
+  private emptyDraft() {
     return {
       price: 0,
       license: licenses[0],
@@ -1068,13 +947,13 @@ export class AppState {
     };
   }
 
-  apriNuovoItem() {
+  openNewItem() {
     this.editingId = null;
-    this.nuovaOpera = this.resetNuovaOpera();
-    this.vaiA("nuovo");
+    this.draft = this.emptyDraft();
+    this.goTo("nuovo");
   }
 
-  modificaItem(item: any) {
+  editItem(item: any) {
     if (
       !item ||
       item["@type"] !== "CreativeWork" ||
@@ -1082,38 +961,37 @@ export class AppState {
     )
       return;
     this.editingId = item["@id"];
-    this.nuovaOpera = this.resetNuovaOpera();
-    this.nuovaOpera.selectedArtworkUri =
+    this.draft = this.emptyDraft();
+    this.draft.selectedArtworkUri =
       (typeof item.about === "object" ? item.about["@id"] : item.about) || "";
-    this.nuovaOpera.tono = item.educationalLevel || "";
-    this.nuovaOpera.durata = String(item.timeRequired || "");
-    this.nuovaOpera.testo = item.text || "";
-    this.nuovaOpera.price = item.price || 0;
-    this.nuovaOpera.license = item.license || licenses[0];
-    this.nuovaOpera.privato = item.visibility === "privato";
-    this.vaiA("nuovo");
+    this.draft.tono = item.educationalLevel || "";
+    this.draft.durata = String(item.timeRequired || "");
+    this.draft.testo = item.text || "";
+    this.draft.price = item.price || 0;
+    this.draft.license = item.license || licenses[0];
+    this.draft.privato = item.visibility === "privato";
+    this.goTo("nuovo");
   }
 
-  /** Nome dell'opera scelta nell'editor (per l'intestazione della scheda). */
-  nomeOperaScelta(): string {
+  chosenArtworkName(): string {
     const a = this.availableArtworks.find(
-      (x: any) => x["@id"] === this.nuovaOpera.selectedArtworkUri,
+      (x: any) => x["@id"] === this.draft.selectedArtworkUri,
     );
     return a ? a.name : "";
   }
 
-  operaScelta(): any | null {
+  chosenArtwork(): any | null {
     return (
       this.availableArtworks.find(
-        (x: any) => x["@id"] === this.nuovaOpera.selectedArtworkUri,
+        (x: any) => x["@id"] === this.draft.selectedArtworkUri,
       ) || null
     );
   }
 
-  tonoGiaUsato(tono: string): boolean {
-    const art = this.nuovaOpera.selectedArtworkUri;
+  toneAlreadyUsed(tono: string): boolean {
+    const art = this.draft.selectedArtworkUri;
     if (!art) return false;
-    return this.mieOpere.some(
+    return this.myItems.some(
       (i: any) =>
         (typeof i.about === "object" ? i.about["@id"] : i.about) === art &&
         i.educationalLevel === tono &&
@@ -1121,13 +999,11 @@ export class AppState {
     );
   }
 
-  /** Stima della lunghezza del testo rispetto alla durata dichiarata: chiude
-   *  l'anello fra il metadato e il testo scritto davvero. */
-  stimaLettura(): string {
-    const parole = this.nuovaOpera.testo.trim().split(/\s+/).filter(Boolean).length;
+  readingEstimate(): string {
+    const parole = this.draft.testo.trim().split(/\s+/).filter(Boolean).length;
     if (parole === 0) return "";
-    const secondi = Math.round((parole / 100) * 60); // ~100 parole al minuto
-    const dichiarata = Number(this.nuovaOpera.durata) || 0;
+    const secondi = Math.round((parole / 100) * 60); 
+    const dichiarata = Number(this.draft.durata) || 0;
     let giudizio = "";
     if (dichiarata > 0) {
       const scarto = secondi / dichiarata;
@@ -1138,196 +1014,187 @@ export class AppState {
     return `${parole} parole · circa ${secondi}s di lettura${giudizio}`;
   }
 
-  /** Cosa manca per poter pubblicare (testo, non un pulsante spento). */
-  validazioneItem(): string[] {
-    const mancano: string[] = [];
-    if (!this.nuovaOpera.selectedArtworkUri) mancano.push("l'opera");
-    if (!this.nuovaOpera.tono) mancano.push("il tono");
-    if (!(Number(this.nuovaOpera.durata) > 0)) mancano.push("la durata");
-    if (this.nuovaOpera.testo.trim() === "") mancano.push("il testo");
-    if (Number(this.nuovaOpera.price) < 0) mancano.push("un prezzo non negativo");
-    return mancano;
+  itemIssues(): string[] {
+    const issues: string[] = [];
+    if (!this.draft.selectedArtworkUri) issues.push("l'opera");
+    if (!this.draft.tono) issues.push("il tono");
+    if (!(Number(this.draft.durata) > 0)) issues.push("la durata");
+    if (this.draft.testo.trim() === "") issues.push("il testo");
+    if (Number(this.draft.price) < 0) issues.push("un prezzo non negativo");
+    return issues;
   }
 
-  async salvaItem() {
-    const mancano = this.validazioneItem();
-    if (mancano.length > 0)
-      return this.mostraToast(`Manca ancora: ${mancano.join(", ")}.`, "error");
-    if (!this.editingId && this.tonoGiaUsato(this.nuovaOpera.tono))
-      return this.mostraToast(
-        `Hai già una descrizione "${this.nuovaOpera.tono}" per quest'opera. Modificala invece di crearne un'altra.`,
+  async saveItem() {
+    const issues = this.itemIssues();
+    if (issues.length > 0)
+      return this.showToast(`Manca ancora: ${issues.join(", ")}.`, "error");
+    if (!this.editingId && this.toneAlreadyUsed(this.draft.tono))
+      return this.showToast(
+        `Hai già una descrizione "${this.draft.tono}" per quest'opera. Modificala invece di crearne un'altra.`,
         "error",
       );
 
     const payload = {
       tipo: "Item",
       editId: this.editingId || undefined,
-      id_oper_universale: this.nuovaOpera.selectedArtworkUri,
+      id_oper_universale: this.draft.selectedArtworkUri,
       autore: this.currentUser!,
-      prezzo: this.nuovaOpera.privato ? 0 : this.nuovaOpera.price,
-      privato: !!this.nuovaOpera.privato,
-      licenza: this.nuovaOpera.license,
+      prezzo: this.draft.privato ? 0 : this.draft.price,
+      privato: !!this.draft.privato,
+      licenza: this.draft.license,
       descrizioni: [
         {
-          tono: this.nuovaOpera.tono,
-          lunghezza: this.nuovaOpera.durata,
-          testo: this.nuovaOpera.testo,
+          tono: this.draft.tono,
+          lunghezza: this.draft.durata,
+          testo: this.draft.testo,
         },
       ],
     };
 
     try {
       await ArtAPI.pubblica(payload);
-      this.mostraToast(
+      this.showToast(
         this.editingId ? "Descrizione aggiornata." : "Descrizione pubblicata.",
       );
       this.editingId = null;
       await this.initApp();
-      this.vaiA("lavori");
+      this.goTo("lavori");
     } catch (e) {
-      this.mostraToast((e as Error).message, "error");
+      this.showToast((e as Error).message, "error");
     }
   }
 
-  // =========================================================================
-  //  EDITOR — visita (banco di lavoro a tre passi)
-  // =========================================================================
-
-  apriComponi() {
+  openComposer() {
     this.editingId = null;
-    this.passoVisita = "percorso";
-    this.pannelloEditor = "percorso";
-    this.ricercaEditor = "";
-    this.filtroEditor = "tutti";
-    this.nuovaOpera = this.resetNuovaOpera();
-    this.vaiA("componi");
+    this.visitStep = "percorso";
+    this.editorPane = "percorso";
+    this.editorSearch = "";
+    this.editorFilter = "tutti";
+    this.draft = this.emptyDraft();
+    this.goTo("componi");
   }
 
-  modificaVisita(visit: any) {
+  editVisit(visit: any) {
     if (!visit || visit.author !== this.currentUser) return;
     this.editingId = visit["@id"];
-    this.passoVisita = "percorso";
-    this.pannelloEditor = "percorso";
-    this.ricercaEditor = "";
-    this.filtroEditor = "tutti";
-    this.nuovaOpera = this.resetNuovaOpera();
-    this.nuovaOpera.titolo = visit.name || "";
-    this.nuovaOpera.price = visit.price || 0;
-    this.nuovaOpera.license = visit.license || licenses[0];
-    this.nuovaOpera.guidata = !!visit.accessKey;
-    this.nuovaOpera.accessKey = visit.accessKey || "";
-    this.nuovaOpera.quiz = (visit.quiz || []).map((q: any) => ({
+    this.visitStep = "percorso";
+    this.editorPane = "percorso";
+    this.editorSearch = "";
+    this.editorFilter = "tutti";
+    this.draft = this.emptyDraft();
+    this.draft.titolo = visit.name || "";
+    this.draft.price = visit.price || 0;
+    this.draft.license = visit.license || licenses[0];
+    this.draft.guidata = !!visit.accessKey;
+    this.draft.accessKey = visit.accessKey || "";
+    this.draft.quiz = (visit.quiz || []).map((q: any) => ({
       question: q.question || "",
       options: [...(q.options || ["", "", "", ""])],
       correct: Number(q.correct) || 0,
     }));
-    this.nuovaOpera.tappe = this.ricostruisciTappe(visit);
-    this.vaiA("componi");
+    this.draft.tappe = this.rebuildStops(visit);
+    this.goTo("componi");
   }
 
-  /** Ricostruisce il percorso RISPETTANDO le posizioni: le note logistiche del
-   *  modello nuovo ({after,text}) tornano dove l'autore le aveva messe. */
-  private ricostruisciTappe(visit: any) {
-    const opzionali = new Set<string>(visit.optionalItems || []);
+  private rebuildStops(visit: any) {
+    const optionalIds = new Set<string>(visit.optionalItems || []);
     const tappe: {
       tipo: "item" | "logistica";
       value: string;
       opzionale?: boolean;
     }[] = [];
     for (const id of visit.itemListElement || []) {
-      tappe.push({ tipo: "item", value: id, opzionale: opzionali.has(id) });
-      for (const nota of this.logisticaDopo(visit, id)) {
-        tappe.push({ tipo: "logistica", value: nota });
+      tappe.push({ tipo: "item", value: id, opzionale: optionalIds.has(id) });
+      for (const note of this.notesAfter(visit, id)) {
+        tappe.push({ tipo: "logistica", value: note });
       }
     }
-    for (const nota of this.logisticaSenzaPosizione(visit)) {
-      tappe.push({ tipo: "logistica", value: nota });
+    for (const note of this.unplacedNotes(visit)) {
+      tappe.push({ tipo: "logistica", value: note });
     }
     return tappe;
   }
 
-  visiteBaseImportabili(): any[] {
-    return (this.contenuti as any[]).filter(
+  importableVisits(): any[] {
+    return (this.visits as any[]).filter(
       (v) =>
         v["@type"] === "ItemList" &&
-        this.appartieneAlMuseo(v) &&
+        this.belongsToMuseum(v) &&
         !v.accessKey &&
         (!v.price || Number(v.price) === 0),
     );
   }
 
-  importaVisitaBase(visitId: string) {
+  importVisit(visitId: string) {
     if (!visitId) return;
-    const src: any = (this.contenuti as any[]).find((v) => v["@id"] === visitId);
+    const src: any = (this.visits as any[]).find((v) => v["@id"] === visitId);
     if (!src) return;
-    this.nuovaOpera.tappe = this.ricostruisciTappe(src);
+    this.draft.tappe = this.rebuildStops(src);
     this.editingId = null;
-    if (this.currentUserType === "autore") {
-      this.nuovaOpera.guidata = true;
-      if (!this.nuovaOpera.titolo.trim())
-        this.nuovaOpera.titolo = src.name ? `${src.name} (guidata)` : "";
-      this.mostraToast(
+    if (this.currentUserRole === "autore") {
+      this.draft.guidata = true;
+      if (!this.draft.titolo.trim())
+        this.draft.titolo = src.name ? `${src.name} (guidata)` : "";
+      this.showToast(
         "Percorso importato. L'originale non è stato toccato: aggiungi parola chiave e quiz.",
       );
     } else {
-      if (!this.nuovaOpera.titolo.trim())
-        this.nuovaOpera.titolo = src.name ? `${src.name} (mia versione)` : "";
-      this.mostraToast(
+      if (!this.draft.titolo.trim())
+        this.draft.titolo = src.name ? `${src.name} (mia versione)` : "";
+      this.showToast(
         "Percorso importato. L'originale non è stato toccato: personalizzalo e salvalo.",
       );
     }
   }
 
-  disponibileSubito(item: any): boolean {
-    return this.haIlPossesso(item) || !item.price || item.price === 0;
+  availableNow(item: any): boolean {
+    return this.owns(item) || !item.price || item.price === 0;
   }
 
-  usabileInGuidata(item: any): boolean {
+  allowedInGuided(item: any): boolean {
     if (!item) return false;
-    return !item.price || item.price === 0 || this.haIlPossesso(item);
+    return !item.price || item.price === 0 || this.owns(item);
   }
 
-  /** La libreria del banco di lavoro, raggruppata per opera. */
-  libreriaEditor(): { artwork: any; items: any[] }[] {
-    let base = this.itemVisibili();
-    if (this.currentUserType === "autore") {
-      // L'autore compone con i propri item (anche privati) e con i gratuiti.
+  editorLibrary(): { artwork: any; items: any[] }[] {
+    let base = this.visibleItems();
+    if (this.currentUserRole === "autore") {
       base = base.filter(
         (i: any) =>
           i.author === this.currentUser || !i.price || Number(i.price) === 0,
       );
     }
-    if (this.nuovaOpera.guidata) {
-      base = base.filter((op) => this.usabileInGuidata(op));
+    if (this.draft.guidata) {
+      base = base.filter((op) => this.allowedInGuided(op));
     }
-    if (this.filtroEditor !== "tutti") {
+    if (this.editorFilter !== "tutti") {
       base = base.filter((i) =>
-        this.filtroEditor === "disponibili"
-          ? this.disponibileSubito(i)
-          : !this.disponibileSubito(i),
+        this.editorFilter === "disponibili"
+          ? this.availableNow(i)
+          : !this.availableNow(i),
       );
     }
-    const gruppi = this.raggruppaPerArtwork(base);
-    if (!this.ricercaEditor.trim()) return gruppi;
-    return gruppi.filter((g) =>
-      this.corrispondeRicerca(
+    const groups = this.groupByArtwork(base);
+    if (!this.editorSearch.trim()) return groups;
+    return groups.filter((g) =>
+      this.matchesSearch(
         { about: g.artwork, "@type": "CreativeWork" },
-        this.ricercaEditor,
+        this.editorSearch,
       ),
     );
   }
 
-  trovaItem(id: string) {
+  findItem(id: string) {
     const all = [
-      ...(this.mieOpere as any[]),
-      ...(this.itemsMarket as any[]),
-      ...(this.contenuti as any[]),
+      ...(this.myItems as any[]),
+      ...(this.marketItems as any[]),
+      ...(this.visits as any[]),
     ];
     return all.find((i) => i["@id"] === id) || null;
   }
 
-  trovaNomeItem(id: string) {
-    const item = this.trovaItem(id);
+  itemName(id: string) {
+    const item = this.findItem(id);
     if (!item) return "Contenuto non disponibile";
     if (item["@type"] === "CreativeWork") {
       const art = item.about;
@@ -1336,144 +1203,136 @@ export class AppState {
     return item.name || "Senza titolo";
   }
 
-  /** Tono e durata di un item, per la riga della timeline. */
-  dettaglioItem(id: string): string {
-    const item = this.trovaItem(id);
+  itemDetail(id: string): string {
+    const item = this.findItem(id);
     if (!item || item["@type"] !== "CreativeWork") return "";
     return `${item.educationalLevel} · ${item.timeRequired}s`;
   }
 
-  itemGiaInVisita(id: string) {
-    return this.nuovaOpera.tappe.some(
+  itemInVisit(id: string) {
+    return this.draft.tappe.some(
       (t) => t.tipo === "item" && t.value === id,
     );
   }
 
-  aggiungiTappa(tipo: "item" | "logistica", value: string = "") {
-    if (tipo === "item" && this.itemGiaInVisita(value)) {
-      return this.mostraToast("Questa descrizione è già nel percorso.", "error");
+  addStop(tipo: "item" | "logistica", value: string = "") {
+    if (tipo === "item" && this.itemInVisit(value)) {
+      return this.showToast("Questa descrizione è già nel percorso.", "error");
     }
-    this.nuovaOpera.tappe.push({ tipo, value });
+    this.draft.tappe.push({ tipo, value });
     if (tipo === "item") {
-      this.annuncia(
-        `${this.trovaNomeItem(value)} aggiunta. ${this.numeroTappe()} tappe nel percorso.`,
+      this.announce(
+        `${this.itemName(value)} aggiunta. ${this.stopCount()} tappe nel percorso.`,
       );
     }
   }
 
-  rimuoviTappa(index: number) {
-    this.nuovaOpera.tappe.splice(index, 1);
+  removeStop(index: number) {
+    this.draft.tappe.splice(index, 1);
   }
 
-  spostaTappa(index: number, dir: -1 | 1) {
+  moveStop(index: number, dir: -1 | 1) {
     const j = index + dir;
-    const t = this.nuovaOpera.tappe;
+    const t = this.draft.tappe;
     if (j < 0 || j >= t.length) return;
     [t[index], t[j]] = [t[j], t[index]];
   }
 
-  toggleOpzionale(index: number) {
-    const t = this.nuovaOpera.tappe[index];
+  toggleOptional(index: number) {
+    const t = this.draft.tappe[index];
     if (t && t.tipo === "item") t.opzionale = !t.opzionale;
   }
 
-  numeroTappe(): number {
-    return this.nuovaOpera.tappe.filter((t) => t.tipo === "item").length;
+  stopCount(): number {
+    return this.draft.tappe.filter((t) => t.tipo === "item").length;
   }
 
-  /** Numero progressivo mostrato accanto a una tappa: le note logistiche non
-   *  sono tappe e non prendono numero. */
-  numeroDiTappa(index: number): number | null {
-    const t = this.nuovaOpera.tappe[index];
+  stopNumber(index: number): number | null {
+    const t = this.draft.tappe[index];
     if (!t || t.tipo !== "item") return null;
     let n = 0;
     for (let i = 0; i <= index; i++) {
-      if (this.nuovaOpera.tappe[i].tipo === "item") n++;
+      if (this.draft.tappe[i].tipo === "item") n++;
     }
     return n;
   }
 
-  durataStimataVisita(): number {
+  estimatedDuration(): number {
     let tot = 0;
-    for (const t of this.nuovaOpera.tappe) {
+    for (const t of this.draft.tappe) {
       if (t.tipo !== "item") continue;
-      const it = this.trovaItem(t.value);
+      const it = this.findItem(t.value);
       if (it) tot += Number(it.timeRequired) || 0;
     }
     return tot;
   }
 
-  aggiungiDomandaQuiz() {
-    this.nuovaOpera.quiz.push({
+  addQuizQuestion() {
+    this.draft.quiz.push({
       question: "",
       options: ["", "", "", ""],
       correct: 0,
     });
   }
 
-  rimuoviDomandaQuiz(index: number) {
-    this.nuovaOpera.quiz.splice(index, 1);
+  removeQuizQuestion(index: number) {
+    this.draft.quiz.splice(index, 1);
   }
 
-  /** Cosa manca alla visita, in italiano. Mostrato SEMPRE, non solo al
-   *  momento del rifiuto: un pulsante che tace e non salva e' il peggior
-   *  modo di fallire. */
-  validazioneVisita(): string[] {
-    const mancano: string[] = [];
-    if (!this.nuovaOpera.titolo.trim()) mancano.push("il titolo");
-    if (this.numeroTappe() === 0) mancano.push("almeno una tappa");
-    if (this.currentUserType === "autore" && Number(this.nuovaOpera.price) < 0)
-      mancano.push("un prezzo non negativo");
-    const guidata = this.currentUserType === "autore" && this.nuovaOpera.guidata;
+  visitIssues(): string[] {
+    const issues: string[] = [];
+    if (!this.draft.titolo.trim()) issues.push("il titolo");
+    if (this.stopCount() === 0) issues.push("almeno una tappa");
+    if (this.currentUserRole === "autore" && Number(this.draft.price) < 0)
+      issues.push("un prezzo non negativo");
+    const guidata = this.currentUserRole === "autore" && this.draft.guidata;
     if (guidata) {
-      if (!this.nuovaOpera.accessKey.trim()) mancano.push("la parola chiave");
-      const nonAmmessi = this.nuovaOpera.tappe.filter(
+      if (!this.draft.accessKey.trim()) issues.push("la parola chiave");
+      const notAllowed = this.draft.tappe.filter(
         (t) =>
-          t.tipo === "item" && !this.usabileInGuidata(this.trovaItem(t.value)),
+          t.tipo === "item" && !this.allowedInGuided(this.findItem(t.value)),
       );
-      if (nonAmmessi.length > 0)
-        mancano.push(
-          `${nonAmmessi.length} contenuti a pagamento non tuoi da rimuovere`,
+      if (notAllowed.length > 0)
+        issues.push(
+          `${notAllowed.length} contenuti a pagamento non tuoi da rimuovere`,
         );
-      for (const q of this.nuovaOpera.quiz) {
+      for (const q of this.draft.quiz) {
         if (
           !q.question.trim() ||
           q.options.length !== 4 ||
           q.options.some((o) => !o.trim())
         ) {
-          mancano.push("le domande del quiz complete");
+          issues.push("le domande del quiz complete");
           break;
         }
       }
     }
-    return mancano;
+    return issues;
   }
 
-  /** Riga di stato del banco di lavoro: o cosa manca, o cosa si sta per fare. */
-  statoVisita(): string {
-    const mancano = this.validazioneVisita();
-    if (mancano.length > 0) return `Manca ancora: ${mancano.join(", ")}.`;
-    return `Pronta · ${this.numeroTappe()} tappe · ${formatDurata(this.durataStimataVisita())}`;
+  visitStatus(): string {
+    const issues = this.visitIssues();
+    if (issues.length > 0) return `Manca ancora: ${issues.join(", ")}.`;
+    return `Pronta · ${this.stopCount()} tappe · ${formatDuration(this.estimatedDuration())}`;
   }
 
-  etichettaPubblica(): string {
-    if (this.currentUserType !== "autore") return "Salva nella mia libreria";
-    // Una visita guidata NON viene pubblicata in vetrina: dirlo.
-    if (this.nuovaOpera.guidata) return "Attiva la visita guidata";
+  publishLabel(): string {
+    if (this.currentUserRole !== "autore") return "Salva nella mia libreria";
+    if (this.draft.guidata) return "Attiva la visita guidata";
     return this.editingId ? "Salva le modifiche" : "Pubblica in vetrina";
   }
 
-  async salvaVisita() {
-    const mancano = this.validazioneVisita();
-    if (mancano.length > 0)
-      return this.mostraToast(`Manca ancora: ${mancano.join(", ")}.`, "error");
+  async saveVisit() {
+    const issues = this.visitIssues();
+    if (issues.length > 0)
+      return this.showToast(`Manca ancora: ${issues.join(", ")}.`, "error");
 
-    const guidata = this.currentUserType === "autore" && this.nuovaOpera.guidata;
+    const guidata = this.currentUserRole === "autore" && this.draft.guidata;
     let quizPayload:
       | { question: string; options: string[]; correct: number }[]
       | undefined;
-    if (guidata && this.nuovaOpera.quiz.length > 0) {
-      quizPayload = this.nuovaOpera.quiz.map((q) => ({
+    if (guidata && this.draft.quiz.length > 0) {
+      quizPayload = this.draft.quiz.map((q) => ({
         question: q.question.trim(),
         options: q.options.map((o) => o.trim()),
         correct: Number(q.correct),
@@ -1483,22 +1342,20 @@ export class AppState {
     const payload = {
       tipo: "Visita",
       id: this.editingId || `tour-${Date.now()}`,
-      titolo: this.nuovaOpera.titolo,
+      titolo: this.draft.titolo,
       autore: this.currentUser!,
-      accessKey: guidata ? this.nuovaOpera.accessKey.trim() : undefined,
+      accessKey: guidata ? this.draft.accessKey.trim() : undefined,
       quiz: quizPayload,
       prezzo:
-        guidata || this.currentUserType !== "autore" ? 0 : this.nuovaOpera.price,
+        guidata || this.currentUserRole !== "autore" ? 0 : this.draft.price,
       licenza:
-        this.currentUserType === "autore"
-          ? this.nuovaOpera.license
+        this.currentUserRole === "autore"
+          ? this.draft.license
           : "Tutti i diritti riservati",
-      museumUri: this.museoSelezionato
-        ? `http://www.wikidata.org/entity/${this.museoSelezionato.qid}`
+      museumUri: this.selectedMuseum
+        ? `http://www.wikidata.org/entity/${this.selectedMuseum.qid}`
         : undefined,
-      // Il percorso conserva l'ORDINE misto: ogni nota logistica sa dopo quale
-      // tappa si trova, cosi' il navigator puo' mostrarla al momento giusto.
-      percorso: this.nuovaOpera.tappe
+      percorso: this.draft.tappe
         .filter((t) => t.tipo === "item" || t.value.trim() !== "")
         .map((t) => ({
           tipo: t.tipo,
@@ -1510,55 +1367,49 @@ export class AppState {
 
     try {
       await ArtAPI.pubblica(payload);
-      this.mostraToast(
+      this.showToast(
         guidata
           ? "Visita guidata attiva: comunica la parola chiave alla classe."
           : "Visita salvata.",
       );
       this.editingId = null;
       await this.initApp();
-      this.vaiA(this.currentUserType === "autore" ? "lavori" : "libreria");
+      this.goTo(this.currentUserRole === "autore" ? "lavori" : "libreria");
     } catch (e) {
-      this.mostraToast((e as Error).message, "error");
+      this.showToast((e as Error).message, "error");
     }
   }
 
-  // =========================================================================
-  //  VENDITE
-  // =========================================================================
+  periodFilter: string = "sempre";
 
-  filtroPeriodo: string = "sempre";
-
-  async caricaVendite() {
+  async loadSales() {
     if (!this.currentUser) return;
     try {
-      this.vendite = await ArtAPI.fetchSales(this.currentUser);
+      this.sales = await ArtAPI.fetchSales(this.currentUser);
     } catch (e) {
       console.error(e);
-      this.vendite = [];
+      this.sales = [];
     }
   }
 
-  venditeFiltrate() {
-    return this.vendite.filter((r) => this.appartieneAlMuseo(r));
+  filteredSales() {
+    return this.sales.filter((r) => this.belongsToMuseum(r));
   }
 
-  totaleAdozioni() {
-    return this.venditeFiltrate().reduce((s, r) => s + (r.adozioni || 0), 0);
+  totalAdoptions() {
+    return this.filteredSales().reduce((s, r) => s + (r.adozioni || 0), 0);
   }
 
-  totaleRicavo() {
-    return this.venditeFiltrate().reduce((s, r) => s + (r.ricavo || 0), 0);
+  totalRevenue() {
+    return this.filteredSales().reduce((s, r) => s + (r.ricavo || 0), 0);
   }
 
-  /** Il ricavo di un contenuto gratuito non e' "€ 0,00": non esiste. Quello
-   *  che conta, per il gratuito, e' la diffusione. */
-  ricavoLeggibile(r: any): string {
+  readableRevenue(r: any): string {
     if (!r.price || Number(r.price) === 0) return "—";
     return `€ ${(r.ricavo || 0).toFixed(2)}`;
   }
 
-  prezzoLeggibile(p: number | undefined): string {
+  readablePrice(p: number | undefined): string {
     if (!p || Number(p) === 0) return "Gratis";
     return `€ ${Number(p).toFixed(2)}`;
   }

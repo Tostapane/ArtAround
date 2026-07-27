@@ -1,3 +1,9 @@
+/**
+ * Copia locale delle immagini delle opere.
+ *
+ * Se il download fallisce si restituisce l'indirizzo remoto: un'immagine lenta e'
+ * sempre meglio di nessuna immagine.
+ */
 import fs from "fs";
 import path from "path";
 
@@ -10,7 +16,6 @@ export async function downloadImage(
   if (!url) return "";
   if (url.startsWith("/")) return url;
   try {
-    // e' necessario recursive?
     if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR, { recursive: true });
     const extension = path.extname(url).split("?")[0] || ".jpg";
     const localFileName = `${fileName}${extension}`;
@@ -20,7 +25,6 @@ export async function downloadImage(
       return `/images/artworks/${localFileName}`;
     }
 
-    // Append width parameter to Wikimedia Commons URLs to reduce image size
     let fetchUrl = url;
     if (url.includes("Special:FilePath")) {
       fetchUrl = url.includes("?") ? `${url}&width=800` : `${url}?width=800`;

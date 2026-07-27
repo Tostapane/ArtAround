@@ -1,3 +1,10 @@
+/**
+ * Documento Mongoose di una visita.
+ *
+ * Le note logistiche sono di tipo libero perche' i documenti creati prima delle
+ * note posizionate contengono stringhe nude; i client sanno leggere entrambe le
+ * forme e `testers.ts` le riallinea.
+ */
 import { Schema, model } from "mongoose";
 import { Visit as SharedVisit } from "../../../shared/types";
 
@@ -22,14 +29,8 @@ const visitSchema = new Schema<IVisit>({
   ofMuseum: String,
   itemListElement: [String],
   optionalItems: [String],
-  // Note logistiche: oggetti { after, text } (vedi shared/types: LogisticNote).
-  // Mixed perche' i documenti creati prima contengono stringhe nude: i client
-  // sanno leggere entrambe le forme, e testers.ts le riallinea.
   logistics: [Schema.Types.Mixed],
-  // Parola chiave della visita guidata (univoca; assente = visita normale).
   accessKey: String,
-  // Quiz di fine visita (solo guidate, facoltativo): domande a 4 opzioni con
-  // l'indice della corretta. Le corrette non vengono mai inviate agli studenti.
   quiz: {
     type: [
       {

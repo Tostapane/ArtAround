@@ -1,4 +1,23 @@
 <script setup lang="ts">
+/**
+ * LA SCHEDA — la didascalia dell'opera, ingrandita.
+ *
+ * Non e' piu' una finestra che copre la mappa: e' un foglio che sale dal basso,
+ * con tre altezze. "Che cos'e' questo" e "dove sono" erano le due domande del
+ * visitatore, e il disegno precedente costringeva a sceglierne una.
+ *   riposo — numero, titolo, ascolto, avanti/indietro; non e' modale, dietro si
+ *            continua a navigare col Tab.
+ *   media  — immagine, autore, testo. E' l'altezza con cui si apre una tappa.
+ *   piena  — aggiunge Chiedi e Orientati.
+ * Da lg in su non e' un foglio ma una colonna, e non e' mai modale.
+ *
+ * Chiedi e Orientati sono separati perche' sono domande di natura diversa, a
+ * sistemi diversi: la prima riguarda l'opera e risponde l'LLM, la seconda
+ * riguarda l'edificio e risponde il grafo ricavato dalla mappa.
+ *
+ * Il microfono e' un controllo permanente del piede, non un'opzione nascosta:
+ * per chi non vede e' l'ingresso principale all'applicazione.
+ */
 import { computed, ref, watch, nextTick } from "vue";
 import Info from "./Info.vue";
 import Comando from "./Comando.vue";
@@ -8,20 +27,6 @@ import { mediaOrigin } from "@/config";
 import { language, setLanguage } from "@/state";
 import { languages } from "../../../../shared/constants";
 import type { Match } from "../../../../shared/types";
-
-/**
- * LA SCHEDA — la didascalia, ingrandita.
- *
- * Non è più una finestra modale che copre la mappa: è un foglio che sale dal
- * basso, con tre altezze. "Che cos'è questo" e "dove sono" erano le due domande
- * del visitatore, e il vecchio disegno costringeva a sceglierne una.
- *   riposo  — numero, titolo, ascolto, avanti/indietro. Non è modale: dietro si
- *             continua a navigare con il Tab.
- *   media   — immagine, autore, testo. È l'altezza con cui si apre una tappa.
- *   piena   — aggiunge Chiedi e Orientati. Solo qui il palcoscenico diventa
- *             inerte, perché il foglio copre lo schermo.
- * Da lg in su non è un foglio: è una colonna, e non è mai modale.
- */
 
 const props = defineProps<{
   content: Match;
@@ -40,18 +45,17 @@ const props = defineProps<{
 const emit = defineEmits<{
   navigation: [value: string];
   action: [value: string];
-  chiudiRichiesta: [];
+  closeRequest: [];
   snap: [value: "riposo" | "media" | "piena"];
 }>();
 
 const tts = useTTS();
 const snap = ref<"riposo" | "media" | "piena">("media");
-const scheda = ref<HTMLElement | null>(null);
+const sheet = ref<HTMLElement | null>(null);
 const tab = ref<"chiedi" | "orientati">("chiedi");
 
 watch(snap, (v) => emit("snap", v), { immediate: true });
 
-// Aprendo una nuova opera il foglio torna all'altezza media.
 watch(
   () => props.content,
   () => {
@@ -60,7 +64,6 @@ watch(
   },
 );
 
-// Una richiesta in corso ha bisogno di spazio: il foglio si apre da solo.
 watch(
   () => props.richiesta,
   (r) => {
@@ -68,33 +71,31 @@ watch(
   },
 );
 
-async function espandi() {
+async function expand() {
   snap.value = snap.value === "piena" ? "media" : "piena";
   if (snap.value === "piena") {
     await nextTick();
-    if (scheda.value) scheda.value.focus();
+    if (sheet.value) sheet.value.focus();
   }
 }
 
-function riduci() {
+function collapse() {
   if (snap.value === "piena") snap.value = "media";
   else if (snap.value === "media") snap.value = "riposo";
 }
 
-const comandiChiedi = computed(() => options.filter((o) => o.surface === "chiedi"));
-const comandiOrientati = computed(() =>
+const askCommands = computed(() => options.filter((o) => o.surface === "chiedi"));
+const orientCommands = computed(() =>
   options.filter((o) => o.surface === "orientati"),
 );
 
-const etichettaProssimo = computed(() => {
-  // Un docente che preme "Prossimo" sta muovendo trenta persone: dirlo.
+const nextLabel = computed(() => {
   if (props.guidedTeacher) return "Porta tutti alla prossima opera";
   return labelForCommand("Prossimo");
 });
 
-// Sorgente immagine: prima quella scaricata sul server, poi quella remota.
-const imgRotta = ref(false);
-watch(() => props.content, () => (imgRotta.value = false));
+const imgBroken = ref(false);
+watch(() => props.content, () => (imgBroken.value = false));
 const imgSrc = computed(() => {
   const a = props.content.artwork;
   if (a && a.imagePath) {
@@ -105,7 +106,7 @@ const imgSrc = computed(() => {
   return (a && a.imageUri) || "";
 });
 
-const altezza = computed(() => {
+const height = computed(() => {
   if (snap.value === "riposo") return "max-h-[6.5rem]";
   if (snap.value === "media") return "max-h-[62dvh]";
   return "max-h-[92dvh]";
@@ -122,7 +123,7 @@ const altezza = computed(() => {
   ></div>
 
   <section
-    ref="scheda"
+    ref="sheet"
     tabindex="-1"
     :aria-label="'Tappa corrente: ' + fields[0]"
     :role="snap === 'piena' ? 'dialog' : undefined"
@@ -131,9 +132,9 @@ const altezza = computed(() => {
            bg-surface shadow-l2 transition-[max-height] duration-200 ease-[var(--ease-aa)]
            lg:static lg:z-auto lg:w-[26rem] lg:shrink-0 lg:rounded-none lg:border-y-0
            lg:border-r-0 lg:shadow-none"
-    :class="[altezza, 'lg:!max-h-none']"
+    :class="[height, 'lg:!max-h-none']"
     style="padding-bottom: env(safe-area-inset-bottom)"
-    @keydown.escape="riduci"
+    @keydown.escape="collapse"
   >
     <!-- ===== RIPOSO: sempre visibile ===== -->
     <div class="flex shrink-0 items-center gap-3 border-b border-line p-3">
@@ -149,7 +150,7 @@ const altezza = computed(() => {
         type="button"
         class="min-w-0 flex-1 text-left"
         :aria-expanded="snap === 'piena'"
-        @click="espandi"
+        @click="expand"
       >
         <span class="block truncate font-display text-title-3 leading-tight">
           {{ fields[0] }}
@@ -196,11 +197,11 @@ const altezza = computed(() => {
 
     <!-- ===== MEDIA e PIENA ===== -->
     <div v-show="snap !== 'riposo'" class="min-h-0 flex-1 overflow-y-auto">
-      <div v-if="imgSrc && !imgRotta" class="mat rounded-none border-x-0 border-t-0">
+      <div v-if="imgSrc && !imgBroken" class="mat rounded-none border-x-0 border-t-0">
         <img
           :src="imgSrc"
           :alt="'Immagine dell\'opera: ' + content.artwork.name"
-          @error="imgRotta = true"
+          @error="imgBroken = true"
         />
       </div>
 
@@ -217,7 +218,6 @@ const altezza = computed(() => {
 
         <p class="measure mt-4 text-body">{{ fields[2] }}</p>
 
-        <!-- ===== Chiedi / Orientati: due sistemi, due domande diverse ===== -->
         <div v-show="snap === 'piena'" class="mt-8 border-t border-line pt-5">
           <div class="segmenti" role="tablist" aria-label="Che cosa vuoi chiedere">
             <button
@@ -252,7 +252,7 @@ const altezza = computed(() => {
 
           <div class="mt-3 flex flex-col gap-2">
             <button
-              v-for="o in tab === 'chiedi' ? comandiChiedi : comandiOrientati"
+              v-for="o in tab === 'chiedi' ? askCommands : orientCommands"
               :key="o.id"
               type="button"
               class="comando"
@@ -271,11 +271,9 @@ const altezza = computed(() => {
             class="mt-4"
             :request="richiesta"
             :about="content"
-            @close="emit('chiudiRichiesta')"
+            @close="emit('closeRequest')"
           />
 
-          <!-- La lingua si cambia QUI: ci si accorge di averne bisogno durante
-               la visita, non alla biglietteria. -->
           <div class="mt-8 border-t border-line pt-4">
             <label for="lingua-scheda" class="text-caption uppercase tracking-wider text-muted">
               Lingua dei contenuti
@@ -316,8 +314,6 @@ const altezza = computed(() => {
         <span class="sr-only">{{ labelForCommand("Precedente") }}</span>
       </button>
 
-      <!-- Il microfono è un controllo permanente, non un'opzione nascosta:
-           per chi non vede è l'ingresso principale, non un'alternativa. -->
       <Comando class="flex-1" @action="(a) => emit('action', a)" />
 
       <button
@@ -325,7 +321,7 @@ const altezza = computed(() => {
         type="button"
         class="btn-primario"
         :disabled="!hasNext"
-        :aria-label="etichettaProssimo"
+        :aria-label="nextLabel"
         @click="emit('navigation', 'next')"
       >
         <span class="hidden sm:inline lg:hidden xl:inline">

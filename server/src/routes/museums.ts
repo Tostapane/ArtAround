@@ -1,3 +1,12 @@
+/**
+ * Rotte dei musei.
+ *
+ * `/config` legge il museo dal FILE DI CONFIGURAZIONE del curatore invece che dal
+ * database: e' quello il file che si modifica per adattare il navigator.
+ * `/visits` filtra per chi guarda: le visite guidate non compaiono mai (ci si
+ * entra con la parola chiave) e quelle a pagamento solo a chi le possiede.
+ * `/qrcodes` produce il foglio stampabile da ritagliare e affiancare alle opere.
+ */
 import { Router } from "express";
 import QRCode from "qrcode";
 import fs from "fs";
@@ -8,10 +17,8 @@ import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
 const router = Router();
 
-// directory dei file di configurazione per-museo generati dal seed
 const CONFIG_DIR = path.join(__dirname, "..", "data", "museums");
 
-// minima escape per inserire testo dal DB nell'HTML stampabile dei QR
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -33,13 +40,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/museums/:qid/config
- * Ritorna il museo leggendolo dal suo FILE DI CONFIGURAZIONE
- * (server/src/data/museums/<nome>.json, generato dal seed) invece che dal
- * database: e' il file che il curatore puo' modificare per creare la versione
- * del navigator specifica per il suo museo. Include anche activeArtworks.
- */
 router.get("/:qid/config", async (req, res) => {
   try {
     const { qid } = req.params;
@@ -48,7 +48,6 @@ router.get("/:qid/config", async (req, res) => {
       const raw = fs.readFileSync(path.join(CONFIG_DIR, file), "utf-8");
       const config = JSON.parse(raw);
       if (config.qid === qid) {
-        // "@id" per compatibilita' con la shape Museum usata dai client
         config["@id"] = `http://www.wikidata.org/entity/${qid}`;
         return res.json(config);
       }
@@ -58,11 +57,6 @@ router.get("/:qid/config", async (req, res) => {
     res.status(500).json({ error: err.message || "Errore nel caricamento della configurazione del museo" });
   }
 });
-
-/**
- * GET /api/museums/:id/artworks
- * ritorna tutte le opere che sono presenti in quel museo
- */
 
 router.get("/:qid/artworks", async (req, res) => {
   try {
@@ -75,22 +69,6 @@ router.get("/:qid/artworks", async (req, res) => {
   }
 });
 
-/**
- * GET /api/museums/:qid/visits?user=<username>
- * Visite del museo che la persona indicata puo' effettivamente iniziare.
- *
- * Prima questa rotta restituiva TUTTO, e il navigator avviava qualunque visita
- * gli venisse passata: quelle a pagamento mai comprate e perfino quelle
- * GUIDATE, che comparivano nell'elenco come le altre. Il marketplace protegge
- * con cura il pulsante "Inizia la visita", e il senso stesso della parola
- * chiave e' che una visita guidata non sia liberamente giocabile: entrambe le
- * garanzie svanivano un URL piu' in la'. Non e' una questione di sicurezza
- * (non e' materia d'esame) ma di coerenza.
- *
- *  - le visite GUIDATE non compaiono mai: ci si entra con la parola chiave;
- *  - senza `user` (modalita' esempio) si vedono solo le visite gratuite;
- *  - con `user` si aggiungono quelle possedute e quelle di cui e' autore.
- */
 router.get("/:qid/visits", async (req, res) => {
   try {
     const { qid } = req.params;
@@ -98,36 +76,28 @@ router.get("/:qid/visits", async (req, res) => {
     const visits = await VisitModel.find({ ofMuseum: museumId });
 
     const username = String(req.query.user || "");
-    let posseduti = new Set<string>();
+    let owned = new Set<string>();
     if (username) {
-      const utenti = await UserModel.find({ username });
-      for (const u of utenti) {
-        for (const id of u.collezione || []) posseduti.add(id);
+      const accounts = await UserModel.find({ username });
+      for (const u of accounts) {
+        for (const id of u.collezione || []) owned.add(id);
       }
     }
 
-    const visibili = visits.filter((v: any) => {
+    const visible = visits.filter((v: any) => {
       if (v.accessKey) return false;
-      const gratuita = !v.price || Number(v.price) === 0;
-      if (gratuita) return true;
+      const isFree = !v.price || Number(v.price) === 0;
+      if (isFree) return true;
       if (!username) return false;
-      return posseduti.has(v["@id"]) || v.author === username;
+      return owned.has(v["@id"]) || v.author === username;
     });
 
-    res.json(visibili);
+    res.json(visible);
   } catch (err: any) {
     res.status(500).json({ error: "Errore nel caricamento delle visite del museo" });
   }
 });
 
-/**
- * GET /api/museums/:qid/qrcodes
- * Pagina HTML stampabile con un QR per ogni opera del museo. Il payload del QR
- * e' il qid nudo dell'opera (es. "Q12345"): lo scanner in-app del navigator lo
- * decodifica e imposta la posizione corrente. Il curatore stampa questo foglio,
- * ritaglia i QR e li affianca alle opere ("foglio di carta" della specifica 18-33).
- * Completamente generico: un nuovo museo ottiene il suo foglio senza codice ad-hoc.
- */
 router.get("/:qid/qrcodes", async (req, res) => {
   try {
     const { qid } = req.params;
@@ -152,15 +122,6 @@ router.get("/:qid/qrcodes", async (req, res) => {
       );
     }
 
-    /*
-     * Il CODICE sotto il QR non e' una didascalia: e' l'altra meta' della
-     * funzione. Inquadrare un quadratino stampato accanto a un quadro e'
-     * esattamente il gesto che una persona cieca non puo' compiere, in un'app il
-     * cui scopo e' parlarle — ed e' anche quello che fallisce fuori da un
-     * contesto sicuro (aprendo il navigator con l'IP della rete locale). Perche'
-     * quel codice serva a qualcosa dev'essere LEGGIBILE: grande, monospaziato,
-     * nero su bianco. Prima era un grigio da 11px.
-     */
     const html = `<!doctype html>
 <html lang="it">
 <head>

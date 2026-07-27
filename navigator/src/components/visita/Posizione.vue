@@ -1,45 +1,39 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted, computed } from "vue";
-import { useQRScanner } from "@/composables/useQRScanner";
-
 /**
  * DOVE SONO — un solo ingresso, due modi, nessuno dei due privilegiato.
  *
  * Inquadrare un QR accanto a un quadro e' esattamente il gesto che una persona
  * cieca non puo' compiere, in un'app il cui scopo e' parlarle. Ed e' anche il
- * gesto che fallisce fuori da un contesto sicuro (aprendo il navigator con
- * l'IP della rete locale, cioe' il modo normale di provarlo su un telefono):
- * `getUserMedia` semplicemente non c'e'.
+ * gesto che fallisce fuori da un contesto sicuro: aprendo il navigator con
+ * l'IP della rete locale — il modo normale di provarlo su un telefono —
+ * getUserMedia semplicemente non c'e'.
  *
  * Lo stesso campo risolve entrambe le cose: il codice dell'opera, stampato sul
  * foglio accanto al QR, si puo' digitare. Un solo campo incollabile, mai
- * spezzato in caselle, mai a tempo (WCAG 2.2 — 3.3.8).
+ * spezzato in caselle, mai a tempo (WCAG 2.2, 3.3.8).
  */
+import { ref, watch, onUnmounted, computed } from "vue";
+import { useQRScanner } from "@/composables/useQRScanner";
 
-const emit = defineEmits<{ trovata: [qid: string]; close: [] }>();
+const emit = defineEmits<{ found: [qid: string]; close: [] }>();
 
 const scanner = useQRScanner();
 const video = ref<HTMLVideoElement | null>(null);
-const codice = ref("");
-const erroreCodice = ref("");
+const code = ref("");
+const codeError = ref("");
 
-// La fotocamera esiste solo in contesto sicuro: si dice subito, non dopo
-// aver mostrato un rettangolo nero.
-const fotocameraPossibile = computed(
+const cameraAvailable = computed(
   () => window.isSecureContext && !!navigator.mediaDevices,
 );
-const scheda = ref<"qr" | "codice">(fotocameraPossibile.value ? "qr" : "codice");
+const sheet = ref<"qr" | "codice">(cameraAvailable.value ? "qr" : "codice");
 
-/** Il payload del QR e' il qid nudo, ma siamo tolleranti: se fosse un URL o
- *  avesse spazi, il qid si estrae comunque. */
-function estraiQid(testo: string): string {
-  const m = testo.trim().toUpperCase().match(/Q\d+/);
+function extractQid(raw: string): string {
+  const m = raw.trim().toUpperCase().match(/Q\d+/);
   return m ? m[0] : "";
 }
 
-// Avvia la fotocamera appena il <video> esiste davvero nel DOM.
 watch(
-  [video, scheda],
+  [video, sheet],
   ([el, s]) => {
     if (s !== "qr") {
       scanner.stop();
@@ -47,23 +41,23 @@ watch(
     }
     if (!el) return;
     scanner.start(el, (data) => {
-      const qid = estraiQid(data);
+      const qid = extractQid(data);
       scanner.stop();
-      if (qid) emit("trovata", qid);
+      if (qid) emit("found", qid);
     });
   },
   { immediate: true },
 );
 
-function inviaCodice() {
-  const qid = estraiQid(codice.value);
+function submitCode() {
+  const qid = extractQid(code.value);
   if (!qid) {
-    erroreCodice.value =
+    codeError.value =
       "Codice non riconosciuto. È scritto sotto il QR, e comincia per Q.";
     return;
   }
-  erroreCodice.value = "";
-  emit("trovata", qid);
+  codeError.value = "";
+  emit("found", qid);
 }
 
 onUnmounted(() => scanner.stop());
@@ -98,34 +92,33 @@ onUnmounted(() => scanner.stop());
         <button
           type="button"
           role="tab"
-          :aria-selected="scheda === 'qr'"
-          :disabled="!fotocameraPossibile"
+          :aria-selected="sheet === 'qr'"
+          :disabled="!cameraAvailable"
           class="segmento"
-          :class="scheda === 'qr' ? 'segmento-attivo' : ''"
-          @click="scheda = 'qr'"
+          :class="sheet === 'qr' ? 'segmento-attivo' : ''"
+          @click="sheet = 'qr'"
         >
           Inquadra il QR
         </button>
         <button
           type="button"
           role="tab"
-          :aria-selected="scheda === 'codice'"
+          :aria-selected="sheet === 'codice'"
           class="segmento"
-          :class="scheda === 'codice' ? 'segmento-attivo' : ''"
-          @click="scheda = 'codice'"
+          :class="sheet === 'codice' ? 'segmento-attivo' : ''"
+          @click="sheet = 'codice'"
         >
           Scrivi il codice
         </button>
       </div>
 
-      <!-- La fotocamera non e' disponibile: si dice perché, e si offre l'altra via -->
-      <p v-if="!fotocameraPossibile" class="avviso mt-4">
+      <p v-if="!cameraAvailable" class="avviso mt-4">
         La fotocamera funziona solo su indirizzi sicuri (https o localhost).
         Scrivi il codice stampato sotto il QR.
       </p>
 
       <!-- QR -->
-      <div v-show="scheda === 'qr' && fotocameraPossibile" class="mt-4">
+      <div v-show="sheet === 'qr' && cameraAvailable" class="mt-4">
         <div class="relative overflow-hidden rounded-plate bg-black">
           <video ref="video" class="aspect-square w-full object-cover" playsinline muted></video>
           <div
@@ -142,26 +135,26 @@ onUnmounted(() => scanner.stop());
       </div>
 
       <!-- Codice digitato -->
-      <form v-show="scheda === 'codice'" class="mt-4" @submit.prevent="inviaCodice">
+      <form v-show="sheet === 'codice'" class="mt-4" @submit.prevent="submitCode">
         <label for="codice-opera" class="etichetta">Codice dell'opera</label>
         <p class="mt-1 text-caption text-muted">
           È stampato sotto il QR, accanto all'opera.
         </p>
         <input
           id="codice-opera"
-          v-model="codice"
+          v-model="code"
           type="text"
           inputmode="text"
           autocomplete="off"
           spellcheck="false"
           class="campo font-mono text-title-3 uppercase"
           placeholder="Q12418"
-          :aria-describedby="erroreCodice ? 'codice-errore' : undefined"
+          :aria-describedby="codeError ? 'codice-errore' : undefined"
         />
-        <p v-if="erroreCodice" id="codice-errore" class="mt-2 text-small text-danger" role="alert">
-          {{ erroreCodice }}
+        <p v-if="codeError" id="codice-errore" class="mt-2 text-small text-danger" role="alert">
+          {{ codeError }}
         </p>
-        <button type="submit" class="btn-primario mt-4 w-full justify-center" :disabled="!codice.trim()">
+        <button type="submit" class="btn-primario mt-4 w-full justify-center" :disabled="!code.trim()">
           Portami qui
         </button>
       </form>

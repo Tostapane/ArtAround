@@ -1,4 +1,19 @@
 <script setup lang="ts">
+/**
+ * LA RISPOSTA a un comando del vocabolario controllato.
+ *
+ * Due sorgenti, scelte in base al comando: le domande sull'edificio (uscita,
+ * bagno, bar, negozio, ostacoli) vanno al grafo delle sale ricavato dalla
+ * mappa, che risponde prima con la sola zona e, su richiesta, con il percorso
+ * passo-passo; tutte le altre vengono riformulate e mandate all'LLM.
+ *
+ * La domanda resta scritta sopra la risposta: senza, la risposta perde il suo
+ * riferimento appena si distoglie lo sguardo — e questo riquadro serve proprio
+ * a chi non ha capito il testo precedente.
+ *
+ * Un contatore di richieste scarta le risposte che arrivano in ritardo, cosi'
+ * un cambio di lingua non viene sovrascritto da una risposta vecchia.
+ */
 import { computed, ref, watch } from "vue";
 import { getInfo, getDirections } from "@/api";
 import { useTTS } from "./useTTS";
@@ -18,15 +33,8 @@ const isLoading = computed(() => responseText.value === LOADING);
 const isError = computed(() => responseText.value === ERROR);
 const canRead = computed(() => !isLoading.value && !isError.value);
 
-// Identifica la richiesta più recente: una risposta vecchia che arriva in
-// ritardo (es. dopo un cambio di lingua) non sovrascrive quella nuova.
 let requestId = 0;
 
-/**
- * Comandi che riguardano l'EDIFICIO: risponde il grafo ricavato dalla mappa,
- * non l'LLM sull'opera. Sono domande di natura diversa, con modi di fallire
- * diversi: per questo nella scheda stanno in due sezioni separate.
- */
 const POSITIONAL: Record<string, string> = {
   "Dove esco?": "exit",
   "Dove e il bagno?": "toilet",
@@ -46,9 +54,9 @@ const canDetail = computed(() => {
   return !!target && target !== "obstacles";
 });
 
-const titolo = computed(() => labelForCommand(props.request));
+const title = computed(() => labelForCommand(props.request));
 
-async function chiedi() {
+async function ask() {
   const cleanRequest = props.request.trim();
   const myId = ++requestId;
   responseText.value = LOADING;
@@ -73,8 +81,6 @@ async function chiedi() {
     return;
   }
 
-  // Richiesta sul contenuto dell'opera. I comandi del vocabolario controllato
-  // vengono riformulati; una richiesta libera (non mappata) va così com'è.
   let request = cleanRequest;
   switch (cleanRequest) {
     case "Non ho capito":
@@ -113,7 +119,7 @@ async function chiedi() {
 
 watch(
   () => [props.request, props.about, language.value, detailed.value],
-  chiedi,
+  ask,
   { immediate: true },
 );
 </script>
@@ -121,10 +127,8 @@ watch(
 <template>
   <section class="lastra p-4" aria-labelledby="info-titolo">
     <div class="flex items-start justify-between gap-2">
-      <!-- La domanda resta scritta sopra la risposta: senza, la risposta perde
-           il suo riferimento appena si distoglie lo sguardo. -->
       <h3 id="info-titolo" class="text-caption uppercase tracking-wider text-muted">
-        {{ titolo }}
+        {{ title }}
       </h3>
       <div class="flex shrink-0 items-center">
         <button
@@ -179,14 +183,13 @@ watch(
         </svg>
         <span>
           Non sono riuscito a rispondere.
-          <button type="button" class="link" @click="chiedi">Riprova</button>
+          <button type="button" class="link" @click="ask">Riprova</button>
         </span>
       </div>
 
       <p v-else class="measure text-small leading-relaxed">{{ responseText }}</p>
     </div>
 
-    <!-- Il percorso passo-passo resta a disposizione di chi si è perso -->
     <button
       v-if="canDetail && !detailed && canRead"
       type="button"

@@ -1,3 +1,14 @@
+/**
+ * Calcolo del percorso fra due punti del museo.
+ *
+ * Lavora sulle SALE, non sui singoli nodi: opere e servizi servono solo da
+ * estremi, e il percorso e' la sequenza di sale da attraversare. Essendo collegate
+ * da porte e passaggi, la ricerca in ampiezza basta: il cammino piu' breve e'
+ * quello che attraversa meno sale.
+ *
+ * Restituisce una struttura intermedia, non una frase: la lingua la mette l'LLM.
+ * Gli ostacoli riportati sono solo quelli nelle sale davvero attraversate.
+ */
 import { GraphNode, GraphObstacle, MuseumGraph } from "./svgGraph";
 
 /*
@@ -15,16 +26,13 @@ import { GraphNode, GraphObstacle, MuseumGraph } from "./svgGraph";
 
 export interface RouteIR {
   kind: "route" | "obstacles" | "unavailable";
-  reason: string; // valorizzato quando kind === "unavailable"
+  reason: string; 
   from: { room: string };
   to: { label: string; room: string };
-  steps: string[]; // sale da attraversare, in ordine (esclusa quella di partenza)
+  steps: string[]; 
   obstacles: GraphObstacle[];
 }
 
-// calcola le indicazioni dalla posizione `fromQid` (qid dell'opera corrente)
-// verso `target`: un tipo di POI ("toilet"|"exit"|"bar"|"shop"|...), la stringa
-// "obstacles" (ostacoli nelle vicinanze), oppure il qid di un'altra opera.
 export function computeDirections(
   graph: MuseumGraph,
   fromQid: string,
@@ -54,11 +62,9 @@ export function computeDirections(
   const adj = buildAdjacency(graph);
   const { dist, prev } = bfs(adj, fromNode.room);
 
-  // risoluzione della destinazione (e quindi della sua sala)
   let targetNode: GraphNode | null = null;
   const poiCandidates = graph.nodes.filter((n) => n.poiType === target);
   if (poiCandidates.length > 0) {
-    // POI piu' vicino del tipo richiesto (in numero di sale da attraversare)
     let best = Infinity;
     for (const c of poiCandidates) {
       const d = dist.get(c.room);
@@ -68,7 +74,6 @@ export function computeDirections(
       }
     }
   } else {
-    // altrimenti `target` e' il qid di un'opera
     const byId = graph.nodes.find((n) => n.id === target);
     if (byId) targetNode = byId;
   }
@@ -82,11 +87,8 @@ export function computeDirections(
     return unavailable("destinazione non raggiungibile");
   }
 
-  // percorso = sale da attraversare; la prima e' quella di partenza.
   const path = reconstructPath(prev, fromNode.room, targetNode.room);
   const steps = path.slice(1);
-  // ostacoli "sul percorso": quelli nelle sale effettivamente attraversate
-  // (se il cammino evita una sala, i suoi ostacoli non si incontrano).
   const traversedRooms = new Set(path);
   const obstacles = graph.obstacles.filter((o) => traversedRooms.has(o.room));
 
@@ -103,7 +105,6 @@ export function computeDirections(
   };
 }
 
-// costruisce un RouteIR di tipo "unavailable" con il motivo indicato.
 function unavailable(reason: string): RouteIR {
   return {
     kind: "unavailable",
@@ -115,14 +116,12 @@ function unavailable(reason: string): RouteIR {
   };
 }
 
-// lista di adiacenza delle sale: nome -> nomi delle sale collegate.
 function buildAdjacency(graph: MuseumGraph): Map<string, string[]> {
   const adj = new Map<string, string[]>();
   for (const r of graph.regions) adj.set(r.name, r.neighbors);
   return adj;
 }
 
-// BFS sulle sale: distanza (in numero di sale) e predecessore da `source`.
 function bfs(
   adj: Map<string, string[]>,
   source: string,
@@ -151,7 +150,6 @@ function bfs(
   return { dist, prev };
 }
 
-// ricostruisce il percorso (lista di sale) da `source` a `target` risalendo prev.
 function reconstructPath(
   prev: Map<string, string | null>,
   source: string,

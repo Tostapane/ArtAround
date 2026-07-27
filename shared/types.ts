@@ -134,4 +134,4 @@ export interface Match {
 }
 
 /** Unione usata dal marketplace, dove item e visite stanno negli stessi elenchi. */
-export type Contenuto = Item | Visit;
+export type Content = Item | Visit;

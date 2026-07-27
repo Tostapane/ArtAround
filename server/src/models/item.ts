@@ -1,3 +1,9 @@
+/**
+ * Documento Mongoose di un contenuto (item).
+ *
+ * `about` e' salvato come stringa: il collegamento all'opera si espande solo
+ * quando serve al client.
+ */
 import { Schema, model } from "mongoose";
 import { Item as SharedItem } from "../../../shared/types";
 
@@ -8,7 +14,7 @@ import { Item as SharedItem } from "../../../shared/types";
 export interface IItem extends Omit<SharedItem, "about"> {
   "@context": string;
   "@type": string;
-  about: string; // Stored as reference ID
+  about: string; 
 }
 
 const itemSchema = new Schema<IItem>({
@@ -25,8 +31,6 @@ const itemSchema = new Schema<IItem>({
   },
   price: { type: Number, default: 0 },
   text: String,
-  // "privato" = item non pubblico, usabile solo nelle visite guidate del suo
-  // autore (escluso da GET /api/items). Default "pubblico" (retrocompatibile).
   visibility: {
     type: String,
     enum: ["pubblico", "privato"],

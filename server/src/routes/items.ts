@@ -1,3 +1,12 @@
+/**
+ * Rotte dei contenuti (item).
+ *
+ * L'elenco pubblico esclude gli item privati, che esistono solo per le visite
+ * guidate del loro autore. In creazione un autore puo' pubblicare UN solo item per
+ * coppia (opera, tono): i duplicati vengono rifiutati invece di sovrascrivere in
+ * silenzio. In modifica cambiano solo testo e prezzo — opera, tono, durata,
+ * licenza e visibilita' formano l'identita' o i diritti di chi l'ha gia' adottato.
+ */
 import { Router } from "express";
 import { ItemModel } from "../models/item";
 import { ArtworkModel } from "../models/artwork";
@@ -12,8 +21,6 @@ const router = Router();
  */
 router.get("/", async (req, res) => {
   try {
-    // Gli item privati (usati solo nelle visite guidate del loro autore) NON
-    // compaiono nel marketplace dei visitatori.
     const items = await ItemModel.find({
       visibility: { $ne: "privato" },
     }).populate({
@@ -30,10 +37,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/items/author/:authorName
- * Recupera tutti i contenuti creati da un autore specifico.
- */
 router.get("/author/:authorName", async (req, res) => {
   try {
     const { authorName } = req.params;
@@ -51,18 +54,11 @@ router.get("/author/:authorName", async (req, res) => {
   }
 });
 
-/**
- * POST /api/items
- * Crea o aggiorna un contenuto (CreativeWork / Item).
- */
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
 
-    // Supporto formato Marketplace (tipo: "Item")
     if (payload.tipo === "Item") {
-      // L'identificatore universale inviato dal marketplace è l'@id dell'opera
-      // (URI di Wikidata). Accettiamo anche qid/wikiDataUri per robustezza.
       const artwork = await ArtworkModel.findOne({
         $or: [
           { "@id": payload.id_oper_universale },
@@ -77,10 +73,6 @@ router.post("/", async (req, res) => {
         payload.privato === true || payload.visibility === "privato";
 
       // --- MODIFICA di un item esistente (editId = il suo @id) ---
-      // Si aggiornano SOLO testo e prezzo. Restano immutabili: opera/tono/durata
-      // (formano l'@id, referenziato da visite e collezioni), i DIRITTI (licenza)
-      // e la VISIBILITÀ (pubblico/privato) — cambiarli danneggerebbe chi già
-      // possiede l'item (usi resi illeciti, o item che sparisce dalla collezione).
       if (payload.editId) {
         const esistente = await ItemModel.findOne({ "@id": payload.editId });
         if (!esistente)
@@ -91,7 +83,6 @@ router.post("/", async (req, res) => {
             .json({ error: "Puoi modificare solo i tuoi item." });
         const desc = payload.descrizioni?.[0] || {};
         esistente.text = desc.testo ?? esistente.text;
-        // Il prezzo resta 0 se l'item è privato (visibilità immutata).
         esistente.price =
           esistente.visibility === "privato" ? 0 : Number(payload.prezzo) || 0;
         await esistente.save();
@@ -100,8 +91,6 @@ router.post("/", async (req, res) => {
           .send({ message: "Item aggiornato con successo" });
       }
 
-      // Un autore puo' pubblicare UN solo item per coppia opera+tono:
-      // i duplicati vengono rifiutati (niente sovrascrittura silenziosa).
       for (const desc of payload.descrizioni) {
         const esistente = await ItemModel.findOne({
           about: artwork["@id"],
@@ -115,8 +104,6 @@ router.post("/", async (req, res) => {
         }
       }
 
-      // Item privato: non pubblico e senza prezzo (forzato a 0), così non può
-      // essere "venduto" e poi regalato tramite la password di una visita guidata.
       const privato = payload.privato === true || payload.visibility === "privato";
 
       for (const desc of payload.descrizioni) {
@@ -134,7 +121,6 @@ router.post("/", async (req, res) => {
         });
       }
     }
-    // Supporto formato Schema.org (CreativeWork)
     else if (payload["@type"] === "CreativeWork") {
       let artworkIdString =
         typeof payload.about === "object"

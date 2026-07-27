@@ -1,3 +1,15 @@
+/**
+ * Da mappa SVG a grafo delle sale.
+ *
+ * La mappa e' l'unica fonte di verita' spaziale: il curatore arricchisce con
+ * attributi data-* il disegno che fa comunque, e qui lo si traduce in sale, nodi,
+ * collegamenti e ostacoli.
+ *
+ * La sala di un nodo e' quella la cui AREA lo contiene, non quella piu' vicina:
+ * cosi' i muri contano. I collegamenti sono solo quelli disegnati, nessuna
+ * adiacenza viene indovinata — quindi ogni spazio percorribile, corridoi
+ * compresi, dev'essere una sala, altrimenti non puo' comparire in un percorso.
+ */
 import fs from "fs";
 import path from "path";
 
@@ -31,8 +43,8 @@ import path from "path";
 export interface GraphNode {
   id: string;
   kind: "artwork" | "poi";
-  qid: string; // valorizzato per le opere, "" per i POI
-  poiType: string; // valorizzato per i POI, "" per le opere
+  qid: string; 
+  poiType: string; 
   label: string;
   x: number;
   y: number;
@@ -41,7 +53,7 @@ export interface GraphNode {
 
 export interface GraphRegion {
   name: string;
-  neighbors: string[]; // nomi delle sale collegate (adiacenza simmetrica)
+  neighbors: string[]; 
 }
 
 export interface GraphObstacle {
@@ -57,19 +69,15 @@ export interface MuseumGraph {
   obstacles: GraphObstacle[];
 }
 
-// un'area-sala: la forma (con i suoi parametri) e il nome della sala.
 type RegionShape =
   | { kind: "circle"; name: string; cx: number; cy: number; r: number }
   | { kind: "rect"; name: string; x: number; y: number; w: number; h: number }
   | { kind: "polygon"; name: string; pts: { x: number; y: number }[] };
 
-// La cartella public e' server/public (questo file sta in server/src/services).
 const PUBLIC_DIR = path.join(__dirname, "..", "..", "public");
 
 const cache = new Map<string, MuseumGraph>();
 
-// restituisce il grafo del museo a partire dal suo mapPath (es. "/maps/British Museum.svg").
-// Il risultato e' messo in cache per mapPath (la mappa non cambia a runtime).
 export function getMuseumGraph(mapPath: string): MuseumGraph {
   const cached = cache.get(mapPath);
   if (cached) return cached;
@@ -78,12 +86,10 @@ export function getMuseumGraph(mapPath: string): MuseumGraph {
   return graph;
 }
 
-// restituisce un grafo vuoto (usato in caso di errore).
 function emptyGraph(): MuseumGraph {
   return { nodes: [], regions: [], obstacles: [] };
 }
 
-// legge il file SVG dal disco e lo converte in grafo; usa PUBLIC_DIR come base.
 function parseSvgFile(mapPath: string): MuseumGraph {
   const filePath = path.join(PUBLIC_DIR, mapPath);
   let svg = "";
@@ -96,7 +102,6 @@ function parseSvgFile(mapPath: string): MuseumGraph {
   return parseSvg(svg);
 }
 
-// esposta per i test/uso diretto su una stringa SVG.
 export function parseSvg(svg: string): MuseumGraph {
   const nodes: GraphNode[] = [];
   const obstaclesRaw: {
@@ -118,8 +123,6 @@ export function parseSvg(svg: string): MuseumGraph {
     const rawAttrs = match[1];
     const attrs = parseAttrs(rawAttrs);
 
-    // Area-sala: una forma con data-room. Puo' coesistere con un nodo-opera
-    // (un'opera che e' essa stessa una sala), quindi non e' esclusiva.
     if (attrs["data-room"]) {
       const region = makeRegion(attrs);
       if (region) regions.push(region);
@@ -138,7 +141,7 @@ export function parseSvg(svg: string): MuseumGraph {
           label,
           x: center.x,
           y: center.y,
-          room: "", // assegnata dopo, per area
+          room: "", 
         });
       }
     } else if (attrs["data-poi"]) {
@@ -174,7 +177,6 @@ export function parseSvg(svg: string): MuseumGraph {
       }
     }
 
-    // data-edge e' un attributo-flag (senza valore): lo cerchiamo nel tag grezzo.
     if (rawAttrs.includes("data-edge")) {
       if (
         attrs["x1"] !== undefined &&
@@ -192,7 +194,6 @@ export function parseSvg(svg: string): MuseumGraph {
     }
   }
 
-  // ogni nodo/ostacolo prende la sala la cui AREA lo contiene (rispetta i muri).
   for (const n of nodes) n.room = resolveRoom(regions, n.x, n.y);
   const obstacles: GraphObstacle[] = obstaclesRaw.map((o) => ({
     id: o.id,
@@ -205,7 +206,6 @@ export function parseSvg(svg: string): MuseumGraph {
   return { nodes, regions: graphRegions, obstacles };
 }
 
-// prima area (in ordine di documento) che contiene il punto; "" se nessuna.
 function resolveRoom(regions: RegionShape[], x: number, y: number): string {
   for (const region of regions) {
     if (regionContains(region, x, y)) return region.name;
@@ -213,7 +213,6 @@ function resolveRoom(regions: RegionShape[], x: number, y: number): string {
   return "";
 }
 
-// IL test di contenimento: il punto (x,y) e' dentro l'area?
 function regionContains(region: RegionShape, x: number, y: number): boolean {
   if (region.kind === "circle") {
     const dx = x - region.cx;
@@ -231,7 +230,6 @@ function regionContains(region: RegionShape, x: number, y: number): boolean {
   return pointInPolygon(x, y, region.pts);
 }
 
-// costruisce la forma-area dagli attributi (tipo inferito dalla geometria).
 function makeRegion(attrs: Record<string, string>): RegionShape | null {
   const name = attrs["data-room"];
   if (attrs["points"] !== undefined) {
@@ -270,7 +268,6 @@ function makeRegion(attrs: Record<string, string>): RegionShape | null {
   return null;
 }
 
-// converte la stringa "x1,y1 x2,y2 ..." dell'attributo SVG points in una lista di coordinate.
 function parsePoints(s: string): { x: number; y: number }[] {
   const pts: { x: number; y: number }[] = [];
   const tokens = s.trim().split(/\s+/);
@@ -282,7 +279,6 @@ function parsePoints(s: string): { x: number; y: number }[] {
   return pts;
 }
 
-// ray casting standard: parita' delle intersezioni con una semiretta orizzontale.
 function pointInPolygon(
   x: number,
   y: number,
@@ -301,10 +297,6 @@ function pointInPolygon(
   return inside;
 }
 
-// costruisce il grafo delle sale: per ogni sala (nome) i nomi delle sale
-// collegate. La connettivita' e' autorale: archi <line data-edge>, ognuno
-// collega le sale che CONTENGONO i suoi due estremi. Nessuna adiacenza
-// geometrica viene inferita. Sale con lo stesso nome sono la stessa sala.
 function buildRegions(
   regions: RegionShape[],
   rawEdges: { x1: number; y1: number; x2: number; y2: number }[],
@@ -327,7 +319,6 @@ function buildRegions(
   return result;
 }
 
-// aggiunge un collegamento simmetrico tra due sale (ignora vuoti e self-loop).
 function link(neighbors: Map<string, Set<string>>, a: string, b: string): void {
   if (!a || !b) return;
   if (a === b) return;
@@ -338,7 +329,6 @@ function link(neighbors: Map<string, Set<string>>, a: string, b: string): void {
   sb.add(a);
 }
 
-// restituisce il centro geometrico dell'elemento SVG dagli attributi (cx/cy oppure x/y+w/h).
 function elementCenter(
   attrs: Record<string, string>,
 ): { x: number; y: number } | null {
@@ -358,7 +348,6 @@ function elementCenter(
   return null;
 }
 
-// estrae gli attributi nome="valore" da una stringa di attributi SVG grezzi.
 function parseAttrs(tag: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   const re = /([\w:-]+)\s*=\s*"([^"]*)"/g;

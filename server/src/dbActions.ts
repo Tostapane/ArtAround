@@ -1,13 +1,18 @@
+/**
+ * Scritture e letture elementari sul database.
+ *
+ * Qui stanno gli inserimenti idempotenti (upsert per @id) usati dal seed e la
+ * risoluzione degli item per le visite su misura. `resolveOrGenerateItem` usa il
+ * `twist` come interruttore: senza angolazione particolare riusa un item curato
+ * gia' presente, con un'angolazione ne genera uno nuovo che NON viene salvato —
+ * le visite su misura vivono solo nel client.
+ */
 import { createHash } from "crypto";
 import { IArtwork, ArtworkModel } from "./models/artwork";
 import { IItem, ItemModel } from "./models/item";
 import { IVisit, VisitModel } from "./models/visit";
 import { createTwistedDescription } from "./services/llm";
 import { IMuseum, MuseumModel } from "./models/museum";
-// il vantaggio di usare una lista di opere e' che il museo
-// deve solo fornire gli uri delle loro opere
-// runnundo una volta uno script init verra riempito tutto il
-// database
 
 /*
  * ARTWORK
@@ -21,9 +26,6 @@ export async function deleteArtwork(Qid: string) {
   if (result.deletedCount === 0) throw new Error("No artwork deleted that ID");
 }
 
-/*
- * ITEM
- */
 export async function insertItem(item: Partial<IItem>) {
   return await ItemModel.create(item);
 }
@@ -33,14 +35,6 @@ export async function deleteItem(itemId: string) {
     throw new Error("No item deleted with that ID");
 }
 
-// Risolve l'item da usare per un'opera in una visita SU MISURA.
-// Il `twist` (angolazione da enfatizzare) fa anche da interruttore di riuso:
-//  - twist vuoto -> riusa un item esistente (curato o gia' presente nel DB):
-//    livello+durata, poi solo livello, poi uno qualsiasi;
-//  - twist presente (o nessun item da riusare) -> genera la descrizione.
-// Le visite su misura vivono nel client: l'item generato NON viene persistito,
-// e' costruito in memoria e restituito al chiamante. Ritorna null se la
-// generazione fallisce.
 export async function resolveOrGenerateItem(
   artwork: IArtwork,
   level: string,
@@ -51,7 +45,6 @@ export async function resolveOrGenerateItem(
   const hasTwist = twist.trim() !== "";
 
   if (!hasTwist) {
-    // timeRequired e' salvato come secondi "nudi" (es. "30"), senza suffisso
     let item = await ItemModel.findOne({
       ...baseFilter,
       educationalLevel: level,
@@ -72,7 +65,6 @@ export async function resolveOrGenerateItem(
   );
   if (!text) return null;
 
-  // @id solo informativo (item non persistito); il twist lo rende distinto
   let id = `${artwork.qid}-AI-${level}-${durationSec}`;
   if (hasTwist) {
     const hash = createHash("sha1").update(twist.trim()).digest("hex").slice(0, 8);
@@ -88,9 +80,6 @@ export async function resolveOrGenerateItem(
   } as IItem;
 }
 
-/*
- * VISIT
- */
 export async function insertVisit(visit: Partial<IVisit>) {
   return await VisitModel.create(visit);
 }
@@ -100,9 +89,6 @@ export async function deleteVisit(visitId: string) {
     throw new Error("No visit deleted with that ID");
 }
 
-/*
- * MUSEUM
- */
 export async function intertMuseum(museum: Partial<IMuseum>) {
   return await MuseumModel.create(museum);
 }

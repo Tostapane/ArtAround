@@ -1,12 +1,3 @@
-import "./env";
-import mongoose from "mongoose";
-import { ItemModel } from "./models/item";
-import { VisitModel } from "./models/visit";
-import { ArtworkModel } from "./models/artwork";
-import { MuseumModel } from "./models/museum";
-import { UserModel } from "./models/user";
-import { educationalLevels, formatDurata } from "../../shared/constants";
-
 /**
  * TESTERS — utilità che toccano il DATABASE.
  *
@@ -22,44 +13,37 @@ import { educationalLevels, formatDurata } from "../../shared/constants";
  *   npx ts-node src/testers.ts tutto
  */
 
+import "./env";
+import mongoose from "mongoose";
+import { ItemModel } from "./models/item";
+import { VisitModel } from "./models/visit";
+import { ArtworkModel } from "./models/artwork";
+import { MuseumModel } from "./models/museum";
+import { UserModel } from "./models/user";
+import { educationalLevels, formatDuration } from "../../shared/constants";
+
+
 const MONGO_URI =
   process.env.MONGO_URI ||
   "mongodb://localuser:localpassword@localhost:27017/artaround?authSource=admin";
 
-/**
- * I toni vecchi -> i toni della specifica (slide 22).
- *
- * Il sistema aveva DUE vocabolari per lo stesso campo: l'editor scriveva
- * infantile/semplice/medio/avanzato (che è quello della slide), mentre il seed,
- * il pianificatore LLM e i filtri usavano Principiante/Intermedio/Avanzato. Si
- * sovrapponevano su un solo valore. Ora `shared/constants.ts` ha i quattro toni
- * della slide, e questa mappa porta i dati esistenti sulla stessa lingua.
- *
- * NOTA IMPORTANTE: si cambia SOLO il campo, mai l'`@id`. L'id contiene il tono
- * (`Q123-autore-Intermedio-60`) ma è referenziato da `Visit.itemListElement` e
- * da `User.collezione`: riscriverlo spezzerebbe ogni visita e ogni libreria.
- * Un id è opaco — deve restare stabile, non descrittivo.
- */
-const MAPPA_TONI: Record<string, string> = {
+const TONE_MAP: Record<string, string> = {
   Principiante: "Semplice",
   Intermedio: "Medio",
-  // "Avanzato" esiste identico in entrambi i vocabolari: nessuna conversione.
-  // Le forme minuscole dell'editor vecchio vengono normalizzate in maiuscolo.
   infantile: "Infantile",
   semplice: "Semplice",
   medio: "Medio",
   avanzato: "Avanzato",
 };
 
-async function connetti() {
+async function connect() {
   console.log("Connessione a MongoDB…");
   await mongoose.connect(MONGO_URI);
   console.log("Connesso.");
 }
 
-/** Fotografia dello stato: quanti documenti, e con quali valori. */
 export async function stato() {
-  const [musei, opere, item, visite, utenti] = await Promise.all([
+  const [museums, artworks, item, visits, users] = await Promise.all([
     MuseumModel.countDocuments(),
     ArtworkModel.countDocuments(),
     ItemModel.countDocuments(),
@@ -67,120 +51,104 @@ export async function stato() {
     UserModel.countDocuments(),
   ]);
   console.log(
-    `\nMusei ${musei} · Opere ${opere} · Item ${item} · Visite ${visite} · Utenti ${utenti}`,
+    `\nMusei ${museums} · Opere ${artworks} · Item ${item} · Visite ${visits} · Utenti ${users}`,
   );
 
-  const toniItem = await ItemModel.distinct("educationalLevel");
-  const livelliVisite = await VisitModel.distinct("level");
-  console.log(`\nToni negli item:      ${toniItem.sort().join(", ") || "—"}`);
-  console.log(`Livelli nelle visite: ${livelliVisite.sort().join(", ") || "—"}`);
+  const itemTones = await ItemModel.distinct("educationalLevel");
+  const visitLevels = await VisitModel.distinct("level");
+  console.log(`\nToni negli item:      ${itemTones.sort().join(", ") || "—"}`);
+  console.log(`Livelli nelle visite: ${visitLevels.sort().join(", ") || "—"}`);
   console.log(`Toni attesi:          ${educationalLevels.join(", ")}`);
 
-  const fuoriVocabolario = toniItem.filter(
+  const offVocabulary = itemTones.filter(
     (t: string) => !educationalLevels.includes(t),
   );
-  if (fuoriVocabolario.length > 0) {
+  if (offVocabulary.length > 0) {
     console.log(
-      `\n⚠  ${fuoriVocabolario.length} toni fuori vocabolario: ${fuoriVocabolario.join(", ")}` +
+      `\n⚠  ${offVocabulary.length} toni fuori vocabolario: ${offVocabulary.join(", ")}` +
         `\n   Esegui:  npx ts-node src/testers.ts toni`,
     );
   }
 
-  const vecchieNote = await VisitModel.countDocuments({
+  const unplacedNotes = await VisitModel.countDocuments({
     logistics: { $elemMatch: { $type: "string" } },
   });
-  if (vecchieNote > 0) {
+  if (unplacedNotes > 0) {
     console.log(
-      `\n⚠  ${vecchieNote} visite con note logistiche senza posizione.` +
+      `\n⚠  ${unplacedNotes} visite con note logistiche senza posizione.` +
         `\n   Esegui:  npx ts-node src/testers.ts logistica`,
     );
   }
   console.log("");
 }
 
-/** Riallinea i toni di item e visite al vocabolario della specifica. */
-export async function migraToni() {
-  let itemCambiati = 0;
-  for (const [vecchio, nuovo] of Object.entries(MAPPA_TONI)) {
-    if (vecchio === nuovo) continue;
+export async function migrateTones() {
+  let changedItems = 0;
+  for (const [from, to] of Object.entries(TONE_MAP)) {
+    if (from === to) continue;
     const r = await ItemModel.updateMany(
-      { educationalLevel: vecchio },
-      { $set: { educationalLevel: nuovo } },
+      { educationalLevel: from },
+      { $set: { educationalLevel: to } },
     );
     if (r.modifiedCount) {
-      console.log(`  item: ${vecchio} -> ${nuovo}  (${r.modifiedCount})`);
-      itemCambiati += r.modifiedCount;
+      console.log(`  item: ${from} -> ${to}  (${r.modifiedCount})`);
+      changedItems += r.modifiedCount;
     }
   }
 
-  let visiteCambiate = 0;
-  for (const [vecchio, nuovo] of Object.entries(MAPPA_TONI)) {
-    if (vecchio === nuovo) continue;
+  let changedVisits = 0;
+  for (const [from, to] of Object.entries(TONE_MAP)) {
+    if (from === to) continue;
     const r = await VisitModel.updateMany(
-      { level: vecchio },
-      { $set: { level: nuovo } },
+      { level: from },
+      { $set: { level: to } },
     );
     if (r.modifiedCount) {
-      console.log(`  visite: ${vecchio} -> ${nuovo}  (${r.modifiedCount})`);
-      visiteCambiate += r.modifiedCount;
+      console.log(`  visite: ${from} -> ${to}  (${r.modifiedCount})`);
+      changedVisits += r.modifiedCount;
     }
   }
 
   console.log(
-    `Toni riallineati: ${itemCambiati} item, ${visiteCambiate} visite. ` +
+    `Toni riallineati: ${changedItems} item, ${changedVisits} visite. ` +
       `Gli @id restano invariati (sono referenziati da visite e librerie).`,
   );
 }
 
-/**
- * Dà alle visite generate dal seed un nome che una persona possa scegliere.
- * "Visita Principiante · 15s per opera" è il nome di una riga di database, non
- * di un percorso: dice i secondi per opera, che nessuno sa interpretare, e non
- * dice quante tappe ci sono né quanto dura in tutto.
- */
-export async function rinominaVisite() {
-  const visite = await VisitModel.find({});
-  let cambiate = 0;
+export async function renameVisits() {
+  const visits = await VisitModel.find({});
+  let changed = 0;
 
-  for (const v of visite) {
-    // Solo i nomi generati automaticamente: quelli scritti da una persona
-    // non si toccano.
+  for (const v of visits) {
     if (!/^Visita .+ · \d+s per opera$/.test(v.name || "")) continue;
 
-    const tappe = (v.itemListElement || []).length;
+    const stops = (v.itemListElement || []).length;
     const nome =
-      `${etichettaLivello(v.level)} · ${tappe} ${tappe === 1 ? "tappa" : "tappe"} · ` +
-      formatDurata(v.duration);
+      `${levelTitle(v.level)} · ${stops} ${stops === 1 ? "tappa" : "tappe"} · ` +
+      formatDuration(v.duration);
     console.log(`  "${v.name}"  ->  "${nome}"`);
     v.name = nome;
     await v.save();
-    cambiate++;
+    changed++;
   }
-  console.log(`Visite rinominate: ${cambiate}.`);
+  console.log(`Visite rinominate: ${changed}.`);
 }
 
-/** Un titolo umano per il livello, invece della sola etichetta tecnica. */
-function etichettaLivello(livello: string): string {
-  const titoli: Record<string, string> = {
+function levelTitle(level: string): string {
+  const titles: Record<string, string> = {
     Infantile: "Percorso per i più piccoli",
     Semplice: "Percorso introduttivo",
     Medio: "Percorso completo",
     Avanzato: "Percorso approfondito",
   };
-  return titoli[livello] || `Percorso ${livello}`;
+  return titles[level] || `Percorso ${level}`;
 }
 
-/**
- * Porta le note logistiche al formato con posizione.
- * Le vecchie erano stringhe nude: si sapeva CHE c'erano, non DOVE andavano.
- * Non potendo indovinare a quale tappa appartenessero, diventano note di
- * apertura (`after: null`) — corrette e visibili, invece che perse.
- */
-export async function migraLogistica() {
-  const visite = await VisitModel.find({});
-  let cambiate = 0;
+export async function migrateLogistics() {
+  const visits = await VisitModel.find({});
+  let changed = 0;
 
-  for (const v of visite) {
+  for (const v of visits) {
     const note = (v.logistics || []) as any[];
     if (note.length === 0) continue;
     if (!note.some((n) => typeof n === "string")) continue;
@@ -196,29 +164,19 @@ export async function migraLogistica() {
       .filter(Boolean) as any;
     v.markModified("logistics");
     await v.save();
-    cambiate++;
+    changed++;
   }
-  console.log(`Visite con note logistiche convertite: ${cambiate}.`);
+  console.log(`Visite con note logistiche convertite: ${changed}.`);
 }
 
-/**
- * Crea i quattro account richiesti dalla specifica (slide "Requisiti di
- * progetto": autore1, autore2, visitatore1, visitatore2, password "12345678").
- *
- * Differenza importante rispetto a `seedUsers.ts`: quello CANCELLA i documenti
- * senza ruolo rimasti dal vecchio modello, questo non cancella niente. Se nel
- * database ci sono account di prova a cui tieni, usa questo.
- * Idempotente: aggiorna la password se l'account c'è già, senza toccare
- * wallet e collezione.
- */
-export async function accountRichiesti() {
-  const utenti: { username: string; role: "autore" | "visitatore" }[] = [
+export async function requiredAccounts() {
+  const users: { username: string; role: "autore" | "visitatore" }[] = [
     { username: "autore1", role: "autore" },
     { username: "autore2", role: "autore" },
     { username: "visitatore1", role: "visitatore" },
     { username: "visitatore2", role: "visitatore" },
   ];
-  for (const u of utenti) {
+  for (const u of users) {
     const onInsert: any =
       u.role === "visitatore"
         ? { wallet: 100, collezione: [] }
@@ -231,44 +189,42 @@ export async function accountRichiesti() {
     console.log(`  account pronto: ${u.username} (${u.role})`);
   }
 
-  // Segnala — senza toccarli — i documenti senza ruolo: non possono più
-  // accedere (il login li rifiuta apposta) e vanno o corretti o rimossi.
-  const orfani = await UserModel.find({ role: { $exists: false } }).lean();
-  if (orfani.length > 0) {
+  const roleless = await UserModel.find({ role: { $exists: false } }).lean();
+  if (roleless.length > 0) {
     console.log(
-      `\n⚠  ${orfani.length} account senza ruolo (non possono accedere): ` +
-        orfani.map((o: any) => o.username).join(", ") +
+      `\n⚠  ${roleless.length} account senza ruolo (non possono accedere): ` +
+        roleless.map((o: any) => o.username).join(", ") +
         `\n   Assegna loro un ruolo, oppure eseguendo seedUsers.ts verranno eliminati.`,
     );
   }
 }
 
-const COMANDI: Record<string, () => Promise<void>> = {
+const COMMANDS: Record<string, () => Promise<void>> = {
   stato,
-  toni: migraToni,
-  nomi: rinominaVisite,
-  logistica: migraLogistica,
-  account: accountRichiesti,
+  toni: migrateTones,
+  nomi: renameVisits,
+  logistica: migrateLogistics,
+  account: requiredAccounts,
   async tutto() {
-    await migraToni();
-    await rinominaVisite();
-    await migraLogistica();
-    await accountRichiesti();
+    await migrateTones();
+    await renameVisits();
+    await migrateLogistics();
+    await requiredAccounts();
     await stato();
   },
 };
 
 async function main() {
-  const comando = process.argv[2] || "stato";
-  const azione = COMANDI[comando];
-  if (!azione) {
-    console.log(`Comando sconosciuto: "${comando}".`);
-    console.log(`Disponibili: ${Object.keys(COMANDI).join(", ")}`);
+  const command = process.argv[2] || "stato";
+  const action = COMMANDS[command];
+  if (!action) {
+    console.log(`Comando sconosciuto: "${command}".`);
+    console.log(`Disponibili: ${Object.keys(COMMANDS).join(", ")}`);
     process.exit(1);
   }
   try {
-    await connetti();
-    await azione();
+    await connect();
+    await action();
   } catch (err) {
     console.error("Errore:", err);
     process.exitCode = 1;

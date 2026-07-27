@@ -1,9 +1,12 @@
+/**
+ * Lettura di un QR dalla fotocamera.
+ *
+ * La decodifica avviene dentro l'app, senza ricaricare la pagina: la visita in
+ * corso, la lingua e il punto in cui si e' arrivati restano in memoria.
+ */
 import { ref } from "vue";
 import jsQR from "jsqr";
 
-// Scanner QR in-app: apre la fotocamera, analizza i frame con jsQR e richiama
-// onResult col testo decodificato. La decodifica avviene DENTRO l'app (nessun
-// reload, nessun deep-link): lo stato della visita resta in memoria intatto.
 export function useQRScanner() {
   const error = ref<string>("");
 
@@ -23,7 +26,6 @@ export function useQRScanner() {
         return;
       }
 
-      // posteriore se c'e' (smartphone), altrimenti una qualsiasi (laptop)
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: "environment" } },
@@ -47,7 +49,7 @@ export function useQRScanner() {
           const code = jsQR(image.data, image.width, image.height);
           if (code && code.data) {
             onResult(code.data);
-            return; // colpito: il chiamante chiamera' stop()
+            return; 
           }
         }
         rafId = requestAnimationFrame(tick);

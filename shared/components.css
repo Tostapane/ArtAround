@@ -149,6 +149,28 @@
     @apply inline-flex items-center gap-1 rounded-plate border border-line bg-surface-2
            px-2 py-0.5 text-caption font-medium uppercase tracking-wider text-muted;
   }
+  /* Varianti di significato. Il colore non porta mai l'informazione da solo:
+     accanto c'e' sempre la parola (Gratis, Posseduto, Visita...). */
+  .pastiglia-ottone {
+    @apply border-brass/40 text-brass;
+  }
+  .pastiglia-ardesia {
+    @apply border-slate/40 text-slate;
+  }
+  .pastiglia-salvia {
+    @apply border-sage/40 text-sage;
+  }
+
+  /* Cifre che rappresentano un valore: prezzi, ricavi, credito. */
+  .valore {
+    @apply tabular-nums text-brass;
+  }
+
+  /* Riga o blocco messo in evidenza: velatura, non un altro fondo. */
+  .evidenza {
+    background-color: var(--tint);
+  }
+
   /* Una pastiglia CLICCABILE e' un bottone travestito: ha aria-pressed */
   .pastiglia-bottone {
     @apply inline-flex min-h-9 items-center rounded-plate border border-line px-2.5

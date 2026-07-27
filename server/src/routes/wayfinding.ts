@@ -1,3 +1,11 @@
+/**
+ * Rotta delle indicazioni di orientamento.
+ *
+ * Due livelli di risposta. Quella predefinita e' SEMPLICE: il nome della sala,
+ * preso dalla mappa, senza scomodare l'LLM. Su richiesta si passa al percorso
+ * passo-passo, dove il grafo garantisce la correttezza e l'LLM si limita a dirlo
+ * in parole.
+ */
 import { Router } from "express";
 import { MuseumModel } from "../models/museum";
 import { getMuseumGraph } from "../services/svgGraph";
@@ -37,8 +45,6 @@ router.post("/", async (req, res) => {
     const graph = getMuseumGraph(museum.mapPath);
     const route = computeDirections(graph, from, target);
 
-    // Risposta SEMPLICE: solo la zona (nome della sala dall'SVG). Gli ostacoli
-    // non hanno una "zona" da indicare, quindi restano sempre sul percorso LLM.
     if (!detailed && target !== "obstacles") {
       let directions = "Zona non disponibile.";
       if (route.kind === "route" && route.to.room) directions = route.to.room;

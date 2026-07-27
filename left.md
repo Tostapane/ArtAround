@@ -38,6 +38,121 @@
 
 ---
 
+## 0. Convenzioni di codice (deciso 2026-07-27)
+
+Tre regole, volute dall'utente:
+
+1. **Un commento descrittivo in cima a ogni file, e basta** — niente spiegazioni
+   sparse nel mezzo del codice.
+2. **Commenti-separatore** per dividere le parti dentro un file.
+3. **Commenti in italiano, identificatori in inglese.**
+
+**Stato: fatte tutte e tre, su tutto il codice.**
+
+- Ogni file `.ts`/`.vue` di `shared/`, `server/src/`, `navigator/src/` e
+  `marketplace/src/` ha una descrizione in cima e nessuna spiegazione sparsa nel mezzo.
+- Restano solo i **separatori** (`// ====` e `// ----`) e, nei template, le etichette di
+  sezione corte (`<!-- MAPPA -->`): le spiegazioni lunghe sono salite nell'intestazione.
+- Identificatori in inglese ovunque, tranne le eccezioni elencate qui sotto.
+
+Verificato dopo ogni passaggio: `tsc` e `vue-tsc` a zero, entrambe le build verdi,
+**il server realmente avviato**, `testers.ts` rieseguito contro il database, e i binding
+Alpine ricontrollati.
+
+### Cosa resta deliberatamente in italiano
+
+Non è una dimenticanza — la regola dice "variabili e funzioni":
+
+- **Copy dell'interfaccia** e messaggi d'errore.
+- **Classi CSS** (`.lastra`, `.btn-primario`, `.pastiglia`, `.pianta`): sono vocabolario
+  grafico, non codice, e sono la lingua condivisa fra `prelude.md` e i template.
+- **Nomi delle rotte** (`#/opere`, `#/componi`) e i valori del tipo `View`: compaiono
+  nell'URL, quindi sono superficie utente.
+- **Nomi dei file dei componenti** (`Biglietteria.vue`, `Scheda.vue`): stessa categoria del
+  vocabolario grafico.
+- **Il formato di scambio col server**: le chiavi dei payload (`tipo`, `titolo`, `autore`,
+  `percorso`, `id_item`, `opzionale`, `indicazione`, `descrizioni`…) e quelle delle risposte
+  (`stato`, `partecipanti`, `nuoveDomande`, `adozioni`, `ricavo`, `collezione`). Rinominarle
+  richiede di toccare client e server insieme: va fatto in un passaggio dedicato, non di
+  sfuggita. **Questa è la principale incoerenza rimasta.**
+
+### Come è stato fatto il rinominamento
+
+Con uno script che rinomina **solo nel codice**, saltando commenti, stringhe e testo dei
+template (tre modalità: `.ts`, `.html` con le sole espressioni Alpine, `.vue` con lo script
+più direttive e `{{ }}`). Un `sed` cieco non va bene: parole come `Contenuto`, `vista`,
+`opere`, `tappe` esistono sia come identificatori sia nella prosa italiana — il primo
+tentativo con `sed` ha infatti tradotto "Contenuto pubblicato con successo" in "Content
+pubblicato…".
+
+⚠️ **Due trappole incontrate, entrambe corrette — se lo script viene riusato, sapere che
+esistono:**
+
+1. **I letterali regex.** La prima versione non li riconosceva: in
+   `server/src/routes/museums.ts` la regex `/"/g` dentro `escapeHtml` ha disallineato il
+   tracciamento delle stringhe, con due effetti opposti nello stesso file — tre messaggi
+   italiani tradotti a metà **e** tutto il resto del file non rinominato affatto. Ora lo
+   script riconosce le regex; quel file è stato sistemato a mano.
+2. **Le direttive `/// <reference>` non sono commenti.** Lo spogliatore le ha cancellate, e
+   `server/src/env.ts` ha perso il riferimento ai tipi di dotenv. `tsc` continuava a
+   passare (legge `include`), ma **`npm run start` non partiva più**: `ts-node` i `.d.ts`
+   ambientali non li carica. Scoperto solo avviando davvero il server — "compila" non vuol
+   dire "funziona". Ora le direttive sono preservate.
+
+**Verifiche dopo il rinominamento:** `tsc` e `vue-tsc` a zero errori, entrambe le build
+verdi, i binding Alpine ricontrollati (88 chiamate, 33 `x-model`, tutte le rotte),
+`testers.ts` rieseguito contro il database.
+
+---
+
+## 0-bis. La soglia: marchio e fondale (2026-07-28)
+
+**Il fondale "La Pianta" è stato sostituito.** Al suo posto un **automa cellulare ciclico**
+disegnato su canvas (`automaton()` in `marketplace/src/frontend/app.ts`): ogni cella avanza
+di stato appena una vicina le è un passo avanti, e da rumore casuale la regola si
+auto-organizza in fronti d'onda che si rincorrono senza fermarsi mai.
+
+**Seconda passata (28/07): punti più piccoli, più fitti, e moto continuo.**
+- `CELL 13 → 10`, `DOT 0.30 → 0.24`: diametro massimo da 7,8 a **4,8 px**, e circa il doppio
+  delle celle. `PERIOD 260 → 150`.
+- **Il moto non è più a scatti.** L'automa avanza a passi discreti ma il disegno interpola
+  fra il passo precedente e quello nuovo a ogni fotogramma, con raccordo morbido. Si
+  interpola l'*intensità*, non lo stato, così il salto da N-1 a 0 non produce uno strappo.
+- **Si disegna sui pixel, non con i tracciati.** Con punti così piccoli le celle sono oltre
+  ventimila: altrettante chiamate di tracciato per fotogramma non reggerebbero. Si scrive in
+  un `ImageData` e lo si riversa in un colpo solo, con il bordo sfumato nell'ultimo mezzo
+  pixel (senza, punti da 4 px risultano seghettati).
+- **Il canvas resta a un pixel per pixel CSS**, non alla densità dello schermo: misurato,
+  raddoppiare costa 10,6 ms per fotogramma contro 4,6 — e su punti sfumati e quasi
+  trasparenti non si vedrebbe. Costo verificato anche a 2560×1440: 9 ms, dentro i 60 fps.
+
+Scelte fatte, per non rifarle a caso:
+- **Solo una fascia stretta di stati è accesa** (`PEAK` ± `BAND`). Con la prima versione si
+  illuminavano zone larghe e il fondale faceva concorrenza al titolo; ora si vedono linee
+  sottili che attraversano il campo. Verificato simulando la regola fuori dal browser e
+  stampandola in ASCII — a regime sopravvivono tutti e 14 gli stati, non collassa.
+- Punti molto tenui (alfa massima 0.3 su fondo Notte), colori letti dai token.
+- **`prefers-reduced-motion`**: l'automa compie 60 passi e si ferma, lasciando una
+  composizione ferma invece di uno sfondo vuoto.
+- **`ResizeObserver`** invece di un listener sul ridimensionamento: la soglia può essere
+  nascosta all'avvio (si entra da un'altra rotta) e in quel caso il canvas non ha ancora
+  dimensioni. L'osservatore aspetta che le abbia, ricostruisce la griglia quando cambiano e
+  **ferma il moto mentre la sezione non si vede**; il moto si sospende anche a scheda in
+  secondo piano.
+
+**Il marchio.** L'opera incorniciata e il percorso che le gira intorno, con il visitatore
+sopra: "art" e "around". Il tratto è aperto, non un cerchio chiuso, perché una visita ha un
+inizio e una fine. Due forme:
+- `#ico-marchio`, simbolo in linea nello sprite: usa `currentColor`, segue il tema, arco
+  punteggiato. Compare grande sulla soglia e piccolo nel binario, accanto al nome.
+- `marketplace/public/logo.svg`, autonomo: ha colori propri (serve anche da **favicon**) e
+  l'arco **pieno** invece che punteggiato — a 16 pixel un tratteggio diventa poltiglia.
+
+⚠️ Come tutto il resto della riprogettazione, **non è stato visto su schermo**: la regola è
+verificata numericamente e il markup compila, ma l'effetto va guardato.
+
+---
+
 ## 1. Decisions already taken (do not re-litigate)
 
 The user chose these explicitly. They are load-bearing.

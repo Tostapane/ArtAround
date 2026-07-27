@@ -1,3 +1,10 @@
+/**
+ * Documento Mongoose di un account.
+ *
+ * L'identita' e' la coppia (username, ruolo): lo stesso nome puo' esistere come
+ * autore e come visitatore, e sono due account distinti e non collegati.
+ * La password e' in chiaro: la sicurezza non e' materia di valutazione.
+ */
 import { Schema, model } from "mongoose";
 import { User as SharedUser } from "../../../shared/types";
 
@@ -11,17 +18,10 @@ export interface IUser extends SharedUser {
   password: string;
 }
 
-// Il ruolo fa parte dell'identità: un account è autore OPPURE visitatore. Lo
-// stesso username può esistere una volta come autore e una come visitatore
-// (account distinti, non collegati). L'unicità è quindi sulla COPPIA
-// (username, role), non sul solo username.
 const userSchema = new Schema<IUser>({
   username: { type: String, required: true },
   password: { type: String, required: true },
   role: { type: String, enum: ["autore", "visitatore"], required: true },
-  // Il wallet (budget d'acquisto) è un concetto da VISITATORE: gli account
-  // autore NON ce l'hanno (non comprano; i ricavi si vedono in /sales). Nessun
-  // default → viene impostato esplicitamente solo per i visitatori.
   wallet: { type: Number },
   collezione: { type: [String], default: [] },
 });

@@ -1,3 +1,9 @@
+/**
+ * Registrazione del comando vocale.
+ *
+ * NOTA: il formato e' fissato a webm/opus, che Safari non produce — su iPhone il
+ * comando vocale non funziona. Il difetto e' descritto in state.md, sezione 10.
+ */
 import { ref } from "vue";
 export const isRecording = ref(false);
 export const finalBlob = ref<Blob | null>(null);
@@ -18,8 +24,6 @@ export const startRecording = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    // Use webm for wider cross-browser compatibility with MediaRecorder
-    // Safari might fallback to mp4 depending on version, MediaRecorder handles it mostly.
     mediaRecorder = new MediaRecorder(stream);
 
     mediaRecorder.ondataavailable = (event) => {
@@ -29,11 +33,7 @@ export const startRecording = async () => {
     };
 
     mediaRecorder.onstop = () => {
-      // L'audio serve solo per essere spedito al server: non c'e' (e non c'e'
-      // mai stata) un'interfaccia per riascoltarlo, quindi niente object URL da
-      // creare e poi dimenticare.
       finalBlob.value = new Blob(audioChunks, { type: "audio/webm" });
-      // Rilascia il microfono
       stream.getTracks().forEach((track) => track.stop());
     };
 

@@ -1,3 +1,13 @@
+/**
+ * Punto d'ingresso del server.
+ *
+ * Monta le rotte sotto /api, serve staticamente il marketplace (la radice) e i
+ * file pubblici (mappe SVG e immagini delle opere), e si collega a MongoDB
+ * riprovando finche' non risponde: in docker il database parte insieme a noi.
+ *
+ * La porta arriva dall'ambiente perche' sul server del dipartimento non e' detto
+ * sia la 8000, e perche' cosi' si possono tenere due istanze accese insieme.
+ */
 import "./env";
 import express from "express";
 import mongoose from "mongoose";
@@ -5,7 +15,6 @@ import path from "path";
 import cors from "cors";
 import QRCode from "qrcode";
 
-// Routes
 import artworkRoutes from "./routes/artworks";
 import visitsRoutes from "./routes/visits";
 import speechRoutes from "./routes/speech";
@@ -18,18 +27,13 @@ import wayfindingRoutes from "./routes/wayfinding";
 import guidedSessionRoutes from "./routes/guidedSessions";
 
 const app = express();
-// La porta era una costante: sul docker del dipartimento, e per far girare due
-// istanze in parallelo, deve poter cambiare senza toccare il codice.
 const PORT = Number(process.env.PORT) || 8000;
 
 app.use(cors());
 app.use(express.json());
 
 app.use(express.static(path.join(__dirname, "../public")));
-// Servire i file statici del marketplace
-// Root: serve la cartella public del marketplace
 app.use(express.static(path.join(__dirname, "../../marketplace/public")));
-// /dist: serve la cartella dist del marketplace (dove si trovano gli script compilati)
 app.use(
   "/dist",
   express.static(path.join(__dirname, "../../marketplace/dist")),
@@ -52,7 +56,6 @@ const connectWithRetry = () => {
 
 connectWithRetry();
 
-// API Routes
 app.use("/api/artworks", artworkRoutes);
 app.use("/api/visits", visitsRoutes);
 app.use("/api/speech", speechRoutes);
@@ -77,14 +80,6 @@ app.get("/api/health", (req, res) => {
  * gira su un'altra origine e solo il server sa quale.
  * In deploy si imposta NAVIGATOR_ORIGIN; in sviluppo si ricava dall'host della
  * richiesta con la porta di Vite.
- */
-/**
- * GET /api/qr?text=<contenuto>
- * Un QR come SVG, generato dal server. Serve al marketplace per il passaggio
- * PC → telefono: il marketplace e' un'app da scrivania, il navigator un'app da
- * museo, e fino a ieri il prodotto non riconosceva mai che la persona deve
- * cambiare dispositivo. Sta qui e non nel client perche' il modulo `qrcode` c'e'
- * gia' (lo usa il foglio stampabile) e il marketplace non ha un bundler.
  */
 app.get("/api/qr", async (req, res) => {
   try {

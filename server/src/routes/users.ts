@@ -1,3 +1,12 @@
+/**
+ * Rotte degli account.
+ *
+ * Il ruolo non si chiede a chi entra: lo deduce il server dalle credenziali, e lo
+ * domanda solo nel caso raro in cui le stesse credenziali valgano per due profili.
+ * L'acquisto legge il prezzo dal contenuto sul server, mai dal client.
+ * I ricavi non vengono accreditati su un portafoglio: si vedono nel resoconto
+ * vendite, perche' account autore e visitatore sono separati.
+ */
 import { Router } from "express";
 import { UserModel } from "../models/user";
 import { ItemModel } from "../models/item";
@@ -5,7 +14,6 @@ import { VisitModel } from "../models/visit";
 
 const router = Router();
 
-// Rimuove la password dal documento prima di restituirlo al client.
 function sanitize(u: any) {
   return {
     username: u.username,
@@ -15,8 +23,7 @@ function sanitize(u: any) {
   };
 }
 
-// True se il ruolo passato dal client è uno dei due ammessi.
-function ruoloValido(role: any): boolean {
+function isValidRole(role: any): boolean {
   return role === "autore" || role === "visitatore";
 }
 
@@ -30,16 +37,15 @@ function ruoloValido(role: any): boolean {
 router.post("/register", async (req, res) => {
   try {
     const { username, password, role } = req.body;
-    if (!username || !password || !ruoloValido(role))
+    if (!username || !password || !isValidRole(role))
       return res.status(400).json({ error: "Dati di registrazione non validi" });
 
-    const esiste = await UserModel.findOne({ username, role });
-    if (esiste)
+    const already = await UserModel.findOne({ username, role });
+    if (already)
       return res
         .status(409)
         .json({ error: `Esiste già un ${role} con questo username` });
 
-    // Il wallet è solo da visitatore (budget iniziale 100); l'autore non ne ha.
     const user = await UserModel.create({
       username,
       password,
@@ -52,28 +58,14 @@ router.post("/register", async (req, res) => {
   }
 });
 
-/**
- * POST /api/users/login  { username, password, role? }
- *
- * Il RUOLO NON SI CHIEDE all'utente: "sei un autore o un visitatore?" e' una
- * domanda sul nostro modello dati, posta prima che la persona abbia modo di
- * rispondere. Lo risolve il server dalle credenziali:
- *   - un solo account corrisponde  -> si entra, e il ruolo torna nella risposta;
- *   - nessuno                      -> 401;
- *   - due (stesso username E stessa password, creati apposta uno per ruolo)
- *                                  -> 300 con l'elenco, e SOLO allora il client
- *                                     chiede quale profilo aprire.
- * Il modello dati non cambia: l'identita' resta la coppia (username, role).
- */
 router.post("/login", async (req, res) => {
   try {
     const { username, password, role } = req.body;
     if (!username || !password)
       return res.status(400).json({ error: "Inserisci username e password" });
 
-    // Secondo passo: il client ha gia' scelto il profilo fra quelli proposti.
     if (role) {
-      if (!ruoloValido(role))
+      if (!isValidRole(role))
         return res.status(400).json({ error: "Ruolo non valido" });
       const user = await UserModel.findOne({ username, password, role });
       if (!user)
@@ -83,36 +75,24 @@ router.post("/login", async (req, res) => {
       return res.json(sanitize(user));
     }
 
-    // Solo account con un ruolo VALIDO: nel database possono esserci documenti
-    // senza ruolo, rimasti dal vecchio modello "account unico". Prima non
-    // potevano entrare (il login esigeva la corrispondenza del ruolo); ora che
-    // il ruolo lo deduciamo noi, entrerebbero con role=undefined e si
-    // troverebbero davanti un'interfaccia vuota — né autore né visitatore.
-    const candidati = (await UserModel.find({ username, password })).filter(
-      (u) => ruoloValido(u.role),
+    const candidates = (await UserModel.find({ username, password })).filter(
+      (u) => isValidRole(u.role),
     );
-    if (candidati.length === 0)
+    if (candidates.length === 0)
       return res.status(401).json({
         error: "Credenziali non valide. Controlla username e password.",
       });
-    if (candidati.length === 1) return res.json(sanitize(candidati[0]));
+    if (candidates.length === 1) return res.json(sanitize(candidates[0]));
 
     res.status(300).json({
       scelta: true,
-      ruoli: candidati.map((u) => u.role),
+      ruoli: candidates.map((u) => u.role),
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore in login" });
   }
 });
 
-/**
- * POST /api/users/:username/buy  { itemId }
- * Acquisto persistente: scala il wallet del compratore e aggiunge l'item alla
- * sua collezione. I ricavi dell'autore NON vengono accreditati su un wallet
- * (li mostra il report vendite/adozioni): account autore e visitatore sono
- * separati, nessun portafoglio condiviso. Solo i VISITATORI acquistano.
- */
 router.post("/:username/buy", async (req, res) => {
   try {
     const { username } = req.params;
@@ -120,27 +100,24 @@ router.post("/:username/buy", async (req, res) => {
     const user = await UserModel.findOne({ username, role: "visitatore" });
     if (!user) return res.status(404).json({ error: "Visitatore non trovato" });
 
-    if (user.collezione.includes(itemId)) return res.json(sanitize(user)); // gia' posseduto
+    if (user.collezione.includes(itemId)) return res.json(sanitize(user)); 
 
-    // Prezzo autoritativo dal contenuto (Item oppure Visit), non dal client.
-    const contenuto: any =
+    const content: any =
       (await ItemModel.findOne({ "@id": itemId })) ||
       (await VisitModel.findOne({ "@id": itemId }));
-    const costo = contenuto
-      ? Number(contenuto.price) || 0
+    const cost = content
+      ? Number(content.price) || 0
       : Number(req.body.price) || 0;
 
-    // Il wallet esiste solo sui visitatori e lo schema non gli dà un default:
-    // un documento vecchio potrebbe non averlo. Si tratta come credito zero.
-    let credito = 0;
-    if (typeof user.wallet === "number") credito = user.wallet;
+    let credit = 0;
+    if (typeof user.wallet === "number") credit = user.wallet;
 
-    if (credito < costo)
+    if (credit < cost)
       return res.status(400).json({
-        error: `Credito insufficiente: servono € ${costo.toFixed(2)}, ne hai € ${credito.toFixed(2)}.`,
+        error: `Credito insufficiente: servono € ${cost.toFixed(2)}, ne hai € ${credit.toFixed(2)}.`,
       });
 
-    user.wallet = credito - costo;
+    user.wallet = credit - cost;
     user.collezione.push(itemId);
     await user.save();
 
@@ -150,13 +127,6 @@ router.post("/:username/buy", async (req, res) => {
   }
 });
 
-/**
- * GET /api/users/:username/sales
- * "Gestione delle adozioni e delle vendite": per ogni contenuto pubblicato
- * dall'autore restituisce licenza, prezzo, numero di adozioni (utenti che lo
- * hanno in collezione) e ricavo (adozioni × prezzo). Le adozioni sono derivate
- * da User.collezione (unica fonte di verita', nessun dato duplicato).
- */
 router.get("/:username/sales", async (req, res) => {
   try {
     const { username } = req.params;
@@ -194,7 +164,6 @@ router.get("/:username/sales", async (req, res) => {
       });
     }
 
-    // Adozioni per ciascun contenuto (conteggio utenti che lo possiedono)
     for (const r of rows) {
       const adozioni = await UserModel.countDocuments({ collezione: r.id });
       r.adozioni = adozioni;

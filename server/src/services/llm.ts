@@ -1,31 +1,33 @@
+/**
+ * Tutte le chiamate al modello generativo.
+ *
+ * Quattro usi, come chiede la specifica: creare descrizioni mancanti, mappare una
+ * richiesta vocale libera su un comando del vocabolario, comporre una visita dai
+ * vincoli dell'utente, e verbalizzare un percorso gia' calcolato.
+ *
+ * La regola che tiene insieme il tutto: il codice deterministico possiede la
+ * CORRETTEZZA, il modello possiede l'INTERPRETAZIONE e la lingua. Per questo il
+ * pianificatore risponde in JSON con tono e durata presi da un elenco chiuso, e
+ * per questo le indicazioni di percorso arrivano gia' calcolate dal grafo.
+ *
+ * La mappatura dei comandi avviene sugli id, non sulle etichette: le etichette
+ * sono testo mostrato e possono cambiare senza rompere il protocollo.
+ */
 import { GoogleGenAI, Type } from "@google/genai";
 import { options, educationalLevels, secPerArt } from "../../../shared/constants";
 import { RouteIR } from "./wayfinding";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Modello usato dal server (cambiare qui per tutti gli usi).
-// NOTA disponibilita': "gemini-3.1-flash" NON esiste su questa key (404); la
-// variante flash 3.1 disponibile e' "gemini-3.1-flash-lite" (veloce, ~0.8s/chiamata).
-// Attenzione ai limiti free (RPM): se il seed va in 429, aumentare il delay nel
-// seed oppure aggiungere un retry/backoff sulle chiamate.
 const MODEL = "gemini-3.1-flash-lite";
 const MODEL_LIGHT = "gemini-3.1-flash-lite";
 
-// numero di parole indicativo per stare dentro la durata richiesta (secondi):
-// ~100 parole al minuto (ritmo di lettura ad alta voce), minimo 5 parole.
-// Proporzionale, cosi' funziona anche per durate fuori da secPerArt (es. gli
-// item creati dal marketplace con durate libere).
 function wordsForDuration(duration: number): number {
   const words = Math.round((duration * 100) / 60);
   if (words < 5) return 5;
   return words;
 }
 
-// genera la descrizione di un'opera per un dato livello e durata, dando
-// eventualmente particolare risalto a un'angolazione (`twist`): un'indicazione
-// in italiano su quale aspetto enfatizzare (es. "enfatizza l'uso del verde").
-// Con twist vuoto e' una descrizione neutra (vedi createDescription).
 export async function createTwistedDescription(
   name: string,
   author: string,
@@ -63,8 +65,6 @@ export async function createTwistedDescription(
   }
 }
 
-// si potrebbe aggiungere un parametro meta per aggiungere informazioni
-// riguardo l'utente, ad esempio: faiclmente annoiabile, etc
 export async function createDescription(
   name: string,
   author: string,
@@ -74,14 +74,6 @@ export async function createDescription(
   return createTwistedDescription(name, author, level, duration, "");
 }
 
-// PIANIFICATORE di visite su misura: ricevuto il catalogo delle opere di un museo
-// e la richiesta in linguaggio naturale del visitatore, sceglie quali opere
-// includere (in ordine), con quale tono e durata, e con quale "twist" (angolazione
-// da enfatizzare per quella specifica opera, in base alla richiesta).
-// Il tempo totale e' bilanciato dall'LLM stesso (numero di opere x durata di
-// ciascuna), senza vincolo rigido lato server. L'output e' JSON strutturato:
-// tono e durata sono enum (educationalLevels / secPerArt) per garantire che il
-// resolver li sappia gestire. Restituisce undefined in caso di errore.
 export interface PlannedArtwork {
   qid: string;
   tone: string;
@@ -162,10 +154,6 @@ export async function planVisit(
   }
 }
 
-// funzione per richiedere una descrizione aggiuntiva
-// `language` e' il nome della lingua in cui rispondere (es. "English",
-// "Francais"): l'LLM genera direttamente nella lingua scelta dall'utente,
-// evitando una successiva traduzione automatica.
 export async function additionalDescription(
   previous: string,
   userReq: string,
@@ -191,10 +179,6 @@ export async function additionalDescription(
   }
 }
 
-// trasforma il percorso calcolato (RouteIR) in indicazioni parlate, nella lingua
-// scelta dall'utente. Il grafo garantisce il percorso; l'LLM lo rende naturale.
-// `language` e' il nome della lingua (es. "English"): l'LLM scrive direttamente
-// in quella lingua, evitando una traduzione successiva.
 export async function directionsFromRoute(route: RouteIR, language: string) {
   try {
     let body: string;
@@ -252,9 +236,6 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
 
 export async function mapRequest(transcript: string) {
   try {
-    // Si mappa sugli ID (il token canonico che i gestori confrontano), non
-    // sulle etichette: cosi' le etichette a schermo possono essere italiano
-    // corretto — accenti e apostrofi — senza rompere il protocollo.
     const range = options.map((o) => o.id);
     const request = `La tua funzione e' quella di mappare la richiesta
                     di un utente con l'opzione fornita dal servizio che piu' si addice.
@@ -267,8 +248,6 @@ export async function mapRequest(transcript: string) {
       model: MODEL_LIGHT,
       contents: request,
     });
-    // trim: i client confrontano il comando con === sugli id del vocabolario,
-    // quindi un a-capo/spazio finale del modello romperebbe ogni comando vocale
     if (!response.text) return response.text;
     return response.text.trim();
   } catch (err) {

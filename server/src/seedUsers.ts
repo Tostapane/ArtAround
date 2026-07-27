@@ -1,3 +1,10 @@
+/**
+ * Crea i quattro account richiesti dalla specifica.
+ *
+ * Cancella anche i documenti rimasti senza ruolo dal vecchio modello "account
+ * unico": non potrebbero piu' accedere. Se quegli account servono, si usa invece
+ * `testers.ts account`, che non cancella niente.
+ */
 import "./env";
 import mongoose from "mongoose";
 import { UserModel } from "./models/user";
@@ -27,15 +34,11 @@ async function seedUsers() {
   await mongoose.connect(MONGO_URI);
   console.log("Connesso!");
 
-  // Rimuove eventuali documenti senza ruolo rimasti dal modello "account unico"
-  // (altrimenti resterebbero orfani e in conflitto con il nuovo indice).
   const puliti = await UserModel.deleteMany({ role: { $exists: false } });
   if (puliti.deletedCount)
     console.log(`  rimossi ${puliti.deletedCount} account legacy senza ruolo`);
 
   for (const u of utenti) {
-    // Il wallet è solo da visitatore (gli autori non comprano). Impostato solo
-    // alla prima creazione, insieme alla collezione vuota.
     const onInsert: any =
       u.role === "visitatore" ? { wallet: 100, collezione: [] } : { collezione: [] };
     await UserModel.updateOne(

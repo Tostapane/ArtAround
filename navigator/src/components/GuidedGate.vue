@@ -1,4 +1,23 @@
 <script setup lang="ts">
+/**
+ * LA VISITA GUIDATA — sala d'attesa, conduzione, quiz, chiusura.
+ *
+ * La sala d'attesa e' una schermata PROIETTATA: viene letta a voce alta in una
+ * stanza e trenta persone la guardano insieme, percio' la parola chiave ha la
+ * dimensione di un'insegna.
+ *
+ * Durante la visita i comandi di CONDUZIONE (chi c'e', chi ha chiesto cosa,
+ * termina) stanno in una barra dedicata, separati dai comandi di visita: un
+ * docente che preme "Prossimo" sta muovendo trenta persone, e la scheda lo dice
+ * con parole sue.
+ *
+ * Quattro fasi, non tre. La fase "quiz" ha una sua schermata anche se
+ * l'interfaccia del quiz non c'e' ancora: senza, all'avvio del quiz tutti
+ * vedrebbero "Visita terminata" a meta' visita, che e' una cosa falsa. E la
+ * chiusura distingue "il docente ha terminato" da "la sessione e' sparita":
+ * riusare la stessa frase per entrambe e' il modo in cui un guasto diventa
+ * invisibile.
+ */
 import { computed, ref, watch } from "vue";
 import Visita from "./visita/Visita.vue";
 import {
@@ -9,7 +28,7 @@ import {
   guidedParticipants,
   guidedParticipantsCount,
   guidedQuestions,
-  guidedChiusuraPrevista,
+  guidedPlannedEnd,
   teacherStart,
   teacherEnd,
   studentLeave,
@@ -18,58 +37,40 @@ import {
 import { visit } from "@/state";
 import { useAnnouncer } from "@/composables/useAnnouncer";
 
-/**
- * LA VISITA GUIDATA — sala d'attesa, conduzione, chiusura.
- *
- * La sala d'attesa e' una schermata PROIETTATA: viene letta a voce alta in una
- * stanza, e trenta persone la guardano insieme. Era un riquadro da 400px con
- * la parola chiave in 18px. Ora e' una scena a tutto campo, con la parola
- * chiave alla dimensione di un'insegna.
- *
- * Durante la visita i comandi di CONDUZIONE (chi c'e', chi ha chiesto cosa,
- * termina) stanno in una barra dedicata, separati dai comandi di visita: un
- * docente che preme "Prossimo" sta muovendo trenta persone, e la scheda lo dice
- * con parole sue (vedi Scheda.vue, `etichettaProssimo`).
- */
-
 const { announce } = useAnnouncer();
 
 const isTeacher = computed(() => guidedRole.value === "docente");
 const currVisit = computed(() => (visit.value ? visit.value["@id"] : ""));
 
-// Pannelli del docente: mutuamente esclusivi, così non si sovrappongono.
-const pannello = ref<"" | "studenti" | "domande">("");
-function alterna(p: "studenti" | "domande") {
-  pannello.value = pannello.value === p ? "" : p;
+const panel = ref<"" | "studenti" | "domande">("");
+function togglePanel(p: "studenti" | "domande") {
+  panel.value = panel.value === p ? "" : p;
 }
 
-const domandeRecenti = computed(() => [...guidedQuestions.value].reverse());
-function formatOra(at: number): string {
+const recentQuestions = computed(() => [...guidedQuestions.value].reverse());
+function formatTime(at: number): string {
   return new Date(at).toLocaleTimeString("it-IT", {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-// Chi entra e chi esce va detto, non solo mostrato: il docente sta guardando
-// la stanza, non lo schermo.
 watch(guidedParticipantsCount, (ora, prima) => {
   if (!isTeacher.value || prima === undefined) return;
   if (ora > prima) announce(`${ora} studenti collegati`);
   else if (ora < prima) announce(`Uno studente si è disconnesso. Ora sono ${ora}`);
 });
 
-// Una nuova domanda arriva con un avviso discreto, non con una presa di schermo.
 watch(
   () => guidedQuestions.value.length,
   (ora, prima) => {
     if (!isTeacher.value || prima === undefined || ora <= prima) return;
-    const ultima = guidedQuestions.value[ora - 1];
-    if (ultima) announce(`${ultima.username} ha chiesto: ${ultima.question}`);
+    const latest = guidedQuestions.value[ora - 1];
+    if (latest) announce(`${latest.username} ha chiesto: ${latest.question}`);
   },
 );
 
-async function avvia() {
+async function start() {
   try {
     await teacherStart();
     announce("Visita avviata per tutti");
@@ -78,7 +79,7 @@ async function avvia() {
   }
 }
 
-async function termina() {
+async function end() {
   try {
     await teacherEnd();
   } catch (err) {
@@ -86,30 +87,26 @@ async function termina() {
   }
 }
 
-async function esciStudente() {
+async function studentExit() {
   try {
     await studentLeave();
   } finally {
-    tornaAllaSelezione();
+    backToSelection();
   }
 }
 
-/** Uscita dalla visita in corso: per il docente termina per tutti, per lo
- *  studente e' solo un'uscita. */
-function uscitaDallaVisita() {
-  if (isTeacher.value) termina();
-  else esciStudente();
+function exitVisit() {
+  if (isTeacher.value) end();
+  else studentExit();
 }
 
-// Torna al navigator normale ripulendo il collegamento dall'URL.
-function tornaAllaSelezione() {
+function backToSelection() {
   resetGuided();
   window.location.href = window.location.pathname;
 }
 </script>
 
 <template>
-  <!-- ================= FASE 1: SALA D'ATTESA ================= -->
   <div
     v-if="guidedStato === 'attesa'"
     class="flex flex-1 flex-col justify-between bg-structure p-6 text-on-structure sm:p-10"
@@ -126,7 +123,6 @@ function tornaAllaSelezione() {
         <p class="text-caption uppercase tracking-wider text-on-structure/70">
           Parola chiave
         </p>
-        <!-- Va letta a voce alta in una stanza: ha la scala di un'insegna -->
         <p class="mt-2 font-mono text-display font-semibold leading-none">
           {{ guidedAccessKey }}
         </p>
@@ -172,22 +168,20 @@ function tornaAllaSelezione() {
 
     <div class="flex flex-wrap gap-3">
       <template v-if="isTeacher">
-        <button type="button" class="btn-primario text-title-3" @click="avvia">
+        <button type="button" class="btn-primario text-title-3" @click="start">
           Avvia la visita
         </button>
-        <button type="button" class="btn-fantasma-chiaro" @click="termina">
+        <button type="button" class="btn-fantasma-chiaro" @click="end">
           Annulla
         </button>
       </template>
-      <button v-else type="button" class="btn-fantasma-chiaro" @click="esciStudente">
+      <button v-else type="button" class="btn-fantasma-chiaro" @click="studentExit">
         Esci
       </button>
     </div>
   </div>
 
-  <!-- ================= FASE 2: VISITA IN CORSO ================= -->
   <template v-else-if="guidedStato === 'attiva'">
-    <!-- Barra di CONDUZIONE: comandi sulla classe, non sulla visita -->
     <div
       v-if="isTeacher"
       class="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-structure px-3 py-2 text-on-structure"
@@ -198,20 +192,20 @@ function tornaAllaSelezione() {
       <button
         type="button"
         class="btn-fantasma-chiaro"
-        :aria-pressed="pannello === 'studenti'"
-        @click="alterna('studenti')"
+        :aria-pressed="panel === 'studenti'"
+        @click="togglePanel('studenti')"
       >
         Studenti (<span class="tabular">{{ guidedParticipantsCount }}</span>)
       </button>
       <button
         type="button"
         class="btn-fantasma-chiaro"
-        :aria-pressed="pannello === 'domande'"
-        @click="alterna('domande')"
+        :aria-pressed="panel === 'domande'"
+        @click="togglePanel('domande')"
       >
         Domande (<span class="tabular">{{ guidedQuestions.length }}</span>)
       </button>
-      <button type="button" class="btn-pericolo-pieno" @click="termina">
+      <button type="button" class="btn-pericolo-pieno" @click="end">
         Termina per tutti
       </button>
     </div>
@@ -224,26 +218,24 @@ function tornaAllaSelezione() {
 
     <Visita
       :curr-visit="currVisit"
-      :titolo="guidedVisitName"
-      @esci="uscitaDallaVisita"
+      :title="guidedVisitName"
+      @exit="exitVisit"
     />
 
-    <!-- Pannelli del docente: un foglio dallo stesso bordo, non due riquadri
-         sovrapposti che coprono la mappa mentre la classe aspetta. -->
     <div
-      v-if="isTeacher && pannello"
+      v-if="isTeacher && panel"
       class="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center"
-      @click.self="pannello = ''"
+      @click.self="panel = ''"
     >
       <aside
         class="lastra flex max-h-[80dvh] w-full max-w-md flex-col p-5 shadow-l2"
-        :aria-label="pannello === 'studenti' ? 'Studenti collegati' : 'Domande degli studenti'"
+        :aria-label="panel === 'studenti' ? 'Studenti collegati' : 'Domande degli studenti'"
       >
         <div class="flex shrink-0 items-center justify-between gap-3">
           <h2 class="font-display text-title-3">
-            {{ pannello === "studenti" ? "Studenti collegati" : "Domande degli studenti" }}
+            {{ panel === "studenti" ? "Studenti collegati" : "Domande degli studenti" }}
           </h2>
-          <button type="button" class="icona-mini" aria-label="Chiudi" @click="pannello = ''">
+          <button type="button" class="icona-mini" aria-label="Chiudi" @click="panel = ''">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
@@ -251,7 +243,7 @@ function tornaAllaSelezione() {
         </div>
 
         <!-- Studenti -->
-        <template v-if="pannello === 'studenti'">
+        <template v-if="panel === 'studenti'">
           <ul v-if="guidedParticipants.length" class="mt-4 flex flex-1 flex-col gap-2 overflow-y-auto">
             <li
               v-for="p in guidedParticipants"
@@ -264,17 +256,16 @@ function tornaAllaSelezione() {
           <p v-else class="vuoto mt-4">Nessuno studente collegato.</p>
         </template>
 
-        <!-- Domande: le conserva il client del docente, il server non le tiene -->
         <template v-else>
-          <ul v-if="domandeRecenti.length" class="mt-4 flex flex-1 flex-col gap-2 overflow-y-auto">
+          <ul v-if="recentQuestions.length" class="mt-4 flex flex-1 flex-col gap-2 overflow-y-auto">
             <li
-              v-for="(q, i) in domandeRecenti"
+              v-for="(q, i) in recentQuestions"
               :key="i"
               class="rounded-plate border border-line p-3 text-small"
             >
               <div class="flex items-baseline justify-between gap-2">
                 <span class="font-semibold">{{ q.username }}</span>
-                <span class="tabular shrink-0 text-caption text-muted">{{ formatOra(q.at) }}</span>
+                <span class="tabular shrink-0 text-caption text-muted">{{ formatTime(q.at) }}</span>
               </div>
               <p class="mt-1">{{ q.question }}</p>
               <p v-if="q.artwork" class="mt-0.5 text-caption text-muted">su «{{ q.artwork }}»</p>
@@ -286,10 +277,6 @@ function tornaAllaSelezione() {
     </div>
   </template>
 
-  <!-- ================= FASE 3: QUIZ =================
-       L'interfaccia del quiz non c'è ancora (rinviata). Ma lo stato esiste sul
-       server: senza questo ramo, all'avvio del quiz tutti vedrebbero "Visita
-       terminata" a metà visita — una cosa falsa. Meglio dire la verità. -->
   <div
     v-else-if="guidedStato === 'quiz'"
     class="flex flex-1 items-center justify-center bg-structure p-6 text-on-structure"
@@ -302,20 +289,19 @@ function tornaAllaSelezione() {
     </div>
   </div>
 
-  <!-- ================= FASE 4: FINE ================= -->
   <div v-else class="flex flex-1 items-center justify-center bg-structure p-6 text-on-structure">
     <div class="max-w-md text-center">
       <h1 class="font-display text-title-1">
-        {{ guidedChiusuraPrevista ? "La visita è finita." : "La sessione è stata chiusa." }}
+        {{ guidedPlannedEnd ? "La visita è finita." : "La sessione è stata chiusa." }}
       </h1>
       <p class="mt-3 text-body text-on-structure/85">
         {{
-          guidedChiusuraPrevista
+          guidedPlannedEnd
             ? "Grazie per aver partecipato."
             : "Il collegamento con la visita si è interrotto. Chiedi al docente di riaprire la sala d'attesa."
         }}
       </p>
-      <button type="button" class="btn-primario mt-8" @click="tornaAllaSelezione">
+      <button type="button" class="btn-primario mt-8" @click="backToSelection">
         Torna alle visite
       </button>
     </div>

@@ -1,3 +1,9 @@
+/**
+ * Genera il file di configurazione di un museo.
+ *
+ * E' il file che il curatore modifica per creare la propria versione del
+ * navigator (slide 33).
+ */
 import fs from "fs";
 import path from "path";
 import { fetchMuseum, MuseumMetadata } from "./wikidata";

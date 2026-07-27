@@ -1,3 +1,11 @@
+/**
+ * Rotte delle opere.
+ *
+ * `/preview` e' quella interessante: restituisce un'opera anche se NON fa parte
+ * della visita in corso (serve al QR e al codice digitato). Sceglie l'item per
+ * livello e durata, ripiega sul solo livello, poi su uno qualsiasi; se l'opera non
+ * ha descrizioni ne genera una con l'LLM e la salva, cosi' la volta dopo c'e'.
+ */
 import { Router } from "express";
 import { ArtworkModel } from "../models/artwork";
 import { ItemModel } from "../models/item";
@@ -17,15 +25,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/artworks/:qid/preview?level=<educationalLevel>&duration=<sec>
- * Ritorna un Match { artwork, item } per una singola opera, anche se NON fa
- * parte della visita corrente (usato dallo scanner QR del navigator). Sceglie
- * l'item che combacia con livello E durata della visita; in mancanza ripiega
- * sul solo livello, poi su uno qualsiasi. Se l'opera non ha alcun item lo genera
- * con l'LLM nel livello e nella durata richiesti (e lo persiste, cosi' da essere
- * riusato) — soddisfa il requisito 18-33 "creare item per oggetti non descritti".
- */
 router.get("/:qid/preview", async (req, res) => {
   try {
     const { qid } = req.params;
@@ -38,9 +37,7 @@ router.get("/:qid/preview", async (req, res) => {
 
     const baseFilter = { about: artwork["@id"] };
 
-    // 1) livello + durata, 2) solo livello, 3) uno qualsiasi
     let item = null;
-    // timeRequired e' salvato come secondi "nudi" (es. "30"), senza suffisso
     if (level && duration) {
       item = await ItemModel.findOne({
         ...baseFilter,
@@ -59,7 +56,6 @@ router.get("/:qid/preview", async (req, res) => {
       return res.json({ artwork, item });
     }
 
-    // nessun item: generalo con l'LLM (livello + durata richiesti) e persistilo
     let usedLevel = "Intermedio";
     if (level) usedLevel = String(level);
     let usedDuration = 30;
@@ -75,7 +71,6 @@ router.get("/:qid/preview", async (req, res) => {
       return res.status(502).json({ error: "Impossibile generare la descrizione dell'opera" });
     }
 
-    // @id distinto per combinazione livello+durata: ogni variante persiste a parte
     const generatedId = `${qid}-AI-${usedLevel}-${usedDuration}`;
     const generated = await ItemModel.findOneAndUpdate(
       { "@id": generatedId },

@@ -1,3 +1,10 @@
+/**
+ * Interrogazioni a Wikidata per opere e musei.
+ *
+ * Quando il servizio delle etichette non trova un nome nelle lingue richieste
+ * restituisce il codice dell'elemento: in quel caso il nome si considera assente,
+ * altrimenti finirebbe a schermo un identificatore al posto di un titolo.
+ */
 export interface ArtworkMetadata {
   name: string;
   image: string;
@@ -18,8 +25,6 @@ export interface MuseumMetadata {
  * ritorna le informazioni di ArtworkMetadata raccogliendole da wikidata
  */
 
-// Ritorna null quando Wikidata non conosce l'opera: il chiamante (manager.ts)
-// lo verifica già, ma il tipo diceva il contrario.
 export async function fetchArtwork(
   wikiDataUri: string,
 ): Promise<ArtworkMetadata | null> {
@@ -53,7 +58,6 @@ export async function fetchArtwork(
   const response = await fetch(url, {
     headers: {
       Accept: "application/sparql-results+json",
-      // MANDATORY: Wikidata requires identification
       "User-Agent": "ArtAroundMuseumApp",
     },
   });
@@ -65,8 +69,6 @@ export async function fetchArtwork(
   const binding = data.results.bindings[0];
 
   if (!binding) return null;
-  // Il label service ripiega sul QID quando non trova una label nelle lingue
-  // richieste: in quel caso il "nome" sarebbe un QID. Lo consideriamo assente.
   const rawLabel = binding.itemLabel?.value || "";
   const name = /^Q\d+$/.test(rawLabel) ? "" : rawLabel;
   return {
@@ -118,7 +120,6 @@ export async function fetchMuseum(
 
   let createdYear = binding.created?.value || "Unknown";
   if (createdYear.includes("-")) {
-    // Wikidata dates are often formatted as ISO 8601 strings (e.g. 1581-01-01T00:00:00Z)
     createdYear = createdYear.split("-")[0];
   }
 

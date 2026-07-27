@@ -143,7 +143,7 @@ export function labelForCommand(id: string): string {
 }
 
 /** Regola di prodotto: all'utente non si mostrano mai i secondi grezzi. */
-export function formatDurata(totalSeconds: number): string {
+export function formatDuration(totalSeconds: number): string {
   const minutes = Math.round((Number(totalSeconds) || 0) / 60);
   if (minutes < 1) return "meno di 1 min";
   return `${minutes} min`;

@@ -1,3 +1,6 @@
+/**
+ * Documento Mongoose di un museo.
+ */
 import { Schema, model } from "mongoose";
 import { Museum as SharedMuseum } from "../../../shared/types";
 

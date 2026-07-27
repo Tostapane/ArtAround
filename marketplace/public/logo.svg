@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ArtAround">
+  <title>ArtAround</title>
+  <!--
+    Il marchio in versione autonoma: serve da favicon e da immagine, quindi ha
+    colori propri (dentro una pagina si usa invece il simbolo #ico-marchio, che
+    prende currentColor e segue il tema).
+
+    Segno: l'opera incorniciata e il percorso che le gira intorno, con il
+    visitatore sopra — "art" e "around". Il tratto e' aperto, non un cerchio
+    chiuso, perche' una visita ha un inizio e una fine.
+
+    Qui l'arco e' pieno mentre nell'interfaccia e' punteggiato: a 16 pixel un
+    tratteggio diventa poltiglia, e una favicon deve reggere quella misura.
+  -->
+  <rect width="64" height="64" rx="12" fill="#284b63" />
+  <g fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="21" y="21" width="22" height="22" rx="1.5" />
+    <path d="M25.01 5.92 A 27 27 0 1 0 47.49 9.88" />
+  </g>
+  <circle cx="47.49" cy="9.88" r="5" fill="#3c6e71" stroke="#284b63" stroke-width="2.5" />
+</svg>
