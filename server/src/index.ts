@@ -12,6 +12,7 @@ import "./env";
 import express from "express";
 import mongoose from "mongoose";
 import path from "path";
+import fs from "fs";
 import cors from "cors";
 import QRCode from "qrcode";
 
@@ -74,13 +75,22 @@ app.get("/api/health", (req, res) => {
 });
 
 /**
- * GET /api/config
- * Configurazione d'ambiente per i client. Serve a togliere host e porte
- * scritti a mano dal codice del marketplace (prelude.md §6 C5): il navigator
- * gira su un'altra origine e solo il server sa quale.
- * In deploy si imposta NAVIGATOR_ORIGIN; in sviluppo si ricava dall'host della
- * richiesta con la porta di Vite.
+ * Le opere che la soglia compone. Si rilegge a ogni richiesta e non a
+ * import-time: cambiare la curatela non deve richiedere di riavviare il server.
+ * Se il file manca o e' rotto si torna una lista vuota, e il client ripiega
+ * sulle prime opere del catalogo.
  */
+function readThresholdArtworks(): string[] {
+  try {
+    const file = path.join(__dirname, "data", "soglia.json");
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!Array.isArray(parsed.opere)) return [];
+    return parsed.opere.filter((qid: unknown) => typeof qid === "string");
+  } catch {
+    return [];
+  }
+}
+
 app.get("/api/qr", async (req, res) => {
   try {
     const text = String(req.query.text || "");
@@ -96,6 +106,18 @@ app.get("/api/qr", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/config
+ * Configurazione d'ambiente per i client. Serve a togliere host e porte
+ * scritti a mano dal codice del marketplace (prelude.md §6 C5): il navigator
+ * gira su un'altra origine e solo il server sa quale.
+ * In deploy si imposta NAVIGATOR_ORIGIN; in sviluppo si ricava dall'host della
+ * richiesta con la porta di Vite.
+ *
+ * Porta anche l'elenco delle opere della soglia, letto da data/soglia.json: e'
+ * una scelta di curatela, non di codice, e il marketplace non deve conoscere
+ * nessun qid.
+ */
 app.get("/api/config", (req, res) => {
   let navigatorOrigin = process.env.NAVIGATOR_ORIGIN;
   if (!navigatorOrigin) {
@@ -103,7 +125,7 @@ app.get("/api/config", (req, res) => {
     const protocol = req.protocol || "http";
     navigatorOrigin = `${protocol}://${host}:5173`;
   }
-  res.json({ navigatorOrigin });
+  res.json({ navigatorOrigin, thresholdArtworks: readThresholdArtworks() });
 });
 
 app.listen(PORT, () => {

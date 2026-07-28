@@ -45,11 +45,11 @@
   <!-- Grafo di navigazione: ogni <line data-edge> collega una sala alla Hall
        passando per un varco. Quasi invisibile. -->
   <g id="nav-edges" stroke="#6b7c8a" stroke-width="1.5" stroke-dasharray="3,5" opacity="0.08">
-    <line data-edge x1="140" y1="230" x2="140" y2="300" /> <!-- Richelieu <-> Hall -->
-    <line data-edge x1="400" y1="230" x2="400" y2="300" /> <!-- Egizie <-> Hall -->
-    <line data-edge x1="660" y1="230" x2="660" y2="300" /> <!-- Denon <-> Hall -->
-    <line data-edge x1="200" y1="310" x2="200" y2="370" /> <!-- Hall <-> Sully -->
-    <line data-edge x1="600" y1="310" x2="600" y2="370" /> <!-- Hall <-> Apollo -->
+    <line data-edge="" x1="140" y1="230" x2="140" y2="300" /> <!-- Richelieu <-> Hall -->
+    <line data-edge="" x1="400" y1="230" x2="400" y2="300" /> <!-- Egizie <-> Hall -->
+    <line data-edge="" x1="660" y1="230" x2="660" y2="300" /> <!-- Denon <-> Hall -->
+    <line data-edge="" x1="200" y1="310" x2="200" y2="370" /> <!-- Hall <-> Sully -->
+    <line data-edge="" x1="600" y1="310" x2="600" y2="370" /> <!-- Hall <-> Apollo -->
   </g>
 
   <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks e

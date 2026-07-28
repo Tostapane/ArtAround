@@ -268,6 +268,51 @@ export async function postGuidedLeave(
   if (!res.ok) throw new Error(await readGuidedError(res));
 }
 
+/**
+ * Quiz di fine visita (modulo 18-27). Le risposte corrette non lasciano mai il
+ * server: qui si mandano solo gli indici scelti e si riceve il punteggio.
+ */
+export async function postGuidedQuizStart(
+  id: string,
+  teacher: string,
+  durationSec: number,
+): Promise<any> {
+  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/quiz/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teacher, durationSec }),
+  });
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+export async function postGuidedQuizAnswer(
+  id: string,
+  username: string,
+  answers: number[],
+): Promise<{ score: number; total: number; giaConsegnato: boolean }> {
+  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/quiz/answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, answers }),
+  });
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+export async function postGuidedQuizEnd(
+  id: string,
+  teacher: string,
+): Promise<any> {
+  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/quiz/end`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teacher }),
+  });
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
 export async function postGuidedAsk(
   id: string,
   username: string,

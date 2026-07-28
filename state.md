@@ -1,6 +1,6 @@
 # ArtAround — `state.md`
 
-**Complete state of the system as of 2026-07-27.**
+**Complete state of the system as of 2026-07-28.**
 
 > Purpose. This document is the *starting point for the restyle*. It therefore has to be
 > exhaustive about **what screens exist, in what states, reachable from where** — not just
@@ -25,13 +25,13 @@
 
 | Band | Requirement | State |
 | --- | --- | --- |
-| 18–24 (base, mandatory) | marketplace+editor, navigator with visit selection/execution, map, TTS, on-screen text, controlled-vocabulary voice commands + equivalent buttons | **Complete**, except **logistics indications are never shown in the navigator** (§7.2 / §9.3) |
-| Module I (18–27) | teacher-synchronized visit + end-of-visit quiz | Sync: **complete end-to-end**. Quiz: **server + authoring done, navigator UI absent → the quiz cannot be taken** (§9.3) |
+| 18–24 (base, mandatory) | marketplace+editor, navigator with visit selection/execution, map, TTS, on-screen text, controlled-vocabulary voice commands + equivalent buttons | **Complete.** Logistics now shown (§0.1), the visit now *ends* and the controlled vocabulary has a panel of its own (§0.2) |
+| Module I (18–27) | teacher-synchronized visit + end-of-visit quiz | Sync: **complete end-to-end**. Quiz: **complete end-to-end** since 2026-07-28 (§0.2) |
 | Module II (18–33) | QR localization, **teleport module**, deep LLM integration | QR: done. LLM (4 uses): done. **Teleport: not started** (§9.3) |
 
-Two blockers remain for the declared 18-33 target: **the quiz has no navigator UI**, and the
-**teleport module does not exist**. Everything else is in place and type-checks cleanly
-(`vue-tsc` and `tsc` both pass on all three parts).
+One blocker remains for the declared 18-33 target: the **teleport module does not exist**.
+Everything else is in place and type-checks cleanly (`vue-tsc` and `tsc` both pass on all
+three parts).
 
 ### 0.1 What the 2026-07 restyle closed
 
@@ -58,9 +58,39 @@ Implementing `prelude.md` resolved a number of the items listed below. They are 
 | §9.8 hardcoded `localhost` / `Q6373` | `navigator/public/config.json` + `GET /api/config` |
 | §9.9 `visitaUtilizzabile` treats unknown items as owned | unresolvable ids now count as **missing**, not owned |
 
-Still open from those sections: §7.1 (quiz UI, teleport), §7.6 (UI translation), §7.7
+Still open from those sections: §7.1 (teleport), §7.6 (UI translation), §7.7
 (`stepStartAt` sync), §7.8 (spatial ordering of custom visits), §9.11 (naming), and all
 of §10.
+
+### 0.2 What the 2026-07-28 pass closed
+
+Twelve items of feedback, seven of them defects found by using the thing:
+
+| Was | Now |
+| --- | --- |
+| the description editor's textarea was bound to `draft.raw`, a field that does not exist — publishing always answered "Manca ancora: il testo" | bound to `draft.testo`; the estimator and the validator finally see the same string |
+| `x-model` on a radio with `:value="false"` returns the **string** `"false"`, which is truthy: once a visit was marked guided it could never go back to the catalogue | `x-model.boolean` with literal `value="true"/"false"`; the type is no longer frozen while editing, and importing a path no longer forces "guided" |
+| the navigator located the current stop by **artwork** id, so a visit with two items on the same object looped between them and never advanced (§9.3 said the slides *want* multiple items per object) | located by **item** id — in `indexInVisit`, in `currentPosition`, in the list `:key`, and on the map, where the two stops now share one numbered node instead of overwriting each other |
+| the visit never ended: "Prossimo" on the last stop did nothing | end-of-visit screen with the closing logistics and **Torna alla home** |
+| the controlled vocabulary was reachable only by opening the artwork sheet to full height | **Chiedi** button in the visit bar → panel with both families (`Pannello.vue`, shared with the sheet, so the two lists cannot diverge) |
+| the sheet's "Apri la scheda" was grey caption text under the title — the typography of a description, not of a control | a bordered pill with a chevron that rotates on open, accented on hover |
+| the backdrop **jerked** at every figure change: `tick()` reused the *previous* phase's `elapsed`, so the first frame of a morph ran at `progress = 1` — one frame covering **8% of the whole journey**, the next covering 0.001% | `elapsed` reset on the phase change; and the motion is now an eased **interpolation** (smootherstep, zero velocity at both ends) along a **bowed** path, instead of a chase whose speed is maximal at the first instant. Peak per-frame displacement 8.00% → 1.04% |
+| quiz: server + authoring done, **no navigator UI** | teacher starts it, watches submissions land and grades in real time, closes it; student answers, submits once, sees the score. Correction stays server-side, and `GET /visits/:id` no longer ships `correct` to the students' browsers |
+| `POST /:id/end` deleted the session instantly, so a **planned** close reached every student as a 410, i.e. "the session vanished" | the session lingers 30s in state `terminata`; the clients read it and say "La visita è finita" |
+| the seeded guided visit had **no quiz**, so slide 33's "test sensato di competenza" was unmet by a fresh seed | `server/src/data/quiz.ts` builds one **from the visit's own artworks** — author, style, "which of these is by X", distractors drawn from the same museum, `Unknown` filtered out. No hand-written question, so it holds for any museum |
+| "Il banco" | "Home" (route `#/home`), plus the soglia and the login lost the university strapline, the dead theme toggle and the profile line |
+
+**One change was made and then removed at the user's instruction: marketplace session
+persistence.** "Torna alla home" at the end of a visit crosses an origin, so it is a page
+load and the marketplace showed the soglia instead of the visitor's home; restoring the
+session from `localStorage` fixed that and broke something worse — **the soglia became
+unreachable**, since every load of `/` resumed the last account. The gated version (resume
+only for an address that requires being logged in) was not wanted either: *"i do not want
+any session restorage"*. `state.ts`, `marketplace/src/frontend/api.ts` and
+`server/src/routes/users.ts` are back to their previous behaviour, the last two byte-identical
+to HEAD. **Do not re-add it.** The end-of-visit button still points at the marketplace home
+and lands on the soglia when logged out, which is the normal behaviour for a logged-out
+visitor.
 
 The six defects `strict` surfaced on the server, for the record: `req.file` used without
 its own guard; a transcript that could be `undefined` passed to `mapRequest`; `user.wallet`
@@ -278,9 +308,19 @@ Notable server-side rules:
   `studente1..3` (visitatore), password `12345678`.
 - `seedUsers.ts` seeds the four slide-mandated accounts (`autore1`, `autore2`,
   `visitatore1`, `visitatore2`, password `12345678`), idempotently.
-- **The seeded guided visit has no quiz** — so even the authoring side of Module I is not
-  demonstrated by a fresh seed (slide 34 asks for "un test sensato" on at least one
-  synchronized visit).
+- **The guided visit now carries a quiz**, built by `data/quiz.ts` from the artworks of that
+  very visit (§0.2). It is generated, not authored: no question, artwork or museum is named
+  in the code, so it survives a change of museum. Three shapes — author of X, style of X,
+  which work is by X — each with three distractors taken from the same museum, `Unknown`
+  excluded from both answers and distractors; a shape that cannot find three distinct
+  distractors is skipped rather than padded.
+
+⚠️ **`seedSpecialVisits()` currently matches nothing and returns silently.** It queries
+`educationalLevels[0]` + `secPerArt[0]` = *Infantile / 15s*, and the live DB holds only
+`Semplice`, `Medio`, `Avanzato` at durations 15/30/60 — the constants were migrated, the
+stored rows only partly (§9.4, `testers.ts toni`). So both demo visits, quiz included, are
+**not refreshed by a run today**: it prints "esegui prima seed()" and stops. Either re-run
+the full seed (slow: 8 LLM items per artwork) or reconcile the levels first.
 
 ---
 
@@ -308,10 +348,18 @@ focus and collapse plugins are **served locally** from `public/vendor/`.
 ### 4.2 `soglia` — the front door *(new)*
 
 Full-bleed `bg-structure`. `ART AROUND.` at `text-hero` in Bricolage Grotesque over
-**La Pianta**: a real museum floor-plan SVG, fetched at random from `/api/museums` and
-stripped to strokes, edges self-drawing once (killed by `prefers-reduced-motion`). Two doors:
-`Entra` and `Guarda com'è fatta una visita` (opens the navigator with no account — free
-visits only). Nothing is asked before something is shown.
+**lo sciame** (`swarm()` in `app.ts`): a cloud of ~6–13k particles that assembles, one after
+another, the **artworks actually on sale here**, holds a few seconds, then flows into the
+next. The figures come from a halftone screen of the real images — the curator picks which
+and in what order via `server/src/data/soglia.json` → `GET /api/config`, and **no qid appears
+in the marketplace**, so genericity holds; without the file it falls back to the first six of
+the catalogue. Motion is an eased interpolation along bowed paths (`left.md` §0-bis, eighth
+pass); `prefers-reduced-motion` composes one figure and stops.
+
+Two doors: `Entra` and `Guarda com'è fatta una visita` (opens the navigator with no account —
+free visits only). Nothing is asked before something is shown. Since 2026-07-28 the screen
+carries **no university strapline and no theme toggle** — the toggle did nothing visible
+here, `bg-structure` being the same in both themes.
 
 ### 4.3 `accedi` / `registrati`
 
@@ -327,12 +375,15 @@ The mandatory multiple-choice panel (slide 20), now shown **once** and remembere
 `localStorage`; afterwards it is a switcher in the rail. Cards show name, location and
 `N opere · M visite` — the QID is gone from the UI.
 
-### 4.5 `banco` — visitor home
+### 4.5 `home` — visitor home
 
 Three doors: **Scegli una visita pronta** → `visite`, **Componi il tuo percorso** →
 `componi`, **Ho una parola chiave** (inline field → `POST /guided-sessions/join`, then a
 deep link to the navigator's waiting room). Below, a **Riprendi** strip of owned visits with
 `Inizia` directly on each row. No list of 300 cards on arrival.
+
+Called `banco` until 2026-07-28; the route, the rail item and the page title are all `home`
+now. "Banco di lavoro" survives only where it means the *editor's* workbench.
 
 ### 4.6 `visite` / 4.7 `opere` — two catalogues, one object type each
 
@@ -411,9 +462,16 @@ ones do. Below a rule, the **su misura** block with example chips.
   toggle appears only when `optionalCount > 0`.
 - **`Scheda`** — the bottom sheet, three snaps (`riposo`/`media`/`piena`). Only at `piena`,
   and only below `lg`, does it become `role="dialog"` and mark the stage `inert`; from `lg`
-  it is a side column and never modal. Inside: matted image, badges, description, then the
-  **Chiedi / Orientati** split (artwork questions → LLM; building questions → room graph),
-  the language selector, and a **permanent microphone** in the footer.
+  it is a side column and never modal. Inside: matted image, badges, description, then
+  `Pannello`, the language selector, and a **permanent microphone** in the footer. The
+  open/close control is a pill with a rotating chevron, not a caption.
+- **`Pannello`** — the controlled vocabulary as buttons, split **Chiedi** (artwork questions
+  → LLM) / **Orientati** (building questions → room graph), with the answer (`Info`) below.
+  One component, **two mounts**: inside the sheet at `piena`, and behind the **Chiedi**
+  button in the visit rail — which is the one that satisfies slide 28's "bottoni equivalenti
+  ai comandi vocali" without requiring a sheet to be opened first. Questions work from the
+  current stop even with the sheet closed (`riferimento`: the open artwork, else the last
+  stop reached, else the first).
 - **Logistics transitions** — pressing `Prossimo` when the author left a note for that
   passage shows it as a step before the next stop (opening notes appear before stop 1).
   This is `Visit.logistics` finally reaching the person it was written for.
@@ -425,20 +483,39 @@ ones do. Below a rule, the **su misura** block with example chips.
 Four phases. **`attesa`** is a full-bleed stage with the access key at `text-display` — it
 gets read aloud across a room. **`attiva`** puts class-level commands in a *conduzione bar*
 separate from visit controls, with one panel sheet instead of two overlapping asides;
-joins, leaves and questions are announced. **`quiz`** has its own neutral screen (the UI is
-deferred, but the state exists server-side and must not read as "ended"). **`terminata`**
-distinguishes *the teacher ended it* from *the session vanished*.
+joins, leaves and questions are announced.
+
+**`quiz`** is now implemented on both sides. The teacher's `Quiz` button (present only when
+the visit has one) opens a sheet with a duration picker — the slide wants the teacher to
+size the test against the time left — and starting it switches every device at once. The
+teacher then gets a **live board**: submissions landing one by one, each with its score out
+of the total, plus `Chiudi il quiz` and `Termina per tutti`. The student gets the questions
+with radio options, a countdown, one submission (`giaConsegnato` blocks the second) and the
+mark. **Nothing is corrected client-side**: the answers go up as indices and the score comes
+back. The countdown is informative only — the deadline the server enforces is `quizEndsAt`.
+
+**`terminata`** distinguishes *the teacher ended it* from *the session vanished*, and now
+usually reads as the former: the server keeps the session 30 s in `terminata` so the poll
+can report a *planned* close instead of a 410. It shows the student's mark, and offers
+**Torna alla home** beside "Scegli un'altra visita".
 
 ### 5.5 Cross-cutting
 
 `useTTS` (server-side synthesis, request-id guarded), `useTranslation` (lives in `Visita` so
-`Leggi` reuses the translated text), `useAnnouncer`, `useVoce`.
-⚠️ `useTheme.ts` is currently **unreferenced** — the navigator lost its theme toggle with the
-old header and now only inherits the marketplace's stored preference.
+`Leggi` reuses the translated text), `useAnnouncer`, `useVoce`, `useTheme` — the last one
+wired to the toggle in `Biglietteria`'s utility row, which is also where the mandatory link
+back to the marketplace lives (both were lost with the deleted `Header.vue` and restored
+there: during a visit every pixel belongs to the map).
 
 ---
 
 ## 6. End-to-end flows (open this, then that)
+
+> ⚠️ **F1, F2, F3, F5 and F6 still use the PRE-restyle screen names** (`dashboard`,
+> `my_collection`, `my_works`, `MainView`, `Card`, `OptionsBar`, the modals). The *steps* are
+> still right, the *names* are not: §4 and §5 were rewritten in the restyle and this section
+> was not. Read it for the sequence, read §4/§5 for what things are called. Same caveat
+> applies to the inventory in §11. F4 is current.
 
 **F1 — Visitor buys and runs a visit.**
 `login` (role=visitatore) → `select_museum` → `dashboard` → artwork card → artwork modal →
@@ -463,9 +540,11 @@ Author: editor → Visita → 🔑 guided + key + (quiz) → publish → `my_wor
 Student: `dashboard` → "🔑 Hai una parola chiave?" → key → join (409 if the room is not open
 yet, 409 if the wrong museum, 404 if the key does not exist) → "Vai alla sala d'attesa →" →
 **navigator** `?guidedSession&role=studente` → waiting → teacher presses `Avvia visita` →
-both sides run `MainView`, the teacher's `Prossimo` pushing the step to everyone → teacher
-`Termina` → students' poll gets 410 → "Visita terminata", nothing persisted.
-**The quiz cannot currently be started from the navigator** (§9.3).
+both sides run the visit, the teacher's `Prossimo` pushing the step to everyone → teacher
+opens `Quiz`, picks a duration, `Avvia il quiz` → every device switches to the questionnaire
+while the teacher watches the marks arrive → `Chiudi il quiz` → `Termina per tutti` →
+students read state `terminata` from their next poll and see "La visita è finita" with their
+mark. **Nothing persisted**: the session, the answers and the marks die with it.
 
 **F5 — Custom visit from constraints (18-33).**
 Selector → free-text box → `POST /visits/custom` → planner → per-artwork resolve/generate →
@@ -484,14 +563,10 @@ it flagged "Non fa parte di questa visita", leaving visit progress untouched.
 Ordered by value. Each is a *flow* change, not a repaint; several are also prerequisites for
 a clean restyle.
 
-### 7.1 Close the two remaining spec holes (blocking, not optional)
+### 7.1 Close the remaining spec hole (blocking, not optional)
 
-- **Quiz UI in the navigator.** The server (`/quiz/start|answer|end`) and the authoring side
-  are finished; only the navigator screens are missing: teacher — "Avvia quiz" with a
-  duration picker (the slide explicitly wants the teacher to size it against the remaining
-  time), live results table, "Termina per tutti"; student — a **non-skippable** questionnaire
-  with a countdown and the final score. `guidedStato` must gain the `"quiz"` value (today the
-  server can enter a phase the client type does not model — see §9.3).
+- ~~**Quiz UI in the navigator.**~~ **DONE 2026-07-28** — both screens, plus a generated quiz
+  on the seeded guided visit. See §0.2 and §5.4.
 - **Teleport module.** Slide 34 asks for a module that takes you to a *predetermined position
   near each object of the visit*. The cheapest honest implementation reuses what already
   exists: a "Teletrasportami qui" action on each stop (list row, map node, Card) that sets
@@ -680,9 +755,18 @@ segmented control, and no `welcome` at all. The rest of the document (tokens, ch
 components, navigator §6) still applies; that section needs rewriting against §4 of this
 file before anyone implements from it.
 
-### 9.3 The quiz can be authored and served but never taken
+### 9.3 The quiz can be authored and served but never taken — **CLOSED 2026-07-28**
 
-`grep -rn "quiz" navigator/src` returns **nothing**. Concretely:
+> Closed, in all three of its parts. `guided.ts` carries the quiz state for both roles,
+> `api.ts` wraps the three endpoints, `GuidedGate.vue` has the two screens, and the seeded
+> guided visit now gets a generated quiz (§0.2, §3.5, §5.4). One thing this entry did *not*
+> foresee: `GET /visits/:id` was handing the whole `quiz` array — `correct` included — to
+> every student's browser, since that is the route the navigator uses to load a guided
+> visit. It now `select("-quiz")`s; the questions reach students only through the session,
+> already stripped.
+
+The original finding, kept for the reasoning: `grep -rn "quiz" navigator/src` returned
+**nothing**. Concretely:
 
 - `guided.ts` types `Stato = "attesa" | "attiva" | "terminata"` while the server's real
   enum includes `"quiz"`. If the teacher ever hit `POST /:id/quiz/start`, every client would
@@ -692,7 +776,7 @@ file before anyone implements from it.
 - The seeded guided visit has **no quiz**, so the slide-34 requirement ("almeno una visita …
   ha un test sensato di competenza alla fine") is unmet twice over.
 
-This is the single largest gap between what the backend can do and what the product does.
+It was the single largest gap between what the backend could do and what the product did.
 
 ### 9.4 Two disjoint vocabularies for the same field
 
@@ -859,7 +943,13 @@ container, and it deletes the class of bug entirely. Cost: ~60 lines and an unco
 (a 5-second command ≈ 160 KB — irrelevant on a LAN). Note `AudioContext` needs `resume()` inside
 the user gesture on iOS, which the existing tap already provides.
 
-### 10.2 The marketplace stops existing without a CDN
+### 10.2 The marketplace stops existing without a CDN — **CLOSED**
+
+> Closed by the 2026-07 restyle: Alpine and both plugins are vendored in
+> `marketplace/public/vendor/` and loaded by relative path, pinned at 3.15.0. The entry is
+> kept because the *rule* it states — zero external requests at runtime, in either app — is
+> still the rule.
+
 
 **What happens.** With no route to `cdn.jsdelivr.net`, the marketplace loads its own CSS and
 its own compiled JS, and then renders **every view at once, stacked**, with no working control
@@ -925,8 +1015,9 @@ toasts, disabled editor fields.
 QR FAB, QR dialog (live / error), Card (image / broken / absent, 2 notice variants, nav
 buttons with disabled ends, TTS states), OptionsBar (4 groups, recorder idle/recording/
 processing/error), Info (loading / answer / error / "Indicazioni dettagliate"), GuidedGate
-(waiting-teacher, waiting-student, active bar with 2 side panels, ended) — plus, once §7.1
-lands, the two quiz screens.
+(waiting-teacher, waiting-student, active bar with 3 side panels, **quiz-teacher board**,
+**quiz-student form / submitted / time-out**, ended), the command panel as a modal, and the
+end-of-visit screen.
 
 **Do not break**: the `.dark`-class token mechanism and the shared `artaround-theme` key; the
 skip link and both live regions; the SVG map nodes as real keyboard targets **and** the

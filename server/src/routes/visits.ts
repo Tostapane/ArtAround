@@ -39,10 +39,17 @@ router.get("/", async (req, res) => {
   }
 });
 
+/**
+ * Il quiz non esce da qui. Questa rotta la chiama anche il navigator degli
+ * studenti, per caricare la visita guidata: restituire le domande con dentro
+ * l'indice della risposta corretta significherebbe consegnare il compito
+ * svolto. Le domande le distribuisce la sessione guidata, senza `correct`;
+ * l'editor dell'autore legge il quiz dall'elenco delle visite.
+ */
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const visit = await VisitModel.findOne({ "@id": id });
+    const visit = await VisitModel.findOne({ "@id": id }).select("-quiz");
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
     res.json(visit);
   } catch (err: any) {

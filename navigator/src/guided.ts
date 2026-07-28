@@ -26,6 +26,9 @@ import {
   postGuidedEnd,
   postGuidedLeave,
   postGuidedAsk,
+  postGuidedQuizStart,
+  postGuidedQuizAnswer,
+  postGuidedQuizEnd,
   GuidedEndedError,
 } from "./api";
 
@@ -50,6 +53,34 @@ export type GuidedQuestion = {
 };
 export const guidedQuestions = ref<GuidedQuestion[]>([]);
 
+// --- Quiz di fine visita ----------------------------------------------------
+
+/** Come il docente vede il quiz: quanti hanno consegnato e con che punteggio. */
+export type QuizDocente = {
+  total: number;
+  startAt: number | null;
+  endsAt: number | null;
+  closed: boolean;
+  risultati: { username: string; consegnato: boolean; score: number }[];
+};
+
+/** Come lo studente vede il quiz: le domande SENZA la risposta corretta. */
+export type QuizStudente = {
+  total: number;
+  endsAt: number | null;
+  closed: boolean;
+  domande: { question: string; options: string[] }[];
+  giaConsegnato: boolean;
+  punteggio: number | null;
+};
+
+export const guidedQuizDocente = ref<QuizDocente | null>(null);
+export const guidedQuizStudente = ref<QuizStudente | null>(null);
+/** Il voto appena ricevuto dal server: il client non corregge nulla da solo. */
+export const guidedQuizPunteggio = ref<number | null>(null);
+/** La visita ha un quiz preparato dall'autore? Lo sa solo il docente. */
+export const guidedHasQuiz = ref(false);
+
 let pollTimer: number | null = null;
 let contentLoaded = false;
 
@@ -62,7 +93,6 @@ function qidFromUri(uri: string): string {
 
 function applyTeacherView(v: any) {
   guidedSessionId.value = v.id;
-  guidedStato.value = v.stato;
   guidedCurrentStep.value = v.currentStep;
   if (v.accessKey) guidedAccessKey.value = v.accessKey;
   if (v.partecipanti) {
@@ -73,13 +103,37 @@ function applyTeacherView(v: any) {
     guidedQuestions.value.push(...v.nuoveDomande);
   }
   if (v.visitName) guidedVisitName.value = v.visitName;
+  guidedHasQuiz.value = !!v.hasQuiz;
+  if (v.quiz) guidedQuizDocente.value = v.quiz;
+  else guidedQuizDocente.value = null;
+  applyStato(v.stato);
 }
 
 function applyStudentState(s: any) {
-  guidedStato.value = s.stato;
   guidedCurrentStep.value = s.currentStep;
   guidedParticipantsCount.value = s.partecipanti;
   if (s.visitName) guidedVisitName.value = s.visitName;
+  if (s.quiz) {
+    guidedQuizStudente.value = s.quiz;
+    if (typeof s.quiz.punteggio === "number")
+      guidedQuizPunteggio.value = s.quiz.punteggio;
+  } else {
+    guidedQuizStudente.value = null;
+  }
+  applyStato(s.stato);
+}
+
+/**
+ * Il server tiene la sessione ancora un momento dopo il "Termina", con stato
+ * "terminata", proprio perche' i client possano leggerlo: e' una chiusura
+ * VOLUTA, non la sessione sparita sotto i piedi.
+ */
+function applyStato(stato: Stato) {
+  if (stato === "terminata") {
+    if (guidedStato.value !== "terminata") endLocally(true);
+    return;
+  }
+  guidedStato.value = stato;
 }
 
 async function ensureContent(visitId: string) {
@@ -185,7 +239,35 @@ export async function teacherEnd() {
   }
 }
 
+export async function teacherStartQuiz(durationSec: number) {
+  applyTeacherView(
+    await postGuidedQuizStart(
+      guidedSessionId.value,
+      guidedUser.value,
+      durationSec,
+    ),
+  );
+}
+
+export async function teacherEndQuiz() {
+  applyTeacherView(
+    await postGuidedQuizEnd(guidedSessionId.value, guidedUser.value),
+  );
+}
+
 // --- Azioni STUDENTE ---
+export async function studentSubmitQuiz(answers: number[]) {
+  const esito = await postGuidedQuizAnswer(
+    guidedSessionId.value,
+    guidedUser.value,
+    answers,
+  );
+  guidedQuizPunteggio.value = esito.score;
+  const q = guidedQuizStudente.value;
+  if (q) q.giaConsegnato = true;
+  return esito;
+}
+
 export async function studentLeave() {
   try {
     await postGuidedLeave(guidedSessionId.value, guidedUser.value);
@@ -214,6 +296,10 @@ export function resetGuided() {
   guidedParticipants.value = [];
   guidedParticipantsCount.value = 0;
   guidedQuestions.value = [];
+  guidedQuizDocente.value = null;
+  guidedQuizStudente.value = null;
+  guidedQuizPunteggio.value = null;
+  guidedHasQuiz.value = false;
   guidedPlannedEnd.value = true;
   contentLoaded = false;
   clearVisit();

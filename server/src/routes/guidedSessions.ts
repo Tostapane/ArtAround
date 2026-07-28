@@ -67,6 +67,8 @@ interface Session {
   id: string;
   visitId: string;
   visitName: string;
+  /** La visita ha un quiz preparato dall'autore: solo un sì o un no. */
+  hasQuiz: boolean;
   accessKey: string;
   museum: string; 
   teacher: string;
@@ -128,6 +130,7 @@ function teacherView(s: Session) {
     id: s.id,
     visitId: s.visitId,
     visitName: s.visitName,
+    hasQuiz: s.hasQuiz,
     accessKey: s.accessKey,
     teacher: s.teacher,
     stato: s.stato,
@@ -197,9 +200,12 @@ router.post("/", async (req, res) => {
         .status(403)
         .json({ error: "Solo l'autore della visita può avviarla" });
 
+    const hasQuiz = Array.isArray(visit.quiz) && visit.quiz.length > 0;
+
     const existing = byAccessKey.get(visit.accessKey);
     if (existing && sessions.has(existing)) {
       const s = sessions.get(existing)!;
+      s.hasQuiz = hasQuiz;
       s.stato = "attesa";
       s.currentStep = -1;
       s.stepStartAt = null;
@@ -220,6 +226,7 @@ router.post("/", async (req, res) => {
       id,
       visitId,
       visitName: visit.name || "Visita guidata",
+      hasQuiz,
       accessKey: visit.accessKey,
       museum: visit.ofMuseum || "",
       teacher,
@@ -384,13 +391,24 @@ router.post("/:id/quiz/end", (req, res) => {
   res.json(teacherView(s));
 });
 
+/**
+ * La sessione non sparisce di colpo: resta per una breve coda con stato
+ * "terminata", il tempo che l'ultima interrogazione degli studenti la legga. Se
+ * la si cancellasse subito, ogni client riceverebbe un 410 — cioe' "la sessione
+ * e' sparita sotto i piedi" — e una chiusura VOLUTA dal docente verrebbe
+ * annunciata a tutti come un guasto.
+ */
+const CODA_CHIUSURA_MS = 30000;
+
 router.post("/:id/end", (req, res) => {
   const s = sessions.get(req.params.id);
-  if (!s) return res.json({ ok: true }); 
+  if (!s) return res.json({ ok: true });
   if (req.body.teacher && req.body.teacher !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può terminare" });
+  s.stato = "terminata";
   byAccessKey.delete(s.accessKey);
-  sessions.delete(s.id);
+  const t = setTimeout(() => sessions.delete(s.id), CODA_CHIUSURA_MS);
+  if (typeof t.unref === "function") t.unref();
   res.json({ ok: true });
 });
 

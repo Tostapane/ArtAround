@@ -46,13 +46,13 @@
        un varco; gli estremi cadono dentro le due sale. Quasi invisibile: la
        lettura del percorso e' data dalle sale e dai varchi, non dalla linea. -->
   <g id="nav-edges" stroke="#6b7c8a" stroke-width="1.5" stroke-dasharray="3,5" opacity="0.08">
-    <line data-edge x1="240" y1="155" x2="300" y2="155" /> <!-- Egizia <-> Dipinti -->
-    <line data-edge x1="500" y1="155" x2="560" y2="155" /> <!-- Dipinti <-> Greca/Romana -->
-    <line data-edge x1="240" y1="445" x2="300" y2="445" /> <!-- American Wing <-> Great Hall -->
-    <line data-edge x1="500" y1="445" x2="560" y2="445" /> <!-- Great Hall <-> Asiatica -->
-    <line data-edge x1="140" y1="270" x2="140" y2="330" /> <!-- Egizia <-> American Wing -->
-    <line data-edge x1="400" y1="270" x2="400" y2="330" /> <!-- Dipinti <-> Great Hall -->
-    <line data-edge x1="660" y1="270" x2="660" y2="330" /> <!-- Greca/Romana <-> Asiatica -->
+    <line data-edge="" x1="240" y1="155" x2="300" y2="155" /> <!-- Egizia <-> Dipinti -->
+    <line data-edge="" x1="500" y1="155" x2="560" y2="155" /> <!-- Dipinti <-> Greca/Romana -->
+    <line data-edge="" x1="240" y1="445" x2="300" y2="445" /> <!-- American Wing <-> Great Hall -->
+    <line data-edge="" x1="500" y1="445" x2="560" y2="445" /> <!-- Great Hall <-> Asiatica -->
+    <line data-edge="" x1="140" y1="270" x2="140" y2="330" /> <!-- Egizia <-> American Wing -->
+    <line data-edge="" x1="400" y1="270" x2="400" y2="330" /> <!-- Dipinti <-> Great Hall -->
+    <line data-edge="" x1="660" y1="270" x2="660" y2="330" /> <!-- Greca/Romana <-> Asiatica -->
   </g>
 
   <!-- Nodi-opera: id="art-N" deve combaciare con la posizione N in activeArtworks

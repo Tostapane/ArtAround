@@ -71,10 +71,27 @@ function prepareMap() {
 
   const svg = root.querySelector("svg");
 
+  // Una visita puo' avere piu' item per lo stesso oggetto (slide 21): sulla
+  // mappa restano UN nodo solo. Senza raggruppare, il secondo passaggio
+  // sovrascriveva l'etichetta del primo, sovrapponeva due numeri e lasciava due
+  // ascoltatori sullo stesso disco.
+  const perNodo = new Map<string, number[]>();
   matchedContent.value.forEach((match, index) => {
+    const luogo = match.artwork.locationId;
+    if (!luogo) return;
+    const gia = perNodo.get(luogo);
+    if (gia) gia.push(index);
+    else perNodo.set(luogo, [index]);
+  });
+
+  perNodo.forEach((indices, luogo) => {
+    const index = indices[0];
+    if (index === undefined) return;
+    const match = matchedContent.value[index];
+    if (!match) return;
     const art = match.artwork;
     const element = root.querySelector(
-      `#${CSS.escape(art.locationId)}`,
+      `#${CSS.escape(luogo)}`,
     ) as SVGGraphicsElement | null;
     if (!element) return;
 
@@ -82,10 +99,22 @@ function prepareMap() {
     element.setAttribute("role", "button");
     element.classList.add("nodo-opera");
 
-    const optional = isOptionalItem(match.item["@id"]);
+    // Il nodo e' opzionale solo se lo sono TUTTE le tappe che vi si fermano.
+    let optional = true;
+    for (const i of indices) {
+      const m = matchedContent.value[i];
+      if (m && !isOptionalItem(m.item["@id"])) optional = false;
+    }
     if (optional) element.classList.add("nodo-opzionale");
 
-    const label = `Tappa ${stopNumber(index)}: ${art.name}${optional ? " (tappa opzionale)" : ""}`;
+    let numeri = String(stopNumber(index));
+    if (indices.length > 1) {
+      numeri = indices.map((i) => stopNumber(i)).join(", ");
+    }
+    const label =
+      `${indices.length > 1 ? "Tappe" : "Tappa"} ${numeri}: ${art.name}` +
+      `${optional ? " (tappa opzionale)" : ""}` +
+      `${indices.length > 1 ? `, ${indices.length} descrizioni` : ""}`;
     element.setAttribute("aria-label", label);
     let title = element.querySelector("title") as SVGTitleElement | null;
     if (!title) {
@@ -118,7 +147,7 @@ function prepareMap() {
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "central");
       text.setAttribute("aria-hidden", "true");
-      text.textContent = String(stopNumber(index));
+      text.textContent = numeri;
       svg.appendChild(text);
     } catch {
     }
@@ -219,7 +248,7 @@ const optionalCount = computed(() => {
     <!-- ELENCO -->
     <div v-show="stageView === 'elenco'" class="min-h-0 flex-1 overflow-auto p-3">
       <ul v-if="matchedContent.length" class="mx-auto flex max-w-3xl flex-col gap-2">
-        <li v-for="(match, i) in matchedContent" :key="match.artwork['@id']">
+        <li v-for="(match, i) in matchedContent" :key="match.item['@id']">
           <button
             type="button"
             class="lastra flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-surface-2"
@@ -234,8 +263,13 @@ const optionalCount = computed(() => {
             </span>
             <span class="min-w-0 flex-1">
               <span class="block truncate font-medium">{{ match.artwork.name }}</span>
+              <!-- Il tono distingue due tappe sulla stessa opera, che altrimenti
+                   sarebbero due righe identiche. -->
               <span class="block truncate text-small text-muted">
                 {{ match.artwork.author.name }}
+                <span v-if="match.item.educationalLevel">
+                  · {{ match.item.educationalLevel }}
+                </span>
               </span>
             </span>
             <span v-if="isOptionalItem(match.item['@id'])" class="pastiglia shrink-0">

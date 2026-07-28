@@ -43,31 +43,41 @@ export function themeToggle() {
 //                          Fondale della soglia
 // ============================================================================
 
+/** Una figura pronta: punti normalizzati fra 0 e 1, piu' le proporzioni della
+ *  sorgente — senza, un dipinto verticale verrebbe schiacciato in un 4:3. */
+type Shape = { points: Float32Array; aspect: number };
+
 /**
  * LO SCIAME — il fondale della porta d'ingresso.
  *
- * Una nuvola di punti che si raduna a formare, uno dopo l'altro, i disegni del
- * prodotto: le piante dei musei e i contorni di alcune opere. Ogni figura si
- * compone a ondate, resta ferma qualche secondo con un respiro appena
- * percettibile, poi i punti scivolano nella figura successiva.
+ * Una nuvola di punti che si raduna a formare, una dopo l'altra, le OPERE in
+ * vendita. Ogni figura si compone a ondate, resta ferma qualche secondo con un
+ * respiro appena percettibile, poi i punti scivolano nella figura successiva.
  *
  * Fra una figura e l'altra NON c'e' dispersione: i punti restano sempre
  * attratti da un bersaglio. C'era, e rimbalzava; e il riavvolgimento ai bordi
  * che l'accompagnava faceva sparire i punti da un lato per farli ricomparire
  * dall'altro. Un passaggio diretto e' piu' calmo e si legge molto meglio.
  *
- * Non e' decorazione presa altrove: le sorgenti sono le STESSE mappe annotate da
- * cui il server ricava il grafo delle sale, e le stesse immagini delle opere che
- * si vendono qui dentro. Il fondale cambia da solo quando si aggiunge un museo,
- * e la figura sulla porta e' davvero la cosa che c'e' dentro.
+ * Non e' decorazione presa altrove: le sorgenti sono le STESSE immagini delle
+ * opere che si vendono qui dentro, nell'ordine in cui le da' il server. Il
+ * fondale cambia da solo quando cambia il catalogo, e la figura sulla porta e'
+ * davvero la cosa che c'e' dentro.
  *
- * Come si ricava una figura: la sorgente viene disegnata piccola fuori schermo,
- * se ne misura il CONTRASTO LOCALE e si tengono i punti dove cambia di piu'.
- * Vale sia per le mappe, che sono al tratto, sia per i dipinti, che sono
- * fotografie: in entrambi i casi restano i contorni, mai una macchia scura.
+ * COME SI RICAVA UNA FIGURA: con un RETINO. Un dipinto e' una fotografia, e
+ * misurarne il contrasto locale non funziona — un Caravaggio non ha contorni
+ * netti, ha luce e buio, e il gradiente lo riduce a grumi sparsi. Si mette
+ * invece un punto dove il quadro e' chiaro, con densita' proporzionale alla
+ * luce e l'errore diffuso sui vicini (Floyd-Steinberg): e' il modo in cui si
+ * stampa una fotografia avendo un solo colore, ed e' quel che serve qui, perche'
+ * le particelle sono tutte uguali e l'unica cosa modulabile e' quante ce ne sono
+ * per centimetro.
  *
  * Regole di garbo:
- * - punti piccoli e quasi trasparenti: a dominare dev'essere il titolo;
+ * - punti piccoli e tenui: a dominare dev'essere il titolo;
+ * - sulle viewport larghe la figura sta a destra, non dietro al titolo;
+ * - la prima figura parte appena e' pronta, senza aspettare le altre e senza
+ *   girovagare prima: si apre COMPONENDO il primo quadro;
  * - a "riduci animazioni" lo sciame compone la prima figura e si ferma li';
  * - il moto si sospende quando la sezione non si vede o la scheda passa in
  *   secondo piano;
@@ -89,14 +99,19 @@ export function swarm() {
     vy: new Float32Array(0),
     tx: new Float32Array(0),
     ty: new Float32Array(0),
+    /** Da dove ogni punto e' partito all'inizio di questo passaggio. */
+    sx: new Float32Array(0),
+    sy: new Float32Array(0),
+    /** Quanto ogni punto incurva la propria traiettoria, in frazione del
+     *  tragitto. Segno e ampiezza sono suoi: e' cio' che distingue una nuvola
+     *  che si rivolta da un ventaglio di righe parallele. */
+    bow: new Float32Array(0),
     tint: new Uint8Array(0),
     /** Ritardo di partenza di ogni punto, in frazione della fase. */
     delay: new Float32Array(0),
     count: 0,
 
-    /** Figure pronte: punti normalizzati fra 0 e 1, piu' le proporzioni della
-     *  sorgente — senza, un dipinto verticale verrebbe schiacciato in un 4:3. */
-    shapes: [] as { points: Float32Array; aspect: number }[],
+    shapes: [] as Shape[],
     shapeIndex: -1,
 
     phase: "hold" as "morph" | "hold",
@@ -107,15 +122,27 @@ export function swarm() {
     palette: [] as { r: number; g: number; b: number }[],
 
     /** Durate delle due fasi, in millisecondi. */
-    MORPH: 3200,
-    HOLD: 3600,
-    /** Raggio e opacita' massimi di un punto. */
-    DOT: 2.1,
-    ALPHA: 0.38,
+    MORPH: 3000,
+    HOLD: 3400,
+    /** Quanto si incurva al massimo una traiettoria, in frazione della sua
+     *  lunghezza. Oltre un quinto le scie si incrociano e si legge come
+     *  turbolenza; sotto un ventesimo non si distingue da una retta. */
+    BOW: 0.16,
+    /** Raggio e opacita' massimi di un punto. Il fondo Notte non e' nero ma un
+     *  blu medio (#284b63): a mezza opacita' i punti ci si sciolgono dentro e
+     *  il quadro resta un'ombra. Serve quasi tutta l'opacita' per staccare. */
+    DOT: 1.6,
+    ALPHA: 0.85,
     /** Ampiezza della sfumatura ai bordi, in frazione del lato minore. */
-    EDGE: 0.1,
+    EDGE: 0.06,
+    /** Quanto della meta' disponibile occupa la figura. */
+    MARGIN: 0.84,
     /** Risoluzione con cui si campiona una sorgente. */
-    SAMPLE_W: 220,
+    SAMPLE_W: 240,
+    /** Punti che un retino cerca di produrre da una fotografia. Sotto i
+     *  seimila una faccia non si riconosce piu': e' il numero che decide se il
+     *  fondale e' un quadro o una macchia. */
+    TONES: 9000,
 
     start(this: any, canvas: HTMLCanvasElement) {
       this.canvas = canvas;
@@ -126,19 +153,15 @@ export function swarm() {
       const token = (name: string, fallback: string) =>
         styles.getPropertyValue(name).trim() || fallback;
       const ink = token("--on-structure", "#ffffff");
-      // Sei parti d'inchiostro contro una di ciascuna tinta: lo sciame resta
-      // monocromo a prima vista, e il colore lo nota solo chi guarda.
+      // Dieci parti d'inchiostro contro una di ciascuna tinta: lo sciame resta
+      // monocromo a prima vista, e il colore lo nota solo chi guarda. Le tinte
+      // erano quattro su dieci e su un retino di dipinto si vedevano come
+      // sporco; restano le due che stanno bene sul fondo Notte — il verderame e
+      // l'ardesia. L'ottone, caldo, spiccava come un granello fuori posto.
+      const tints = [token("--accent", "#3c6e71"), token("--slate", "#40606f")];
       this.palette = [
-        ink,
-        ink,
-        ink,
-        ink,
-        ink,
-        ink,
-        token("--accent", "#3c6e71"),
-        token("--slate", "#40606f"),
-        token("--sage", "#456347"),
-        token("--brass", "#7a5722"),
+        ...Array(10).fill(ink),
+        ...tints,
       ].map((c: string) => this.toRgb(c));
 
       this.still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -146,6 +169,15 @@ export function swarm() {
       const observer = new ResizeObserver(() => {
         if (!canvas.clientWidth || !canvas.clientHeight) {
           this.stop();
+          return;
+        }
+        // La PRIMA volta si costruisce subito. L'attesa serve a non ricostruire
+        // trenta volte mentre si trascina il bordo della finestra, ma applicata
+        // anche all'avvio ritardava tutto: finche' non c'e' la griglia non c'e'
+        // nemmeno una figura da comporre, e in quel buco si vedevano i punti
+        // vagare. Sui ridimensionamenti successivi l'attesa resta.
+        if (this.count === 0) {
+          this.build();
           return;
         }
         clearTimeout(this.resizeTimer);
@@ -177,40 +209,53 @@ export function swarm() {
     // ------------------------------------------------------------------
 
     /**
-     * Raccoglie le figure: prima le piante dei musei, poi qualche opera. Le
-     * aggiunge man mano che arrivano, cosi' la prima figura si forma senza
-     * aspettare che siano pronte tutte.
+     * Raccoglie le figure: le prime opere del catalogo, aggiunte man mano che
+     * arrivano. La prima fa partire subito la composizione, senza aspettare che
+     * siano pronte anche le altre.
+     *
+     * L'ordine e' quello in cui il server le restituisce, non a caso: chi apre
+     * la pagina deve vedere sempre la stessa cosa, e la prima opera del museo
+     * principale e' quella per cui il museo e' famoso. Sorteggiarle faceva
+     * cominciare la soglia da un quadro qualunque, ogni volta diverso.
      */
     async loadShapes(this: any) {
       try {
-        const museums = await fetch("/api/museums").then((r) =>
-          r.ok ? r.json() : [],
-        );
-        for (const museum of Array.isArray(museums) ? museums : []) {
-          if (!museum.mapPath) continue;
-          const points = await this.pointsFromSvg(museum.mapPath);
-          if (points) this.shapes.push(points);
-        }
-      } catch {
-        // nessuna pianta: si prosegue con le opere
-      }
-      try {
-        const artworks = await fetch("/api/artworks").then((r) =>
-          r.ok ? r.json() : [],
-        );
-        const withImage = (Array.isArray(artworks) ? artworks : []).filter(
+        const [config, artworks] = await Promise.all([
+          fetch("/api/config")
+            .then((r) => (r.ok ? r.json() : {}))
+            .catch(() => ({}) as any),
+          fetch("/api/artworks").then((r) => (r.ok ? r.json() : [])),
+        ]);
+        const catalogue = (Array.isArray(artworks) ? artworks : []).filter(
           (a: any) => a.imagePath,
         );
-        for (let i = withImage.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [withImage[i], withImage[j]] = [withImage[j], withImage[i]];
+        const wanted = Array.isArray(config.thresholdArtworks)
+          ? config.thresholdArtworks
+          : [];
+
+        // La curatela sceglie quali opere e in che ordine (data/soglia.json sul
+        // server): il retino rende bene una figura grande con un forte stacco di
+        // luce, e male una scena affollata di mezzi toni, e questo non si calcola.
+        // Qui dentro non c'e' nessun qid: se la lista manca si ripiega sulle
+        // prime del catalogo, e la soglia funziona lo stesso.
+        const chosen: any[] = [];
+        for (const qid of wanted) {
+          const found = catalogue.find((a: any) => a.qid === qid);
+          if (found) chosen.push(found);
         }
-        for (const artwork of withImage.slice(0, 3)) {
-          const points = await this.pointsFromImage(artwork.imagePath);
-          if (points) this.shapes.push(points);
+        const figures = chosen.length > 0 ? chosen : catalogue.slice(0, 6);
+
+        for (const artwork of figures) {
+          const shape = await this.shapeFromImage(artwork.imagePath);
+          if (!shape) continue;
+          this.shapes.push(shape);
+          // SOLO la prima: da li' in poi comanda il tempo delle fasi. Senza
+          // questa guardia ogni opera che arriva fa scattare la successiva, e
+          // la soglia si apriva di corsa sull'ultimo quadro invece che sul primo.
+          if (this.shapeIndex < 0) this.compose();
         }
       } catch {
-        // nessuna opera: bastano le piante
+        // nessuna opera: i punti restano a vagare, la soglia non resta vuota
       }
     },
 
@@ -219,36 +264,13 @@ export function swarm() {
      * cosi' come sono finirebbero larghe zero. Si iniettano le dimensioni prese
      * dal viewBox e poi si passa dalla via normale.
      */
-    async pointsFromSvg(this: any, path: string): Promise<Float32Array | null> {
-      try {
-        const text = await fetch(encodeURI(path)).then((r) =>
-          r.ok ? r.text() : "",
-        );
-        if (!text) return null;
-        const box = text.match(/viewBox="([\d.\s-]+)"/);
-        let sized = text;
-        if (box && !/<svg[^>]*\swidth=/.test(text)) {
-          const [, , w, h] = box[1].trim().split(/\s+/);
-          sized = text.replace("<svg", `<svg width="${w}" height="${h}"`);
-        }
-        const url = URL.createObjectURL(
-          new Blob([sized], { type: "image/svg+xml" }),
-        );
-        const points = await this.pointsFromImage(url);
-        URL.revokeObjectURL(url);
-        return points;
-      } catch {
-        return null;
-      }
-    },
-
-    /** Disegna la sorgente in piccolo e ne estrae i contorni. */
-    pointsFromImage(this: any, src: string): Promise<Float32Array | null> {
+    /** Disegna l'opera in piccolo e la riduce a una nuvola di punti. */
+    shapeFromImage(this: any, src: string): Promise<Shape | null> {
       return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
           try {
-            resolve(this.contour(img));
+            resolve(this.halftone(img));
           } catch {
             resolve(null);
           }
@@ -259,11 +281,11 @@ export function swarm() {
     },
 
     /**
-     * Contorni: si misura quanto la luminosita' cambia fra un campione e i suoi
-     * vicini, e si tengono i punti dove cambia di piu'. Su una pianta restituisce
-     * i muri, su un dipinto il profilo delle figure — mai una macchia piena.
+     * Riduce la sorgente a una griglia di luminosita', normalizzata sul suo
+     * intervallo effettivo: un quadro scuro come il Caravaggio altrimenti
+     * resterebbe quasi tutto sotto la soglia e darebbe pochissimi punti.
      */
-    contour(this: any, img: HTMLImageElement) {
+    sample(this: any, img: HTMLImageElement) {
       const w = this.SAMPLE_W;
       const ratio = img.height && img.width ? img.height / img.width : 0.75;
       const h = Math.max(8, Math.round(w * ratio));
@@ -283,40 +305,73 @@ export function swarm() {
       const lum = new Float32Array(w * h);
       for (let i = 0; i < w * h; i++) {
         const o = i * 4;
-        lum[i] = (data[o] * 0.2126 + data[o + 1] * 0.7152 + data[o + 2] * 0.0722) / 255;
+        lum[i] =
+          (data[o] * 0.2126 + data[o + 1] * 0.7152 + data[o + 2] * 0.0722) / 255;
       }
+      return { w, h, lum };
+    },
 
-      // Un punto per CELLA: si divide il campione in caselle e in ognuna si
-      // tiene il contorno piu' netto. Scegliendo a caso, su una fotografia
-      // resterebbe la grana sparsa ovunque; scegliendo per intensita' senza
-      // caselle resterebbero solo i tratti piu' spessi. Cosi' invece i punti
-      // seguono la struttura e restano distribuiti su tutta la figura.
-      const BIN = 2;
-      const binW = Math.ceil(w / BIN);
-      const best = new Map<number, { x: number; y: number; strength: number }>();
-      for (let y = 1; y < h - 1; y++) {
-        for (let x = 1; x < w - 1; x++) {
+    /**
+     * IL RETINO. Un punto dove il quadro e' chiaro, con densita'
+     * proporzionale alla luce: e' il modo in cui si stampa una fotografia
+     * quando si ha a disposizione un solo colore, ed e' quello che serve qui,
+     * perche' le particelle sono tutte uguali e l'unica cosa che si puo'
+     * modulare e' quante ce ne sono per centimetro.
+     *
+     * L'errore di ogni cella viene diffuso sulle vicine (Floyd-Steinberg)
+     * invece di essere buttato via: senza, le zone di mezzo tono diventano
+     * fasce piatte a scalini, con la diffusione restano continue.
+     *
+     * La luminosita' viene prima riportata sull'intervallo effettivo del quadro
+     * e poi piegata con una gamma: i mezzi toni si alleggeriscono e le luci
+     * restano, cosi' il volto emerge invece di annegare nel fondo.
+     */
+    halftone(this: any, img: HTMLImageElement): Shape | null {
+      const grid = this.sample(img);
+      if (!grid) return null;
+      const { w, h, lum } = grid;
+
+      let lo = 1;
+      let hi = 0;
+      for (let i = 0; i < lum.length; i++) {
+        if (lum[i] < lo) lo = lum[i];
+        if (lum[i] > hi) hi = lum[i];
+      }
+      const span = Math.max(0.001, hi - lo);
+
+      const ink = new Float32Array(lum.length);
+      let sum = 0;
+      for (let i = 0; i < lum.length; i++) {
+        const v = Math.pow((lum[i] - lo) / span, 1.5);
+        ink[i] = v;
+        sum += v;
+      }
+      // Si scala perche' il totale valga il numero di punti voluto: un quadro
+      // chiaro e uno scuro devono dare la stessa quantita' di sciame, altrimenti
+      // il fondale cambia densita' a ogni figura.
+      const scale = this.TONES / Math.max(1, sum);
+      for (let i = 0; i < ink.length; i++) ink[i] = Math.min(1, ink[i] * scale);
+
+      const keep: number[] = [];
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
           const i = y * w + x;
-          const gx = Math.abs(lum[i - 1] - lum[i + 1]);
-          const gy = Math.abs(lum[i - w] - lum[i + w]);
-          const strength = gx + gy;
-          if (strength < 0.12) continue;
-          const key = Math.floor(y / BIN) * binW + Math.floor(x / BIN);
-          const current = best.get(key);
-          if (!current || current.strength < strength) {
-            best.set(key, { x: x / w, y: y / h, strength });
+          const value = ink[i];
+          const on = value > 0.5 ? 1 : 0;
+          if (on) {
+            keep.push(x / w, y / h);
+          }
+          const error = value - on;
+          if (x + 1 < w) ink[i + 1] += (error * 7) / 16;
+          if (y + 1 < h) {
+            if (x > 0) ink[i + w - 1] += (error * 3) / 16;
+            ink[i + w] += (error * 5) / 16;
+            if (x + 1 < w) ink[i + w + 1] += (error * 1) / 16;
           }
         }
       }
-      const keep = [...best.values()];
-      if (keep.length < 120) return null;
-
-      const points = new Float32Array(keep.length * 2);
-      for (let i = 0; i < keep.length; i++) {
-        points[i * 2] = keep[i].x;
-        points[i * 2 + 1] = keep[i].y;
-      }
-      return { points, aspect: h / w };
+      if (keep.length < 240) return null;
+      return { points: Float32Array.from(keep), aspect: h / w };
     },
 
     // ------------------------------------------------------------------
@@ -333,8 +388,14 @@ export function swarm() {
 
       // Poco piu' di una particella per punto della figura: impilandone sei
       // sullo stesso bersaglio il disegno si impasta invece di definirsi.
-      const wanted = Math.round((canvas.width * canvas.height) / 900);
-      this.count = Math.max(800, Math.min(2600, wanted));
+      // Duemilaseicento erano troppo poche perche' una faccia si riconoscesse —
+      // il retino ne chiede novemila, e sotto quella soglia il quadro resta una
+      // macchia. Il tetto vale per i portatili, il minimo per i telefoni.
+      // Il minimo non e' un ripiego per schermi piccoli: e' la soglia sotto la
+      // quale un volto smette di essere un volto. Su un telefono la figura e'
+      // piccola ma i punti servono lo stesso, e costano poco.
+      const wanted = Math.round((canvas.width * canvas.height) / 110);
+      this.count = Math.max(6000, Math.min(13000, wanted));
 
       this.px = new Float32Array(this.count);
       this.py = new Float32Array(this.count);
@@ -342,21 +403,66 @@ export function swarm() {
       this.vy = new Float32Array(this.count);
       this.tx = new Float32Array(this.count);
       this.ty = new Float32Array(this.count);
+      this.sx = new Float32Array(this.count);
+      this.sy = new Float32Array(this.count);
+      this.bow = new Float32Array(this.count);
       this.tint = new Uint8Array(this.count);
       this.delay = new Float32Array(this.count);
+      // I punti nascono gia' dove la figura si formera', non sparsi su tutto il
+      // campo: cosi' l'attesa fra il primo fotogramma e il primo quadro e' una
+      // nuvola che si condensa al posto giusto, e il testo non si ritrova la
+      // grana addosso per un secondo.
+      const { cx, cy, roomW, roomH } = this.bounds();
       for (let i = 0; i < this.count; i++) {
-        this.px[i] = Math.random() * canvas.width;
-        this.py[i] = Math.random() * canvas.height;
+        this.px[i] = cx + (Math.random() - 0.5) * roomW;
+        this.py[i] = cy + (Math.random() - 0.5) * roomH;
         this.vx[i] = (Math.random() - 0.5) * 0.4;
         this.vy[i] = (Math.random() - 0.5) * 0.4;
         this.tint[i] = Math.floor(Math.random() * this.palette.length);
         this.delay[i] = Math.random() * 0.35;
       }
+      this.sx.set(this.px);
+      this.sy.set(this.py);
 
       this.shapeIndex = -1;
       this.phase = "hold";
       this.phaseAt = performance.now();
       this.run();
+      // Se le opere sono gia' arrivate — o se questa e' una ricostruzione dopo
+      // un ridimensionamento — si riparte subito a comporre.
+      this.compose();
+    },
+
+    /**
+     * Attacca la composizione della figura successiva.
+     *
+     * Esiste perche' la prima figura non deve aspettare NIENTE: ne' le altre
+     * opere, ne' lo scadere di una fase. Prima la soglia si apriva con i punti
+     * che vagavano nel campo di flusso per tutta la durata di `HOLD`, e la
+     * Gioconda arrivava solo dopo quattro secondi di ghirigori. Ora appena la
+     * prima opera e' pronta si comincia a comporla, e il vagare resta solo dove
+     * serve davvero: quando le sorgenti non arrivano affatto.
+     */
+    compose(this: any) {
+      if (this.shapes.length === 0 || this.count === 0) return;
+      // Da DOVE parte ognuno: il passaggio e' un'interpolazione fra due
+      // posizioni note, non un inseguimento, e la partenza va fissata prima che
+      // `nextShape` scriva i nuovi bersagli.
+      this.sx.set(this.px);
+      this.sy.set(this.py);
+      const count = this.count as number;
+      const delay = this.delay as Float32Array;
+      const bow = this.bow as Float32Array;
+      for (let i = 0; i < count; i++) {
+        // Ritardo e curvatura si ritirano a ogni passaggio: tenendoli fissi, la
+        // nuvola si ripiegava sempre nello stesso modo e la ripetizione si
+        // notava alla seconda opera.
+        delay[i] = Math.random() * 0.35;
+        bow[i] = (Math.random() - 0.5) * 2 * this.BOW;
+      }
+      this.nextShape();
+      this.phase = "morph";
+      this.phaseAt = performance.now();
     },
 
     run(this: any) {
@@ -377,8 +483,11 @@ export function swarm() {
             window.setTimeout(settle, 200);
             return;
           }
+          // Il passaggio ora e' un'interpolazione: la figura ferma e' il suo
+          // fotogramma finale, non il risultato di duecento passi simulati.
           this.nextShape();
-          for (let step = 0; step < 240; step++) this.advance(1 / 60, "morph");
+          this.px.set(this.tx);
+          this.py.set(this.ty);
           this.draw();
         };
         settle();
@@ -400,6 +509,32 @@ export function swarm() {
       this.frame = 0;
     },
 
+    /**
+     * Dove sta la figura, e quanto spazio ha. Sempre fuori dal testo, ma da un
+     * lato diverso secondo quanto posto c'e':
+     * - viewport larga: il titolo tiene la sinistra, la figura va a destra. Al
+     *   centro finiva esattamente dietro ad "ART AROUND" e le due cose si
+     *   mangiavano a vicenda;
+     * - viewport stretta: di fianco non c'e' posto, quindi la figura sale. Il
+     *   volto finisce nella fascia vuota in cima e il testo resta sotto, dove il
+     *   velo lo stacca dal fondale.
+     *
+     * Lo spazio e' il riquadro piu' grande centrato li' che stia tutto dentro il
+     * canvas: senza, una figura spostata di lato uscirebbe dal bordo destro.
+     */
+    bounds(this: any) {
+      const canvas = this.canvas as HTMLCanvasElement;
+      const wide = canvas.width >= 1024;
+      const cx = canvas.width * (wide ? 0.7 : 0.5);
+      const cy = canvas.height * (wide ? 0.5 : 0.37);
+      return {
+        cx,
+        cy,
+        roomW: 2 * Math.min(cx, canvas.width - cx),
+        roomH: 2 * Math.min(cy, canvas.height - cy),
+      };
+    },
+
     /** Sceglie la figura successiva e ne distribuisce i punti fra le particelle. */
     nextShape(this: any) {
       if (this.shapes.length === 0) return;
@@ -409,59 +544,78 @@ export function swarm() {
       const total = points.length / 2;
       const canvas = this.canvas as HTMLCanvasElement;
 
-      // La figura entra nel riquadro senza deformarsi, con un margine.
-      const margin = 0.62;
+      const { cx, cy, roomW, roomH } = this.bounds();
       const drawW =
-        Math.min(canvas.width, canvas.height / shape.aspect) * margin;
+        Math.min(roomW, roomH / shape.aspect) * this.MARGIN;
       const drawH = drawW * shape.aspect;
-      const left = (canvas.width - drawW) / 2;
-      const top = (canvas.height - drawH) / 2;
+      const left = cx - drawW / 2;
+      const top = cy - drawH / 2;
 
       // I punti si ordinano per angolo attorno al centro, e cosi' anche le
       // particelle: ognuna riceve un bersaglio dalla propria parte. Assegnando
       // a caso, meta' sciame attraverserebbe il riquadro per andare dall'altro
       // lato, e la figura si comporrebbe in un groviglio.
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
 
-      const order: number[] = [];
-      for (let i = 0; i < total; i++) order.push(i);
-      order.sort((a, b) => {
-        const aa = Math.atan2(top + points[a * 2 + 1] * drawH - cy, left + points[a * 2] * drawW - cx);
-        const bb = Math.atan2(top + points[b * 2 + 1] * drawH - cy, left + points[b * 2] * drawW - cx);
-        return aa - bb;
-      });
+      // Gli angoli si calcolano UNA volta e si mettono da parte. Calcolarli
+      // dentro il comparatore costava due atan2 per confronto — mezzo milione
+      // di chiamate a ogni cambio di figura, e centoquaranta millisecondi di
+      // singhiozzo proprio nell'istante in cui la figura successiva parte.
+      const px = this.px as Float32Array;
+      const py = this.py as Float32Array;
 
-      const mine: number[] = [];
-      for (let i = 0; i < this.count; i++) mine.push(i);
-      mine.sort(
-        (a, b) =>
-          Math.atan2(this.py[a] - cy, this.px[a] - cx) -
-          Math.atan2(this.py[b] - cy, this.px[b] - cx),
-      );
+      const pointAngle = new Float32Array(total);
+      const order = new Uint32Array(total);
+      for (let i = 0; i < total; i++) {
+        order[i] = i;
+        pointAngle[i] = Math.atan2(
+          top + points[i * 2 + 1] * drawH - cy,
+          left + points[i * 2] * drawW - cx,
+        );
+      }
+      order.sort((a, b) => pointAngle[a] - pointAngle[b]);
 
-      for (let k = 0; k < this.count; k++) {
+      const count = this.count as number;
+      const mineAngle = new Float32Array(count);
+      const mine = new Uint32Array(count);
+      for (let i = 0; i < count; i++) {
+        mine[i] = i;
+        mineAngle[i] = Math.atan2(py[i] - cy, px[i] - cx);
+      }
+      mine.sort((a, b) => mineAngle[a] - mineAngle[b]);
+
+      // Quante particelle tocca in media a ogni punto. Quando sono parecchie —
+      // e' il caso delle piante, che di punti ne danno pochi — si scostano un
+      // poco invece di impilarsi tutte sullo stesso bersaglio. Quando sono circa
+      // una a testa lo scostamento va tolto: su un retino di dipinto sposta ogni
+      // punto quasi di una cella e sfoca il quadro.
+      const crowd = count / Math.max(1, total);
+      const spread = crowd > 1.4 ? Math.min(1.8, crowd * 0.5) : 0;
+
+      const tx = this.tx as Float32Array;
+      const ty = this.ty as Float32Array;
+      for (let k = 0; k < count; k++) {
         const particle = mine[k];
-        const point = order[Math.floor((k * total) / this.count)] * 2;
-        // Le particelle in eccesso si scostano di poco, invece di impilarsi
-        // esattamente sullo stesso punto.
-        const jitter = this.count > total ? (Math.random() - 0.5) * 3 : 0;
-        this.tx[particle] = left + points[point] * drawW + jitter;
-        this.ty[particle] = top + points[point + 1] * drawH + jitter;
+        const point = order[Math.floor((k * total) / count)] * 2;
+        const jitter = spread > 0 ? (Math.random() - 0.5) * spread * 2 : 0;
+        tx[particle] = left + points[point] * drawW + jitter;
+        ty[particle] = top + points[point + 1] * drawH + jitter;
       }
     },
 
     tick(this: any, now: number, dt: number) {
-      const elapsed = now - this.phaseAt;
+      let elapsed = now - this.phaseAt;
+      // `elapsed` va RICALCOLATO quando la fase cambia. Restando quello della
+      // fase appena finita — piu' lungo dell'intera fase nuova — il primo
+      // fotogramma di ogni passaggio partiva con avanzamento 1, cioe' a velocita'
+      // massima: era lo strappo che si vedeva nell'istante in cui la figura
+      // cominciava a cambiare.
       if (this.phase === "hold" && elapsed > this.HOLD) {
-        if (this.shapes.length > 0) {
-          this.nextShape();
-          this.phase = "morph";
-          this.phaseAt = now;
-        }
+        this.compose();
+        elapsed = 0;
       } else if (this.phase === "morph" && elapsed > this.MORPH) {
         this.phase = "hold";
         this.phaseAt = now;
+        elapsed = 0;
       }
       const span = this.phase === "morph" ? this.MORPH : this.HOLD;
       this.advance(dt, this.phase, now / 1000, Math.min(1, elapsed / span));
@@ -470,15 +624,29 @@ export function swarm() {
     /**
      * Un passo del moto.
      *
-     * I punti sono SEMPRE attratti dal proprio bersaglio: si passa da una figura
-     * all'altra scivolando, senza disperdersi prima. La dispersione c'era, ed e'
-     * stata tolta: rimbalzava, e il riavvolgimento ai bordi faceva sparire e
-     * ricomparire i punti dall'altro lato.
+     * Il passaggio da una figura all'altra e' un'INTERPOLAZIONE fra la posizione
+     * di partenza e il bersaglio, non un inseguimento. La differenza si vede.
+     * Con l'inseguimento — ogni passo una frazione fissa della distanza residua —
+     * la velocita' e' massima al primo istante e poi decade: ogni punto scattava
+     * via e strisciava fino a fermarsi. Nessuna accelerazione, nessun arrivo:
+     * uno scarto secco seguito da una coda. E' quel che si vedeva.
+     *
+     * Qui la posizione e' `partenza + (bersaglio - partenza) * e`, con `e` la
+     * SMOOTHERSTEP (6e⁵-15e⁴+10e³): derivata prima E seconda nulle a entrambi i
+     * capi. Ogni punto quindi parte da fermo senza strappo, accelera, decelera e
+     * si posa esattamente sul bersaglio quando la fase finisce — anziche'
+     * avvicinarvisi all'infinito.
+     *
+     * La traiettoria e' inoltre ARCUATA, non un segmento: uno scostamento
+     * perpendicolare che nasce e muore a zero (una campana di seno) e che ogni
+     * punto ha di ampiezza e verso propri. Rette parallele leggono come un
+     * meccanismo; archi che si intrecciano leggono come una cosa che si rivolta.
+     *
+     * Non c'e' rimbalzo e non c'e' "respiro" a figura ferma: ferma vuol dire
+     * ferma.
      *
      * Durante il passaggio ogni punto parte con un piccolo ritardo suo, cosi' la
-     * figura si compone a ondate invece che tutta in una volta. A figura ferma
-     * resta un respiro appena percettibile, che evita l'aria di un fermo
-     * immagine senza introdurre movimento vero.
+     * figura si compone a ondate invece che tutta in una volta.
      *
      * Finche' non c'e' una figura i punti vagano piano verso il centro: e' anche
      * quel che si vede se le sorgenti non arrivano.
@@ -486,35 +654,64 @@ export function swarm() {
     advance(this: any, dt: number, phase: string, time = 0, progress = 1) {
       const canvas = this.canvas as HTMLCanvasElement;
       const idle = this.shapeIndex < 0;
-      const pull = phase === "morph" ? 5.2 : 2.4;
       const damping = 0.88;
 
-      for (let i = 0; i < this.count; i++) {
+      // I vettori si prendono UNA volta. Dentro il ciclo, `this` e' il Proxy
+      // reattivo di Alpine: ogni `this.px[i]` passa da una trappola, e a
+      // dodicimila particelle per una quindicina di accessi ciascuna fanno
+      // centottantamila trappole per fotogramma. Era il grosso degli 80 ms.
+      const count = this.count as number;
+      const px = this.px as Float32Array;
+      const py = this.py as Float32Array;
+      const vx = this.vx as Float32Array;
+      const vy = this.vy as Float32Array;
+      const tx = this.tx as Float32Array;
+      const ty = this.ty as Float32Array;
+      const sx = this.sx as Float32Array;
+      const sy = this.sy as Float32Array;
+      const bow = this.bow as Float32Array;
+      const delay = this.delay as Float32Array;
+      const midX = canvas.width / 2;
+      const midY = canvas.height / 2;
+      const morphing = phase === "morph";
+
+      for (let i = 0; i < count; i++) {
         if (idle) {
-          const sx = this.px[i] * 0.006;
-          const sy = this.py[i] * 0.008;
-          this.vx[i] += Math.sin(sy + time * 0.25) * 5 * dt;
-          this.vy[i] += Math.cos(sx - time * 0.2) * 5 * dt;
+          const flowX = px[i] * 0.006;
+          const flowY = py[i] * 0.008;
+          vx[i] += Math.sin(flowY + time * 0.25) * 5 * dt;
+          vy[i] += Math.cos(flowX - time * 0.2) * 5 * dt;
           // Nessun rimbalzo: chi si allontana viene richiamato dolcemente.
-          this.vx[i] += (canvas.width / 2 - this.px[i]) * 0.05 * dt;
-          this.vy[i] += (canvas.height / 2 - this.py[i]) * 0.05 * dt;
+          vx[i] += (midX - px[i]) * 0.05 * dt;
+          vy[i] += (midY - py[i]) * 0.05 * dt;
+          vx[i] *= damping;
+          vy[i] *= damping;
+          px[i] += vx[i];
+          py[i] += vy[i];
+        } else if (!morphing) {
+          // A figura ferma non si calcola nulla: si e' gia' arrivati.
+          px[i] = tx[i];
+          py[i] = ty[i];
         } else {
-          // Il ritardo scala la forza all'inizio del passaggio, non la spegne:
-          // nessuno resta indietro quando la fase finisce.
-          const own = Math.max(0, (progress - this.delay[i]) / (1 - this.delay[i]));
-          const eased = phase === "morph" ? own * own * (3 - 2 * own) : 1;
-          this.vx[i] += (this.tx[i] - this.px[i]) * pull * eased * dt;
-          this.vy[i] += (this.ty[i] - this.py[i]) * pull * eased * dt;
-          if (phase === "hold") {
-            const breath = time * 0.7 + i * 0.35;
-            this.vx[i] += Math.cos(breath) * 1.6 * dt;
-            this.vy[i] += Math.sin(breath) * 1.6 * dt;
-          }
+          // Il ritardo comprime il tragitto nella parte di fase che resta: chi
+          // parte per ultimo va un po' piu' svelto, ma arriva con tutti gli altri.
+          let own = (progress - delay[i]) / (1 - delay[i]);
+          if (own < 0) own = 0;
+          else if (own > 1) own = 1;
+          const eased = own * own * own * (own * (own * 6 - 15) + 10);
+
+          const dx = tx[i] - sx[i];
+          const dy = ty[i] - sy[i];
+          // La campana e' nulla a entrambi i capi, quindi l'arco non sposta ne'
+          // la partenza ne' l'arrivo: incurva solo il tragitto in mezzo.
+          const swell = Math.sin(Math.PI * eased) * bow[i];
+          px[i] = sx[i] + dx * eased - dy * swell;
+          py[i] = sy[i] + dy * eased + dx * swell;
+          // La velocita' non serve piu' qui, ma va azzerata: se le sorgenti
+          // sparissero e si tornasse a vagare, riprenderebbe da uno scatto.
+          vx[i] = 0;
+          vy[i] = 0;
         }
-        this.vx[i] *= damping;
-        this.vy[i] *= damping;
-        this.px[i] += this.vx[i];
-        this.py[i] += this.vy[i];
       }
     },
 
@@ -531,27 +728,43 @@ export function swarm() {
 
       const w = canvas.width;
       const h = canvas.height;
-      const radius = this.DOT;
+      const radius = this.DOT as number;
       // Fascia entro cui i punti si spengono avvicinandosi al bordo: la nuvola
       // sfuma nel buio invece di finire tagliata di netto contro il margine.
       const margin = Math.min(w, h) * this.EDGE;
 
-      for (let i = 0; i < this.count; i++) {
-        const cx = this.px[i];
-        const cy = this.py[i];
+      // Come in advance(): fuori dal Proxy prima del ciclo.
+      const count = this.count as number;
+      const px = this.px as Float32Array;
+      const py = this.py as Float32Array;
+      const tints = this.tint as Uint8Array;
+      const palette = this.palette as { r: number; g: number; b: number }[];
+      const maxAlpha = this.ALPHA as number;
+
+      for (let i = 0; i < count; i++) {
+        const cx = px[i];
+        const cy = py[i];
         const border = Math.min(cx, cy, w - cx, h - cy);
         if (border <= 0) continue;
         const fade = Math.min(1, border / margin);
-        const alpha = this.ALPHA * fade * fade;
+        const alpha = maxAlpha * fade * fade;
         if (alpha < 0.012) continue;
         const x0 = Math.max(0, Math.floor(cx - radius));
         const x1 = Math.min(w - 1, Math.ceil(cx + radius));
         const y0 = Math.max(0, Math.floor(cy - radius));
         const y1 = Math.min(h - 1, Math.ceil(cy + radius));
-        const tint = this.palette[this.tint[i]];
+        // La tinta si scompone PRIMA del ciclo sui pixel. La tavolozza e' un
+        // array di oggetti semplici, e quelli Alpine li avvolge davvero in un
+        // Proxy: lette dentro, `tint.r/g/b` facevano tre trappole per pixel —
+        // quasi un milione per fotogramma, e da sole i due terzi del disegno.
+        const tint = palette[tints[i]];
+        const tr = tint.r;
+        const tg = tint.g;
+        const tb = tint.b;
 
         for (let py = y0; py <= y1; py++) {
           const dy = py + 0.5 - cy;
+          const row = py * w;
           for (let px = x0; px <= x1; px++) {
             const dx = px + 0.5 - cx;
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -559,12 +772,12 @@ export function swarm() {
             // piccoli risultano seghettati.
             const coverage = Math.min(1, Math.max(0, radius - distance + 0.5));
             if (coverage <= 0) continue;
-            const o = (py * w + px) * 4;
+            const o = (row + px) * 4;
             const a = Math.round(alpha * coverage * 255);
             if (a <= data[o + 3]) continue;
-            data[o] = tint.r;
-            data[o + 1] = tint.g;
-            data[o + 2] = tint.b;
+            data[o] = tr;
+            data[o + 1] = tg;
+            data[o + 2] = tb;
             data[o + 3] = a;
           }
         }

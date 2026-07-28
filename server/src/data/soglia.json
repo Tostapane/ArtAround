@@ -1,0 +1,20 @@
+{
+  "_nota": [
+    "Le opere che lo sciame della soglia compone, nell'ordine in cui le compone.",
+    "Sono scelte a mano perche' la leggibilita' non si calcola: il retino rende bene",
+    "un quadro con una figura grande e un forte stacco fra luce e ombra, e rende",
+    "illeggibile una scena affollata di mezzi toni (la Morte della Vergine del",
+    "Caravaggio era esattamente questo caso). Chi cura il museo cambia la lista qui,",
+    "senza toccare il codice; se la lista manca o e' vuota, la soglia ripiega sulle",
+    "prime opere del catalogo.",
+    "Ogni voce e' il qid di un'opera che deve esistere in Artwork e avere imagePath."
+  ],
+  "opere": [
+    "Q12418",
+    "Q783215",
+    "Q1282840",
+    "Q104411621",
+    "Q2610675",
+    "Q102257724"
+  ]
+}

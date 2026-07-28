@@ -139,15 +139,7 @@
       <div class="sciame-velo" aria-hidden="true"></div>
 
       <div class="relative flex min-h-[100dvh] flex-col justify-between p-6 sm:p-10 lg:p-16">
-        <div class="flex items-center justify-between">
-          <p class="text-caption uppercase tracking-[0.2em] text-on-structure/70">Tecnologie Web · Università di Bologna</p>
-          <button type="button" x-data="themeToggle()" @click="toggle()" :aria-pressed="dark" :aria-label="label()"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-structure/30 text-on-structure transition-colors hover:bg-on-structure/10">
-            <svg class="h-5 w-5" aria-hidden="true"><use :href="dark ? '#ico-sole' : '#ico-luna'" /></svg>
-          </button>
-        </div>
-
-        <div class="max-w-4xl py-16">
+        <div class="my-auto max-w-4xl py-16">
           <svg class="marchio mb-8 text-accent" viewBox="0 0 64 64" role="img" aria-label="ArtAround">
             <use href="#ico-marchio" />
           </svg>
@@ -178,8 +170,7 @@
         <button type="button" @click="goTo('soglia')" class="btn-fantasma mb-8 -ml-3">
           <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> Indietro
         </button>
-        <h1 class="mb-1 font-display text-title-1">Accedi</h1>
-        <p class="mb-8 text-small text-muted">Il profilo — autore o visitatore — lo riconosciamo noi.</p>
+        <h1 class="mb-8 font-display text-title-1">Accedi</h1>
 
         <template x-if="roleChoice">
           <div class="lastra p-6">
@@ -310,7 +301,7 @@
             <template x-if="currentUserRole === 'visitatore'">
               <li class="contents">
                 <template x-for="v in [
-                    {id:'banco',    ico:'#ico-banco',    raw:'Banco'},
+                    {id:'home',     ico:'#ico-banco',    raw:'Home'},
                     {id:'visite',   ico:'#ico-visite',   raw:'Visite'},
                     {id:'opere',    ico:'#ico-opere',    raw:'Opere'},
                     {id:'libreria', ico:'#ico-libreria', raw:'Libreria'}
@@ -391,8 +382,8 @@
             </div>
           </section>
 
-          <!-- ---------- IL BANCO (visitatore) ---------- -->
-          <section x-show="view === 'banco'">
+          <!-- ---------- LA HOME (visitatore) ---------- -->
+          <section x-show="view === 'home'">
             <h1 class="font-display text-title-1">
               Cosa vuoi fare <span class="whitespace-nowrap" x-text="'a ' + (selectedMuseum ? selectedMuseum.name : '')"></span>?
             </h1>
@@ -411,7 +402,7 @@
                 <h2 class="mt-4 font-display text-title-2">Componi il tuo percorso</h2>
                 <p class="mt-2 flex-1 text-small text-muted">Scegli tu le opere, l'ordine e cosa è opzionale.</p>
                 <span class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent">
-                  Apri il banco di lavoro <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
+                  Apri il compositore <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
                 </span>
               </a>
               <div class="lastra flex flex-col p-6">
@@ -1031,7 +1022,7 @@
 
               <div>
                 <label for="ed-testo" class="etichetta">Testo</label>
-                <textarea id="ed-testo" x-model="draft.raw" rows="9" class="campo"
+                <textarea id="ed-testo" x-model="draft.testo" rows="9" class="campo"
                   :aria-describedby="'ed-testo-stima'"></textarea>
                 <p id="ed-testo-stima" class="tabular mt-2 text-caption text-muted" x-text="readingEstimate()" aria-live="polite"></p>
               </div>
@@ -1091,7 +1082,7 @@
 
             <!-- PASSO 1: il percorso, con la libreria accanto -->
             <div x-show="visitStep === 'percorso'" class="mt-6">
-              <div role="tablist" aria-label="Pannelli del banco di lavoro" class="segmenti mb-4 lg:hidden">
+              <div role="tablist" aria-label="Pannelli del compositore" class="segmenti mb-4 lg:hidden">
                 <button type="button" role="tab" :aria-selected="editorPane === 'percorso'" @click="editorPane='percorso'"
                   class="segmento" :class="editorPane === 'percorso' ? 'segmento-attivo' : ''">
                   Percorso (<span class="tabular" x-text="stopCount()"></span>)
@@ -1243,13 +1234,16 @@
                 <fieldset>
                   <legend class="etichetta">Come si accede a questa visita</legend>
                   <div class="mt-3 flex flex-col gap-3" role="radiogroup" aria-label="Tipo di visita">
+                    <!-- x-model.boolean: senza il modificatore il valore che torna dal
+                         radio e' la STRINGA "false", che e' vera, e la visita restava
+                         guidata per sempre. -->
                     <label class="scelta cursor-pointer" :class="!draft.guidata ? 'scelta-attiva' : ''">
-                      <input type="radio" :value="false" x-model="draft.guidata" :disabled="!!editingId" class="sr-only">
+                      <input type="radio" name="tipo-visita" value="false" x-model.boolean="draft.guidata" class="sr-only">
                       <span class="font-medium">In vetrina</span>
                       <span class="mt-1 block text-caption text-muted">Chiunque la trova nel catalogo e la adotta.</span>
                     </label>
                     <label class="scelta cursor-pointer" :class="draft.guidata ? 'scelta-attiva' : ''">
-                      <input type="radio" :value="true" x-model="draft.guidata" :disabled="!!editingId" class="sr-only">
+                      <input type="radio" name="tipo-visita" value="true" x-model.boolean="draft.guidata" class="sr-only">
                       <span class="font-medium">Guidata, con parola chiave</span>
                       <span class="mt-1 block text-caption text-muted">Gratuita e fuori dal catalogo: la conduci tu, gli studenti entrano con la parola chiave.</span>
                     </label>
@@ -1341,7 +1335,13 @@
           </section>
 
           <!-- ---------- VENDITE ---------- -->
-          <section x-show="view === 'vendite'" x-init="$watch('vista', v => { if (v === 'vendite') loadSales() })">
+          <!-- Il $watch guardava 'vista', rimasto dalla rinomina: la proprieta'
+               non esiste piu', Alpine lanciava e il guardiano non si registrava.
+               loadSales() non era raggiungibile da nessun'altra parte, quindi la
+               tabella restava vuota per sempre. Serve anche il caso iniziale:
+               entrando da #/vendite il guardiano non scatta. -->
+          <section x-show="view === 'vendite'"
+            x-init="if (view === 'vendite') loadSales(); $watch('view', v => { if (v === 'vendite') loadSales() })">
             <h1 class="font-display text-title-1">Vendite e adozioni</h1>
             <p class="mt-1 text-small text-muted" x-text="selectedMuseum ? selectedMuseum.name : ''"></p>
 

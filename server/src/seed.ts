@@ -25,6 +25,7 @@ import {
 import { downloadImage } from "./services/imageDownloader";
 import { educationalLevels, secPerArt } from "../../shared/constants";
 import { museums } from "./data/museumContent";
+import { costruisciQuiz } from "./data/quiz";
 
 const MONGO_URI =
   process.env.MONGO_URI ||
@@ -222,6 +223,12 @@ async function seedSpecialVisits() {
       logistics: [],
     };
 
+    // Il test di competenza di fine visita (slide 33), sulle opere del percorso.
+    const opereDellaVisita = await ArtworkModel.find({
+      "@id": { $in: items.map((it: any) => it.about) },
+    });
+    const quiz = costruisciQuiz(opereDellaVisita);
+
     const visitaGuidata = {
       "@id": `visit-guidata-${museum.qid}`,
       name: "Visita guidata del docente",
@@ -232,6 +239,7 @@ async function seedSpecialVisits() {
       ofMuseum: museumUri,
       itemListElement: itemIds,
       logistics: [],
+      quiz,
     };
 
     await VisitModel.deleteMany({
@@ -241,7 +249,8 @@ async function seedSpecialVisits() {
     await VisitModel.create(visitaGuidata);
     console.log(
       `Visite create: "${visitaOpzionali.name}" (${opzionali.length}/${itemIds.length} opzionali) e ` +
-        `"${visitaGuidata.name}" (parola chiave: «${PAROLA_CHIAVE_GUIDATA}»).`,
+        `"${visitaGuidata.name}" (parola chiave: «${PAROLA_CHIAVE_GUIDATA}», ` +
+        `quiz di ${quiz.length} domande).`,
     );
 
     const account: { username: string; role: "autore" | "visitatore" }[] = [

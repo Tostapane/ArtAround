@@ -19,10 +19,10 @@
  * per chi non vede e' l'ingresso principale all'applicazione.
  */
 import { computed, ref, watch, nextTick } from "vue";
-import Info from "./Info.vue";
+import Pannello from "./Pannello.vue";
 import Comando from "./Comando.vue";
 import { useTTS } from "./useTTS";
-import { options, labelForCommand } from "../../../../shared/constants";
+import { labelForCommand } from "../../../../shared/constants";
 import { mediaOrigin } from "@/config";
 import { language, setLanguage } from "@/state";
 import { languages } from "../../../../shared/constants";
@@ -52,7 +52,6 @@ const emit = defineEmits<{
 const tts = useTTS();
 const snap = ref<"riposo" | "media" | "piena">("media");
 const sheet = ref<HTMLElement | null>(null);
-const tab = ref<"chiedi" | "orientati">("chiedi");
 
 watch(snap, (v) => emit("snap", v), { immediate: true });
 
@@ -60,7 +59,6 @@ watch(
   () => props.content,
   () => {
     snap.value = "media";
-    tab.value = "chiedi";
   },
 );
 
@@ -83,11 +81,6 @@ function collapse() {
   if (snap.value === "piena") snap.value = "media";
   else if (snap.value === "media") snap.value = "riposo";
 }
-
-const askCommands = computed(() => options.filter((o) => o.surface === "chiedi"));
-const orientCommands = computed(() =>
-  options.filter((o) => o.surface === "orientati"),
-);
 
 const nextLabel = computed(() => {
   if (props.guidedTeacher) return "Porta tutti alla prossima opera";
@@ -146,17 +139,35 @@ const height = computed(() => {
         {{ String(numero).padStart(2, "0") }}
       </span>
 
+      <!-- L'invito ad aprire era una didascalia grigia sotto al titolo: si
+           leggeva come una descrizione, non come una cosa da premere. Ora e' una
+           pastiglia con la freccia che ruota — la stessa forma che altrove nel
+           prodotto vuol dire "si preme". -->
       <button
         type="button"
-        class="min-w-0 flex-1 text-left"
+        class="group min-w-0 flex-1 text-left"
         :aria-expanded="snap === 'piena'"
         @click="expand"
       >
         <span class="block truncate font-display text-title-3 leading-tight">
           {{ fields[0] }}
         </span>
-        <span class="block truncate text-caption text-muted">
-          {{ snap === "piena" ? "Riduci la scheda" : "Apri la scheda" }}
+        <span
+          class="pastiglia mt-1.5 gap-1.5 transition-colors group-hover:border-accent
+                 group-hover:text-accent"
+        >
+          <svg
+            class="h-3.5 w-3.5 shrink-0 transition-transform duration-200"
+            :class="snap === 'piena' ? 'rotate-180' : ''"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.25"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="m6 15 6-6 6 6" />
+          </svg>
+          {{ snap === "piena" ? "Riduci" : "Apri la scheda" }}
         </span>
       </button>
 
@@ -219,59 +230,12 @@ const height = computed(() => {
         <p class="measure mt-4 text-body">{{ fields[2] }}</p>
 
         <div v-show="snap === 'piena'" class="mt-8 border-t border-line pt-5">
-          <div class="segmenti" role="tablist" aria-label="Che cosa vuoi chiedere">
-            <button
-              type="button"
-              role="tab"
-              :aria-selected="tab === 'chiedi'"
-              class="segmento"
-              :class="tab === 'chiedi' ? 'segmento-attivo' : ''"
-              @click="tab = 'chiedi'"
-            >
-              Chiedi
-            </button>
-            <button
-              type="button"
-              role="tab"
-              :aria-selected="tab === 'orientati'"
-              class="segmento"
-              :class="tab === 'orientati' ? 'segmento-attivo' : ''"
-              @click="tab = 'orientati'"
-            >
-              Orientati
-            </button>
-          </div>
-
-          <p class="mt-3 text-caption text-muted">
-            {{
-              tab === "chiedi"
-                ? "Domande su quest'opera."
-                : "Domande sull'edificio: dove si trovano le cose."
-            }}
-          </p>
-
-          <div class="mt-3 flex flex-col gap-2">
-            <button
-              v-for="o in tab === 'chiedi' ? askCommands : orientCommands"
-              :key="o.id"
-              type="button"
-              class="comando"
-              :class="richiesta === o.id ? 'comando-attivo' : ''"
-              :aria-describedby="o.hint ? 'hint-' + o.id : undefined"
-              @click="emit('action', o.id)"
-            >
-              {{ o.label }}
-              <span v-if="o.hint" :id="'hint-' + o.id" class="sr-only">{{ o.hint }}</span>
-            </button>
-          </div>
-
-          <!-- La risposta -->
-          <Info
-            v-if="richiesta"
-            class="mt-4"
-            :request="richiesta"
+          <Pannello
             :about="content"
-            @close="emit('closeRequest')"
+            :richiesta="richiesta"
+            id-prefix="scheda"
+            @action="(a) => emit('action', a)"
+            @close-request="emit('closeRequest')"
           />
 
           <div class="mt-8 border-t border-line pt-4">

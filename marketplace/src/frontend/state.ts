@@ -36,7 +36,7 @@ export type View =
   | "accedi"
   | "registrati"
   | "musei"
-  | "banco"
+  | "home"
   | "visite"
   | "opere"
   | "opera"
@@ -133,7 +133,7 @@ export class AppState {
       "accedi",
       "registrati",
       "musei",
-      "banco",
+      "home",
       "visite",
       "opere",
       "opera",
@@ -184,7 +184,7 @@ export class AppState {
   }
 
   roleHome(): View {
-    return this.currentUserRole === "autore" ? "lavori" : "banco";
+    return this.currentUserRole === "autore" ? "lavori" : "home";
   }
 
   goHome() {
@@ -197,7 +197,7 @@ export class AppState {
       accedi: "Accedi",
       registrati: "Crea un profilo",
       musei: "Scegli il museo",
-      banco: "Il banco",
+      home: "Home",
       visite: "Visite",
       opere: "Opere",
       opera: "Scheda dell'opera",
@@ -1132,11 +1132,13 @@ export class AppState {
     this.draft.tappe = this.rebuildStops(src);
     this.editingId = null;
     if (this.currentUserRole === "autore") {
-      this.draft.guidata = true;
+      // Non si forza piu' il tipo: importare un percorso non decide se la visita
+      // sara' in vetrina o guidata. Restava guidata e non c'era modo di tornare
+      // indietro.
       if (!this.draft.titolo.trim())
-        this.draft.titolo = src.name ? `${src.name} (guidata)` : "";
+        this.draft.titolo = src.name ? `${src.name} (copia)` : "";
       this.showToast(
-        "Percorso importato. L'originale non è stato toccato: aggiungi parola chiave e quiz.",
+        "Percorso importato. L'originale non è stato toccato: scegli il tipo di visita nelle impostazioni.",
       );
     } else {
       if (!this.draft.titolo.trim())

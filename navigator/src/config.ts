@@ -50,6 +50,15 @@ export function mediaOrigin(): string {
   return apiBase().replace(/\/api$/, "");
 }
 
+/**
+ * La home del marketplace: lo stesso server che espone le API serve anche il
+ * marketplace, quindi non c'e' un secondo indirizzo da configurare. E' li' che
+ * si torna a fine visita.
+ */
+export function marketplaceHome(): string {
+  return `${mediaOrigin()}/#/home`;
+}
+
 export function museumQid(): string {
   return config.museumQid;
 }

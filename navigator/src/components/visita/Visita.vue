@@ -22,6 +22,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import Stage from "./Stage.vue";
 import Scheda from "./Scheda.vue";
 import Posizione from "./Posizione.vue";
+import Pannello from "./Pannello.vue";
+import { marketplaceHome } from "@/config";
 import { useTTS } from "./useTTS";
 import { useTranslation } from "@/composables/useTranslation";
 import { useAnnouncer } from "@/composables/useAnnouncer";
@@ -79,10 +81,26 @@ const lastVisitIndex = ref(-1);
 const showLocator = ref(false);
 const transition = ref<{ notes: string[]; target: number } | null>(null);
 
+/** Percorso finito: si mostra la chiusura, con la via di casa in evidenza. */
+const fine = ref<{ notes: string[] } | null>(null);
+
+/** Il pannello dei comandi aperto dalla barra della visita (slide 27-28). */
+const pannelloAperto = ref(false);
+
+function tornaAllaHome() {
+  window.location.href = marketplaceHome();
+}
+
+/**
+ * La posizione si cerca sull'ITEM, non sull'opera. Una visita puo' avere piu'
+ * item per lo stesso oggetto — la slide 21 dice che dovrebbe averne — e
+ * cercando per opera la seconda descrizione ritrovava sempre l'indice della
+ * prima: "Prossimo" riportava alla tappa gia' vista e la visita si bloccava li'.
+ */
 function indexInVisit(): number {
   if (!currentArtwork.value) return -1;
-  const id = currentArtwork.value.artwork["@id"];
-  return matchedContent.value.findIndex((m) => m.artwork["@id"] === id);
+  const id = currentArtwork.value.item["@id"];
+  return matchedContent.value.findIndex((m) => m.item["@id"] === id);
 }
 const inVisit = computed(() => indexInVisit() >= 0);
 
@@ -131,8 +149,8 @@ const navigableStops = computed(() =>
 );
 const currentPosition = computed(() => {
   if (!currentArtwork.value) return 0;
-  const id = currentArtwork.value.artwork["@id"];
-  return navigableStops.value.findIndex((m) => m.artwork["@id"] === id) + 1;
+  const id = currentArtwork.value.item["@id"];
+  return navigableStops.value.findIndex((m) => m.item["@id"] === id) + 1;
 });
 
 function selectIndex(i: number) {
@@ -181,7 +199,23 @@ function navigationHandler(direction: string) {
   if (guidedStudent.value) return;
   const base = navBase();
   const target = stepIndex(base, direction === "next" ? 1 : -1);
-  if (target < 0) return;
+  if (target < 0) {
+    // Fine del percorso: prima non succedeva nulla e la visita non finiva mai.
+    // In visita guidata no: li' la chiusura la decide il docente, che dopo
+    // l'ultima opera fa partire il quiz.
+    if (
+      direction === "next" &&
+      lastVisitIndex.value >= 0 &&
+      !guidedActive.value
+    ) {
+      const notes = currentArtwork.value
+        ? notesAfter(currentArtwork.value.item["@id"])
+        : [];
+      fine.value = { notes };
+      announce("Visita completata");
+    }
+    return;
+  }
 
   if (direction === "next" && currentArtwork.value) {
     const notes = notesAfter(currentArtwork.value.item["@id"]);
@@ -228,6 +262,23 @@ async function goToArtwork(qid: string) {
 // --- Comandi ---------------------------------------------------------------
 const openRequest = ref("");
 
+/**
+ * L'opera a cui si riferiscono le domande del pannello. Se la scheda e' chiusa
+ * vale l'ultima tappa aperta, e in mancanza di tutto la prima della visita:
+ * "dov'e' il bagno?" deve poter partire da dove ci si trova, non richiedere di
+ * aprire prima una didascalia.
+ */
+const riferimento = computed<Match | null>(() => {
+  if (currentArtwork.value) return currentArtwork.value;
+  if (lastVisitIndex.value >= 0) {
+    const m = matchedContent.value[lastVisitIndex.value];
+    if (m) return m;
+  }
+  const first = matchedContent.value[0];
+  if (first) return first;
+  return null;
+});
+
 function actionHandler(option: string) {
   if (option === "Leggi") {
     tts.speak(translatedFields.value[2]);
@@ -241,7 +292,7 @@ function actionHandler(option: string) {
   if (option === "Precedente") return navigationHandler("prev");
 
   openRequest.value = option;
-  const art = currentArtwork.value;
+  const art = riferimento.value;
   studentAsk(option, art ? art.artwork.name : "");
 }
 
@@ -288,6 +339,23 @@ onUnmounted(() => tts.stop());
         </button>
 
         <p class="min-w-0 flex-1 truncate text-small font-medium">{{ title }}</p>
+
+        <!-- I comandi del vocabolario controllato, sempre a un tocco: prima
+             erano raggiungibili solo aprendo la scheda a tutta altezza. -->
+        <button
+          type="button"
+          class="btn-secondario shrink-0 px-2"
+          :aria-expanded="pannelloAperto"
+          aria-label="Chiedi qualcosa"
+          @click="pannelloAperto = true"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.7.2-1.2.9-1.2 1.6v.5" />
+            <circle cx="11.5" cy="17" r=".7" fill="currentColor" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18z" />
+          </svg>
+          <span class="sr-only sm:not-sr-only">Chiedi</span>
+        </button>
 
         <p
           v-if="navigableStops.length"
@@ -377,6 +445,97 @@ onUnmounted(() => tts.stop());
           </button>
           <button type="button" class="btn-primario flex-1 justify-center" @click="closeTransition">
             Continua
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANNELLO DEI COMANDI -->
+    <div
+      v-if="pannelloAperto"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center"
+      @click.self="pannelloAperto = false"
+    >
+      <aside
+        class="lastra flex max-h-[85dvh] w-full max-w-md flex-col overflow-y-auto p-5 shadow-l2"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pannello-titolo"
+        @keydown.escape="pannelloAperto = false"
+      >
+        <div class="flex shrink-0 items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 id="pannello-titolo" class="font-display text-title-3">
+              Chiedi qualcosa
+            </h2>
+            <p v-if="riferimento" class="truncate text-caption text-muted">
+              {{ riferimento.artwork.name }}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="icona-mini shrink-0"
+            aria-label="Chiudi il pannello"
+            @click="pannelloAperto = false"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <Pannello
+          class="mt-4"
+          :about="riferimento"
+          :richiesta="openRequest"
+          id-prefix="pannello"
+          @action="actionHandler"
+          @close-request="openRequest = ''"
+        />
+      </aside>
+    </div>
+
+    <!-- FINE DELLA VISITA -->
+    <div
+      v-if="fine"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fine-titolo"
+    >
+      <div class="lastra w-full max-w-md p-6 shadow-l2">
+        <p class="text-caption uppercase tracking-wider text-muted">
+          {{ title }}
+        </p>
+        <h2 id="fine-titolo" class="mt-1 font-display text-title-1">
+          Visita completata.
+        </h2>
+        <p class="mt-2 text-body text-muted">
+          Hai visto tutte le
+          <span class="tabular">{{ navigableStops.length }}</span>
+          {{ navigableStops.length === 1 ? "tappa" : "tappe" }} del percorso.
+        </p>
+
+        <ul v-if="fine.notes.length" class="mt-5 flex flex-col gap-3">
+          <li
+            v-for="(n, i) in fine.notes"
+            :key="i"
+            class="flex items-start gap-3 text-body leading-snug"
+          >
+            <svg class="mt-1 h-5 w-5 shrink-0 text-accent" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
+              <circle cx="12" cy="10" r="2.4" />
+            </svg>
+            <span>{{ n }}</span>
+          </li>
+        </ul>
+
+        <div class="mt-6 flex flex-col gap-2">
+          <button type="button" class="btn-primario justify-center" @click="tornaAllaHome">
+            Torna alla home
+          </button>
+          <button type="button" class="btn-secondario justify-center" @click="fine = null">
+            Resta nella visita
           </button>
         </div>
       </div>

@@ -1,31 +1,30 @@
-# `left.md` — handoff, restyle in corso
+# `left.md` — handoff
 
-**Written 2026-07-27, mid-session (quota ran out).** Task: implement `prelude.md` end to end.
+**Written 2026-07-27** (restyle, §0–§7). **Extended 2026-07-28** (feedback pass, §8).
+Task of the first: implement `prelude.md` end to end. Of the second: twelve corrections
+found by actually using it.
 
-> ## ✅ STATUS — both apps build green
-> - **Marketplace**: `npm run build` → exit 0.
-> - **Navigator**: `vue-tsc --noEmit` → **exit 0**, `vite build` → **exit 0** (108 modules).
->   Shared tokens, Bricolage and the shared component classes all verified present in the
->   emitted CSS of *both* apps.
-> - **Server**: edited, `tsc --noEmit` not re-run since the edits (§2.3).
+> ## ✅ STATUS — all three parts green
+> - **Marketplace**: `tsc --noEmit` → exit 0, `npm run build` → exit 0, **`dist` rebuilt**.
+> - **Navigator**: `vue-tsc --build` → exit 0, `vite build` → exit 0.
+> - **Server**: `tsc --noEmit` → exit 0. **Running and restarted** on :8000, so the current
+>   routes are the ones being served.
 >
-> Nothing is committed — `git status` is the whole diff. **This is a good point to commit.**
+> Nothing is committed — `git status` is the whole diff, two passes deep. **Commit.** See §6.
 >
-> What remains is in §3.6 (one polish detail) and §4 (the genuinely unfinished work:
-> `testers.ts`, the tone migration, the QR sheet, `state.md` refresh).
+> **Verified live against the running stack** (Mongo + server up in docker): the whole guided
+> quiz protocol end to end with two students — open room, join, start, start quiz, both
+> submit, marks 3/3 and 2/3, teacher's board, close, planned `terminata` with the mark
+> still readable; a guided visit converted **back** to a catalogue visit (`accessKey: null`,
+> price restored); `GET /visits/:id` no longer leaking `correct`; the quiz generator run
+> against the real catalogue (three sensible questions from the Louvre's own artworks).
 >
-> ⚠️ **Never run yet:** neither app has been opened in a browser (no Mongo, no docker here).
-> Everything is "compiles and type-checks", not "seen working". The first run will find real
-> bugs — most likely in the hash router and the bottom sheet's snap behaviour.
+> ⚠️ **Still never opened in a browser: the whole navigator** — including the command panel,
+> the end-of-visit screen and both quiz screens added on 28/07. The marketplace *soglia* has
+> been driven for real (§0-bis) and it paid; nothing else has. Expect the same yield.
 >
-> **The server WAS run and probed live** (Mongo is up on your machine). Verified working:
-> `GET /api/config`, the new `GET /api/qr` (returns real SVG), the ownership-filtered
-> `GET /museums/:qid/visits` (12 of 14 visits — the guided one correctly excluded), the
-> three deleted routes returning 404, and role-resolving login (an account with a role logs
-> in and gets its role back; a role-less legacy document is rejected 401).
->
-> ⚠️ **You have a stale server running on :8000** from before this work — it has no
-> `/api/config`. Restart it to pick up the changes. I did not kill it.
+> ⚠️ **`seedSpecialVisits()` is a no-op against the current DB** (§8, `state.md` §3.5) — the
+> generated quiz is in the code, not yet in Mongo.
 >
 > **Alpine bindings were statically verified** (they're strings, so TS never sees them —
 > a typo'd method name fails silently and is the classic way an Alpine rewrite breaks):
@@ -105,116 +104,180 @@ verdi, i binding Alpine ricontrollati (88 chiamate, 33 `x-model`, tutte le rotte
 
 ---
 
-## 0-bis. La soglia: marchio e fondale (2026-07-28)
+## 0-bis. La soglia: marchio e fondale
 
-**Il fondale "La Pianta" è stato sostituito.** Al suo posto un **automa cellulare ciclico**
-disegnato su canvas (`automaton()` in `marketplace/src/frontend/app.ts`): ogni cella avanza
-di stato appena una vicina le è un passo avanti, e da rumore casuale la regola si
-auto-organizza in fronti d'onda che si rincorrono senza fermarsi mai.
+**Il fondale è uno SCIAME di punti** (`swarm()` in `marketplace/src/frontend/app.ts`):
+una nuvola che si raduna a formare, una dopo l'altra, le opere in vendita e le piante dei
+musei, resta ferma qualche secondo, poi scivola nella figura successiva. Ha sostituito
+prima "La Pianta" statica, poi un automa cellulare ciclico.
 
-**Terza passata (28/07): da automa a SCIAME che compone figure.**
-L'automa cellulare è stato sostituito da una nuvola di punti che si raduna a formare, una
-dopo l'altra, le **piante dei musei** e i **contorni di alcune opere**, poi si sfalda in una
-tempesta e si ricompone nella successiva (`swarm()` in `app.ts`). Le sorgenti sono le stesse
-mappe annotate da cui il server ricava il grafo delle sale e le stesse immagini delle opere
-in vendita: il fondale cambia da solo quando si aggiunge un museo.
+### Sesta passata (28/07) — «non si vede niente»: le due cause vere
 
-Come si ricava una figura: la sorgente si disegna piccola fuori schermo, se ne misura il
-**contrasto locale** e si tengono i punti dove cambia di più. Vale sia per le mappe (al
-tratto) sia per i dipinti (fotografie): restano i contorni, mai una macchia piena.
+Il fondale mostrava una macchia informe. Due difetti distinti, entrambi trovati aprendo
+finalmente la pagina in un browser.
 
-**Quarta passata: via il rimbalzo, e sfumatura ai bordi.**
-- **Tolta del tutto la fase di dispersione.** I punti ora sono *sempre* attratti da un
-  bersaglio e passano da una figura all'altra scivolando. La dispersione rimbalzava, e il
-  riavvolgimento ai bordi che l'accompagnava faceva sparire i punti da un lato per farli
-  ricomparire dall'altro. Restano due fasi: `morph` e `hold`.
-- Ogni punto parte con un **piccolo ritardo suo**, così la figura si compone a ondate invece
-  che tutta in una volta; a figura ferma resta un respiro appena percettibile.
-- **Sfumatura ai bordi**: l'opacità dei punti cala avvicinandosi al margine (`EDGE`), così la
-  nuvola sfuma nel buio invece di finire tagliata di netto. Sopra, un **velo radiale**
-  (`.sciame-velo`) scurisce i bordi e stacca il titolo dal fondale.
+**1. Le piante non arrivavano mai.** Tutte e tre le mappe in `server/public/maps/` avevano
+`<line data-edge ...>`: un attributo *senza valore*. È legale in HTML, **non in XML** — e
+una SVG caricata come `<img src="blob:…image/svg+xml">` passa dal parser XML, che la
+rifiuta in blocco. `img.onerror` scattava, `shapeFromSvg` restituiva `null`, e lo sciame
+restava con le sole opere. Ora è `data-edge=""`.
+*Non se ne era accorto nessuno perché il navigator inietta la stessa SVG nel DOM, dove a
+parsarla è il parser HTML, che è indulgente: la mappa nell'app funzionava.*
+Il server continua a leggerle (`svgGraph.ts` usa `rawAttrs.includes("data-edge")`) —
+verificato: la connettività delle sale è identica, 5 ali attorno alla Hall Napoleon.
 
-**Quinta passata: la figura non si leggeva.** La sfumatura ai bordi, appena introdotta,
-**stava cancellando proprio la figura**: il disegno veniva inquadrato all'82% dell'altezza,
-lasciando 97 px di margine, mentre la fascia di sfumatura era larga 238 px. I muri
-orizzontali in alto e in basso — la parte che più definisce una pianta — finivano sotto il
-10% di opacità, e restavano solo due striature verticali. Correzioni:
-- inquadratura della figura **0.82 → 0.62**, fascia di sfumatura **0.22 → 0.10**: la figura
-  ora sta tutta fuori dalla zona smorzata (bordo superiore a 205 px contro una fascia di
-  108 px);
-- caselle di campionamento **3 → 2** e soglia **0.14 → 0.12**: da 788 a **1220 punti**;
-- particelle **4000 → ~2300**: prima erano sei per bersaglio e il disegno si impastava, ora
-  sono circa una o due.
-Le tre piante danno 1220, 1232 e 1414 punti, **tutti pienamente visibili, nessuno smorzato**.
+**2. Sui dipinti l'estrattore era quello sbagliato.** Si misurava il *contrasto locale* e si
+tenevano i punti dove cambiava di più. Su una pianta, che è al tratto, funziona benissimo.
+Su una fotografia no: **un Caravaggio non ha contorni, ha luce e buio**, e il gradiente lo
+riduceva a grumi sparsi — esattamente la macchia che si vedeva. Ora gli estrattori sono
+**due**, scelti secondo la sorgente:
+- **`contour()`** — per le mappe. Invariato.
+- **`halftone()`** — per i dipinti. Un **retino**: un punto dove il quadro è chiaro, densità
+  proporzionale alla luce, errore diffuso sui vicini (Floyd-Steinberg). È il modo in cui si
+  stampa una fotografia avendo un solo colore, ed è quel che serve qui, perché le particelle
+  sono tutte uguali e l'unica cosa modulabile è quante ce ne sono per centimetro.
+  La luminosità è prima riportata sull'intervallo effettivo del quadro (senza, un Caravaggio
+  resta quasi tutto sotto soglia) e poi piegata con una gamma di 1.5.
 
-Il difetto è stato trovato simulando la pipeline **intera** fuori dal browser — rasterizzare
-la mappa, estrarre i contorni, calcolare i bersagli, applicare la sfumatura e stampare il
-risultato in ASCII. Le prove precedenti verificavano un pezzo per volta e passavano tutte:
-il guasto stava nella *combinazione* fra inquadratura e sfumatura, che nessuna prova isolata
-poteva vedere. Vale la pena rifarlo così se si ritocca `margin`, `EDGE` o `SAMPLE_W`.
+**Numeri che decidono se è un quadro o una macchia**, non toccarli a caso:
+`TONES` 9000 punti per figura, particelle `max(6000, min(13000, area/110))` — erano **2600**,
+ed è il singolo motivo per cui una faccia non si riconosceva. `DOT` 1.6, `ALPHA` **0.85**:
+il fondo Notte non è nero ma un blu medio (`#284b63`), e a mezza opacità i punti ci si
+sciolgono dentro.
 
-*(Nota: un test precedente sembrava dire che le piante rendessero solo il perimetro. Era il
-rasterizzatore di prova a non ereditare gli attributi dai `<g>`, e i muri stanno dentro
-`<g stroke="#333" stroke-width="4">`. Il browser li disegna: la mappa vera ha più struttura
-di quanto quella prova mostrasse.)*
+**L'ordine delle sorgenti non è più casuale.** Prima le opere (nell'ordine in cui le dà il
+server: Gioconda, poi la *Morte della Vergine* del Caravaggio), poi le piante. Il sorteggio
+faceva aprire la soglia su un quadro qualunque, ogni volta diverso. Nessun QID è scritto nel
+codice: resta generico, cambia da sé se cambia il museo.
 
-Tre difetti trovati nel proprio codice quando la resa è risultata "lampeggiante e rumorosa":
-1. **il riavvolgimento ai bordi valeva anche mentre i punti raggiungevano un bersaglio** —
-   qualunque punto tirato attraverso il riquadro spariva e ricompariva altrove: era quello a
-   far lampeggiare tutto;
-2. **i bersagli erano assegnati a caso**, quindi metà sciame attraversava il riquadro e la
-   figura si componeva in un groviglio — ora punti e particelle si ordinano per angolo
-   attorno al centro e ognuna riceve un bersaglio dalla propria parte;
-3. **i contorni erano scelti mescolando e tagliando**, il che su una fotografia teneva la
-   grana sparsa ovunque — ora si divide il campione in caselle e in ognuna si tiene il
-   contorno più netto, così i punti seguono la struttura e restano distribuiti.
+**La figura non sta più al centro.** Al centro finiva esattamente dietro ad "ART AROUND".
+Ora: viewport larga → figura a destra (0.70 / 0.50), il titolo tiene la sinistra; viewport
+stretta → la figura sale (0.50 / 0.37) e il volto va nella fascia vuota in cima, col testo
+sotto. `.sciame-velo` segue in tre varianti (stretta: ombra crescente verso il basso;
+`≥1024px`: ombra a sinistra sotto al titolo e luce spostata a destra).
 
-Verificato senza poter guardare lo schermo:
-- la matematica dei contorni, su un campo sintetico: traccia i bordi e trova **zero** punti
-  dentro le campiture — che era il rischio vero;
-- l'iniezione di `width`/`height` nelle mappe, che hanno solo il `viewBox` e altrimenti
-  verrebbero disegnate larghe zero;
-- che le tre sorgenti siano davvero servite (`/api/museums`, `/maps/*.svg`,
-  `/images/artworks/*.jpg`, tutte 200 col tipo giusto e tutte di pari origine, quindi il
-  canvas non si "sporca" e i pixel si possono rileggere).
+### Settima passata (28/07) — solo opere, scelte a mano, e niente rimbalzo
 
-Due difetti trovati rileggendo il proprio codice e corretti: le figure normalizzavano x e y
-separatamente e venivano disegnate in un 4:3 fisso (**un dipinto verticale sarebbe stato
-schiacciato** — ora ogni figura porta con sé le proporzioni), e i punti venivano scelti per
-intensità del contorno, il che avrebbe tenuto solo i tratti più spessi facendo sparire
-l'interno delle piante (ora si mescola e poi si taglia).
+**Le piante sono uscite dalla rotazione**, su richiesta: la soglia mostra solo opere.
+`contour()` e `shapeFromSvg()` sono stati rimossi perche' erano rimasti senza chiamanti
+(recuperabili da git; la correzione XML alle mappe resta valida e serve comunque).
 
-⚠️ La soglia ora carica fino a sei sorgenti (tre mappe, tre immagini). Arrivano in modo
-asincrono e la prima figura si compone appena è pronta, ma è traffico in più sulla pagina
-d'ingresso: se dà fastidio, si riduce `slice(0, 3)` sulle opere in `loadShapes`.
+**Quali opere lo decide la curatela, non il codice.** `server/src/data/soglia.json` elenca i
+qid e l'ordine; `GET /api/config` li restituisce come `thresholdArtworks`; se il file manca o
+e' vuoto il marketplace ripiega sulle prime sei del catalogo. **Nel marketplace non c'e'
+nessun qid**, quindi la genericita' regge.
+Il file si rilegge a ogni richiesta: cambiare la scelta non richiede di riavviare il server.
+⚠️ Ma **aggiungere il campo si': il server va riavviato una volta** perche' `/api/config`
+cominci a restituirlo.
 
-**Seconda passata (28/07): punti più piccoli, più fitti, e moto continuo.**
-- `CELL 13 → 10`, `DOT 0.30 → 0.24`: diametro massimo da 7,8 a **4,8 px**, e circa il doppio
-  delle celle. `PERIOD 260 → 150`.
-- **Il moto non è più a scatti.** L'automa avanza a passi discreti ma il disegno interpola
-  fra il passo precedente e quello nuovo a ogni fotogramma, con raccordo morbido. Si
-  interpola l'*intensità*, non lo stato, così il salto da N-1 a 0 non produce uno strappo.
-- **Si disegna sui pixel, non con i tracciati.** Con punti così piccoli le celle sono oltre
-  ventimila: altrettante chiamate di tracciato per fotogramma non reggerebbero. Si scrive in
-  un `ImageData` e lo si riversa in un colpo solo, con il bordo sfumato nell'ultimo mezzo
-  pixel (senza, punti da 4 px risultano seghettati).
-- **Il canvas resta a un pixel per pixel CSS**, non alla densità dello schermo: misurato,
-  raddoppiare costa 10,6 ms per fotogramma contro 4,6 — e su punti sfumati e quasi
-  trasparenti non si vedrebbe. Costo verificato anche a 2560×1440: 9 ms, dentro i 60 fps.
+*Perche' a mano e non a caso:* il retino rende bene una figura grande con un forte stacco di
+luce, e rende illeggibile una scena affollata di mezzi toni. La *Morte della Vergine* del
+Caravaggio era il secondo caso ed e' stata tolta. Le sei scelte sono state confrontate
+rendendo **tutte e 22 le opere del catalogo** attraverso la pipeline vera e guardando il
+provino: Gioconda, San Giovanni Battista, Napoleone in trono, *A Girl Blowing on a Brazier*,
+*Buona ventura*, Mondrian.
 
-Scelte fatte, per non rifarle a caso:
-- **Solo una fascia stretta di stati è accesa** (`PEAK` ± `BAND`). Con la prima versione si
-  illuminavano zone larghe e il fondale faceva concorrenza al titolo; ora si vedono linee
-  sottili che attraversano il campo. Verificato simulando la regola fuori dal browser e
-  stampandola in ASCII — a regime sopravvivono tutti e 14 gli stati, non collassa.
-- Punti molto tenui (alfa massima 0.3 su fondo Notte), colori letti dai token.
-- **`prefers-reduced-motion`**: l'automa compie 60 passi e si ferma, lasciando una
-  composizione ferma invece di uno sfondo vuoto.
-- **`ResizeObserver`** invece di un listener sul ridimensionamento: la soglia può essere
-  nascosta all'avvio (si entra da un'altra rotta) e in quel caso il canvas non ha ancora
-  dimensioni. L'osservatore aspetta che le abbia, ricostruisce la griglia quando cambiano e
-  **ferma il moto mentre la sezione non si vede**; il moto si sospende anche a scheda in
-  secondo piano.
+**Tolto il rimbalzo.** L'avvicinamento al bersaglio era una **molla smorzata** (accelerazione
+verso il bersaglio + attrito 0.88) e, sotto-smorzata, faceva arrivare ogni punto lungo per poi
+tornare indietro: la figura si assestava ballonzolando. Ora e' un **avvicinamento
+esponenziale** — ogni passo copre `1 - e^(-RATE·dt)` della distanza che resta, quindi il punto
+rallenta e **non puo' superare il bersaglio**. Insieme e' sparito il "respiro" a figura ferma,
+che era l'altra meta' del tremolio.
+Verificato numericamente, non a occhio: seguendo il segno di `(bersaglio - posizione)` per
+tutte le 11 782 particelle lungo i 216 fotogrammi di una fase, **zero inversioni di segno,
+superamento massimo 0 px**, distanza residua a fine fase 0,05 px.
+
+**La soglia si apre componendo il primo quadro.** Prima restava per tutta la durata di `HOLD`
+con i punti che vagavano in un campo di flusso, e la Gioconda arrivava dopo quattro secondi di
+ghirigori. Tre correzioni: `compose()` parte appena la prima opera e' pronta (**solo la
+prima** — senza quella guardia ogni opera in arrivo faceva scattare la successiva e la soglia
+si apriva sull'ultimo quadro); la prima `build()` non aspetta piu' i 150 ms dell'antirimbalzo;
+e i punti nascono gia' dentro il riquadro dove la figura si formera', non sparsi su tutto il
+campo, cosi' il testo non si prende la grana addosso. Piu' una dissolvenza di 900 ms.
+
+### Ottava passata (28/07) — «uno scatto meccanico», e non era l'easing
+
+Segnalato: nell'istante in cui i punti cominciano a cambiare figura si vedeva **uno strappo**,
+poi il moto tornava fluido. Due cause, la prima delle quali e' un difetto vero.
+
+**1. `tick()` non ricalcolava `elapsed` al cambio di fase.** `elapsed` si misurava *prima* di
+decidere se la fase finiva, e poi si continuava a usarlo: il primo fotogramma di ogni
+passaggio girava quindi con l'`elapsed` della fase *appena conclusa* — piu' lungo dell'intera
+fase nuova — cioe' con `progress = 1`, avanzamento massimo. **Un fotogramma copriva l'8% del
+tragitto, il successivo lo 0,001%.** Non era una sensazione: e' un salto di velocita' di
+tremila volte fra due fotogrammi consecutivi. Ora `elapsed` si azzera quando la fase cambia.
+
+**2. L'inseguimento e' il modello sbagliato per un passaggio.** «Ogni passo una frazione fissa
+della distanza che resta» ha velocita' **massima al primo istante** e poi decade: niente
+accelerazione, niente arrivo — uno scarto secco seguito da una coda. L'easing c'era ma
+moltiplicava il *tasso*, non la posizione, quindi non poteva togliere lo scatto.
+Ora il passaggio e' un'**interpolazione** fra la posizione di partenza (`sx`, `sy`, fissata
+in `compose()`) e il bersaglio, con **smootherstep** `6e⁵-15e⁴+10e³`: derivata prima *e*
+seconda nulle a entrambi i capi, quindi si parte da fermi senza strappo e ci si posa sul
+bersaglio esattamente a fine fase invece di avvicinarvisi all'infinito.
+Misurato: spostamento massimo per fotogramma **8,00% → 1,04%**, primi fotogrammi a 0,000%.
+
+**3. Le traiettorie sono archi, non segmenti.** Rette parallele si leggono come un
+meccanismo. Ogni punto ha ora un `bow` proprio (ampiezza e verso, ritirati a ogni passaggio
+insieme al `delay`) che lo scosta perpendicolarmente seguendo una campana di seno — nulla ai
+due capi, quindi non tocca ne' la partenza ne' l'arrivo. `BOW: 0.16` e' l'unica manopola:
+sopra 0,2 le scie si incrociano e sembra turbolenza, sotto 0,05 non si distingue da una retta.
+
+`MORPH` 2600 → 3000 ms. `RATE` non esiste piu'. Il ramo "moto ridotto" non simula piu' 240
+passi: la figura ferma e' l'ultimo fotogramma dell'interpolazione, quindi `px = tx`.
+
+⚠️ **Non guardato in un browser**: la correzione e' verificata numericamente (il profilo di
+velocita' per fotogramma, sopra), l'ampiezza dell'arco no. Va guardata.
+
+### Prestazioni: era a 12 fps, ora sta nel budget
+
+Misurato nel browser vero, non stimato: **80,9 ms per fotogramma** a 1440×900, più **142 ms
+di singhiozzo** a ogni cambio di figura. Tre cause, tutte risolte — **ora 10,5 ms** (63% del
+budget a 60 fps) con 4,5 volte più particelle di prima:
+
+| | prima | dopo |
+| --- | --- | --- |
+| fotogramma @1440×900 | 80,9 ms | **10,5 ms** |
+| fotogramma @2560×1440 | 96,5 ms | **12,7 ms** |
+| cambio figura | 141,9 ms | **4,1 ms** |
+
+1. **`tint.r/g/b` letti dentro il ciclo sui pixel.** La tavolozza è un array di oggetti
+   semplici, e *quelli* Alpine li avvolge davvero in un Proxy (i `Float32Array` no: Vue non
+   proxa i typed array). Tre trappole per pixel ≈ **900 000 per fotogramma**, da sole i due
+   terzi del disegno. Ora la tinta si scompone in tre locali prima del ciclo.
+2. **`this.px[i]` &c. dentro i cicli caldi**: ~15 accessi al Proxy per particella in
+   `advance()`. I vettori si prendono ora una volta sola in locali.
+3. **`Math.atan2` dentro i comparatori di `sort`** in `nextShape()`: mezzo milione di
+   chiamate a ogni cambio figura. Ora gli angoli si calcolano una volta in un `Float32Array`
+   e si ordinano indici.
+
+Scomposizione finale del fotogramma: azzeramento 0,16 ms · `advance` 0,68 ms ·
+`putImageData` 0,36 ms · rasterizzazione delle particelle 9,6 ms.
+
+### Come è stato verificato (ed è la parte che mancava a tutto il restyle)
+
+**La pagina è stata finalmente aperta in un browser**, pilotando chromium via CDP: sonda
+sullo stato dello sciame, cattura degli errori di console, screenshot delle figure fatte
+convergere una per una, e benchmark eseguito *dentro* la pagina. Vale la pena rifarlo così
+per ogni ritocco a `swarm()` — gli script sono nello scratchpad della sessione.
+
+⚠️ **Trappola:** headless chromium dichiara `prefers-reduced-motion: reduce` **di default**.
+Tutti i primi screenshot erano quindi del ramo "fermo", non dell'animazione. Il valore va
+imposto esplicitamente con `Emulation.setEmulatedMedia` in *entrambi* i versi. Verificati poi
+tutti e due i rami: a moto ridotto `still=true` e nessun `requestAnimationFrame` attivo, con
+una figura composta e ferma; a moto normale la rotazione gira (figura 0 → 1 → 2 in 20 s).
+
+**Un bug vero trovato dalla console mentre si guardava il fondale:** `x-init="$watch('vista',
+…)"` nella sezione VENDITE — `vista` è rimasto dalla rinomina italiano→inglese, la proprietà
+non esiste più, Alpine lanciava e il guardiano non si registrava. `loadSales()` non era
+raggiungibile da nessun'altra parte: **la tabella delle vendite restava vuota per sempre.**
+Corretto in `$watch('view', …)`, più il caso iniziale (entrando da `#/vendite` il guardiano
+non scatta). *Conferma che i binding Alpine sono stringhe che nessun compilatore controlla:
+la verifica statica di §0 li aveva contati, ma non poteva vedere questo.*
+
+Restano invariate le regole di garbo: punti tenui, moto sospeso quando la sezione non si vede
+o la scheda è in secondo piano, `ResizeObserver` invece del listener sul ridimensionamento,
+sfumatura ai bordi, e nuvola che vaga piano se le sorgenti non arrivano.
 
 **Il marchio.** L'opera incorniciata e il percorso che le gira intorno, con il visitatore
 sopra: "art" e "around". Il tratto è aperto, non un cerchio chiuso, perché una visita ha un
@@ -238,8 +301,9 @@ The user chose these explicitly. They are load-bearing.
 | Display font | **Bricolage Grotesque**, self-hosted, no CDN |
 | Tone vocabulary | **The slides' four tones**: `Infantile · Semplice · Medio · Avanzato` (slide 22). `shared/constants.ts` already changed. A DB migration is still owed. |
 | DB helper scripts | Must all live in **one file: `server/src/testers.ts`** (user's instruction, verbatim) |
-| Quiz + teleport | **Deferred.** "we will implement the missing features such as the quiz, the teleport etc later" — do not build them now |
-| Compatibility defects | **Deferred**, parked in `state.md` §10 (voice broken on iOS, CDN, QR/blind). Do not chase them |
+| Quiz | ~~Deferred~~ → **built 2026-07-28** (§8). Teleport is still deferred and is now the *only* thing missing for 18-33 |
+| Session persistence | **Never.** Asked for and then removed the same day: *"i do not want any session restorage"*. Opening `/` must always show the soglia (§8) |
+| Compatibility defects | **Deferred**, parked in `state.md` §10 (voice broken on iOS, QR/blind; the CDN one is closed). Do not chase them |
 
 The user's framing for the whole job: *"start this glorious artistic refactor"* — flow and
 information first, not a repaint.
@@ -361,8 +425,9 @@ longer shows everyone "Visita terminata" mid-visit; and the ended screen disting
 
 4. `resetGuided()` resets `guidedChiusuraPrevista`.
 
-The quiz *screens* remain deferred as instructed — only the missing **state** was added,
-because representing it wrongly was showing users a false screen.
+~~The quiz *screens* remain deferred as instructed~~ — **they exist now, see §8.** What this
+pass added was only the missing **state**, because representing it wrongly was showing users
+a false screen; the screens came later and slotted straight into that phase.
 
 ### ~~3.4 Component classes~~ — **DONE**, see §2.1 (`shared/components.css`)
 
@@ -479,6 +544,15 @@ never touches it.
 
 ## 5. Traps found the hard way
 
+- **An SVG in `<img>` is parsed as XML, in the DOM as HTML.** A valueless attribute
+  (`<line data-edge>`) works everywhere in the app and fails *only* on the `<img>`/canvas
+  path, silently, via `onerror`. If a map "doesn't load" but looks fine in the navigator,
+  this is why. Keep `server/public/maps/*.svg` well-formed XML.
+- **Alpine proxies plain objects and arrays, but not typed arrays.** Reading `obj.field` in a
+  per-pixel loop costs a Proxy trap each time; a `Float32Array` costs nothing. Hoist out of
+  hot loops. This was a 3× difference on the whole backdrop.
+- **Headless chromium reports `prefers-reduced-motion: reduce` by default** — screenshots
+  silently capture the still branch. Force it with `Emulation.setEmulatedMedia`.
 - **`navigator/dist/` is root-owned** → `vite build` dies with EACCES in `prepare-out-dir`.
   Either `sudo rm -rf` it or build with `--outDir` elsewhere.
 - **`navigator/` and `server/` `node_modules` are root-owned** → `npm install` fails. No new
@@ -491,30 +565,54 @@ never touches it.
   on `vistaStage` change to place the map numerals.
 - Alpine renders every view stacked before it boots; `[x-cloak]` + the root `x-cloak`
   attribute is what prevents the flash. Keep both.
+- **`x-model` on a radio gives you back a STRING.** `:value="false"` sets the attribute to
+  `"false"`, and `getInputValue` returns `target.value` verbatim — so the model becomes the
+  string `"false"`, which is **truthy**. Every `if (draft.x)` then takes the wrong branch,
+  silently and forever. Use `x-model.boolean` (Alpine 3 converts, and also compares
+  correctly when writing `checked` back). This cost a whole feature: a visit could be turned
+  into a guided one but never back.
+- **A "chase" is not a transition.** `p += (target - p) * k` has its maximum speed at the
+  first instant. Easing the *rate* cannot fix that — the first step is still the biggest.
+  If you want something to start from rest, interpolate the **position** between two fixed
+  endpoints with an easing that has zero derivative at both ends (smootherstep), don't scale
+  a chase.
+- **Recompute `elapsed` after changing phase.** Any `elapsed = now - phaseAt` read *before* a
+  phase switch is stale for the phase you're about to run, and a stale one is usually
+  *larger* than the whole new phase — i.e. progress 1 on frame 1. Cost: a visible jerk at
+  every figure change in the backdrop, for weeks.
+- **`GET /visits/:id` is a student-facing route.** The navigator loads a guided visit through
+  it, so anything on the document reaches the class — the quiz `correct` indices did. It now
+  `select("-quiz")`s. The author's editor reads the quiz from the *list* route instead.
 
 ---
 
 ## 6. Uncommitted work
 
-**Nothing is committed. 62 paths touched.** This is a good, verified point to commit:
-all three parts compile, the server boots, and the DB is consistent.
+**Nothing is committed.** Two passes are stacked in the working tree: the restyle
+(2026-07-27, §0–§5) and the feedback pass (2026-07-28, §8). All three parts compile
+(`vue-tsc`, both `tsc`), the marketplace `dist` is rebuilt, the server has been restarted and
+probed live.
 
-- **26 modified**, **13 new files**, **13 deleted**, **2 renames**
-  (`map/speech/useTTS.ts` → `visita/useTTS.ts`, `useMediaRecorder.ts` → `visita/useVoce.ts`).
-- New untracked assets that **must** be committed or the apps break:
-  `shared/{theme,components}.css`, `navigator/public/{config.json,fonts/}`,
-  `marketplace/public/{fonts,vendor}/`, `server/src/types/`.
-- `.gitignore` covers `dist/`, so build output stays out — correct.
+`git status` at the end of the second pass: **20 modified, 3 untracked**
+(`navigator/src/components/visita/Pannello.vue`, `server/src/data/quiz.ts`,
+`server/src/data/soglia.json`). The restyle's own new assets —
+`shared/{theme,components}.css`, `navigator/public/{config.json,fonts/}`,
+`marketplace/public/{fonts,vendor}/`, `server/src/types/` — are already tracked as of that
+listing; if a `git add -A` is done, check they are in. `.gitignore` covers `dist/`, so build
+output stays out — correct.
 
-Suggested message: *"restyle: struttura, flussi e informazione (prelude.md)"*.
+Worth **two** commits, since they are two jobs:
+*"restyle: struttura, flussi e informazione (prelude.md)"* and
+*"correzioni d'uso, pannello comandi, quiz nel navigator"*.
 
 ---
 
 ## 7. What is genuinely left
 
-**Deferred by you, untouched:** the quiz UI and the teleport module (`prelude.md` §7.1),
-and the three compatibility defects in `state.md` §10 (iOS voice capture, the QR/blind
-fallback is now half-done — the printed code is legible, the navigator accepts it typed).
+**Deferred by you, untouched:** the **teleport module** (`prelude.md` §7.1) — now the single
+blocker for 18-33 — and the compatibility defects in `state.md` §10 (iOS voice capture; the
+QR/blind fallback is half-done, the printed code is legible and the navigator accepts it
+typed; the CDN one is closed).
 
 **Not started, from `prelude.md`:**
 - **N13** — UI-string translation. `labelForCommand()` exists and ids are decoupled from
@@ -531,7 +629,66 @@ fallback is now half-done — the printed code is legible, the navigator accepts
 - `state.md` §9.11 (naming: `intertMuseum`, `"markeplace"`, `transcrtiption`, the wrong keys
   in `museumContent.ts`) — cosmetic, untouched.
 
-**The real next step is to open both apps in a browser.** Everything here is verified by
-compiler, static analysis and live HTTP probes; **no screen has been looked at.** Expect the
-first run to find layout and interaction bugs, particularly in the bottom sheet's snap
-behaviour and the hash router's guards.
+**The real next step is still to open both apps in a browser — but the marketplace has now
+been opened, and it was worth it.** Only the *soglia* was driven for real (chromium via CDP,
+see §0-bis): it immediately produced one dead feature (`$watch('vista')`, the sales table
+never loading), one silently-broken asset path (the map SVGs rejected as malformed XML), and
+a backdrop running at 12 fps. All three were invisible to the compiler, to the static Alpine
+check, and to HTTP probes.
+
+**§8 is the confirmation.** Six of the twelve items in that pass were defects, and *every one
+of them* was found by a person using the app, not by a tool: the editor that refused to
+publish a text that was there, the visit that looped between two descriptions of the same
+painting, the visit that never ended, the guided flag that could not be unset. All compiled.
+All type-checked. None was reachable from an HTTP probe.
+
+**Still never driven in a browser:** the whole navigator — including everything §8 added to
+it (command panel, end-of-visit screen, both quiz screens). The quiz was verified
+**end-to-end against the running server** with two simulated students (marks 3/3 and 2/3, the
+board, the close, the graceful `terminata`), so the protocol is known good; what is unproven
+is the rendering. The likeliest bugs remain the bottom sheet's snap behaviour and the hash
+router's guards.
+
+---
+
+## 8. Passata del 28/07 — dodici correzioni d'uso
+
+Nata da una lista di dieci richieste dell'utente, piu' due di rifinitura. Sei erano difetti
+veri. Il dettaglio con le cause sta in `state.md` §0.2; qui restano le cose che servono a chi
+prosegue.
+
+**I difetti, in una riga ciascuno.** Textarea legata a `draft.raw`, campo inesistente →
+"Manca ancora: il testo" su un testo che c'era. Radio booleano con `x-model` → la stringa
+`"false"`, e una visita guidata non tornava piu' in vetrina. Tappa corrente cercata per
+**opera** invece che per **item** → con due descrizioni sulla stessa opera la visita si
+bloccava fra le due (e sulla mappa i due nodi si sovrascrivevano etichetta, numero e
+ascoltatori). La visita non finiva mai. Il fondale strappava a ogni cambio figura. Il quiz
+non si poteva fare.
+
+**Cose nuove.** `Pannello.vue` — il vocabolario controllato a bottoni, montato **due volte**
+(dentro la scheda e dietro il pulsante `Chiedi` della barra): e' un componente solo, quindi i
+due elenchi non possono divergere. Schermata di fine visita. Le due schermate del quiz in
+`GuidedGate.vue`. `server/src/data/quiz.ts` — genera il quiz della visita guidata **dalle
+opere della visita stessa**: nessuna domanda scritta a mano, nessun qid nel codice, vale per
+qualunque museo.
+
+**Cose tolte dal server, per correttezza.** `GET /visits/:id` non restituisce piu' `quiz`:
+e' la rotta con cui il navigator carica una visita guidata, quindi consegnava agli studenti
+l'indice della risposta giusta. E `POST /:id/end` non cancella piu' la sessione all'istante —
+la lascia 30 s in stato `terminata`, cosi' una chiusura **voluta** non arriva ai client come
+un 410, cioe' come un guasto.
+
+**Una cosa fatta e poi disfatta: la persistenza della sessione.** "Torna alla home" a fine
+visita attraversa un'origine, quindi e' un caricamento di pagina e il marketplace mostrava la
+soglia invece della home del visitatore. La sessione ripresa da `localStorage` risolveva
+quello e rompeva di peggio: **la soglia diventava irraggiungibile**, ogni apertura di `/`
+rientrava nell'ultimo account. Nemmeno la versione con il cancello (riprendere solo per un
+indirizzo che richiede di essere entrati) e' stata voluta. `state.ts` e' pulito,
+`marketplace/src/frontend/api.ts` e `server/src/routes/users.ts` sono tornati **identici a
+HEAD**. Non riaggiungerla.
+
+⚠️ **`seedSpecialVisits()` oggi non fa niente e non lo dice forte.** Cerca
+`educationalLevels[0]` + `secPerArt[0]` = *Infantile / 15s*; nel database ci sono solo
+`Semplice`, `Medio`, `Avanzato` a 15/30/60. Trova zero item, stampa "esegui prima seed()" e
+torna — quindi **il quiz generato non e' ancora nel database**. E' la coda della migrazione
+dei toni (§4.1): o si rifa' il seed completo, o si riallineano prima i livelli.
