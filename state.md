@@ -205,6 +205,46 @@ The four slide-mandated metadata are covered: **lunghezza** (`timeRequired`), **
 - `labelForCommand(id)` and `formatDurata(seconds)` — the latter enforces a product rule:
   a user is never shown raw seconds.
 
+### 2.2 Il colore: nove sorgenti, tutto il resto derivato
+
+`shared/theme.css` non contiene piu' due elenchi di venti colori scritti a mano (chiaro e
+scuro) da tenere allineati. Contiene **nove colori** — i ruoli dell'interfaccia — e una
+derivazione che ne ricava tutti i token di entrambi i temi:
+
+```
+--lastra  --muro  --inchiostro          i tre neutri
+--struttura   DOVE SEI                  --accento   DOVE PUOI ANDARE
+--valore  --categoria  --acquisito  --allarme       i quattro semantici
+```
+
+Cambiare aspetto = cambiare quelle nove righe. Non esiste piu' un valore che possa restare
+indietro, e il tema scuro non e' un secondo elenco: e' la stessa palette letta al contrario.
+
+**Come si deriva.** I neutri con `color-mix` (il testo secondario e' inchiostro annacquato
+nel muro, non un grigio scelto a parte). Le tinte al buio con
+`oklch(from var(--x) <L> c h)`: si alza la sola **luminosita'** lasciando stare tinta e
+saturazione. Schiarire mescolando col bianco le spegneva — l'ottone diventava un beige
+fangoso (ΔRGB 66 dal valore fatto a mano); con `oklch` lo scarto scende a 30 e sull'accento
+a **8**. Il blocco `oklch` sta dentro un `@supports` perche' un valore non capito, in una
+proprieta' personalizzata, **non ricade sulla dichiarazione precedente** — diventa invalido
+e basta; dove manca restano le mescolanze, piu' spente ma leggibili.
+
+**Le due regole** che una sorgente non puo' rompere: struttura e accento restano due tinte
+riconoscibilmente diverse (altrimenti il bottone principale sparisce dentro la barra);
+allarme resta l'unico rosso e valore l'unico oro (altrimenti i sei ruoli cromatici
+collassano). La seconda e' piu' vincolante di quanto sembri: **esclude gli accenti caldi**,
+perche' il caldo e' gia' occupato due volte — un accento rame finisce a ΔRGB 45 dall'allarme.
+
+**In uso: "Sala e Deposito"**, l'originale — gesso, cemento, grafite; struttura Notte
+`#284B63`, accento Verderame `#3C6E71`. Le sorgenti gia' provate stanno in coda al file,
+pronte da reincollare.
+
+Verificato in un browser vero, non stimato: 18 rapporti per tema, letti **dipingendo** i
+token su un canvas e leggendone i byte. (`getComputedStyle` restituisce `oklab(…)` per i
+`color-mix`, e leggerne i numeri come RGB da' nero — e' un modo perfetto per credere che
+tutto sia rotto quando non lo e'.) La derivazione e' stata provata contro tre sorgenti
+diverse prima di essere fissata: tutte e tre passano AA senza ritocchi.
+
 ---
 
 ## 3. Server

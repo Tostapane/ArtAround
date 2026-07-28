@@ -111,61 +111,131 @@
   --ease-aa: cubic-bezier(0.2, 0, 0, 1);
 }
 
-/*
-  Tema chiaro "Sala" (default). Il muro e' Cemento, la lastra e' Gesso.
-  Contrasti verificati (prelude.md §3.1): text/bg 8.69 · text/surface 12.27 ·
-  muted/bg 4.59 · accent-testo/surface 5.74 · on-structure/structure 9.23.
-*/
+/* ===========================================================================
+   LA SORGENTE — le uniche righe da toccare per cambiare l'aspetto.
+
+   Nove colori. Tutto il resto del sistema — i venti token di ogni tema, il tema
+   scuro compreso — si ricava da questi con `color-mix`, quindi non c'e' niente
+   da riallineare a mano e non esiste un valore che possa restare indietro.
+
+   I nove non sono una tavolozza a caso: sono i RUOLI dell'interfaccia.
+     lastra      il foglio su cui si legge
+     muro        il fondo su cui la lastra e' appesa
+     inchiostro  il testo
+     struttura   DOVE SEI: barre, soglia, autorita'
+     accento     DOVE PUOI ANDARE: l'unica cosa cliccabile
+     valore      prezzi, ricavi, credito
+     categoria   tipo, livello, metadati
+     acquisito   posseduto, pronto, riuscito
+     allarme     errori e azioni distruttive
+
+   Due regole da non rompere, o l'interfaccia smette di spiegarsi da sola:
+     1. STRUTTURA E ACCENTO devono restare due tinte diverse e riconoscibili.
+        Se si somigliano, "dove sei" e "dove puoi andare" diventano la stessa
+        cosa e il bottone principale sparisce dentro la barra.
+     2. ALLARME resta l'unico rosso e VALORE l'unico oro. Gli altri sei ruoli
+        non devono cadere in quelle due famiglie.
+
+   Contrasti: `inchiostro` va scuro (AA vuole 4.5:1 sul muro, e qui si sta molto
+   sopra), `accento` e i tre semantici vanno scelti abbastanza scuri da reggere
+   come TESTO sulla lastra. La derivazione al buio li schiarisce da se'.
+   =========================================================================== */
+/* In uso: "Sala e Deposito", l'originale. Le altre provate stanno in coda al
+   file, commentate: si scambiano i due blocchi e basta. */
 :root {
-  --bg: #d9d9d9; /* Cemento — il muro */
-  --surface: #ffffff; /* Gesso — la didascalia montata sul muro */
-  --surface-2: #d9d9d9; /* incavi dentro la lastra: stesso tono del muro */
-  --text: #353535; /* Grafite — inchiostro */
-  --text-strong: #353535;
-  --muted: #5e5e5e; /* Grafite chiara (derivata: un solo inchiostro non fa gerarchia) */
-  --line: rgb(53 53 53 / 0.16); /* filo decorativo, si adatta al fondo */
-  --line-strong: #284b63; /* bordi che portano stato (input) — 9.23:1 */
-  --accent: #3c6e71; /* Verderame — l'unica interazione */
-  --on-accent: #ffffff;
-  --structure: #284b63; /* Notte — struttura e autorita' */
-  --on-structure: #ffffff;
-  --danger: #9e2b25; /* Minio (derivato: la palette non ha un colore d'allarme) */
-  --on-danger: #ffffff;
-  --brass: #7a5722; /* Ottone — valore: prezzi, ricavi, credito */
-  --slate: #40606f; /* Ardesia — classificazione neutra: tipo, livello */
-  --sage: #456347; /* Salvia — stato acquisito: posseduto, pronto, riuscito */
-  --tint: rgb(64 96 111 / 0.08); /* velatura d'Ardesia per righe ed evidenze */
-  --focus-ink: #353535;
-  --focus-halo: #ffffff;
+  --lastra: #ffffff;
+  --muro: #d9d9d9;
+  --inchiostro: #353535;
+  --struttura: #284b63;
+  --accento: #3c6e71;
+  --valore: #7a5722;
+  --categoria: #40606f;
+  --acquisito: #456347;
+  --allarme: #9e2b25;
+}
+
+/* ---------------------------------------------------------------------------
+   LA DERIVAZIONE — da qui in giu' non si tocca nulla per cambiare palette.
+   Ogni token e' una funzione dei nove colori sopra. Le percentuali sono state
+   scelte una volta contro tre sorgenti diverse e verificate in un browser:
+   cambiando i nove, i rapporti di contrasto si spostano di poco e restano AA.
+   --------------------------------------------------------------------------- */
+:root {
+  --bg: var(--muro);
+  --surface: var(--lastra);
+  --surface-2: var(--muro);
+  --text: var(--inchiostro);
+  --text-strong: var(--inchiostro);
+  /* Un solo inchiostro non fa gerarchia: il secondario e' inchiostro annacquato
+     nel muro, non un grigio scelto a parte. */
+  --muted: color-mix(in oklab, var(--inchiostro) 76%, var(--muro));
+  --line: color-mix(in oklab, var(--inchiostro) 16%, transparent);
+  --line-strong: var(--struttura);
+  --accent: var(--accento);
+  --on-accent: var(--lastra);
+  --structure: var(--struttura);
+  --on-structure: color-mix(in oklab, var(--lastra) 94%, var(--struttura));
+  --danger: var(--allarme);
+  --on-danger: var(--lastra);
+  --brass: var(--valore);
+  --slate: var(--categoria);
+  --sage: var(--acquisito);
+  --tint: color-mix(in oklab, var(--categoria) 9%, transparent);
+  --focus-ink: var(--inchiostro);
+  --focus-halo: var(--lastra);
   color-scheme: light;
 }
 
 /*
-  Tema scuro "Chiusura". Grafite diventa la lastra, il muro scende sotto.
-  Verderame va schiarito: #3C6E71 su Grafite fa 2.14:1, inutilizzabile.
+  Al buio si scambiano i ruoli dei neutri — l'inchiostro diventa la lastra e il
+  muro scende sotto — e le tinte si schiariscono quanto basta a reggere su un
+  fondo scuro. E' la stessa palette, letta al contrario: nessun secondo elenco
+  di colori da tenere allineato al primo.
 */
 .dark {
-  --bg: #2a2a2a; /* Notturno (derivato) */
-  --surface: #353535; /* Grafite */
-  --surface-2: #414141; /* Grafite alta (derivata) */
-  --text: #d9d9d9; /* Cemento */
-  --text-strong: #ffffff;
-  --muted: #a5a5a5; /* Cemento scuro (derivato) */
-  --line: rgb(255 255 255 / 0.14);
-  --line-strong: #a5a5a5;
-  --accent: #8abec0; /* Verderame chiaro (derivato) */
-  --on-accent: #2a2a2a;
-  --structure: #284b63;
-  --on-structure: #ffffff;
-  --danger: #e8918a; /* Minio chiaro (derivato) */
-  --on-danger: #2a2a2a;
-  --brass: #d6a85a; /* Ottone chiaro */
-  --slate: #8fb2c4; /* Ardesia chiara */
-  --sage: #9bc0a2; /* Salvia chiara */
-  --tint: rgb(143 178 196 / 0.12);
-  --focus-ink: #ffffff;
-  --focus-halo: #353535;
+  --bg: color-mix(in oklab, var(--inchiostro) 86%, #000);
+  --surface: var(--inchiostro);
+  --surface-2: color-mix(in oklab, var(--inchiostro) 88%, var(--muro));
+  --text: var(--muro);
+  --text-strong: var(--lastra);
+  --muted: color-mix(in oklab, var(--muro) 66%, var(--inchiostro));
+  --line: color-mix(in oklab, var(--lastra) 14%, transparent);
+  --line-strong: color-mix(in oklab, var(--muro) 66%, var(--inchiostro));
+  --accent: color-mix(in oklab, var(--accento) 42%, var(--lastra));
+  --on-accent: color-mix(in oklab, var(--inchiostro) 86%, #000);
+  --structure: var(--struttura);
+  --on-structure: color-mix(in oklab, var(--lastra) 94%, var(--struttura));
+  --danger: color-mix(in oklab, var(--allarme) 46%, var(--lastra));
+  --on-danger: color-mix(in oklab, var(--inchiostro) 86%, #000);
+  --brass: color-mix(in oklab, var(--valore) 46%, var(--lastra));
+  --slate: color-mix(in oklab, var(--categoria) 42%, var(--lastra));
+  --sage: color-mix(in oklab, var(--acquisito) 42%, var(--lastra));
+  --tint: color-mix(in oklab, var(--categoria) 12%, transparent);
+  --focus-ink: var(--lastra);
+  --focus-halo: var(--inchiostro);
   color-scheme: dark;
+}
+
+/*
+  Le tinte al buio, meglio: schiarire MESCOLANDO CON IL BIANCO spegne il colore
+  (l'ottone diventava un beige fangoso), perche' avvicinarsi al bianco vuol dire
+  perdere croma. Qui invece si alza la sola LUMINOSITA' e si lasciano stare tinta
+  e saturazione: e' quello che si fa a mano quando si adatta una palette al buio,
+  scritto una volta sola.
+
+  Sta dentro un @supports perche' un valore non capito, in una proprieta'
+  personalizzata, non ricade sulla dichiarazione precedente — diventa invalido e
+  basta. Dove `oklch(from …)` non c'e', restano le mescolanze qui sopra: piu'
+  spente, ma leggibili.
+*/
+@supports (color: oklch(from red l c h)) {
+  .dark {
+    --accent: oklch(from var(--accento) 0.78 c h);
+    --danger: oklch(from var(--allarme) 0.71 c h);
+    --brass: oklch(from var(--valore) 0.77 c h);
+    --slate: oklch(from var(--categoria) 0.76 c h);
+    --sage: oklch(from var(--acquisito) 0.78 c h);
+  }
 }
 
 @layer base {
@@ -245,3 +315,15 @@
     max-width: 66ch;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   SORGENTI GIA' PROVATE — si incolla il blocco al posto di quello in cima.
+
+   "Sala e Deposito" e' quella IN USO, in cima. Unica riserva: l'accento sul muro
+   sta a 4.06:1, sotto AA per il testo normale.
+
+   "Bosco e Indaco" (carta e osso, struttura bosco, accento indaco):
+     --lastra:#faf9f4; --muro:#dbd8cd; --inchiostro:#23261f;
+     --struttura:#22453b; --accento:#5344a8;
+     --valore:#6e5a1c; --categoria:#45606b; --acquisito:#4a6438; --allarme:#9c2a20;
+   --------------------------------------------------------------------------- */

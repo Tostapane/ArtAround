@@ -106,7 +106,6 @@ export function swarm() {
      *  tragitto. Segno e ampiezza sono suoi: e' cio' che distingue una nuvola
      *  che si rivolta da un ventaglio di righe parallele. */
     bow: new Float32Array(0),
-    tint: new Uint8Array(0),
     /** Ritardo di partenza di ogni punto, in frazione della fase. */
     delay: new Float32Array(0),
     count: 0,
@@ -119,7 +118,7 @@ export function swarm() {
     frame: 0,
     resizeTimer: 0,
     still: false,
-    palette: [] as { r: number; g: number; b: number }[],
+    ink: { r: 255, g: 255, b: 255 },
 
     /** Durate delle due fasi, in millisecondi. */
     MORPH: 3000,
@@ -132,7 +131,7 @@ export function swarm() {
      *  blu medio (#284b63): a mezza opacita' i punti ci si sciolgono dentro e
      *  il quadro resta un'ombra. Serve quasi tutta l'opacita' per staccare. */
     DOT: 1.6,
-    ALPHA: 0.85,
+    ALPHA: 1,
     /** Ampiezza della sfumatura ai bordi, in frazione del lato minore. */
     EDGE: 0.06,
     /** Quanto della meta' disponibile occupa la figura. */
@@ -152,17 +151,14 @@ export function swarm() {
       const styles = getComputedStyle(document.documentElement);
       const token = (name: string, fallback: string) =>
         styles.getPropertyValue(name).trim() || fallback;
-      const ink = token("--on-structure", "#ffffff");
-      // Dieci parti d'inchiostro contro una di ciascuna tinta: lo sciame resta
-      // monocromo a prima vista, e il colore lo nota solo chi guarda. Le tinte
-      // erano quattro su dieci e su un retino di dipinto si vedevano come
-      // sporco; restano le due che stanno bene sul fondo Notte — il verderame e
-      // l'ardesia. L'ottone, caldo, spiccava come un granello fuori posto.
-      const tints = [token("--accent", "#3c6e71"), token("--slate", "#40606f")];
-      this.palette = [
-        ...Array(10).fill(ink),
-        ...tints,
-      ].map((c: string) => this.toRgb(c));
+      // I punti sono TUTTI DELLO STESSO COLORE. C'erano dieci parti
+      // d'inchiostro contro una di accento e una di ardesia: sul fondo Notte le
+      // due tinte erano cosi' vicine al grigio da non vedersi, ma bastava una
+      // palette con un accento lontano dalla struttura perche' saltassero fuori
+      // — e un pugno di punti colorati dentro una figura monocroma si legge come
+      // un motivo, cioe' come un'informazione che non c'e'. Qui l'unica cosa che
+      // varia da punto a punto e' la posizione: e' la figura a dover parlare.
+      this.ink = this.toRgb(token("--lastra", "#ffffff"));
 
       this.still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -406,7 +402,6 @@ export function swarm() {
       this.sx = new Float32Array(this.count);
       this.sy = new Float32Array(this.count);
       this.bow = new Float32Array(this.count);
-      this.tint = new Uint8Array(this.count);
       this.delay = new Float32Array(this.count);
       // I punti nascono gia' dove la figura si formera', non sparsi su tutto il
       // campo: cosi' l'attesa fra il primo fotogramma e il primo quadro e' una
@@ -418,7 +413,6 @@ export function swarm() {
         this.py[i] = cy + (Math.random() - 0.5) * roomH;
         this.vx[i] = (Math.random() - 0.5) * 0.4;
         this.vy[i] = (Math.random() - 0.5) * 0.4;
-        this.tint[i] = Math.floor(Math.random() * this.palette.length);
         this.delay[i] = Math.random() * 0.35;
       }
       this.sx.set(this.px);
@@ -737,9 +731,15 @@ export function swarm() {
       const count = this.count as number;
       const px = this.px as Float32Array;
       const py = this.py as Float32Array;
-      const tints = this.tint as Uint8Array;
-      const palette = this.palette as { r: number; g: number; b: number }[];
       const maxAlpha = this.ALPHA as number;
+      // Il colore si scompone UNA volta per tutto il disegno. Alpine avvolge gli
+      // oggetti semplici in un Proxy — non i typed array — e letto dentro il
+      // ciclo sui pixel `ink.r/g/b` faceva tre trappole per pixel, quasi un
+      // milione per fotogramma: da solo erano i due terzi del tempo di disegno.
+      const ink = this.ink as { r: number; g: number; b: number };
+      const tr = ink.r;
+      const tg = ink.g;
+      const tb = ink.b;
 
       for (let i = 0; i < count; i++) {
         const cx = px[i];
@@ -753,14 +753,6 @@ export function swarm() {
         const x1 = Math.min(w - 1, Math.ceil(cx + radius));
         const y0 = Math.max(0, Math.floor(cy - radius));
         const y1 = Math.min(h - 1, Math.ceil(cy + radius));
-        // La tinta si scompone PRIMA del ciclo sui pixel. La tavolozza e' un
-        // array di oggetti semplici, e quelli Alpine li avvolge davvero in un
-        // Proxy: lette dentro, `tint.r/g/b` facevano tre trappole per pixel —
-        // quasi un milione per fotogramma, e da sole i due terzi del disegno.
-        const tint = palette[tints[i]];
-        const tr = tint.r;
-        const tg = tint.g;
-        const tb = tint.b;
 
         for (let py = y0; py <= y1; py++) {
           const dy = py + 0.5 - cy;
