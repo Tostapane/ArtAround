@@ -134,9 +134,9 @@ hand-annotated SVG floor map:
 
 | Config file | qid | rooms / artwork nodes / POIs / edges / obstacles in the SVG |
 | --- | --- | --- |
-| `British Museum.json` | `Q6373` | 6 / 14 / 6 / 5 / 3 |
-| `Metropolitan Museum of Art.json` | `Q160236` | 7 / 14 / 7 / 9 / 4 |
-| `Museo del Louvre.json` | `Q19675` | 7 / 14 / 7 / 6 / 4 |
+| `British Museum.json` | `Q6373` | 5 / 13 / 5 / 4 / 2 |
+| `Metropolitan Museum of Art.json` | `Q160236` | 6 / 13 / 6 / 7 / 3 |
+| `Museo del Louvre.json` | `Q19675` | 6 / 13 / 6 / 5 / 3 |
 
 The **SVG map is the single spatial source of truth**. The curator annotates the map they
 already draw; `services/svgGraph.ts` parses it into a room graph. The contract:
@@ -151,6 +151,16 @@ already draw; `services/svgGraph.ts` parses it into a room graph. The contract:
 
 Connectivity is **authored only** — no geometric adjacency is inferred — so every walkable
 space (corridors included) must be a `data-room`. Single floor per map.
+
+Everything else in the file is **drawing**, and the parser ignores it because it carries no
+`data-*`: the grid, the door leaves, the room labels, the legend under the plan. The three
+maps carry an inline `<style>` whose rules are all wrapped in `:where(…)` (specificity 0)
+and whose colours come from `shared/theme.css` variables with standalone fallbacks — so the
+map follows the app's light/dark theme, and the classes `Stage.vue` adds at runtime
+(`nodo-opera`, `nodo-corrente`, `nodo-opzionale`) always win the cascade. Two traps when
+editing: the parser reads `cx/cy` or `x/y/width/height` **verbatim** (a `transform` on a
+`data-*` element is not applied), and resizing a POI/obstacle square means recomputing `x`
+and `y` to keep its centre — the centre is what decides its room.
 
 ---
 

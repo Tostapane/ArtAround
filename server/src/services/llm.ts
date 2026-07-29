@@ -16,6 +16,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { options, educationalLevels, secPerArt } from "../../../shared/constants";
 import { RouteIR } from "./wayfinding";
+import { conTentativi } from "./retry";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -55,13 +56,15 @@ export async function createTwistedDescription(
                     produci una spiegazione in circa ${wordNo} parole.
                     ${twistLine}
                     NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
-    const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
-      contents: request,
-    });
+    const response = await conTentativi(`descrizione di "${name}"`, () =>
+      ai.models.generateContent({
+        model: MODEL_LIGHT,
+        contents: request,
+      }),
+    );
     return response.text;
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
   }
 }
 
@@ -114,42 +117,44 @@ export async function planVisit(
       Catalogo delle opere:
       ${catalogText}
       Richiesta del visitatore: "${userRequest}".`;
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: request,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            artworks: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  qid: { type: Type.STRING },
-                  tone: { type: Type.STRING, enum: educationalLevels },
-                  durationSec: {
-                    type: Type.STRING,
-                    enum: secPerArt.map((s) => String(s)),
+    const response = await conTentativi("pianificazione della visita", () =>
+      ai.models.generateContent({
+        model: MODEL,
+        contents: request,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              artworks: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    qid: { type: Type.STRING },
+                    tone: { type: Type.STRING, enum: educationalLevels },
+                    durationSec: {
+                      type: Type.STRING,
+                      enum: secPerArt.map((s) => String(s)),
+                    },
+                    twist: { type: Type.STRING },
                   },
-                  twist: { type: Type.STRING },
+                  required: ["qid", "tone", "durationSec", "twist"],
+                  propertyOrdering: ["qid", "tone", "durationSec", "twist"],
                 },
-                required: ["qid", "tone", "durationSec", "twist"],
-                propertyOrdering: ["qid", "tone", "durationSec", "twist"],
               },
             },
+            required: ["name", "artworks"],
+            propertyOrdering: ["name", "artworks"],
           },
-          required: ["name", "artworks"],
-          propertyOrdering: ["name", "artworks"],
         },
-      },
-    });
+      }),
+    );
     if (!response.text) return undefined;
     return JSON.parse(response.text) as VisitPlan;
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
     return undefined;
   }
 }
@@ -169,13 +174,15 @@ export async function additionalDescription(
                         L'utente dopo aver letto ${previous} richiede ${userReq}.
                         Rispondi in modo consono.
                         IMPORTANTE: scrivi la risposta ESCLUSIVAMENTE in lingua ${language}.`;
-    const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
-      contents: request,
-    });
+    const response = await conTentativi("descrizione aggiuntiva", () =>
+      ai.models.generateContent({
+        model: MODEL_LIGHT,
+        contents: request,
+      }),
+    );
     return response.text;
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
   }
 }
 
@@ -224,13 +231,15 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
                     niente simboli o asterischi.
                     ${body}
                     IMPORTANTE: scrivi la risposta ESCLUSIVAMENTE in lingua ${language}.`;
-    const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
-      contents: request,
-    });
+    const response = await conTentativi("indicazioni di percorso", () =>
+      ai.models.generateContent({
+        model: MODEL_LIGHT,
+        contents: request,
+      }),
+    );
     return response.text;
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
   }
 }
 
@@ -244,13 +253,15 @@ export async function mapRequest(transcript: string) {
                     NOTA: se non trovi alcuna corrispondenza con le opzioni fornite,
                     rispondi con l'esatta richiesta senza modificarla.
                     Se la richiesta dell'utente risulta vuota, rispondi con una stringa vuota.`;
-    const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
-      contents: request,
-    });
+    const response = await conTentativi("mappatura del comando vocale", () =>
+      ai.models.generateContent({
+        model: MODEL_LIGHT,
+        contents: request,
+      }),
+    );
     if (!response.text) return response.text;
     return response.text.trim();
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
   }
 }

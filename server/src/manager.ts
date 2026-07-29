@@ -74,6 +74,20 @@ export async function populateItem(
       duration,
     );
     itemAuthor = "sistema";
+
+    /*
+     * Anche dopo i ritentativi il modello puo' non rispondere. In quel caso
+     * NON si scrive l'item: uno che manca si vede nel conteggio finale e nel
+     * log, uno senza testo diventa invece una tappa muta dentro una visita,
+     * e nessuno se ne accorge finche' non la si apre.
+     */
+    if (!description || description.trim() === "") {
+      console.warn(
+        `[seed] item ${atworkQid} (${level}/${duration}s) NON creato: ` +
+          `il modello non ha prodotto una descrizione.`,
+      );
+      return;
+    }
   }
 
   const id = `${atworkQid}-${itemAuthor}-${level}-${duration}`;

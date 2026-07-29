@@ -83,7 +83,7 @@ async function seed() {
             itemIdx++;
             itemCount++;
             await populateItem(qid, level, duration);
-            await delay(5000);
+            await delay(6000);
             const elapsed = (Date.now() - startTime) / 1000;
             const eta = (totalItems - itemCount) * (elapsed / itemCount);
             console.log(
@@ -136,7 +136,7 @@ async function seedDownload() {
   for (const artwork of artworks) {
     console.log(`Downloading ${artwork.name}`);
     await downloadImage(artwork.imageUri, `${artwork.qid}`);
-    await delay(2000); 
+    await delay(2000);
   }
   await mongoose.disconnect();
 }
@@ -255,11 +255,16 @@ async function seedSpecialVisits() {
 
     const account: { username: string; role: "autore" | "visitatore" }[] = [
       { username: DOCENTE, role: "autore" },
-      ...STUDENTI.map((username) => ({ username, role: "visitatore" as const })),
+      ...STUDENTI.map((username) => ({
+        username,
+        role: "visitatore" as const,
+      })),
     ];
     for (const a of account) {
       const onInsert: any =
-        a.role === "visitatore" ? { wallet: 100, collezione: [] } : { collezione: [] };
+        a.role === "visitatore"
+          ? { wallet: 100, collezione: [] }
+          : { collezione: [] };
       await UserModel.updateOne(
         { username: a.username, role: a.role },
         {
@@ -287,4 +292,4 @@ async function completeSeed() {
   await seedDownload();
   await seedSpecialVisits();
 }
-completeSeed();
+seed();

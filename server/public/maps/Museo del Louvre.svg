@@ -1,50 +1,232 @@
-<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
-  <!-- Cornice / muro perimetrale dell'edificio -->
-  <rect x="10" y="10" width="780" height="580" fill="#fbfbf9" stroke="#333" stroke-width="4" />
+<svg viewBox="0 0 800 660" xmlns="http://www.w3.org/2000/svg" class="museum-map">
+  <!--
+    PIANTA DI MUSEO DEL LOUVRE.
 
-  <!-- Sale (AREE data-room): tre ali in alto, la Hall Napoleon (fascia centrale)
-       e due gallerie in basso. Tutte le ali si collegano alla Hall (hub). Ogni
-       area ha il suo colore; il nodo/ostacolo prende l'area che lo contiene. -->
+    La struttura dei dati e' quella che services/svgGraph.ts sa leggere e non va
+    cambiata: data-room (aree = sale), data-qid (nodi-opera), data-poi (servizi),
+    data-obstacle (ostacoli), data-edge (collegamenti fra sale). Tutto il resto —
+    stile, griglia, battenti delle porte, legenda — e' solo disegno, e il parser
+    lo ignora perche' non ha attributi data-*.
+
+    Tre regole da rispettare se si sposta qualcosa:
+      1. L'ORDINE delle aree conta: vince la PRIMA che contiene il punto, quindi
+         una sala contenuta in un'altra va scritta prima di quella che la circonda.
+      2. Niente transform sugli elementi con data-*: il parser legge cx/cy oppure
+         x/y/width/height cosi' come sono scritti nel file.
+      3. Il centro di un servizio/ostacolo decide in quale sala ricade: cambiando
+         la misura di un quadrato vanno ricalcolati x e y per tenere fermo il centro.
+  -->
+
+  <style>
+    /*
+      I colori arrivano dal tema dell'app (shared/theme.css): la mappa viene
+      inserita NELLA pagina, non in un iframe, quindi le variabili del documento
+      cascano qui dentro e il tema scuro segue da se'. I valori di ripiego
+      servono solo se si apre il file da solo nel browser.
+
+      Ogni regola sta dentro :where(), cioe' a specificita' zero: le classi che
+      il navigator aggiunge a caldo (nodo-opera, nodo-corrente, nodo-opzionale)
+      devono sempre vincere su quello che si scrive qui.
+    */
+    :where(.museum-map) {
+      --carta: var(--surface, #ffffff);
+      --grafite: var(--text, #353535);
+      --tenue: var(--muted, #5c5c5c);
+      --linea: var(--line-strong, #284b63);
+      --accento: var(--accent, #3c6e71);
+      --ardesia: var(--slate, #40606f);
+      --ottone: var(--brass, #7a5722);
+      --salvia: var(--sage, #456347);
+      --notte: var(--structure, #284b63);
+      --allarme: var(--danger, #9e2b25);
+      font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    }
+
+    /* Il foglio su cui e' disegnata la pianta */
+    :where(.museum-map) .foglio {
+      fill: var(--carta);
+      stroke: var(--linea);
+      stroke-width: 5;
+    }
+    /* Griglia: da' la scala senza chiedere attenzione */
+    :where(.museum-map) .griglia-linea {
+      fill: none;
+      stroke: var(--grafite);
+      stroke-width: 0.8;
+      opacity: 0.14;
+    }
+
+    /*
+      Sale: carta appena tinta. Le tinte escono dalla palette e sono diluite
+      tanto da leggersi come carta colorata, mai come un comando. Due sale
+      confinanti non si distinguono per la sola TINTA — cambia anche quanto e'
+      forte la mescolanza, cosi' restano diverse anche in scala di grigi.
+    */
+    :where(.museum-map) .sala {
+      fill: color-mix(in oklab, var(--carta) var(--forza, 88%), var(--tinta, var(--carta)));
+    }
+    :where(.museum-map) .t-notte { --tinta: var(--notte); --forza: 88%; }
+    :where(.museum-map) .t-verderame { --tinta: var(--accento); --forza: 78%; }
+    :where(.museum-map) .t-ottone { --tinta: var(--ottone); --forza: 85%; }
+    :where(.museum-map) .t-salvia { --tinta: var(--salvia); --forza: 87%; }
+    :where(.museum-map) .t-ardesia { --tinta: var(--ardesia); --forza: 80%; }
+    /* L'atrio non ha tinta: e' spazio di passaggio, non una collezione. */
+    :where(.museum-map) .sala-atrio {
+      fill: color-mix(in oklab, var(--carta) 93%, var(--grafite));
+    }
+
+    /* Etichette delle sale: maiuscolo spaziato, come su una pianta vera */
+    :where(.museum-map) .nome-sala {
+      fill: var(--tenue);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-anchor: middle;
+    }
+
+    /* Muri pieni e battenti delle porte */
+    :where(.museum-map) .muro {
+      stroke: var(--linea);
+      stroke-width: 5;
+      stroke-linecap: butt;
+    }
+    :where(.museum-map) .porta {
+      fill: none;
+      stroke: var(--linea);
+      stroke-width: 1.5;
+      opacity: 0.6;
+    }
+
+    /* Collegamenti del grafo: servono al parser, non all'occhio */
+    :where(.museum-map) .arco {
+      stroke: var(--accento);
+      stroke-width: 1.5;
+      stroke-dasharray: 3 5;
+      opacity: 0.12;
+    }
+
+    /*
+      Opere: dischi (e qualche quadrato dove il pezzo e' una teca). Questo e'
+      l'aspetto A RIPOSO: quando l'opera e' una tappa della visita in corso il
+      navigator la ricolora e ci scrive dentro il numero.
+    */
+    :where(.museum-map) .nodo-arte {
+      fill: color-mix(in oklab, var(--carta) 42%, var(--tenue));
+      stroke: var(--carta);
+      stroke-width: 2.5;
+      paint-order: stroke;
+    }
+
+    /*
+      Servizi: quadrati arrotondati. La forma, non solo il colore, li separa
+      dalle opere — si riconoscono anche senza distinguere le tinte.
+    */
+    :where(.museum-map) .nodo-servizio {
+      fill: var(--ardesia);
+      stroke: var(--carta);
+      stroke-width: 2;
+      paint-order: stroke;
+    }
+    :where(.museum-map) .nodo-emergenza { fill: var(--salvia); }
+    :where(.museum-map) .nome-servizio {
+      fill: var(--tenue);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-anchor: middle;
+    }
+
+    /* Ostacoli: l'unico rosso della mappa */
+    :where(.museum-map) .ostacolo {
+      fill: var(--allarme);
+      stroke: var(--carta);
+      stroke-width: 2;
+      paint-order: stroke;
+    }
+
+    /* Legenda e titolo, sotto la pianta */
+    :where(.museum-map) .titolo-mappa {
+      fill: var(--grafite);
+      font-family: var(--font-display, inherit);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    :where(.museum-map) .voce-legenda {
+      fill: var(--tenue);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+    }
+  </style>
+
+  <defs>
+    <pattern id="lv-griglia" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path class="griglia-linea" d="M40 0 L0 0 L0 40" />
+    </pattern>
+    <filter id="lv-ombra" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.14" />
+    </filter>
+  </defs>
+
+  <!-- Cornice / muro perimetrale dell'edificio -->
+  <rect class="foglio" x="10" y="10" width="780" height="580" filter="url(#lv-ombra)" />
+
+  <!-- Sale (AREE data-room): tre ali in alto, la Hall Napoleon come fascia
+       centrale di passaggio, due gallerie in basso. Tutte le ali si aprono sulla
+       Hall, che fa da snodo. -->
   <g pointer-events="none">
-    <rect data-room="Ala Richelieu"     x="10"  y="10"  width="260" height="250" fill="#d7e6fb" />
-    <rect data-room="Antichita Egizie"  x="270" y="10"  width="260" height="250" fill="#efd9b0" />
-    <rect data-room="Ala Denon"         x="530" y="10"  width="260" height="250" fill="#f6d9e6" />
-    <rect data-room="Hall Napoleon"     x="10"  y="260" width="780" height="80"  fill="#e6e2da" />
-    <rect data-room="Ala Sully"         x="10"  y="340" width="390" height="250" fill="#d6f0e0" />
-    <rect data-room="Galleria Apollo"   x="400" y="340" width="390" height="250" fill="#efe7c2" />
+    <rect class="sala t-notte"     data-room="Ala Richelieu"    x="10"  y="10"  width="260" height="250" />
+    <rect class="sala t-ottone"    data-room="Antichita Egizie" x="270" y="10"  width="260" height="250" />
+    <rect class="sala t-ardesia"   data-room="Ala Denon"        x="530" y="10"  width="260" height="250" />
+    <rect class="sala sala-atrio"  data-room="Hall Napoleon"    x="10"  y="260" width="780" height="80"  />
+    <rect class="sala t-salvia"    data-room="Ala Sully"        x="10"  y="340" width="390" height="250" />
+    <rect class="sala t-verderame" data-room="Galleria Apollo"  x="400" y="340" width="390" height="250" />
   </g>
+
+  <!-- Griglia leggera sopra le sale -->
+  <rect x="10" y="10" width="780" height="580" fill="url(#lv-griglia)" pointer-events="none" />
 
   <!-- Etichette delle sale -->
-  <g font-family="sans-serif" font-size="13" font-weight="600" fill="#5a5a5a" text-anchor="middle" pointer-events="none">
-    <text x="140" y="30">Ala Richelieu</text>
-    <text x="400" y="30">Antichita Egizie</text>
-    <text x="660" y="30">Ala Denon</text>
-    <text x="400" y="332">Hall Napoleon</text>
-    <text x="200" y="362">Ala Sully</text>
-    <text x="595" y="362">Galleria Apollo</text>
+  <g class="nome-sala" pointer-events="none">
+    <text x="140" y="34">Ala Richelieu</text>
+    <text x="400" y="34">Antichita Egizie</text>
+    <text x="660" y="34">Ala Denon</text>
+    <text x="400" y="282">Hall Napoleon</text>
+    <text x="110" y="366">Ala Sully</text>
+    <text x="690" y="366">Galleria Apollo</text>
   </g>
 
-  <!-- Muri interni: linee con un VARCO = porta tra due sale. -->
-  <g stroke="#333" stroke-width="4" stroke-linecap="square">
-    <!-- muro alto y=260 tra le ali e la Hall (varchi a x=140, x=400, x=660) -->
+  <!-- Muri interni: linee con un VARCO = porta fra due sale. -->
+  <g class="muro">
+    <!-- muro y=260 fra le ali e la Hall (varchi a x=140, x=400, x=660) -->
     <line x1="10"  y1="260" x2="120" y2="260" />
     <line x1="160" y1="260" x2="380" y2="260" />
     <line x1="420" y1="260" x2="640" y2="260" />
     <line x1="680" y1="260" x2="790" y2="260" />
-    <!-- muro basso y=340 tra la Hall e le gallerie (varchi a x=200, x=600) -->
+    <!-- muro y=340 fra la Hall e le gallerie (varchi a x=200, x=600) -->
     <line x1="10"  y1="340" x2="180" y2="340" />
     <line x1="220" y1="340" x2="580" y2="340" />
     <line x1="620" y1="340" x2="790" y2="340" />
-    <!-- divisori verticali tra le ali in alto (muri pieni: si passa dalla Hall) -->
+    <!-- divisori verticali fra le ali in alto: muri pieni, si passa dalla Hall -->
     <line x1="270" y1="10" x2="270" y2="260" />
     <line x1="530" y1="10" x2="530" y2="260" />
-    <!-- divisorio verticale tra le gallerie in basso -->
+    <!-- divisorio verticale fra le gallerie in basso -->
     <line x1="400" y1="340" x2="400" y2="590" />
   </g>
 
-  <!-- Grafo di navigazione: ogni <line data-edge> collega una sala alla Hall
-       passando per un varco. Quasi invisibile. -->
-  <g id="nav-edges" stroke="#6b7c8a" stroke-width="1.5" stroke-dasharray="3,5" opacity="0.08">
+  <!-- Battenti: aprono verso la sala, mai verso la Hall (che e' passaggio) -->
+  <g class="porta">
+    <path d="M120 260 L120 220 A40 40 0 0 1 160 260" />
+    <path d="M380 260 L380 220 A40 40 0 0 1 420 260" />
+    <path d="M640 260 L640 220 A40 40 0 0 1 680 260" />
+    <path d="M180 340 L180 380 A40 40 0 0 0 220 340" />
+    <path d="M580 340 L580 380 A40 40 0 0 0 620 340" />
+  </g>
+
+  <!-- Grafo di navigazione: ogni sala si collega alla Hall passando per un varco. -->
+  <g class="arco" id="nav-edges">
     <line data-edge="" x1="140" y1="230" x2="140" y2="300" /> <!-- Richelieu <-> Hall -->
     <line data-edge="" x1="400" y1="230" x2="400" y2="300" /> <!-- Egizie <-> Hall -->
     <line data-edge="" x1="660" y1="230" x2="660" y2="300" /> <!-- Denon <-> Hall -->
@@ -54,47 +236,85 @@
 
   <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks e
        data-qid col relativo qid. -->
-  <!-- Ala Richelieu -->
-  <circle id="art-1"  class="interactive-node" data-qid="Q12418"   cx="80"  cy="80"  r="11" fill="gray" />
-  <rect   id="art-2"  class="interactive-node" data-qid="Q597114"  x="178" y="68"  width="24" height="24" fill="gray" />
-  <circle id="art-3"  class="interactive-node" data-qid="Q783215"  cx="110" cy="180" r="11" fill="gray" />
-  <!-- Antichita Egizie -->
-  <circle id="art-4"  class="interactive-node" data-qid="Q544315"  cx="340" cy="95"  r="11" fill="gray" />
-  <circle id="art-5"  class="interactive-node" data-qid="Q210161"  cx="460" cy="175" r="11" fill="gray" />
-  <!-- Ala Denon -->
-  <circle id="art-6"  class="interactive-node" data-qid="Q1282840" cx="610" cy="95"  r="11" fill="gray" />
-  <rect   id="art-7"  class="interactive-node" data-qid="Q2610675" x="708" y="158" width="24" height="24" fill="#555" />
-  <!-- Hall Napoleon -->
-  <circle id="art-8"  class="interactive-node" data-qid="Q2626554" cx="250" cy="300" r="13" fill="#333" />
-  <!-- Ala Sully -->
-  <circle id="art-9"  class="interactive-node" data-qid="Q2653851" cx="90"  cy="430" r="11" fill="gray" />
-  <circle id="art-10" class="interactive-node" data-qid="Q2266515" cx="200" cy="520" r="11" fill="gray" />
-  <circle id="art-11" class="interactive-node" data-qid="Q3228069" cx="320" cy="440" r="11" fill="gray" />
-  <!-- Galleria Apollo -->
-  <circle id="art-12" class="interactive-node" data-qid="Q6287319" cx="520" cy="450" r="11" fill="gray" />
-  <circle id="art-13" class="interactive-node" data-qid="Q1114881" cx="680" cy="520" r="11" fill="gray" />
-
-  <!-- Punti di interesse (POI): data-poi = tipo, data-label = nome mostrato/letto. -->
-  <g id="pois" font-family="sans-serif" font-size="12" fill="#1d4ed8" text-anchor="middle">
-    <circle class="poi-node" data-poi="exit" data-label="Uscita" cx="740" cy="300" r="8" fill="#1d4ed8" />
-    <text x="740" y="320">Uscita</text>
-    <circle class="poi-node" data-poi="bar" data-label="Caffetteria" cx="70" cy="300" r="8" fill="#1d4ed8" />
-    <text x="70" y="320">Bar</text>
-    <circle class="poi-node" data-poi="elevator" data-label="Ascensore" cx="500" cy="300" r="8" fill="#1d4ed8" />
-    <text x="500" y="320">Lift</text>
-    <circle class="poi-node" data-poi="toilet" data-label="Toilette" cx="350" cy="560" r="8" fill="#1d4ed8" />
-    <text x="350" y="580">WC</text>
-    <circle class="poi-node" data-poi="shop" data-label="Librairie" cx="470" cy="560" r="8" fill="#1d4ed8" />
-    <text x="470" y="580">Shop</text>
-    <circle class="poi-node" data-poi="emergency_exit" data-label="Uscita di emergenza" cx="760" cy="35" r="8" fill="#16a34a" />
-    <text x="760" y="55" fill="#16a34a">SOS</text>
+  <g class="nodo-arte">
+    <!-- Ala Richelieu -->
+    <circle id="art-1"  class="interactive-node" data-qid="Q12418"   cx="80"  cy="80"  r="11" />
+    <rect   id="art-2"  class="interactive-node" data-qid="Q597114"  x="179" y="69"  width="22" height="22" rx="3" />
+    <circle id="art-3"  class="interactive-node" data-qid="Q783215"  cx="110" cy="180" r="11" />
+    <!-- Antichita Egizie -->
+    <circle id="art-4"  class="interactive-node" data-qid="Q544315"  cx="340" cy="95"  r="11" />
+    <circle id="art-5"  class="interactive-node" data-qid="Q210161"  cx="460" cy="175" r="11" />
+    <!-- Ala Denon -->
+    <circle id="art-6"  class="interactive-node" data-qid="Q1282840" cx="610" cy="95"  r="11" />
+    <rect   id="art-7"  class="interactive-node" data-qid="Q2610675" x="709" y="159" width="22" height="22" rx="3" />
+    <!-- Hall Napoleon -->
+    <circle id="art-8"  class="interactive-node" data-qid="Q2626554" cx="250" cy="300" r="13" />
+    <!-- Ala Sully -->
+    <circle id="art-9"  class="interactive-node" data-qid="Q2653851" cx="90"  cy="430" r="11" />
+    <circle id="art-10" class="interactive-node" data-qid="Q2266515" cx="200" cy="520" r="11" />
+    <circle id="art-11" class="interactive-node" data-qid="Q3228069" cx="320" cy="440" r="11" />
+    <!-- Galleria Apollo -->
+    <circle id="art-12" class="interactive-node" data-qid="Q6287319" cx="520" cy="450" r="11" />
+    <circle id="art-13" class="interactive-node" data-qid="Q1114881" cx="680" cy="520" r="11" />
   </g>
 
-  <!-- Ostacoli di accessibilita': data-obstacle = tipo, data-desc = descrizione.
-       La POSIZIONE del marker decide in quale sala (area) ricade. -->
-  <g id="obstacles" fill="#dc2626" opacity="0.85">
-    <rect class="obstacle-marker" data-obstacle="object" data-desc="una grande statua egizia che ingombra il centro della sala" x="294" y="164" width="12" height="12" />
-    <rect class="obstacle-marker" data-obstacle="steps" data-desc="due gradini tra la Hall Napoleon e l'Ala Sully" x="185" y="360" width="12" height="12" />
-    <rect class="obstacle-marker" data-obstacle="chairs" data-desc="alcune sedute al centro della Galleria Apollo" x="554" y="454" width="12" height="12" />
+  <!-- Servizi (POI): data-poi = tipo, data-label = nome mostrato e letto. -->
+  <g id="pois">
+    <rect class="poi-node nodo-servizio" data-poi="exit" data-label="Uscita" x="731" y="291" width="18" height="18" rx="5">
+      <title>Uscita</title>
+    </rect>
+    <rect class="poi-node nodo-servizio" data-poi="bar" data-label="Caffetteria" x="61" y="291" width="18" height="18" rx="5">
+      <title>Caffetteria</title>
+    </rect>
+    <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore" x="491" y="291" width="18" height="18" rx="5">
+      <title>Ascensore</title>
+    </rect>
+    <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette" x="341" y="551" width="18" height="18" rx="5">
+      <title>Toilette</title>
+    </rect>
+    <rect class="poi-node nodo-servizio" data-poi="shop" data-label="Libreria" x="461" y="551" width="18" height="18" rx="5">
+      <title>Libreria</title>
+    </rect>
+    <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza" x="751" y="26" width="18" height="18" rx="5">
+      <title>Uscita di emergenza</title>
+    </rect>
+    <g class="nome-servizio" pointer-events="none">
+      <text x="740" y="323">Uscita</text>
+      <text x="70"  y="323">Caffetteria</text>
+      <text x="500" y="323">Ascensore</text>
+      <text x="350" y="583">Toilette</text>
+      <text x="470" y="583">Libreria</text>
+      <text x="745" y="58">Emergenza</text>
+    </g>
+  </g>
+
+  <!-- Ostacoli: data-obstacle = tipo, data-desc = descrizione letta all'utente. -->
+  <g id="obstacles">
+    <rect class="obstacle-marker ostacolo" data-obstacle="object" data-desc="una grande statua egizia che ingombra il centro della sala" x="294" y="164" width="12" height="12" rx="2">
+      <title>Una grande statua egizia che ingombra il centro della sala</title>
+    </rect>
+    <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="due gradini tra la Hall Napoleon e l'Ala Sully" x="185" y="360" width="12" height="12" rx="2">
+      <title>Due gradini tra la Hall Napoleon e l'Ala Sully</title>
+    </rect>
+    <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="alcune sedute al centro della Galleria Apollo" x="554" y="454" width="12" height="12" rx="2">
+      <title>Alcune sedute al centro della Galleria Apollo</title>
+    </rect>
+  </g>
+
+  <!-- Titolo e legenda, fuori dall'edificio. Nessun data-*: il parser non li vede. -->
+  <g pointer-events="none">
+    <text class="titolo-mappa" x="10" y="628">Museo del Louvre</text>
+    <g class="voce-legenda">
+      <circle class="nodo-arte" cx="266" cy="624" r="7" />
+      <text x="279" y="628">Opera</text>
+      <rect class="nodo-servizio" x="336" y="617" width="14" height="14" rx="4" />
+      <text x="357" y="628">Servizio</text>
+      <rect class="nodo-servizio nodo-emergenza" x="428" y="617" width="14" height="14" rx="4" />
+      <text x="449" y="628">Emergenza</text>
+      <rect class="ostacolo" x="538" y="618" width="12" height="12" rx="2" />
+      <text x="557" y="628">Ostacolo</text>
+      <path class="porta" d="M638 632 L638 618 A14 14 0 0 1 652 632" />
+      <text x="659" y="628">Porta</text>
+    </g>
   </g>
 </svg>

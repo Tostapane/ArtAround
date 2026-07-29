@@ -2,10 +2,13 @@
  * Copia locale delle immagini delle opere.
  *
  * Se il download fallisce si restituisce l'indirizzo remoto: un'immagine lenta e'
- * sempre meglio di nessuna immagine.
+ * sempre meglio di nessuna immagine. Prima di arrendersi pero' si riprova: in
+ * un seed da centinaia di immagini un timeout isolato lascerebbe l'opera
+ * appesa a Wikimedia per sempre.
  */
 import fs from "fs";
 import path from "path";
+import { conTentativi } from "./retry";
 
 const IMAGE_DIR = path.join(__dirname, "../../public/images/artworks/");
 
@@ -30,19 +33,21 @@ export async function downloadImage(
       fetchUrl = url.includes("?") ? `${url}&width=800` : `${url}?width=800`;
     }
 
-    const response = await fetch(fetchUrl, {
-      headers: {
-        "User-Agent":
-          "ArtAroundBot/1.0 (university project; bunougo@gmail.com)",
-        Accept:
-          "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-      },
+    const buffer = await conTentativi(`immagine ${fileName}`, async () => {
+      const response = await fetch(fetchUrl, {
+        headers: {
+          "User-Agent":
+            "ArtAroundBot/1.0 (university project; bunougo@gmail.com)",
+          Accept:
+            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        },
+      });
+      if (!response.ok)
+        throw new Error(
+          `Failed to fetch image ${response.statusText}: ${await response.text()}`,
+        );
+      return response.arrayBuffer();
     });
-    if (!response.ok)
-      throw new Error(
-        `Failed to fetch image ${response.statusText}: ${await response.text()}`,
-      );
-    const buffer = await response.arrayBuffer();
     fs.writeFileSync(localFilePath, Buffer.from(buffer));
     return `/images/artworks/${localFileName}`;
   } catch (err) {

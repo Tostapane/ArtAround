@@ -1,31 +1,206 @@
-<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
-  <!-- Cornice / muro perimetrale dell'edificio -->
-  <rect x="10" y="10" width="780" height="580" fill="#fbfbf9" stroke="#333" stroke-width="4" />
+<svg viewBox="0 0 800 660" xmlns="http://www.w3.org/2000/svg" class="museum-map">
+  <!--
+    PIANTA DI BRITISH MUSEUM.
 
-  <!-- Sale (AREE data-room): la Sala Centrale rettangolare al centro, quattro ali
-       intorno. Ogni area ha il suo colore; il nodo/ostacolo prende la sala la cui
-       area lo contiene. Le aree si toccano senza sovrapporsi. -->
+    La struttura dei dati e' quella che services/svgGraph.ts sa leggere e non va
+    cambiata: data-room (aree = sale), data-qid (nodi-opera), data-poi (servizi),
+    data-obstacle (ostacoli), data-edge (collegamenti fra sale). Tutto il resto —
+    stile, griglia, battenti delle porte, legenda — e' solo disegno, e il parser
+    lo ignora perche' non ha attributi data-*.
+
+    Tre regole da rispettare se si sposta qualcosa:
+      1. L'ORDINE delle aree conta: vince la PRIMA che contiene il punto, quindi
+         una sala contenuta in un'altra va scritta prima di quella che la circonda.
+      2. Niente transform sugli elementi con data-*: il parser legge cx/cy oppure
+         x/y/width/height cosi' come sono scritti nel file.
+      3. Il centro di un servizio/ostacolo decide in quale sala ricade: cambiando
+         la misura di un quadrato vanno ricalcolati x e y per tenere fermo il centro.
+  -->
+
+  <style>
+    /*
+      I colori arrivano dal tema dell'app (shared/theme.css): la mappa viene
+      inserita NELLA pagina, non in un iframe, quindi le variabili del documento
+      cascano qui dentro e il tema scuro segue da se'. I valori di ripiego
+      servono solo se si apre il file da solo nel browser.
+
+      Ogni regola sta dentro :where(), cioe' a specificita' zero: le classi che
+      il navigator aggiunge a caldo (nodo-opera, nodo-corrente, nodo-opzionale)
+      devono sempre vincere su quello che si scrive qui.
+    */
+    :where(.museum-map) {
+      --carta: var(--surface, #ffffff);
+      --grafite: var(--text, #353535);
+      --tenue: var(--muted, #5c5c5c);
+      --linea: var(--line-strong, #284b63);
+      --accento: var(--accent, #3c6e71);
+      --ardesia: var(--slate, #40606f);
+      --ottone: var(--brass, #7a5722);
+      --salvia: var(--sage, #456347);
+      --notte: var(--structure, #284b63);
+      --allarme: var(--danger, #9e2b25);
+      font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    }
+
+    /* Il foglio su cui e' disegnata la pianta */
+    :where(.museum-map) .foglio {
+      fill: var(--carta);
+      stroke: var(--linea);
+      stroke-width: 5;
+    }
+    /* Griglia: da' la scala senza chiedere attenzione */
+    :where(.museum-map) .griglia-linea {
+      fill: none;
+      stroke: var(--grafite);
+      stroke-width: 0.8;
+      opacity: 0.14;
+    }
+
+    /*
+      Sale: carta appena tinta. Le tinte escono dalla palette e sono diluite
+      tanto da leggersi come carta colorata, mai come un comando. Due sale
+      confinanti non si distinguono per la sola TINTA — cambia anche quanto e'
+      forte la mescolanza, cosi' restano diverse anche in scala di grigi.
+    */
+    :where(.museum-map) .sala {
+      fill: color-mix(in oklab, var(--carta) var(--forza, 88%), var(--tinta, var(--carta)));
+    }
+    :where(.museum-map) .t-notte { --tinta: var(--notte); --forza: 88%; }
+    :where(.museum-map) .t-verderame { --tinta: var(--accento); --forza: 78%; }
+    :where(.museum-map) .t-ottone { --tinta: var(--ottone); --forza: 85%; }
+    :where(.museum-map) .t-salvia { --tinta: var(--salvia); --forza: 87%; }
+    :where(.museum-map) .t-ardesia { --tinta: var(--ardesia); --forza: 80%; }
+    /* L'atrio non ha tinta: e' spazio di passaggio, non una collezione. */
+    :where(.museum-map) .sala-atrio {
+      fill: color-mix(in oklab, var(--carta) 93%, var(--grafite));
+    }
+
+    /* Etichette delle sale: maiuscolo spaziato, come su una pianta vera */
+    :where(.museum-map) .nome-sala {
+      fill: var(--tenue);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-anchor: middle;
+    }
+
+    /* Muri pieni e battenti delle porte */
+    :where(.museum-map) .muro {
+      stroke: var(--linea);
+      stroke-width: 5;
+      stroke-linecap: butt;
+    }
+    :where(.museum-map) .porta {
+      fill: none;
+      stroke: var(--linea);
+      stroke-width: 1.5;
+      opacity: 0.6;
+    }
+
+    /* Collegamenti del grafo: servono al parser, non all'occhio */
+    :where(.museum-map) .arco {
+      stroke: var(--accento);
+      stroke-width: 1.5;
+      stroke-dasharray: 3 5;
+      opacity: 0.12;
+    }
+
+    /*
+      Opere: dischi (e qualche quadrato dove il pezzo e' una teca). Questo e'
+      l'aspetto A RIPOSO: quando l'opera e' una tappa della visita in corso il
+      navigator la ricolora e ci scrive dentro il numero.
+    */
+    :where(.museum-map) .nodo-arte {
+      fill: color-mix(in oklab, var(--carta) 42%, var(--tenue));
+      stroke: var(--carta);
+      stroke-width: 2.5;
+      paint-order: stroke;
+    }
+
+    /*
+      Servizi: quadrati arrotondati. La forma, non solo il colore, li separa
+      dalle opere — si riconoscono anche senza distinguere le tinte.
+    */
+    :where(.museum-map) .nodo-servizio {
+      fill: var(--ardesia);
+      stroke: var(--carta);
+      stroke-width: 2;
+      paint-order: stroke;
+    }
+    :where(.museum-map) .nodo-emergenza { fill: var(--salvia); }
+    :where(.museum-map) .nome-servizio {
+      fill: var(--tenue);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-anchor: middle;
+    }
+
+    /* Ostacoli: l'unico rosso della mappa */
+    :where(.museum-map) .ostacolo {
+      fill: var(--allarme);
+      stroke: var(--carta);
+      stroke-width: 2;
+      paint-order: stroke;
+    }
+
+    /* Legenda e titolo, sotto la pianta */
+    :where(.museum-map) .titolo-mappa {
+      fill: var(--grafite);
+      font-family: var(--font-display, inherit);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    :where(.museum-map) .voce-legenda {
+      fill: var(--tenue);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+    }
+  </style>
+
+  <defs>
+    <pattern id="bm-griglia" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path class="griglia-linea" d="M40 0 L0 0 L0 40" />
+    </pattern>
+    <filter id="bm-ombra" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.14" />
+    </filter>
+  </defs>
+
+  <!-- Cornice / muro perimetrale dell'edificio -->
+  <rect class="foglio" x="10" y="10" width="780" height="580" filter="url(#bm-ombra)" />
+
+  <!-- Sale (AREE data-room): la Sala Centrale al centro, quattro ali intorno.
+       La Sala Centrale sta PRIMA perche' l'Ala Nord e l'Ala Sud non la coprono ma
+       le ali laterali le stanno accanto: l'ordine tiene comunque il punto dentro
+       la sala piu' piccola. -->
   <g pointer-events="none">
-    <rect data-room="Sala Centrale" x="280" y="220" width="240" height="160" fill="#fdf6e3" />
-    <rect data-room="Ala Nord"      x="10"  y="10"  width="780" height="210" fill="#dceefb" />
-    <rect data-room="Ala Sud"       x="10"  y="380" width="780" height="210" fill="#dcf5e3" />
-    <rect data-room="Ala Ovest"     x="10"  y="220" width="270" height="160" fill="#fde7d2" />
-    <rect data-room="Ala Est"       x="520" y="220" width="270" height="160" fill="#f8dde6" />
+    <rect class="sala sala-atrio" data-room="Sala Centrale" x="280" y="220" width="240" height="160" />
+    <rect class="sala t-notte"    data-room="Ala Nord"      x="10"  y="10"  width="780" height="210" />
+    <rect class="sala t-salvia"   data-room="Ala Sud"       x="10"  y="380" width="780" height="210" />
+    <rect class="sala t-ottone"   data-room="Ala Ovest"     x="10"  y="220" width="270" height="160" />
+    <rect class="sala t-verderame" data-room="Ala Est"       x="520" y="220" width="270" height="160" />
   </g>
 
+  <!-- Griglia leggera sopra le sale -->
+  <rect x="10" y="10" width="780" height="580" fill="url(#bm-griglia)" pointer-events="none" />
+
   <!-- Etichette delle sale -->
-  <g font-family="sans-serif" font-size="13" font-weight="600" fill="#5a5a5a" text-anchor="middle" pointer-events="none">
-    <text x="400" y="28">Ala Nord</text>
-    <text x="400" y="575">Ala Sud</text>
-    <text x="120" y="240">Ala Ovest</text>
-    <text x="680" y="240">Ala Est</text>
-    <text x="400" y="215">Sala Centrale</text>
+  <g class="nome-sala" pointer-events="none">
+    <text x="400" y="34">Ala Nord</text>
+    <text x="400" y="408">Ala Sud</text>
+    <text x="120" y="242">Ala Ovest</text>
+    <text x="680" y="242">Ala Est</text>
+    <text x="400" y="244">Sala Centrale</text>
   </g>
 
   <!-- Muri interni: linee con un VARCO = porta. La Sala Centrale ha una porta su
        ogni lato verso l'ala corrispondente; il resto dei divisori e' muro pieno. -->
-  <g stroke="#333" stroke-width="4" stroke-linecap="square">
-    <!-- muro y=220 (Ala Nord | fascia centrale), varco a x=400 verso la Sala Centrale -->
+  <g class="muro">
+    <!-- muro y=220 (Ala Nord | fascia centrale), varco a x=400 -->
     <line x1="10"  y1="220" x2="380" y2="220" />
     <line x1="420" y1="220" x2="790" y2="220" />
     <!-- muro y=380 (fascia centrale | Ala Sud), varco a x=400 -->
@@ -39,9 +214,17 @@
     <line x1="520" y1="320" x2="520" y2="380" />
   </g>
 
+  <!-- Battenti: il simbolo che rende leggibile un varco come porta -->
+  <g class="porta">
+    <path d="M380 220 L380 260 A40 40 0 0 0 420 220" />
+    <path d="M380 380 L380 340 A40 40 0 0 1 420 380" />
+    <path d="M280 280 L320 280 A40 40 0 0 1 280 320" />
+    <path d="M520 280 L480 280 A40 40 0 0 0 520 320" />
+  </g>
+
   <!-- Grafo di navigazione: ogni <line data-edge> collega la Sala Centrale a
        un'ala passando per il varco. Quasi invisibile. -->
-  <g id="nav-edges" stroke="#6b7c8a" stroke-width="1.5" stroke-dasharray="3,5" opacity="0.08">
+  <g class="arco" id="nav-edges">
     <line data-edge="" x1="400" y1="190" x2="400" y2="250" /> <!-- Sala Centrale <-> Ala Nord -->
     <line data-edge="" x1="400" y1="350" x2="400" y2="410" /> <!-- Sala Centrale <-> Ala Sud -->
     <line data-edge="" x1="250" y1="300" x2="310" y2="300" /> <!-- Ala Ovest <-> Sala Centrale -->
@@ -50,43 +233,77 @@
 
   <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks (il
        seed assegna locationId=art-N in quell'ordine) e data-qid col relativo qid. -->
-  <!-- Sala Centrale -->
-  <circle id="art-1"  class="interactive-node" data-qid="Q137925932" cx="400" cy="300" r="14" fill="#333" />
-  <!-- Ala Nord -->
-  <circle id="art-2"  class="interactive-node" data-qid="Q110812274" cx="400" cy="95"  r="10" fill="gray" />
-  <rect   id="art-6"  class="interactive-node" data-qid="Q104411621" x="138" y="80"  width="24" height="24" fill="gray" />
-  <rect   id="art-7"  class="interactive-node" data-qid="Q212616"    x="628" y="80"  width="24" height="24" fill="gray" />
-  <circle id="art-10" class="interactive-node" data-qid="Q95571270"  cx="260" cy="165" r="10" fill="gray" />
-  <circle id="art-11" class="interactive-node" data-qid="Q1992041"   cx="540" cy="165" r="10" fill="gray" />
-  <!-- Ala Sud -->
-  <circle id="art-3"  class="interactive-node" data-qid="Q216402"    cx="400" cy="500" r="10" fill="gray" />
-  <rect   id="art-8"  class="interactive-node" data-qid="Q28110217"  x="138" y="488" width="24" height="24" fill="gray" />
-  <rect   id="art-9"  class="interactive-node" data-qid="Q117745912" x="628" y="488" width="24" height="24" fill="gray" />
-  <circle id="art-12" class="interactive-node" data-qid="Q28128822"  cx="260" cy="450" r="10" fill="gray" />
-  <circle id="art-13" class="interactive-node" data-qid="Q21518246"  cx="540" cy="450" r="10" fill="gray" />
-  <!-- Ala Ovest -->
-  <circle id="art-4"  class="interactive-node" data-qid="Q107343185" cx="140" cy="300" r="10" fill="gray" />
-  <!-- Ala Est -->
-  <circle id="art-5"  class="interactive-node" data-qid="Q102257724" cx="650" cy="300" r="10" fill="gray" />
-
-  <!-- Punti di interesse (POI): data-poi = tipo, data-label = nome mostrato/letto. -->
-  <g id="pois" font-family="sans-serif" font-size="12" fill="#1d4ed8" text-anchor="middle">
-    <circle class="poi-node" data-poi="exit" data-label="Uscita" cx="400" cy="560" r="8" fill="#1d4ed8" />
-    <text x="400" y="582">Uscita</text>
-    <circle class="poi-node" data-poi="shop" data-label="Bookshop" cx="500" cy="545" r="8" fill="#1d4ed8" />
-    <text x="500" y="567">Shop</text>
-    <circle class="poi-node" data-poi="toilet" data-label="Toilette" cx="740" cy="300" r="8" fill="#1d4ed8" />
-    <text x="740" y="322">WC</text>
-    <circle class="poi-node" data-poi="bar" data-label="Caffetteria" cx="60" cy="300" r="8" fill="#1d4ed8" />
-    <text x="60" y="322">Bar</text>
-    <circle class="poi-node" data-poi="emergency_exit" data-label="Uscita di emergenza" cx="640" cy="40" r="8" fill="#16a34a" />
-    <text x="640" y="27" fill="#16a34a">SOS</text>
+  <g class="nodo-arte">
+    <!-- Sala Centrale -->
+    <circle id="art-1"  class="interactive-node" data-qid="Q137925932" cx="400" cy="300" r="13" />
+    <!-- Ala Nord -->
+    <circle id="art-2"  class="interactive-node" data-qid="Q110812274" cx="400" cy="95"  r="11" />
+    <rect   id="art-6"  class="interactive-node" data-qid="Q104411621" x="139" y="81"  width="22" height="22" rx="3" />
+    <rect   id="art-7"  class="interactive-node" data-qid="Q212616"    x="629" y="81"  width="22" height="22" rx="3" />
+    <circle id="art-10" class="interactive-node" data-qid="Q95571270"  cx="260" cy="165" r="11" />
+    <circle id="art-11" class="interactive-node" data-qid="Q1992041"   cx="540" cy="165" r="11" />
+    <!-- Ala Sud -->
+    <circle id="art-3"  class="interactive-node" data-qid="Q216402"    cx="400" cy="500" r="11" />
+    <rect   id="art-8"  class="interactive-node" data-qid="Q28110217"  x="139" y="489" width="22" height="22" rx="3" />
+    <rect   id="art-9"  class="interactive-node" data-qid="Q117745912" x="629" y="489" width="22" height="22" rx="3" />
+    <circle id="art-12" class="interactive-node" data-qid="Q28128822"  cx="260" cy="450" r="11" />
+    <circle id="art-13" class="interactive-node" data-qid="Q21518246"  cx="540" cy="450" r="11" />
+    <!-- Ala Ovest -->
+    <circle id="art-4"  class="interactive-node" data-qid="Q107343185" cx="140" cy="300" r="11" />
+    <!-- Ala Est -->
+    <circle id="art-5"  class="interactive-node" data-qid="Q102257724" cx="650" cy="300" r="11" />
   </g>
 
-  <!-- Ostacoli di accessibilita': data-obstacle = tipo, data-desc = descrizione.
-       La POSIZIONE del marker decide in quale sala (area) ricade. -->
-  <g id="obstacles" fill="#dc2626" opacity="0.85">
-    <rect class="obstacle-marker" data-obstacle="steps" data-desc="due gradini verso l'uscita nord della Sala Centrale" x="355" y="245" width="12" height="12" />
-    <rect class="obstacle-marker" data-obstacle="chairs" data-desc="alcune sedie disposte a meta' sala" x="294" y="445" width="12" height="12" />
+  <!-- Servizi (POI): data-poi = tipo, data-label = nome mostrato e letto. -->
+  <g id="pois">
+    <rect class="poi-node nodo-servizio" data-poi="exit" data-label="Uscita" x="391" y="551" width="18" height="18" rx="5">
+      <title>Uscita</title>
+    </rect>
+    <rect class="poi-node nodo-servizio" data-poi="shop" data-label="Bookshop" x="491" y="536" width="18" height="18" rx="5">
+      <title>Bookshop</title>
+    </rect>
+    <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette" x="731" y="291" width="18" height="18" rx="5">
+      <title>Toilette</title>
+    </rect>
+    <rect class="poi-node nodo-servizio" data-poi="bar" data-label="Caffetteria" x="51" y="291" width="18" height="18" rx="5">
+      <title>Caffetteria</title>
+    </rect>
+    <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza" x="631" y="31" width="18" height="18" rx="5">
+      <title>Uscita di emergenza</title>
+    </rect>
+    <g class="nome-servizio" pointer-events="none">
+      <text x="400" y="583">Uscita</text>
+      <text x="500" y="568">Bookshop</text>
+      <text x="740" y="323">Toilette</text>
+      <text x="60"  y="323">Caffetteria</text>
+      <text x="640" y="63">Emergenza</text>
+    </g>
+  </g>
+
+  <!-- Ostacoli: data-obstacle = tipo, data-desc = descrizione letta all'utente. -->
+  <g id="obstacles">
+    <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="due gradini verso l'uscita nord della Sala Centrale" x="355" y="245" width="12" height="12" rx="2">
+      <title>Due gradini verso l'uscita nord della Sala Centrale</title>
+    </rect>
+    <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="alcune sedie disposte a meta' sala" x="294" y="445" width="12" height="12" rx="2">
+      <title>Alcune sedie disposte a meta' sala</title>
+    </rect>
+  </g>
+
+  <!-- Titolo e legenda, fuori dall'edificio. Nessun data-*: il parser non li vede. -->
+  <g pointer-events="none">
+    <text class="titolo-mappa" x="10" y="628">British Museum</text>
+    <g class="voce-legenda">
+      <circle class="nodo-arte" cx="266" cy="624" r="7" />
+      <text x="279" y="628">Opera</text>
+      <rect class="nodo-servizio" x="336" y="617" width="14" height="14" rx="4" />
+      <text x="357" y="628">Servizio</text>
+      <rect class="nodo-servizio nodo-emergenza" x="428" y="617" width="14" height="14" rx="4" />
+      <text x="449" y="628">Emergenza</text>
+      <rect class="ostacolo" x="538" y="618" width="12" height="12" rx="2" />
+      <text x="557" y="628">Ostacolo</text>
+      <path class="porta" d="M638 632 L638 618 A14 14 0 0 1 652 632" />
+      <text x="659" y="628">Porta</text>
+    </g>
   </g>
 </svg>

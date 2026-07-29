@@ -4,7 +4,12 @@
  * Quando il servizio delle etichette non trova un nome nelle lingue richieste
  * restituisce il codice dell'elemento: in quel caso il nome si considera assente,
  * altrimenti finirebbe a schermo un identificatore al posto di un titolo.
+ *
+ * Le due interrogazioni passano dai ritentativi: durante il seed sono centinaia
+ * di chiamate di fila, e un timeout non ritentato faceva saltare TUTTA
+ * l'esecuzione (l'errore risale fino al ciclo del seed).
  */
+import { conTentativi } from "./retry";
 export interface ArtworkMetadata {
   name: string;
   image: string;
@@ -55,17 +60,18 @@ export async function fetchArtwork(
     "https://query.wikidata.org/sparql?query=" +
     encodeURIComponent(sparqlQuery);
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/sparql-results+json",
-      "User-Agent": "ArtAroundMuseumApp",
-    },
+  const data = await conTentativi(`Wikidata, opera ${wikiDataUri}`, async () => {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/sparql-results+json",
+        "User-Agent": "ArtAroundMuseumApp",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Wikidata error: ${response.statusText}`);
+    }
+    return response.json();
   });
-  if (!response.ok) {
-    throw new Error(`Wikidata error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
   const binding = data.results.bindings[0];
 
   if (!binding) return null;
@@ -103,17 +109,18 @@ export async function fetchMuseum(
     "https://query.wikidata.org/sparql?query=" +
     encodeURIComponent(sparqlQuery);
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/sparql-results+json",
-      "User-Agent": "ArtAroundMuseumApp",
-    },
+  const data = await conTentativi(`Wikidata, museo ${wikiDataUri}`, async () => {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/sparql-results+json",
+        "User-Agent": "ArtAroundMuseumApp",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Wikidata error: ${response.statusText}`);
+    }
+    return response.json();
   });
-  if (!response.ok) {
-    throw new Error(`Wikidata error: \${response.statusText}\ `);
-  }
-
-  const data = await response.json();
   const binding = data.results.bindings[0];
 
   if (!binding) return null as any;
