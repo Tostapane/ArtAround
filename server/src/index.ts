@@ -8,7 +8,7 @@
  * La porta arriva dall'ambiente perche' sul server del dipartimento non e' detto
  * sia la 8000, e perche' cosi' si possono tenere due istanze accese insieme.
  */
-import "./env";
+import { MONGO_URI } from "./env";
 import express from "express";
 import mongoose from "mongoose";
 import path from "path";
@@ -39,10 +39,6 @@ app.use(
   "/dist",
   express.static(path.join(__dirname, "../../marketplace/dist")),
 );
-
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  "mongodb://localuser:localpassword@localhost:27017/artaround?authSource=admin";
 
 const connectWithRetry = () => {
   console.log("Attempting to connect to MongoDB...");

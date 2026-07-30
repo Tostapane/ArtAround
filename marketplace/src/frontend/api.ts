@@ -14,6 +14,7 @@ import {
   Museum,
   User,
   UserRole,
+  Visit,
 } from '../../../shared/types.js';
 
 export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
@@ -110,20 +111,23 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async fetchArtworks(): Promise<Artwork[]> {
-    const response = await fetch('/api/artworks');
+  async fetchArtworks(museumQid?: string): Promise<Artwork[]> {
+    const q = museumQid ? `?museum=${encodeURIComponent(museumQid)}` : '';
+    const response = await fetch(`/api/artworks${q}`);
     if (!response.ok) throw new Error('Errore caricamento opere');
     return response.json();
   },
 
-  async fetchVisite(): Promise<Content[]> {
-    const response = await fetch('/api/visits');
+  async fetchVisite(museumQid?: string): Promise<Visit[]> {
+    const q = museumQid ? `?museum=${encodeURIComponent(museumQid)}` : '';
+    const response = await fetch(`/api/visits${q}`);
     if (!response.ok) throw new Error('Errore caricamento visite');
     return response.json();
   },
 
-  async fetchItems(): Promise<Item[]> {
-    const response = await fetch('/api/items');
+  async fetchItems(museumQid?: string): Promise<Item[]> {
+    const q = museumQid ? `?museum=${encodeURIComponent(museumQid)}` : '';
+    const response = await fetch(`/api/items${q}`);
     if (!response.ok) throw new Error('Errore caricamento contenuti');
     return response.json();
   },

@@ -28,5 +28,9 @@ const userSchema = new Schema<IUser>({
 });
 
 userSchema.index({ username: 1, role: 1 }, { unique: true });
+// Chi possiede un contenuto: lo chiedono il resoconto vendite e il calcolo
+// dell'impatto di un'eliminazione. Senza indice ogni conteggio scandisce
+// l'intera collezione degli utenti.
+userSchema.index({ collezione: 1 });
 
 export const UserModel = model<IUser>("User", userSchema);

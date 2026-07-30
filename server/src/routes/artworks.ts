@@ -14,11 +14,16 @@ import { createDescription } from "../services/llm";
 const router = Router();
 
 /**
- * GET /api/artworks: Recupera tutte le opere d'arte dal database.
+ * GET /api/artworks[?museum=Qxxx]
+ * Ritorna: le opere del museo indicato, o tutte se il parametro manca.
  */
 router.get("/", async (req, res) => {
   try {
-    const artworks = await ArtworkModel.find({});
+    const museum = String(req.query.museum || "");
+    const filter = museum
+      ? { ofMuseum: `http://www.wikidata.org/entity/${museum}` }
+      : {};
+    const artworks = await ArtworkModel.find(filter);
     res.json(artworks);
   } catch (error: any) {
     res.status(500).json({ error: "Errore nel caricamento delle opere" });

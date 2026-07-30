@@ -29,9 +29,17 @@ const MAX_CUSTOM_ARTWORKS = 30;
  * GET /api/visits
  * Recupera la lista di tutte le visite disponibili nel marketplace (quella ufficiali).
  */
+/**
+ * GET /api/visits[?museum=Qxxx]
+ * Ritorna: le visite del museo indicato, o tutte se il parametro manca.
+ */
 router.get("/", async (req, res) => {
   try {
-    const visits = await VisitModel.find({});
+    const museum = String(req.query.museum || "");
+    const filter = museum
+      ? { ofMuseum: `http://www.wikidata.org/entity/${museum}` }
+      : {};
+    const visits = await VisitModel.find(filter);
     res.json(visits);
   } catch (error: any) {
     console.error(error);

@@ -20,10 +20,9 @@ export function appData() {
 // ============================================================================
 
 /**
- * Era duplicato tre volte dentro l'HTML, con le due icone ricopiate ogni volta.
- * La chiave di memoria e' la stessa del navigator: passando da un'app all'altra
- * l'aspetto non cambia. L'etichetta descrive l'AZIONE, non lo stato: e' quello
- * che serve sapere a chi la sente leggere.
+ * La chiave di memoria e' la stessa del navigator, cosi' passando da un'app
+ * all'altra l'aspetto non cambia. L'etichetta descrive l'AZIONE, non lo stato:
+ * e' quello che serve a chi la sente leggere invece di vederla.
  */
 export function themeToggle() {
   return {
@@ -54,10 +53,9 @@ type Shape = { points: Float32Array; aspect: number };
  * vendita. Ogni figura si compone a ondate, resta ferma qualche secondo con un
  * respiro appena percettibile, poi i punti scivolano nella figura successiva.
  *
- * Fra una figura e l'altra NON c'e' dispersione: i punti restano sempre
- * attratti da un bersaglio. C'era, e rimbalzava; e il riavvolgimento ai bordi
- * che l'accompagnava faceva sparire i punti da un lato per farli ricomparire
- * dall'altro. Un passaggio diretto e' piu' calmo e si legge molto meglio.
+ * Fra una figura e l'altra NON c'e' dispersione: i punti restano sempre attratti
+ * da un bersaglio, e non si riavvolgono ai bordi. Il passaggio diretto e' piu'
+ * calmo e si legge meglio — non reintrodurre una fase di dispersione.
  *
  * Non e' decorazione presa altrove: le sorgenti sono le STESSE immagini delle
  * opere che si vendono qui dentro, nell'ordine in cui le da' il server. Il
@@ -151,13 +149,9 @@ export function swarm() {
       const styles = getComputedStyle(document.documentElement);
       const token = (name: string, fallback: string) =>
         styles.getPropertyValue(name).trim() || fallback;
-      // I punti sono TUTTI DELLO STESSO COLORE. C'erano dieci parti
-      // d'inchiostro contro una di accento e una di ardesia: sul fondo Notte le
-      // due tinte erano cosi' vicine al grigio da non vedersi, ma bastava una
-      // palette con un accento lontano dalla struttura perche' saltassero fuori
-      // — e un pugno di punti colorati dentro una figura monocroma si legge come
-      // un motivo, cioe' come un'informazione che non c'e'. Qui l'unica cosa che
-      // varia da punto a punto e' la posizione: e' la figura a dover parlare.
+      // I punti sono TUTTI DELLO STESSO COLORE, e non va cambiato: un pugno di
+      // punti diversi dentro una figura monocroma si legge come un motivo, cioe'
+      // come un'informazione che non c'e'. L'unica cosa che varia e' la posizione.
       this.ink = this.toRgb(token("--lastra", "#ffffff"));
 
       this.still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -167,11 +161,10 @@ export function swarm() {
           this.stop();
           return;
         }
-        // La PRIMA volta si costruisce subito. L'attesa serve a non ricostruire
-        // trenta volte mentre si trascina il bordo della finestra, ma applicata
-        // anche all'avvio ritardava tutto: finche' non c'e' la griglia non c'e'
-        // nemmeno una figura da comporre, e in quel buco si vedevano i punti
-        // vagare. Sui ridimensionamenti successivi l'attesa resta.
+        // La PRIMA volta si costruisce subito: finche' non c'e' la griglia non
+        // c'e' nemmeno una figura da comporre, e in quel buco si vedrebbero i
+        // punti vagare. L'attesa serve solo ai ridimensionamenti successivi,
+        // per non ricostruire trenta volte mentre si trascina il bordo.
         if (this.count === 0) {
           this.build();
           return;
@@ -384,12 +377,9 @@ export function swarm() {
 
       // Poco piu' di una particella per punto della figura: impilandone sei
       // sullo stesso bersaglio il disegno si impasta invece di definirsi.
-      // Duemilaseicento erano troppo poche perche' una faccia si riconoscesse —
-      // il retino ne chiede novemila, e sotto quella soglia il quadro resta una
-      // macchia. Il tetto vale per i portatili, il minimo per i telefoni.
-      // Il minimo non e' un ripiego per schermi piccoli: e' la soglia sotto la
-      // quale un volto smette di essere un volto. Su un telefono la figura e'
-      // piccola ma i punti servono lo stesso, e costano poco.
+      // Il MINIMO non e' un ripiego per schermi piccoli: e' la soglia sotto la
+      // quale un volto smette di essere un volto — il retino chiede novemila
+      // punti, e sotto quel numero il quadro resta una macchia. Non abbassarlo.
       const wanted = Math.round((canvas.width * canvas.height) / 110);
       this.count = Math.max(6000, Math.min(13000, wanted));
 
@@ -448,9 +438,8 @@ export function swarm() {
       const delay = this.delay as Float32Array;
       const bow = this.bow as Float32Array;
       for (let i = 0; i < count; i++) {
-        // Ritardo e curvatura si ritirano a ogni passaggio: tenendoli fissi, la
-        // nuvola si ripiegava sempre nello stesso modo e la ripetizione si
-        // notava alla seconda opera.
+        // Ritardo e curvatura si ritirano a ogni passaggio: fissi, la nuvola si
+        // ripiegherebbe sempre allo stesso modo e la ripetizione si noterebbe.
         delay[i] = Math.random() * 0.35;
         bow[i] = (Math.random() - 0.5) * 2 * this.BOW;
       }
@@ -477,8 +466,8 @@ export function swarm() {
             window.setTimeout(settle, 200);
             return;
           }
-          // Il passaggio ora e' un'interpolazione: la figura ferma e' il suo
-          // fotogramma finale, non il risultato di duecento passi simulati.
+          // Il passaggio e' un'interpolazione, quindi la figura ferma e' il suo
+          // fotogramma finale: non serve simulare i passi intermedi.
           this.nextShape();
           this.px.set(this.tx);
           this.py.set(this.ty);
@@ -549,11 +538,8 @@ export function swarm() {
       // particelle: ognuna riceve un bersaglio dalla propria parte. Assegnando
       // a caso, meta' sciame attraverserebbe il riquadro per andare dall'altro
       // lato, e la figura si comporrebbe in un groviglio.
-
-      // Gli angoli si calcolano UNA volta e si mettono da parte. Calcolarli
-      // dentro il comparatore costava due atan2 per confronto — mezzo milione
-      // di chiamate a ogni cambio di figura, e centoquaranta millisecondi di
-      // singhiozzo proprio nell'istante in cui la figura successiva parte.
+      // Gli angoli si calcolano UNA volta e si mettono da parte: dentro il
+      // comparatore sarebbero due atan2 per confronto, a ogni cambio di figura.
       const px = this.px as Float32Array;
       const py = this.py as Float32Array;
 
@@ -650,10 +636,8 @@ export function swarm() {
       const idle = this.shapeIndex < 0;
       const damping = 0.88;
 
-      // I vettori si prendono UNA volta. Dentro il ciclo, `this` e' il Proxy
-      // reattivo di Alpine: ogni `this.px[i]` passa da una trappola, e a
-      // dodicimila particelle per una quindicina di accessi ciascuna fanno
-      // centottantamila trappole per fotogramma. Era il grosso degli 80 ms.
+      // I vettori si prendono UNA volta, fuori dal ciclo: dentro, `this` e' il
+      // Proxy reattivo di Alpine e ogni `this.px[i]` costa una trappola.
       const count = this.count as number;
       const px = this.px as Float32Array;
       const py = this.py as Float32Array;
@@ -732,10 +716,9 @@ export function swarm() {
       const px = this.px as Float32Array;
       const py = this.py as Float32Array;
       const maxAlpha = this.ALPHA as number;
-      // Il colore si scompone UNA volta per tutto il disegno. Alpine avvolge gli
-      // oggetti semplici in un Proxy — non i typed array — e letto dentro il
-      // ciclo sui pixel `ink.r/g/b` faceva tre trappole per pixel, quasi un
-      // milione per fotogramma: da solo erano i due terzi del tempo di disegno.
+      // Il colore si scompone UNA volta per tutto il disegno: Alpine avvolge gli
+      // oggetti semplici in un Proxy — non i typed array — e `ink.r/g/b` letto
+      // dentro il ciclo sui pixel costerebbe tre trappole per pixel.
       const ink = this.ink as { r: number; g: number; b: number };
       const tr = ink.r;
       const tg = ink.g;

@@ -169,43 +169,35 @@ editing: the parser reads `cx/cy` or `x/y/width/height` **verbatim** (a `transfo
 `data-*` element is not applied), and resizing a POI/obstacle square means recomputing `x`
 and `y` to keep its centre — the centre is what decides its room.
 
-### 1.2 Convenzioni di codice — vincolanti, e da far rispettare
+### 1.1-bis Concorrenza: dove l'idea regge e dove no
 
-Tre regole, volute dall'utente, valide su tutto il codice delle tre parti:
+L'app deve poter servire molte persone insieme. L'impianto **regge**: le API sono REST
+senza stato (nessuna sessione lato server), quindi due visitatori non si disturbano, e
+l'unico stato condiviso — le sale guidate — è effimero e in memoria per scelta.
+Il *polling* delle visite guidate è sano: 1,5 s per studente, e la presenza si deduce dalla
+richiesta stessa, senza traffico aggiuntivo (30 studenti ⇒ ~20 richieste/s).
 
-1. **Le spiegazioni stanno in cima al file, e solo lì.** Ogni file `.ts`/`.vue` porta un
-   commento descrittivo di testa che dice cosa fa e perché; se qualcosa dentro il file ha
-   bisogno di essere spiegato, la spiegazione **sale nell'intestazione**, non resta accanto
-   alla riga. Niente commenti esplicativi sparsi nel mezzo.
-2. **I separatori sono ammessi**: `// ====` e `// ----` per dividere le parti di un file,
-   più le etichette corte di sezione nei template (`<!-- MAPPA -->`). Sono insegne, non
-   spiegazioni.
-3. **Le rotte fanno eccezione, in forma breve.** Sopra ogni endpoint sta il suo contratto —
-   metodo, percorso e cosa restituisce — perché è la cosa che si va a cercare leggendo un
-   file di rotte:
+Tre punti dove invece **l'idea non scala**, misurati il 2026-07-30:
 
-   ```ts
-   /**
-    * POST /api/translate
-    * Ritorna: { testi: string[] } tradotti nella lingua richiesta.
-    */
-   ```
+| Punto | Misura | Perché conta |
+| --- | --- | --- |
+| ~~Nessun filtro per museo~~ **CHIUSO 2026-07-30** | l'accesso scaricava **453 KB**, ora **153 KB (−67%)** | `GET /artworks`, `/items`, `/visits` accettano `?museum=Qxxx`; `initApp()` **risolve il museo prima di scaricare** e `selectMuseum()` ricarica. Conseguenza da conoscere: il selettore non poteva più contare i musei che non ha scaricato, quindi `GET /museums` porta ora `opere` e `visite` contati dal server. Resta senza paginazione *dentro* un museo (104 item): con il decuplo di contenuti per museo servirà anche quella |
+| ~~**Un solo indice** in tutto il database~~ **CHIUSO 2026-07-30** | `explain()` sulla stessa query, prima e dopo: **COLLSCAN, 312 documenti esaminati per restituirne 104, 0 chiavi** → **IXSCAN, 104 esaminati per 104 restituiti** | senza indice Mongo legge *ogni* documento e scarta a mano: il costo cresce col numero di documenti, non con quello dei risultati, cioè peggiora esattamente quando il museo si riempie. Aggiunti solo gli indici corrispondenti a forme di query che esistono davvero nel codice: `Item.{@id,about,author}`, `Visit.{@id,ofMuseum,author,itemListElement}`, `Artwork.{qid,ofMuseum}`, `User.collezione` |
+| ~~N+1 nel resoconto vendite~~ **CHIUSO 2026-07-30** | **654 ms → 67 ms** su 312 righe (≈10×), e le query passano da **314 a 3, fisse** | `countDocuments` stava *dentro* il ciclo sulle righe: una query per riga, sequenziali, e ognuna a sua volta una scansione di `users`. Ora una sola `find({collezione: {$in: ids}})` e il conteggio in memoria. **Verificato identico**: le 312 righe confrontate una per una col metodo precedente, zero divergenze |
 
-   Due o tre righe, non un paragrafo: il *perché* di una scelta resta in cima al file.
-4. **Commenti in italiano, identificatori in inglese.**
+Nota minore: la cache delle traduzioni (`services/translate.ts`) è una `Map` **senza tetto né
+sfratto**, con dentro i testi interi. È la scelta giusta per la demo — gli stessi testi li
+chiedono tutti — ma cresce in modo monotono finché il processo vive.
 
-Restano deliberatamente in italiano, perche' non sono "variabili e funzioni": il copy
-dell'interfaccia e i messaggi d'errore, le classi CSS (`.lastra`, `.btn-primario`,
-`.pastiglia`, `.pianta` — vocabolario grafico), i nomi delle rotte (`#/opere`, `#/componi`:
-compaiono nell'URL, quindi sono superficie utente), i nomi dei file dei componenti
-(`Biglietteria.vue`, `Scheda.vue`) e **le chiavi del formato di scambio col server**
-(`tipo`, `titolo`, `percorso`, `id_item`, `stato`, `partecipanti`, `collezione`…).
-Quest'ultima e' la principale incoerenza rimasta: rinominarle richiede di toccare client e
-server insieme, in un passaggio dedicato.
+### 1.2 Convenzioni di codice
 
-⚠️ **La regola si fa rispettare, non solo si segue.** Chi tocca un file che la viola —
-commento esplicativo in mezzo al codice, intestazione assente, identificatore in italiano —
-**la corregge li', in quel passaggio**, invece di lasciarla passare.
+Stanno in **`guidelines.md`**, che è la sede unica: cinque regole (spiegazione in cima al
+file, dentro solo separatori, codice in inglese e commenti in italiano, KISS, e la riga
+migliore è quella che non hai scritto), più i tre difetti veri che le hanno prodotte.
+
+⚠️ **Si fanno rispettare, non solo si seguono.** Chi tocca un file che le viola — commento
+esplicativo in mezzo al codice, intestazione assente, identificatore in italiano — **lo
+corregge lì, in quel passaggio**, invece di lasciarlo passare.
 
 ---
 
@@ -836,6 +828,54 @@ existing planner/resolver split.
 - **Author revenue filters** (per period) — requested in `missing.txt`, currently absent.
 
 ---
+
+## 7-bis. La passata di semplificazione del 2026-07-30
+
+Fatta dopo un censimento di tutto il codice. Le due cose che *sembravano* il problema —
+`state.ts` a 1656 righe e `index.html` a 1620, il 24% del progetto in due file — sono state
+lasciate stare: funzionano, sono navigabili per sezioni, e spezzare i template di Alpine è
+rischio senza guadagno. Il problema vero era un altro.
+
+**`state.ts` non era troppo grande: era senza tipi.** 94 righe con `any`, cioè il compilatore
+spento proprio nella metà del marketplace che *potrebbe* essere controllata (l'altra metà,
+i binding di Alpine, non lo può essere per costruzione). La causa era una sola: `Content =
+Item | Visit` non era distinguibile, quindi ogni accesso a un campo di una sola delle due
+metà veniva aggirato con un `as any[]`. Rimedio: tre guardie in `shared/types.ts`
+(`isVisit`, `isItem`, `isArtwork`), che si distinguono per un campo **obbligatorio** e non per
+`@type`. Poi `visits` è diventato `Visit[]` (la rotta restituisce solo visite) e i cast sono
+caduti da sé. **94 → 55**, e i 55 che restano sono parametri di richiamo genuinamente
+polimorfi.
+
+Cosa ha trovato il compilatore appena riaccesso, che nessuno aveva visto:
+
+- **`@type` non esiste nei tipi condivisi**, ma il client lo usava per filtrare
+  (`v["@type"] === "ItemList"` in `shownVisits`, `importableVisits`, `itemName`, `itemDetail`).
+  Funziona solo perché lo schema Mongoose ha un `default`: un documento inserito per altra via
+  **sparirebbe dal catalogo in silenzio**. Ora si usa il narrowing.
+- Il catalogo delle opere costruiva un **item finto** (`{about: g.artwork, "@type":
+  "CreativeWork"}`) solo per riusare `matchesSearch` su un'opera. Con le guardie l'opera si
+  passa così com'è.
+- `filteredSales()` passava una riga di vendita a `belongsToMuseum`, e funzionava **solo perché
+  cadeva nel suo ramo altrimenti**. Ora ha il suo confronto, di due righe.
+- `percentualeCopertura` dereferenziava `overview` senza controllo: l'unica cosa che lo
+  proteggeva era un `x-if` in una stringa Alpine che nessuno verifica.
+
+**Le dieci espressioni Alpine lunghe (90–137 caratteri) sono diventate metodi.** Non è
+estetica: quella è logica in stringhe che nessun compilatore guarda, ed è la classe di difetto
+che in questo progetto è già costata una funzione intera. **10 → 0.**
+
+E spostandole è venuto fuori un difetto vero, esattamente quello previsto dall'avvertenza in
+testa a `state.ts`: la schermata di scelta del profilo titolava
+`r === 'autore' ? 'Autore' : 'Visitatore'` — un ternario binario più vecchio del terzo ruolo —
+e mostrava quindi **«Visitatore» sopra la descrizione del curatore**. Trovato rendendo la
+schermata per davvero, non leggendola.
+
+Altro, minore: `MONGO_URI` era ricopiato in quattro punti d'ingresso, ora sta in `env.ts`;
+rimossi `chosenArtwork`/`chosenArtworkName`, morti dal restyle.
+
+**Non fatto, deliberatamente:** accorpare i cinque `catch` identici di `llm.ts` («meglio
+leggere codice lungo che generalizzare la cosa sbagliata»), spezzare `index.html`, toccare
+`swarm()` (692 righe, ma isolate e tarate numericamente).
 
 ## 8. Useless things — code that can be removed or shrunk
 

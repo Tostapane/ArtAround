@@ -35,4 +35,11 @@ const itemSchema = new Schema<IItem>({
   },
 });
 
+// Indici: le forme di query che questo modello riceve davvero.
+// Senza, Mongo apre OGNI documento e scarta a mano (COLLSCAN): il costo cresce
+// col numero di documenti, non con quello dei risultati.
+itemSchema.index({ "@id": 1 }, { unique: true }); // findOne per @id, dappertutto
+itemSchema.index({ about: 1 }); // gli item di un'opera, e il catalogo per museo
+itemSchema.index({ author: 1 }); // i contenuti di un autore, e le vendite
+
 export const ItemModel = model<IItem>("Item", itemSchema);

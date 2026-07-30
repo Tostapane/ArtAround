@@ -77,6 +77,13 @@ export interface Museum {
   created: string;
   location: string;
   mapPath: string;
+  /**
+   * Quante opere e quante visite in vetrina ha il museo. Li conta il server,
+   * perche' il client scarica il catalogo di UN museo alla volta e quindi non
+   * potrebbe piu' contare quelli che non ha scaricato.
+   */
+  opere?: number;
+  visite?: number;
 }
 
 // ============================================================================
@@ -139,3 +146,26 @@ export interface Match {
 
 /** Unione usata dal marketplace, dove item e visite stanno negli stessi elenchi. */
 export type Content = Item | Visit;
+
+/**
+ * Le guardie di tipo con cui si stabilisce che cosa si ha in mano.
+ *
+ * `Content` e' un'unione: un campo che esiste solo su una delle due meta'
+ * (`level`, `itemListElement`, `about`) non si puo' leggere senza prima stabilire
+ * quale delle due si ha in mano. Le guardie fanno quello.
+ *
+ * Si distinguono per un campo OBBLIGATORIO di ciascuna e non per `@type`: `@type`
+ * non fa parte di questi tipi, esiste solo come default dello schema Mongoose, e
+ * un documento inserito per altra via ne sarebbe privo.
+ */
+export function isVisit(c: Content | Artwork): c is Visit {
+  return "itemListElement" in c;
+}
+
+export function isItem(c: Content | Artwork): c is Item {
+  return "about" in c;
+}
+
+export function isArtwork(c: Content | Artwork): c is Artwork {
+  return "qid" in c;
+}

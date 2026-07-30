@@ -13,7 +13,7 @@
  *   npx ts-node src/testers.ts tutto
  */
 
-import "./env";
+import { MONGO_URI } from "./env";
 import mongoose from "mongoose";
 import { ItemModel } from "./models/item";
 import { VisitModel } from "./models/visit";
@@ -22,11 +22,6 @@ import { MuseumModel } from "./models/museum";
 import { UserModel } from "./models/user";
 import { educationalLevels, formatDuration } from "../../shared/constants";
 import { UserRole } from "../../shared/types";
-
-
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  "mongodb://localuser:localpassword@localhost:27017/artaround?authSource=admin";
 
 const TONE_MAP: Record<string, string> = {
   Principiante: "Semplice",

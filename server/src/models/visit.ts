@@ -44,4 +44,10 @@ const visitSchema = new Schema<IVisit>({
   },
 });
 
+// Indici: vedi la nota in models/item.ts.
+visitSchema.index({ "@id": 1 }, { unique: true });
+visitSchema.index({ ofMuseum: 1 }); // le visite di un museo: la query piu' frequente
+visitSchema.index({ author: 1 });
+visitSchema.index({ itemListElement: 1 }); // chi cita un item: serve alla cascata
+
 export const VisitModel = model<IVisit>("Visit", visitSchema);

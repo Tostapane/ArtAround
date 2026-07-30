@@ -5,7 +5,7 @@
  * unico": non potrebbero piu' accedere. Se quegli account servono, si usa invece
  * `testers.ts account`, che non cancella niente.
  */
-import "./env";
+import { MONGO_URI } from "./env";
 import mongoose from "mongoose";
 import { UserModel } from "./models/user";
 
@@ -17,10 +17,6 @@ import { UserModel } from "./models/user";
  * Idempotente: aggiorna la password se già presenti, senza toccare
  * wallet/collezione esistenti (upsert con $setOnInsert sui campi mutabili).
  */
-
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  "mongodb://localuser:localpassword@localhost:27017/artaround?authSource=admin";
 
 const utenti = [
   { username: "autore1", password: "12345678", role: "autore" },

@@ -2,7 +2,8 @@
  * Rotte dei contenuti (item).
  *
  * L'elenco pubblico esclude gli item privati, che esistono solo per le visite
- * guidate del loro autore; il filtro per museo lo fa il client su `about.ofMuseum`.
+ * guidate del loro autore, e si restringe a un museo con `?museum=Qxxx`: il client
+ * scarica il catalogo di un museo alla volta, non tutto per poi buttare via.
  * In creazione un autore puo' pubblicare UN solo item per coppia (opera, tono): i
  * duplicati vengono rifiutati invece di sovrascrivere in silenzio. In modifica
  * cambiano solo testo e prezzo — opera, tono, durata, licenza e visibilita'
@@ -25,14 +26,22 @@ const router = Router();
 // --- Lettura ----------------------------------------------------------------
 
 /**
- * GET /api/items
- * Ritorna: tutti gli item PUBBLICI, con l'opera (`about`) popolata.
+ * GET /api/items[?museum=Qxxx]
+ * Ritorna: gli item PUBBLICI del museo indicato (o tutti senza parametro), con
+ * l'opera (`about`) popolata. Il filtro passa dalle opere, perche' e' l'opera a
+ * sapere a che museo appartiene.
  */
 router.get("/", async (req, res) => {
   try {
-    const items = await ItemModel.find({
-      visibility: { $ne: "privato" },
-    }).populate({
+    const filter: Record<string, unknown> = { visibility: { $ne: "privato" } };
+    const museum = String(req.query.museum || "");
+    if (museum) {
+      const arts = await ArtworkModel.find({
+        ofMuseum: `http://www.wikidata.org/entity/${museum}`,
+      }).select("@id");
+      filter.about = { $in: arts.map((a) => a["@id"]) };
+    }
+    const items = await ItemModel.find(filter).populate({
       path: "about",
       model: "Artwork",
       foreignField: "@id",

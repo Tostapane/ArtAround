@@ -14,6 +14,11 @@
     binding, ricontrollare che ogni chiamata risolva a un membro di AppState. E
     per i dati che arrivano entrando in una schermata servono DUE inneschi, il
     `$watch` e il caso iniziale: entrando dall'indirizzo diretto non scatta.
+
+    ⚠️ Sui radio serve `x-model.boolean`: senza il modificatore il valore che
+    torna e' la STRINGA "false", che e' vera, e ogni `if` prende il ramo
+    sbagliato per sempre (e' costato la visita guidata che non tornava piu' in
+    vetrina).
   -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,9 +48,8 @@
     <defs>
       <g id="i-base" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></g>
     </defs>
-    <!-- Il marchio: l'opera incorniciata e il percorso che le gira intorno,
-         con il visitatore sopra. Tratto aperto, non un cerchio chiuso: una
-         visita ha un inizio e una fine. -->
+    <!-- MARCHIO: opera incorniciata, percorso attorno, visitatore sopra.
+         Il tratto resta APERTO: una visita ha un inizio e una fine. -->
     <symbol id="ico-marchio" viewBox="0 0 64 64">
       <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
         <rect x="20" y="20" width="24" height="24" rx="1.5" />
@@ -192,9 +196,9 @@
             <div class="flex flex-col gap-3">
               <template x-for="r in roleChoice" :key="r">
                 <button type="button" @click="confirmRole(r)" class="scelta text-left">
-                  <span class="font-display text-title-3" x-text="r === 'autore' ? 'Autore' : 'Visitatore'"></span>
+                  <span class="font-display text-title-3" x-text="roleTitle(r)"></span>
                   <span class="mt-1 block text-small text-muted"
-                    x-text="r === 'autore' ? 'Pubblichi descrizioni e visite, ne fissi prezzo e licenza.' : 'Compri contenuti, componi percorsi e li vivi nel museo.'"></span>
+                    x-text="roleHint(r)"></span>
                 </button>
               </template>
               <button type="button" @click="roleChoice = null" class="btn-fantasma self-start">Annulla</button>
@@ -240,7 +244,7 @@
           <div>
             <label for="reg-conf" class="etichetta">Ripeti la password</label>
             <input id="reg-conf" type="password" x-model="registerForm.conferma" required autocomplete="new-password" class="campo"
-              :aria-describedby="registerForm.conferma && registerForm.password !== registerForm.conferma ? 'reg-conf-err' : null">
+              :aria-describedby="confirmPasswordErrorId()">
             <p x-show="registerForm.conferma && registerForm.password !== registerForm.conferma" id="reg-conf-err"
               class="mt-2 flex items-center gap-2 text-caption text-danger" role="alert">
               <svg class="h-4 w-4 shrink-0" aria-hidden="true"><use href="#ico-attenzione" /></svg>
@@ -661,7 +665,7 @@
                           <template x-if="owns(it)">
                             <button type="button" @click="toggleItem(it['@id'])" class="btn-secondario"
                               :aria-expanded="openItems.includes(it['@id'])"
-                              :aria-label="(openItems.includes(it['@id']) ? 'Chiudi' : 'Leggi') + ' la descrizione ' + it.educationalLevel">
+                              :aria-label="toggleDescriptionLabel(it)">
                               <span x-text="openItems.includes(it['@id']) ? 'Chiudi' : 'Leggi'"></span>
                               <svg class="h-4 w-4" aria-hidden="true"><use :href="openItems.includes(it['@id']) ? '#ico-su' : '#ico-giu'" /></svg>
                             </button>
@@ -730,11 +734,11 @@
                   </template>
                   <template x-if="!owns(currentVisit()) && currentUserRole === 'visitatore'">
                     <button type="button" @click="buy(currentVisit())" class="btn-primario text-title-3"
-                      x-text="(!currentVisit().price || currentVisit().price === 0) ? 'Aggiungi alla libreria' : 'Sblocca la visita'"></button>
+                      x-text="visitPurchaseLabel()"></button>
                   </template>
                   <template x-if="owns(currentVisit()) && !visitUsable(currentVisit())">
                     <button type="button" @click="openCompleteVisit(currentVisit())" class="btn-primario"
-                      x-text="'Sblocca ' + missingItems(currentVisit()).length + ' contenuti mancanti (€ ' + missingCost(currentVisit()).toFixed(2) + ')'"></button>
+                      x-text="unlockMissingLabel()"></button>
                   </template>
                   <template x-if="currentVisit().author === currentUser">
                     <span class="flex gap-3">
@@ -1154,7 +1158,7 @@
                         <div class="flex shrink-0 items-center gap-1">
                           <button type="button" x-show="stop.tipo === 'item'" @click="toggleOptional(index)"
                             :aria-pressed="!!stop.opzionale"
-                            :aria-label="(stop.opzionale ? 'Rendi obbligatoria' : 'Rendi opzionale') + ' la tappa ' + stopNumber(index)"
+                            :aria-label="toggleOptionalLabel(stop.opzionale, index)"
                             class="pastiglia-bottone" :class="stop.opzionale ? 'pastiglia-attiva' : ''">Opzionale</button>
                           <div class="flex flex-col">
                             <button type="button" @click="moveStop(index, -1)" :disabled="index === 0"
@@ -1208,7 +1212,7 @@
                       <input id="cerca-ed" type="search" x-model="editorSearch" placeholder="Cerca un'opera…">
                     </div>
                     <div x-show="currentUserRole === 'visitatore'" role="radiogroup" aria-label="Filtra la libreria" class="segmenti">
-                      <template x-for="f in [{v:'tutti',t:'Tutte'},{v:'disponibili',t:'Che possiedo'},{v:'da_acquistare',t:'Da sbloccare'}]" :key="f.v">
+                      <template x-for="f in editorFilterOptions()" :key="f.v">
                         <button type="button" role="radio" :aria-checked="editorFilter === f.v" @click="editorFilter = f.v"
                           class="segmento" :class="editorFilter === f.v ? 'segmento-attivo' : ''" x-text="f.t"></button>
                       </template>
@@ -1239,7 +1243,7 @@
                               </span>
                               <button type="button" @click="addStop('item', it['@id'])" :disabled="itemInVisit(it['@id'])"
                                 class="btn-secondario shrink-0"
-                                :aria-label="(itemInVisit(it['@id']) ? 'Già nel percorso: ' : 'Aggiungi al percorso: ') + it.educationalLevel + ' di ' + g.artwork.name">
+                                :aria-label="addToPathLabel(it, g.artwork.name)">
                                 <span x-text="itemInVisit(it['@id']) ? 'Aggiunta' : 'Aggiungi'"></span>
                               </button>
                             </li>
@@ -1261,9 +1265,6 @@
                 <fieldset>
                   <legend class="etichetta">Come si accede a questa visita</legend>
                   <div class="mt-3 flex flex-col gap-3" role="radiogroup" aria-label="Tipo di visita">
-                    <!-- x-model.boolean: senza il modificatore il valore che torna dal
-                         radio e' la STRINGA "false", che e' vera, e la visita restava
-                         guidata per sempre. -->
                     <label class="scelta cursor-pointer" :class="!draft.guidata ? 'scelta-attiva' : ''">
                       <input type="radio" name="tipo-visita" value="false" x-model.boolean="draft.guidata" class="sr-only">
                       <span class="font-medium">In vetrina</span>
@@ -1363,7 +1364,7 @@
 
           <!-- ---------- VENDITE ---------- -->
           <section x-show="view === 'vendite'"
-            x-init="if (view === 'vendite') loadSales(); $watch('view', v => { if (v === 'vendite') loadSales() })">
+            x-init="watchSales(); $watch('view', () => watchSales())">
             <h1 class="font-display text-title-1">Vendite e adozioni</h1>
             <p class="mt-1 text-small text-muted" x-text="selectedMuseum ? selectedMuseum.name : ''"></p>
 
@@ -1458,7 +1459,7 @@
                 <div x-show="overview.copertura.senzaDescrizione.length > 0" class="avviso mt-4">
                   <p>
                     <strong x-text="overview.copertura.senzaDescrizione.length"></strong>
-                    <span x-text="overview.copertura.senzaDescrizione.length === 1 ? ' opera non ha nessuna descrizione:' : ' opere non hanno nessuna descrizione:'"></span>
+                    <span x-text="senzaDescrizioneLabel()"></span>
                     <span x-text="overview.copertura.senzaDescrizione.map(o => o.name).join(', ')"></span>
                   </p>
                 </div>

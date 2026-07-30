@@ -9,7 +9,7 @@
  * E' lento per costruzione: ogni item e' una chiamata all'LLM, con una pausa fra
  * una e l'altra per non superare i limiti di frequenza.
  */
-import "./env";
+import { MONGO_URI } from "./env";
 import mongoose from "mongoose";
 import { ArtworkModel } from "./models/artwork";
 import { ItemModel } from "./models/item";
@@ -26,10 +26,6 @@ import { downloadImage } from "./services/imageDownloader";
 import { educationalLevels, secPerArt } from "../../shared/constants";
 import { museums } from "./data/museumContent";
 import { costruisciQuiz } from "./data/quiz";
-
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  "mongodb://localuser:localpassword@localhost:27017/artaround?authSource=admin";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function seed() {

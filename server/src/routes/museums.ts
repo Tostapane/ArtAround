@@ -10,6 +10,8 @@
  * `/visits` filtra per chi guarda: le visite guidate non compaiono mai (ci si
  * entra con la parola chiave) e quelle a pagamento solo a chi le possiede.
  * `/qrcodes` produce il foglio stampabile da ritagliare e affiancare alle opere.
+ * L'elenco porta i CONTEGGI di opere e visite: da quando il client scarica il
+ * catalogo di un museo alla volta, non puo' piu' contare quelli che non ha.
  */
 import { Router } from "express";
 import QRCode from "qrcode";
@@ -48,7 +50,15 @@ function escapeHtml(value: string): string {
 
 router.get("/", async (req, res) => {
   try {
-    const museums = await MuseumModel.find({});
+    const museums = await MuseumModel.find({}).lean();
+    for (const m of museums as any[]) {
+      const uri = museumUri(m.qid);
+      m.opere = await ArtworkModel.countDocuments({ ofMuseum: uri });
+      m.visite = await VisitModel.countDocuments({
+        ofMuseum: uri,
+        accessKey: { $in: [null, ""] },
+      });
+    }
     res.json(museums);
   } catch (err) {
     res.status(500).json({ error: "Errore nel caricamento dei musei" });

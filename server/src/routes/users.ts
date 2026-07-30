@@ -145,6 +145,10 @@ router.post("/:username/buy", async (req, res) => {
 /**
  * GET /api/users/:username/sales
  * Ritorna: una riga per contenuto pubblicato, con adozioni e ricavo.
+ *
+ * Le adozioni si contano con UNA query e un conteggio in memoria. Una query per
+ * riga sarebbe piu' breve da scrivere ma il numero di richieste crescerebbe col
+ * catalogo dell'autore, e ognuna sarebbe a sua volta una scansione di `users`.
  */
 router.get("/:username/sales", async (req, res) => {
   try {
@@ -183,10 +187,23 @@ router.get("/:username/sales", async (req, res) => {
       });
     }
 
+    const ids = rows.map((r) => r.id);
+    const wanted = new Set(ids);
+    const holders = await UserModel.find({ collezione: { $in: ids } })
+      .select("collezione")
+      .lean();
+
+    const adoptions = new Map<string, number>();
+    for (const u of holders) {
+      for (const id of u.collezione || []) {
+        if (!wanted.has(id)) continue;
+        adoptions.set(id, (adoptions.get(id) || 0) + 1);
+      }
+    }
     for (const r of rows) {
-      const adozioni = await UserModel.countDocuments({ collezione: r.id });
-      r.adozioni = adozioni;
-      r.ricavo = adozioni * (r.price || 0);
+      const n = adoptions.get(r.id) || 0;
+      r.adozioni = n;
+      r.ricavo = n * (r.price || 0);
     }
 
     res.json(rows);
