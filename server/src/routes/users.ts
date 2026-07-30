@@ -2,7 +2,11 @@
  * Rotte degli account.
  *
  * Il ruolo non si chiede a chi entra: lo deduce il server dalle credenziali, e lo
- * domanda solo nel caso raro in cui le stesse credenziali valgano per due profili.
+ * domanda solo nel caso raro in cui le stesse credenziali valgano per piu' profili.
+ * In registrazione invece il ruolo fa parte dell'identita' e va dichiarato: lo
+ * stesso username puo' essere registrato una volta per ruolo, come account
+ * distinti, quindi il conflitto (409) e' sulla coppia (username, role).
+ * Il portafoglio nasce solo sul visitatore: autore e curatore non comprano.
  * L'acquisto legge il prezzo dal contenuto sul server, mai dal client.
  * I ricavi non vengono accreditati su un portafoglio: si vedono nel resoconto
  * vendite, perche' account autore e visitatore sono separati.
@@ -24,15 +28,14 @@ function sanitize(u: any) {
 }
 
 function isValidRole(role: any): boolean {
-  return role === "autore" || role === "visitatore";
+  return role === "autore" || role === "visitatore" || role === "curatore";
 }
+
+// --- Registrazione e accesso ------------------------------------------------
 
 /**
  * POST /api/users/register  { username, password, role }
- * Crea un nuovo account con un ruolo (autore o visitatore) e lo restituisce
- * (senza password). Il ruolo fa parte dell'identità: lo stesso username può
- * essere registrato una volta come autore e una come visitatore (account
- * distinti). Il conflitto è quindi sulla coppia (username, role).
+ * Ritorna: l'account creato senza password. 409 se la coppia esiste gia'.
  */
 router.post("/register", async (req, res) => {
   try {
@@ -58,6 +61,11 @@ router.post("/register", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/users/login  { username, password, role? }
+ * Ritorna: l'account senza password; 300 { scelta, ruoli } se le stesse
+ * credenziali valgono per piu' profili e il ruolo non e' stato dichiarato.
+ */
 router.post("/login", async (req, res) => {
   try {
     const { username, password, role } = req.body;
@@ -93,6 +101,13 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// --- Acquisto e resoconto vendite -------------------------------------------
+
+/**
+ * POST /api/users/:username/buy  { itemId }
+ * Ritorna: l'account aggiornato (portafoglio e collezione). 400 se il credito
+ * non basta; il prezzo lo legge il server dal contenuto, mai dal client.
+ */
 router.post("/:username/buy", async (req, res) => {
   try {
     const { username } = req.params;
@@ -127,6 +142,10 @@ router.post("/:username/buy", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/users/:username/sales
+ * Ritorna: una riga per contenuto pubblicato, con adozioni e ricavo.
+ */
 router.get("/:username/sales", async (req, res) => {
   try {
     const { username } = req.params;

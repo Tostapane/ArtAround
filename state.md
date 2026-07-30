@@ -29,7 +29,14 @@
 | Module I (18–27) | teacher-synchronized visit + end-of-visit quiz | Sync: **complete end-to-end**. Quiz: **complete end-to-end** since 2026-07-28 (§0.2) |
 | Module II (18–33) | QR localization, **teleport module**, deep LLM integration | QR: done. LLM (4 uses): done. **Teleport: not started** (§9.3) |
 
-One blocker remains for the declared 18-33 target: the **teleport module does not exist**.
+Two blockers for the declared 18-33 target, and the second one is new:
+
+1. the **teleport module does not exist** (§7.1);
+2. **the database contains no guided visit** — 0 with `accessKey`, 0 with a quiz, 0 with
+   optional stops (§3.5). Module I is implemented and was proved against the running server,
+   but a demo today has nothing to run it on. `seedSpecialVisits()` was never executed; it
+   *would* work now. This is the cheaper of the two to fix by a wide margin.
+
 Everything else is in place and type-checks cleanly (`vue-tsc` and `tsc` both pass on all
 three parts).
 
@@ -162,6 +169,44 @@ editing: the parser reads `cx/cy` or `x/y/width/height` **verbatim** (a `transfo
 `data-*` element is not applied), and resizing a POI/obstacle square means recomputing `x`
 and `y` to keep its centre — the centre is what decides its room.
 
+### 1.2 Convenzioni di codice — vincolanti, e da far rispettare
+
+Tre regole, volute dall'utente, valide su tutto il codice delle tre parti:
+
+1. **Le spiegazioni stanno in cima al file, e solo lì.** Ogni file `.ts`/`.vue` porta un
+   commento descrittivo di testa che dice cosa fa e perché; se qualcosa dentro il file ha
+   bisogno di essere spiegato, la spiegazione **sale nell'intestazione**, non resta accanto
+   alla riga. Niente commenti esplicativi sparsi nel mezzo.
+2. **I separatori sono ammessi**: `// ====` e `// ----` per dividere le parti di un file,
+   più le etichette corte di sezione nei template (`<!-- MAPPA -->`). Sono insegne, non
+   spiegazioni.
+3. **Le rotte fanno eccezione, in forma breve.** Sopra ogni endpoint sta il suo contratto —
+   metodo, percorso e cosa restituisce — perché è la cosa che si va a cercare leggendo un
+   file di rotte:
+
+   ```ts
+   /**
+    * POST /api/translate
+    * Ritorna: { testi: string[] } tradotti nella lingua richiesta.
+    */
+   ```
+
+   Due o tre righe, non un paragrafo: il *perché* di una scelta resta in cima al file.
+4. **Commenti in italiano, identificatori in inglese.**
+
+Restano deliberatamente in italiano, perche' non sono "variabili e funzioni": il copy
+dell'interfaccia e i messaggi d'errore, le classi CSS (`.lastra`, `.btn-primario`,
+`.pastiglia`, `.pianta` — vocabolario grafico), i nomi delle rotte (`#/opere`, `#/componi`:
+compaiono nell'URL, quindi sono superficie utente), i nomi dei file dei componenti
+(`Biglietteria.vue`, `Scheda.vue`) e **le chiavi del formato di scambio col server**
+(`tipo`, `titolo`, `percorso`, `id_item`, `stato`, `partecipanti`, `collezione`…).
+Quest'ultima e' la principale incoerenza rimasta: rinominarle richiede di toccare client e
+server insieme, in un passaggio dedicato.
+
+⚠️ **La regola si fa rispettare, non solo si segue.** Chi tocca un file che la viola —
+commento esplicativo in mezzo al codice, intestazione assente, identificatore in italiano —
+**la corregge li', in quel passaggio**, invece di lasciarla passare.
+
 ---
 
 ## 2. Data model (`shared/types.ts` — authoritative)
@@ -188,6 +233,11 @@ and `y` to keep its centre — the centre is what decides its room.
   `autore` and a `visitatore` with the same username are *distinct, unlinked accounts*.
   `wallet` exists only on visitors; `collezione` is the owned-content id list.
   Password stored in clear (security is explicitly not graded).
+  **Three roles since 2026-07-30**: `visitatore` consumes, `autore` produces, **`curatore`**
+  answers for the *museum* — it watches the catalogue's coverage and removes what should not
+  be there. A curator has neither wallet nor collection, and is not self-registerable: the
+  account comes from `testers.ts account` (`curatore1` / `12345678`). It is **not a slide
+  requirement** — the four mandated accounts remain two authors and two visitors.
 - **Match** — `{artwork, item}`; the join is done **server-side**, never in the client.
 
 The four slide-mandated metadata are covered: **lunghezza** (`timeRequired`), **linguaggio**
@@ -280,8 +330,18 @@ diverse prima di essere fissata: tutte e tre passano AA senza ritocchi.
 | `POST /speech` (multipart) · `POST /speech/tts` | STT → `mapRequest` → controlled command; TTS → MP3 | navigator |
 | `POST /translate` | `{texts[], target}`, in-memory cache keyed `target+text` | navigator |
 | `POST /wayfinding` | `{museumQid, from, target, language, detailed}` → room name (simple) or LLM-verbalized route (detailed) | navigator |
+| `DELETE /items/:id` · `GET /items/:id/impact` | delete an item **with cascade** (see below); `impact` reports what would go, and writes nothing | marketplace (curatore) |
+| `GET /museums/:qid/overview` · `/items` | counts + coverage; ALL items of the museum incl. private (`GET /items` hides them) | marketplace (curatore) |
 | `/guided-sessions/*` | ephemeral synchronized-visit backbone (§3.4) | navigator + marketplace |
 | `GET /health` | liveness | — |
+
+**The cascade is the load-bearing part of item deletion.** An item cited by a visit cannot
+vanish alone: it would leave a stop that does not resolve, and an unresolvable stop raises no
+error — it simply fails to appear. So `DELETE /items/:id` also deletes every visit whose
+`itemListElement` contains it, and pulls both the item and those visits out of every
+`collezione`. `GET /:id/impact` exists so the UI can *state the blast radius before asking
+for confirmation* rather than discovering it afterwards. Verified end-to-end on throwaway
+data (8 assertions), including that an unrelated item sharing the same visit survives.
 
 ### 3.2 The four LLM uses (slide 31) — all present
 
@@ -365,12 +425,35 @@ Notable server-side rules:
   excluded from both answers and distractors; a shape that cannot find three distinct
   distractors is skipped rather than padded.
 
-⚠️ **`seedSpecialVisits()` currently matches nothing and returns silently.** It queries
-`educationalLevels[0]` + `secPerArt[0]` = *Infantile / 15s*, and the live DB holds only
-`Semplice`, `Medio`, `Avanzato` at durations 15/30/60 — the constants were migrated, the
-stored rows only partly (§9.4, `testers.ts toni`). So both demo visits, quiz included, are
-**not refreshed by a run today**: it prints "esegui prima seed()" and stops. Either re-run
-the full seed (slow: 8 LLM items per artwork) or reconcile the levels first.
+⚠️ **`seedSpecialVisits()` non è mai stato eseguito, e questo è il buco aperto più grave**
+(misurato sul database vivo il 2026-07-30, non dedotto).
+
+La vecchia versione di questa nota diceva che la funzione non trovava nulla perché il
+database si fermava a tre toni. **Non è più vero**: il database è stato riseminato per
+intero — 13 opere e **104 item per museo**, tutti e quattro i toni coperti al 100%,
+`Infantile` compreso. Quindi `seedSpecialVisits()` oggi *funzionerebbe*.
+
+Solo che non è stato lanciato, e si vede da cosa manca:
+
+| Cosa | Nel database |
+| --- | --- |
+| Visite totali | 24 (8 per museo = 4 toni × 2 durate) |
+| Visite con `accessKey` (guidate) | **0** |
+| Visite con `quiz` | **0** |
+| Visite con `optionalItems` | **0** |
+
+Le conseguenze non sono cosmetiche:
+
+- **il modulo I (18-27) non ha niente da mostrare.** Niente visita guidata ⇒ niente sala
+  d'attesa, niente sincronizzazione, niente quiz. Il codice c'è ed è stato provato contro il
+  server; è il *dato* che manca;
+- l'unica visita con tappe opzionali non esiste, quindi la levetta di `Stage.vue` non ha
+  dati su cui comparire;
+- i nomi sono tornati quelli automatici (`Visita Infantile · 15s per opera`): dopo la
+  risemina **`testers.ts nomi` non è stato rieseguito**.
+
+Rimedio: `npx ts-node src/testers.ts nomi`, e far girare `seedSpecialVisits()` — che ora
+trova quel che cerca. Non serve rifare il seed completo (lento: 8 item LLM per opera).
 
 ---
 
@@ -474,7 +557,54 @@ remove; **logistics notes are visually distinct rows with no number** — they a
 A sticky bar states `validazioneVisita()` **as text** at all times, and the publish button
 says `Attiva la visita guidata` when guided — it is not published to the marketplace.
 
-### 4.14 `vendite`
+### 4.14 `gestione` / 4.15 `catalogo` — le due schermate del curatore *(nuove 2026-07-30)*
+
+> La rotta si chiamava `curatela` per mezza giornata. **Non usare quella parola**: in
+> italiano *curatela* è un istituto giuridico — l'amministrazione dei beni di un incapace, o
+> la procedura fallimentare — e non ha niente a che vedere con i musei. `curatore` invece è
+> il termine corretto e resta il nome del ruolo. Il vocabolario dell'interfaccia è parola
+> d'uso comune: `#/gestione`, «Gestione del museo».
+
+**`gestione`** — quattro cifre (opere, descrizioni, visite, visite guidate), poi la parte che
+serve davvero: **la copertura**. Una barra per tono, «quante opere hanno almeno una
+descrizione in quel tono»: non è una statistica, è lavoro da assegnare a un autore, e un tono
+fermo a zero si colora d'allarme perché vuol dire che nel museo quel tono non esiste. Sotto,
+l'elenco delle opere senza nessuna descrizione, e in coda il totale degli account registrati.
+
+**`catalogo`** — una tabella di tutto quel che esiste nel museo, **descrizioni private e
+visite guidate comprese**, che negli altri elenchi non compaiono per costruzione. Colonne:
+titolo, tipo, autore, tono, **durata**, prezzo, azione. Ricerca più quattro filtri — tipo,
+tono, autore, durata — conteggio dei risultati in `role="status"`, `Elimina` su ogni riga.
+La conferma **dichiara la cascata per esteso** e il bottone resta disabilitato finché
+`GET /items/:id/impact` non ha risposto: non si chiede di confermare una cosa di cui non si è
+ancora detta la portata.
+
+⚠️ **La colonna durata non è decorazione: senza, la tabella è ambigua.** Una descrizione è
+unica per (opera, autore, tono, **durata**), e il seed produce 4 toni × 2 durate: ogni riga ha
+quindi una gemella identica in titolo, tipo, autore, tono e prezzo. Prima di aggiungerla, le
+due righe della Gioconda/Infantile erano indistinguibili a schermo — e l'azione disponibile è
+un'eliminazione irreversibile. Per lo stesso motivo le descrizioni mostrano i **secondi
+esatti** (`15 s`, `60 s`) invece di `formatDuration()`, che le appiattirebbe entrambe su
+«meno di 1 min»/«1 min»: è un'eccezione voluta alla regola «mai secondi nudi», dichiarata in
+testa a `state.ts`. Le visite restano in minuti.
+
+Il **filtro durata è contestuale**: compare solo scegliendo *Descrizioni* (le due durate reali,
+da `secPerArt`) o *Visite* (fasce in minuti), e si azzera al cambio di tipo. Su *Tutto* non
+compare, con una riga che dice perché — i secondi di una descrizione e i minuti di una visita
+non si filtrano con le stesse soglie, e un filtro unico sarebbe una trappola.
+
+> **Perché non c'è un «utenti collegati».** Era la prima richiesta, ed è stata scartata per
+> un motivo strutturale: **il sistema non ha sessioni** (la persistenza è stata rimossa per
+> volontà esplicita, §0.2). Il server non sa chi è entrato, quindi qualunque numero di
+> «online» sarebbe inventato. Gli account si contano, ma sono **iscritti, non collegati**.
+>
+> Un pannello «sale guidate aperte» (presenza reale, dal battito degli studenti) è stato
+> **costruito e poi rimosso** nella potatura: costava ~120 righe su quattro file, duplicava
+> quel che il docente già vede nella *sua* sala, e non era dimostrabile perché nel database
+> non esiste una visita guidata (§3.5). Se un giorno serve una vista di museo, il pezzo
+> mancante è solo `listSessionsForMuseum` — recuperabile da git.
+
+### 4.16 `vendite`
 
 Real `<table>` with `scope`, tabular figures, museum-scoped totals. Free content shows
 adoptions with revenue `—`: the revenue of free content isn't `€ 0,00`, it doesn't exist.

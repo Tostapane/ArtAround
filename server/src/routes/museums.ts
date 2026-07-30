@@ -1,6 +1,10 @@
 /**
  * Rotte dei musei.
  *
+ * `/overview` e `/items` sono le due letture del CURATORE: la prima da' conteggi e
+ * copertura del catalogo, la seconda tutti gli item del museo — privati compresi,
+ * ed e' la differenza con `GET /api/items`, che li nasconde.
+ *
  * `/config` legge il museo dal FILE DI CONFIGURAZIONE del curatore invece che dal
  * database: e' quello il file che si modifica per adattare il navigator.
  * `/visits` filtra per chi guarda: le visite guidate non compaiono mai (ci si
@@ -13,9 +17,20 @@ import fs from "fs";
 import path from "path";
 import { MuseumModel } from "../models/museum";
 import { ArtworkModel } from "../models/artwork";
+import { ItemModel } from "../models/item";
 import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
+import { educationalLevels } from "../../../shared/constants";
 const router = Router();
+
+function museumUri(qid: string): string {
+  return `http://www.wikidata.org/entity/${qid}`;
+}
+
+async function artworkIdsOf(qid: string): Promise<string[]> {
+  const artworks = await ArtworkModel.find({ ofMuseum: museumUri(qid) });
+  return artworks.map((a) => a["@id"]);
+}
 
 const CONFIG_DIR = path.join(__dirname, "..", "data", "museums");
 
@@ -163,6 +178,96 @@ router.get("/:qid/qrcodes", async (req, res) => {
     res.type("html").send(html);
   } catch (err: any) {
     res.status(500).json({ error: "Errore nella generazione dei QR" });
+  }
+});
+
+// --- Letture del curatore ---------------------------------------------------
+
+/**
+ * GET /api/museums/:qid/overview
+ * Ritorna: { conteggi, copertura, account } del museo indicato.
+ */
+router.get("/:qid/overview", async (req, res) => {
+  try {
+    const { qid } = req.params;
+    const artworks = await ArtworkModel.find({ ofMuseum: museumUri(qid) });
+    const artworkIds = artworks.map((a) => a["@id"]);
+
+    const items = await ItemModel.find({ about: { $in: artworkIds } });
+    const visits = await VisitModel.find({ ofMuseum: museumUri(qid) });
+
+    const descritte = new Set<string>();
+    const opereConTono = new Map<string, Set<string>>();
+    for (const tono of educationalLevels) opereConTono.set(tono, new Set());
+
+    let privati = 0;
+    for (const it of items) {
+      descritte.add(it.about);
+      const perTono = opereConTono.get(it.educationalLevel);
+      if (perTono) perTono.add(it.about);
+      if (it.visibility === "privato") privati++;
+    }
+
+    const senzaDescrizione = [];
+    for (const a of artworks) {
+      if (!descritte.has(a["@id"]))
+        senzaDescrizione.push({ qid: a.qid, name: a.name });
+    }
+
+    const perTono = educationalLevels.map((tono) => ({
+      tono,
+      opere: opereConTono.get(tono)!.size,
+    }));
+
+    let guidate = 0;
+    for (const v of visits) {
+      if (v.accessKey) guidate++;
+    }
+
+    const autori = await UserModel.countDocuments({ role: "autore" });
+    const visitatori = await UserModel.countDocuments({ role: "visitatore" });
+    const curatori = await UserModel.countDocuments({ role: "curatore" });
+
+    res.json({
+      conteggi: {
+        opere: artworks.length,
+        item: items.length,
+        itemPrivati: privati,
+        visite: visits.length,
+        visiteGuidate: guidate,
+      },
+      copertura: {
+        opereTotali: artworks.length,
+        senzaDescrizione,
+        perTono,
+      },
+      account: { autori, visitatori, curatori },
+    });
+  } catch (err: any) {
+    console.error("[BACKEND ERROR] overview museo:", err);
+    res.status(500).json({ error: err.message || "Errore nel quadro d'insieme" });
+  }
+});
+
+/**
+ * GET /api/museums/:qid/items
+ * Ritorna: TUTTI gli item del museo, privati compresi, con l'opera popolata.
+ * E' la differenza con `GET /api/items`, che i privati li nasconde.
+ */
+router.get("/:qid/items", async (req, res) => {
+  try {
+    const artworkIds = await artworkIdsOf(req.params.qid);
+    const items = await ItemModel.find({ about: { $in: artworkIds } }).populate({
+      path: "about",
+      model: "Artwork",
+      foreignField: "@id",
+      localField: "about",
+      justOne: true,
+    });
+    res.json(items);
+  } catch (err: any) {
+    console.error("[BACKEND ERROR] catalogo museo:", err);
+    res.status(500).json({ error: err.message || "Errore nel catalogo" });
   }
 });
 

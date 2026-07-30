@@ -2,6 +2,19 @@
 <html lang="it">
 
 <head>
+  <!--
+    IL MARKETPLACE — pagina unica. Alpine da /vendor, TypeScript compilato da
+    /dist, nessun impacchettatore. Ogni schermata ha un indirizzo: decide `view`,
+    guidato dal router a frammento in state.ts. [x-cloak] sulla radice evita che
+    le schermate compaiano impilate prima che Alpine parta.
+
+    ⚠️ Le espressioni Alpine sono STRINGHE: nessun compilatore le controlla e un
+    nome sbagliato fallisce in silenzio a schermo (e' costato la tabella delle
+    vendite, vuota per settimane dopo una rinomina). Dopo ogni modifica ai
+    binding, ricontrollare che ogni chiamata risolva a un membro di AppState. E
+    per i dati che arrivano entrando in una schermata servono DUE inneschi, il
+    `$watch` e il caso iniziale: entrando dall'indirizzo diretto non scatta.
+  -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="ArtAround — prepara, scopri e vivi la visita di un museo.">
@@ -321,6 +334,20 @@
                     {id:'nuovo',   ico:'#ico-opere',   raw:'Descrizione'},
                     {id:'componi', ico:'#ico-componi', raw:'Visita'},
                     {id:'vendite', ico:'#ico-vendite', raw:'Vendite'}
+                  ]" :key="v.id">
+                  <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
+                    :aria-current="view === v.id ? 'page' : false">
+                    <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
+                    <span x-text="v.raw"></span>
+                  </a>
+                </template>
+              </li>
+            </template>
+            <template x-if="currentUserRole === 'curatore'">
+              <li class="contents">
+                <template x-for="v in [
+                    {id:'gestione', ico:'#ico-museo',  raw:'Il museo'},
+                    {id:'catalogo', ico:'#ico-lavori', raw:'Catalogo'}
                   ]" :key="v.id">
                   <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
                     :aria-current="view === v.id ? 'page' : false">
@@ -1335,11 +1362,6 @@
           </section>
 
           <!-- ---------- VENDITE ---------- -->
-          <!-- Il $watch guardava 'vista', rimasto dalla rinomina: la proprieta'
-               non esiste piu', Alpine lanciava e il guardiano non si registrava.
-               loadSales() non era raggiungibile da nessun'altra parte, quindi la
-               tabella restava vuota per sempre. Serve anche il caso iniziale:
-               entrando da #/vendite il guardiano non scatta. -->
           <section x-show="view === 'vendite'"
             x-init="if (view === 'vendite') loadSales(); $watch('view', v => { if (v === 'vendite') loadSales() })">
             <h1 class="font-display text-title-1">Vendite e adozioni</h1>
@@ -1391,6 +1413,173 @@
             </p>
           </section>
 
+          <!-- ---------- GESTIONE DEL MUSEO ---------- -->
+          <section x-show="view === 'gestione'">
+            <h1 class="font-display text-title-1">Gestione del museo</h1>
+            <p class="mt-1 text-small text-muted" x-text="selectedMuseum ? selectedMuseum.name : ''"></p>
+
+            <template x-if="overview">
+              <div>
+                <div class="mt-6 flex flex-wrap gap-4">
+                  <template x-for="c in [
+                      {etichetta:'Opere',          n: overview.conteggi.opere},
+                      {etichetta:'Descrizioni',    n: overview.conteggi.item},
+                      {etichetta:'Visite',         n: overview.conteggi.visite},
+                      {etichetta:'Visite guidate', n: overview.conteggi.visiteGuidate}
+                    ]" :key="c.etichetta">
+                    <div class="lastra px-5 py-4">
+                      <p class="text-caption uppercase tracking-wider text-muted" x-text="c.etichetta"></p>
+                      <p class="tabular font-display text-title-1" x-text="c.n"></p>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- COPERTURA -->
+                <h2 class="mt-10 font-display text-title-2">Copertura del catalogo</h2>
+                <p class="mt-1 text-small text-muted">
+                  Opere con almeno una descrizione, per tono.
+                </p>
+                <ul class="lastra mt-4 divide-y divide-line">
+                  <template x-for="r in overview.copertura.perTono" :key="r.tono">
+                    <li class="flex items-center gap-4 px-5 py-4">
+                      <span class="w-28 shrink-0 text-small font-medium" x-text="r.tono"></span>
+                      <span class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+                        <span class="block h-full rounded-full"
+                          :class="r.opere === 0 ? 'bg-danger' : 'bg-accent'"
+                          :style="'width:' + percentualeCopertura(r) + '%'"></span>
+                      </span>
+                      <span class="tabular w-20 shrink-0 text-right text-small"
+                        :class="r.opere === 0 ? 'text-danger font-medium' : 'text-muted'"
+                        x-text="r.opere + ' / ' + overview.copertura.opereTotali"></span>
+                    </li>
+                  </template>
+                </ul>
+
+                <div x-show="overview.copertura.senzaDescrizione.length > 0" class="avviso mt-4">
+                  <p>
+                    <strong x-text="overview.copertura.senzaDescrizione.length"></strong>
+                    <span x-text="overview.copertura.senzaDescrizione.length === 1 ? ' opera non ha nessuna descrizione:' : ' opere non hanno nessuna descrizione:'"></span>
+                    <span x-text="overview.copertura.senzaDescrizione.map(o => o.name).join(', ')"></span>
+                  </p>
+                </div>
+
+                <p class="mt-10 text-caption text-muted">
+                  Account registrati:
+                  <span x-text="accountLine()"></span>
+                </p>
+              </div>
+            </template>
+
+            <div x-show="!overview" class="vuoto mt-6">
+              <p>Sto leggendo lo stato del museo…</p>
+            </div>
+          </section>
+
+          <!-- ---------- CATALOGO DEL MUSEO ---------- -->
+          <section x-show="view === 'catalogo'">
+            <h1 class="font-display text-title-1">Catalogo del museo</h1>
+            <p class="mt-1 text-small text-muted" x-text="selectedMuseum ? selectedMuseum.name : ''"></p>
+            <p class="mt-3 text-small text-muted">
+              Comprende le descrizioni private e le visite guidate. L'eliminazione è definitiva.
+            </p>
+
+            <div class="mt-6 flex flex-wrap items-end gap-4">
+              <div class="min-w-[16rem] flex-1">
+                <label for="cerca-catalogo" class="etichetta">Cerca</label>
+                <input id="cerca-catalogo" type="search" class="campo" x-model="catalogSearch"
+                  placeholder="Titolo, autore o tono">
+              </div>
+              <div>
+                <span class="etichetta" id="tipo-catalogo-label">Tipo</span>
+                <div class="segmenti" role="group" aria-labelledby="tipo-catalogo-label">
+                  <button type="button" class="segmento" :class="catalogTypeFilter === 'tutti' ? 'segmento-attivo' : ''"
+                    :aria-pressed="catalogTypeFilter === 'tutti'" @click="setCatalogType('tutti')">Tutto</button>
+                  <button type="button" class="segmento" :class="catalogTypeFilter === 'item' ? 'segmento-attivo' : ''"
+                    :aria-pressed="catalogTypeFilter === 'item'" @click="setCatalogType('item')">Descrizioni</button>
+                  <button type="button" class="segmento" :class="catalogTypeFilter === 'visite' ? 'segmento-attivo' : ''"
+                    :aria-pressed="catalogTypeFilter === 'visite'" @click="setCatalogType('visite')">Visite</button>
+                </div>
+              </div>
+              <div>
+                <label for="tono-catalogo" class="etichetta">Tono</label>
+                <select id="tono-catalogo" class="campo" x-model="catalogToneFilter">
+                  <option value="tutti">Tutti i toni</option>
+                  <template x-for="t in tones" :key="t">
+                    <option :value="t" x-text="t"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label for="autore-catalogo" class="etichetta">Autore</label>
+                <select id="autore-catalogo" class="campo" x-model="catalogAuthorFilter">
+                  <option value="tutti">Tutti gli autori</option>
+                  <template x-for="a in catalogAuthors()" :key="a">
+                    <option :value="a" x-text="a"></option>
+                  </template>
+                </select>
+              </div>
+              <div x-show="catalogDurationOptions().length > 0">
+                <label for="durata-catalogo" class="etichetta">Durata</label>
+                <select id="durata-catalogo" class="campo" x-model="catalogDurationFilter">
+                  <option value="tutti">Qualsiasi durata</option>
+                  <template x-for="d in catalogDurationOptions()" :key="d.value">
+                    <option :value="d.value" x-text="d.label"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+            <p x-show="catalogTypeFilter === 'tutti'" class="mt-2 text-caption text-muted">
+              Scegli <strong>Descrizioni</strong> o <strong>Visite</strong> per filtrare anche per durata.
+            </p>
+
+            <p class="mt-4 text-small text-muted" role="status">
+              <span class="tabular" x-text="catalogRows().length"></span>
+              <span x-text="catalogRows().length === 1 ? ' risultato' : ' risultati'"></span>
+            </p>
+
+            <div class="lastra mt-3 overflow-x-auto">
+              <table class="w-full text-left text-small">
+                <caption class="sr-only">Contenuti e visite del museo, con autore, tono, durata, prezzo e azione di eliminazione</caption>
+                <thead>
+                  <tr class="border-b border-line bg-surface-2 text-caption uppercase tracking-wider text-muted">
+                    <th scope="col" class="px-4 py-3 font-medium">Titolo</th>
+                    <th scope="col" class="px-4 py-3 font-medium">Tipo</th>
+                    <th scope="col" class="px-4 py-3 font-medium">Autore</th>
+                    <th scope="col" class="px-4 py-3 font-medium">Tono</th>
+                    <th scope="col" class="px-4 py-3 text-right font-medium">Durata</th>
+                    <th scope="col" class="px-4 py-3 text-right font-medium">Prezzo</th>
+                    <th scope="col" class="px-4 py-3 text-right font-medium">Azione</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="r in catalogRows()" :key="r.kind + r.id">
+                    <tr class="border-b border-line last:border-0">
+                      <th scope="row" class="px-4 py-3 font-medium">
+                        <span x-text="r.name"></span>
+                        <span x-show="r.privato" class="pastiglia pastiglia-ardesia ml-2">Privata</span>
+                        <span x-show="r.guidata" class="pastiglia pastiglia-ardesia ml-2">Guidata</span>
+                      </th>
+                      <td class="px-4 py-3">
+                        <span class="pastiglia pastiglia-ardesia" x-text="r.kind === 'item' ? 'Descrizione' : 'Visita'"></span>
+                      </td>
+                      <td class="px-4 py-3 text-muted" x-text="r.author"></td>
+                      <td class="px-4 py-3 text-muted" x-text="r.tone || '—'"></td>
+                      <td class="tabular px-4 py-3 text-right" x-text="durationLabel(r)"></td>
+                      <td class="valore px-4 py-3 text-right" x-text="readablePrice(r.price)"></td>
+                      <td class="px-4 py-3 text-right">
+                        <button type="button" class="btn-pericolo" @click="openDeleteRow(r)"
+                          :aria-label="'Elimina ' + r.name">Elimina</button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <div x-show="catalogRows().length === 0" class="vuoto border-0">
+                <p>Nessun contenuto corrisponde a quello che hai cercato.</p>
+              </div>
+            </div>
+          </section>
+
         </div>
       </main>
     </div>
@@ -1404,8 +1593,9 @@
         <p id="conferma-testo" class="mt-3 text-body text-muted" x-text="confirmMessage()"></p>
         <div class="mt-7 flex justify-end gap-3">
           <button type="button" @click="cancelConfirm()" class="btn-secondario">Annulla</button>
-          <button type="button" @click="runConfirm()"
-            :class="visitToDelete ? 'btn-pericolo-pieno' : 'btn-primario'" x-text="confirmVerb()"></button>
+          <button type="button" @click="runConfirm()" :disabled="!confirmReady()"
+            :class="(visitToDelete || itemToDelete) ? 'btn-pericolo-pieno' : 'btn-primario'"
+            x-text="confirmVerb()"></button>
         </div>
       </div>
     </div>

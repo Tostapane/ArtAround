@@ -1,16 +1,13 @@
 /**
  * Documento Mongoose di un contenuto (item).
  *
- * `about` e' salvato come stringa: il collegamento all'opera si espande solo
- * quando serve al client.
+ * `about` e' salvato come stringa — l'`@id` dell'opera — e non come oggetto: il
+ * collegamento si espande con `populate` solo quando serve al client. Per questo
+ * IItem restringe il tipo condiviso invece di ereditarlo tale e quale.
  */
 import { Schema, model } from "mongoose";
 import { Item as SharedItem } from "../../../shared/types";
 
-/**
- * Interface representing the Item (CreativeWork) document in Mongoose.
- * Extends SharedItem but forces 'about' to be a string (Artwork ID) for DB storage.
- */
 export interface IItem extends Omit<SharedItem, "about"> {
   "@context": string;
   "@type": string;

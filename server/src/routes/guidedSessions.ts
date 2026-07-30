@@ -1,29 +1,7 @@
 /**
- * Sessioni di visita guidata (modulo 18-27).
- *
- * Vivono SOLO in memoria: quando il docente termina, o il server riparte, non
- * resta traccia — che e' esattamente quel che chiede la specifica. Il trasporto e'
- * a interrogazione periodica, senza WebSocket.
- *
- * Due meccanismi meritano una nota:
- * - la presenza degli studenti si deduce dall'interrogazione stessa, che vale come
- *   "sono ancora qui"; chi non si fa vivo entro il tempo limite sparisce dalla
- *   lista del docente;
- * - le domande sono una coda di consegna, non uno storico: il docente le ritira e
- *   poi le conserva il suo client. Il server non tiene l'elenco.
- *
- * La correzione del quiz e' sempre lato server: le risposte corrette non lasciano
- * mai questa macchina.
- */
-import { Router } from "express";
-import { VisitModel } from "../models/visit";
-import { ItemModel } from "../models/item";
-
-/**
  * Sessioni di VISITA GUIDATA sincronizzata (modulo 18-27, "Fenice rossa").
  *
- * Backbone lato server: il navigator (docente e studenti) vi si aggancerà in
- * un secondo momento. Il ciclo di vita è:
+ * Il ciclo di vita:
  *  - il docente AVVIA una sessione per una sua visita con parola chiave
  *    (stato "attesa": sala d'attesa);
  *  - gli studenti ENTRANO digitando la parola chiave → finiscono nella lista
@@ -31,16 +9,29 @@ import { ItemModel } from "../models/item";
  *  - il docente fa PARTIRE la visita quando i suoi studenti sono pronti;
  *  - durante la visita il docente avanza opera per opera (STEP): il timestamp
  *    di partenza consente ai dispositivi di far partire l'audio ~insieme;
- *  - il docente TERMINA: la sessione viene distrutta e non resta traccia.
+ *  - il docente TERMINA: la sessione resta qualche secondo in "terminata", cosi'
+ *    una chiusura VOLUTA non arriva ai client come un guasto, poi sparisce.
  *
- * Lo stato vive SOLO in memoria (Map): è effimero per costruzione — quando il
- * docente termina o il server riavvia, sparisce (coerente con "nessuna traccia
- * per i visitatori"). Nessuna scrittura su MongoDB.
+ * Lo stato vive SOLO in memoria (Map): e' effimero per costruzione — quando il
+ * docente termina o il server riavvia, non resta traccia, che e' esattamente
+ * quel che chiede la specifica. Nessuna scrittura su MongoDB.
  *
  * Trasporto: POLLING REST. I client interrogano `GET /:id` (docente) o
  * `GET /:id/state` (studente) a intervalli brevi. Nessun WebSocket/SSE.
  * (Sicurezza non valutata: nessun token di sessione, controlli minimi.)
+ *
+ * Tre meccanismi meritano una nota:
+ * - la presenza degli studenti si deduce dall'interrogazione stessa, che vale come
+ *   "sono ancora qui"; chi non si fa vivo entro il tempo limite sparisce dalla lista
+ *   del docente;
+ * - le domande sono una coda di consegna, non uno storico: il docente le ritira e
+ *   poi le conserva il suo client. Il server non tiene l'elenco;
+ * - la correzione del quiz e' sempre lato server: le risposte corrette non lasciano
+ *   mai questa macchina.
  */
+import { Router } from "express";
+import { VisitModel } from "../models/visit";
+import { ItemModel } from "../models/item";
 
 const router = Router();
 

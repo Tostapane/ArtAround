@@ -142,6 +142,37 @@ export const ArtAPI = {
       throw new Error(await readError(response, "Errore durante l'eliminazione"));
   },
 
+  // --- Gestione del museo -------------------------------------------------------------
+
+  async fetchOverview(qid: string): Promise<any> {
+    const response = await fetch(`/api/museums/${encodeURIComponent(qid)}/overview`);
+    if (!response.ok) throw new Error("Errore caricamento del quadro d'insieme");
+    return response.json();
+  },
+
+  async fetchCuratedItems(qid: string): Promise<Item[]> {
+    const response = await fetch(`/api/museums/${encodeURIComponent(qid)}/items`);
+    if (!response.ok) throw new Error('Errore caricamento del catalogo');
+    return response.json();
+  },
+
+
+  async impattoItem(id: string): Promise<any> {
+    const response = await fetch(`/api/items/${encodeURIComponent(id)}/impact`);
+    if (!response.ok)
+      throw new Error(await readError(response, "Errore nel calcolo dell'impatto"));
+    return response.json();
+  },
+
+  async eliminaItem(id: string): Promise<any> {
+    const response = await fetch(`/api/items/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok)
+      throw new Error(await readError(response, "Errore durante l'eliminazione"));
+    return response.json();
+  },
+
   async pubblica(payload: any): Promise<void> {
     const endpoint = payload.tipo === 'Visita' ? '/api/visits' : '/api/items';
     const response = await fetch(endpoint, {

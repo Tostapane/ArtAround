@@ -21,6 +21,7 @@ import { ArtworkModel } from "./models/artwork";
 import { MuseumModel } from "./models/museum";
 import { UserModel } from "./models/user";
 import { educationalLevels, formatDuration } from "../../shared/constants";
+import { UserRole } from "../../shared/types";
 
 
 const MONGO_URI =
@@ -170,11 +171,12 @@ export async function migrateLogistics() {
 }
 
 export async function requiredAccounts() {
-  const users: { username: string; role: "autore" | "visitatore" }[] = [
+  const users: { username: string; role: UserRole }[] = [
     { username: "autore1", role: "autore" },
     { username: "autore2", role: "autore" },
     { username: "visitatore1", role: "visitatore" },
     { username: "visitatore2", role: "visitatore" },
+    { username: "curatore1", role: "curatore" },
   ];
   for (const u of users) {
     const onInsert: any =

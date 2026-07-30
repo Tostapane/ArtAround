@@ -76,7 +76,7 @@ app.get("/api/health", (req, res) => {
 
 /**
  * Le opere che la soglia compone. Si rilegge a ogni richiesta e non a
- * import-time: cambiare la curatela non deve richiedere di riavviare il server.
+ * import-time: cambiare quella scelta non deve richiedere di riavviare il server.
  * Se il file manca o e' rotto si torna una lista vuota, e il client ripiega
  * sulle prime opere del catalogo.
  */
@@ -115,7 +115,7 @@ app.get("/api/qr", async (req, res) => {
  * richiesta con la porta di Vite.
  *
  * Porta anche l'elenco delle opere della soglia, letto da data/soglia.json: e'
- * una scelta di curatela, non di codice, e il marketplace non deve conoscere
+ * una scelta del curatore, non di codice, e il marketplace non deve conoscere
  * nessun qid.
  */
 app.get("/api/config", (req, res) => {

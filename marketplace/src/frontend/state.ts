@@ -12,6 +12,15 @@
  *     si sceglie una volta e poi resta nel binario laterale.
  *  3. SI VENDONO VISITE, SI SFOGLIANO OPERE. Due cataloghi con un tipo di
  *     oggetto ciascuno, invece di una griglia mista con cinque filtri sopra.
+ *  4. CI SONO TRE RUOLI: visitatore, autore, CURATORE (risponde del museo).
+ *     ⚠️ Quasi tutte le diramazioni per ruolo qui dentro sono `role === "autore"
+ *     ? ... : ...`, col visitatore nel ramo altrimenti: un ruolo nuovo ci cade
+ *     dentro senza che nulla protesti. Nominarlo esplicitamente dove conta.
+ *
+ * ⚠️ Nel catalogo del curatore la durata di una descrizione e' in SECONDI esatti,
+ * non in `formatDuration()`: le descrizioni sono uniche per (opera, autore, tono,
+ * DURATA), quindi ogni riga ha una gemella identica in tutto il resto e i minuti
+ * arrotondati le renderebbero indistinguibili. Eccezione voluta, non un errore.
  */
 
 import {
@@ -27,6 +36,7 @@ import {
   educationalLevels,
   educationalLevelHints,
   formatDuration,
+  secPerArt,
 } from "../../../shared/constants.js";
 import { ArtAPI } from "./api.js";
 
@@ -45,7 +55,9 @@ export type View =
   | "componi"
   | "nuovo"
   | "lavori"
-  | "vendite";
+  | "vendite"
+  | "gestione"
+  | "catalogo";
 
 export class AppState {
   // --- Rotta corrente -------------------------------------------------------
@@ -71,6 +83,12 @@ export class AppState {
   worksSearch: string = "";
   worksTypeFilter: "tutti" | "item" | "visite" = "tutti";
 
+  catalogSearch: string = "";
+  catalogTypeFilter: "tutti" | "item" | "visite" = "tutti";
+  catalogToneFilter: string = "tutti";
+  catalogDurationFilter: string = "tutti";
+  catalogAuthorFilter: string = "tutti";
+
   editorSearch: string = "";
   editorFilter: "tutti" | "disponibili" | "da_acquistare" = "tutti";
 
@@ -87,6 +105,8 @@ export class AppState {
   itemToBuy: Content | null = null;
   visitToComplete: any = null;
   visitToDelete: any = null;
+  itemToDelete: any = null;
+  itemImpact: any = null;
 
   // --- Notifiche ------------------------------------------------------------
   toast: { messaggio: string; tipo: "success" | "error" } | null = null;
@@ -101,6 +121,10 @@ export class AppState {
   selectedMuseum: Museum | null = null;
   sales: any[] = [];
   loading: boolean = false;
+
+  // --- Gestione del museo -------------------------------------------------------------
+  overview: any = null;
+  curatedItems: Item[] = [];
 
   private navigatorOrigin: string = "";
 
@@ -143,6 +167,8 @@ export class AppState {
       "nuovo",
       "lavori",
       "vendite",
+      "gestione",
+      "catalogo",
     ];
     for (const candidate of knownViews) {
       if (head === candidate) return { view: candidate, param };
@@ -184,7 +210,9 @@ export class AppState {
   }
 
   roleHome(): View {
-    return this.currentUserRole === "autore" ? "lavori" : "home";
+    if (this.currentUserRole === "curatore") return "gestione";
+    if (this.currentUserRole === "autore") return "lavori";
+    return "home";
   }
 
   goHome() {
@@ -207,6 +235,8 @@ export class AppState {
       nuovo: this.editingId ? "Modifica la descrizione" : "Nuova descrizione",
       lavori: "I miei contenuti",
       vendite: "Vendite e adozioni",
+      gestione: "Gestione del museo",
+      catalogo: "Catalogo del museo",
     };
     return labels[this.view] || "";
   }
@@ -256,6 +286,9 @@ export class AppState {
         const trovato = this.museums.find((m) => m.qid === ricordato);
         if (trovato) this.selectedMuseum = trovato;
         else if (this.museums.length === 1) this.selectedMuseum = this.museums[0];
+      }
+      if (this.currentUserRole === "curatore" && this.selectedMuseum) {
+        await this.loadMuseumState();
       }
       this.goTo(this.selectedMuseum ? this.roleHome() : "musei");
     } catch (e) {
@@ -385,6 +418,7 @@ export class AppState {
   selectMuseum(m: Museum) {
     this.selectedMuseum = m;
     localStorage.setItem("artaround-museo", m.qid);
+    if (this.currentUserRole === "curatore") this.loadMuseumState();
     this.goTo(this.roleHome());
   }
 
@@ -551,12 +585,34 @@ export class AppState {
   }
 
   confirmTitle(): string {
+    if (this.itemToDelete) return "Eliminare questa descrizione?";
     if (this.visitToDelete) return "Eliminare questa visita?";
     if (this.visitToComplete) return "Sbloccare i contenuti mancanti?";
     return "Confermi l'acquisto?";
   }
 
   confirmMessage(): string {
+    if (this.itemToDelete) {
+      if (!this.itemImpact) return "Sto calcolando che cosa comporta…";
+      const visite = this.itemImpact.visite || [];
+      const adozioni = this.itemImpact.adozioni || 0;
+
+      let testo = `"${this.itemToDelete.name}" sparirà dal catalogo`;
+      if (visite.length > 0) {
+        const nomi = visite.map((v: any) => `"${v.name}"`).join(", ");
+        const quali =
+          visite.length === 1
+            ? "la visita che la contiene"
+            : `le ${visite.length} visite che la contengono`;
+        testo += `, e con essa ${quali} — ${nomi} — perché una tappa che non si risolve non darebbe errore, semplicemente non comparirebbe`;
+      }
+      testo += ". ";
+      if (adozioni > 0) {
+        const chi = adozioni === 1 ? "1 persona" : `${adozioni} persone`;
+        testo += `Sparirà anche dalla libreria di ${chi}, senza rimborso. `;
+      }
+      return testo + "L'operazione non è reversibile.";
+    }
     if (this.visitToDelete) {
       return `"${this.visitToDelete.name}" sparirà dal marketplace e dalle librerie di chi l'ha adottata. L'operazione non è reversibile.`;
     }
@@ -572,9 +628,15 @@ export class AppState {
   }
 
   confirmVerb(): string {
+    if (this.itemToDelete) return "Elimina";
     if (this.visitToDelete) return "Elimina";
     if (this.visitToComplete) return "Sblocca tutto";
     return "Acquista";
+  }
+
+  confirmReady(): boolean {
+    if (this.itemToDelete) return this.itemImpact !== null;
+    return true;
   }
 
   cancelConfirm() {
@@ -582,9 +644,31 @@ export class AppState {
     this.itemToBuy = null;
     this.visitToComplete = null;
     this.visitToDelete = null;
+    this.itemToDelete = null;
+    this.itemImpact = null;
   }
 
   async runConfirm() {
+    if (this.itemToDelete) {
+      const row = this.itemToDelete;
+      this.cancelConfirm();
+      try {
+        const esito = await ArtAPI.eliminaItem(row.id);
+        const eliminate = esito.visiteEliminate || [];
+        await this.loadMuseumState();
+        if (eliminate.length > 0) {
+          const quante =
+            eliminate.length === 1 ? "1 visita" : `${eliminate.length} visite`;
+          this.showToast(`Descrizione eliminata, insieme a ${quante}.`);
+        } else {
+          this.showToast("Descrizione eliminata.");
+        }
+      } catch (e) {
+        this.showToast((e as Error).message, "error");
+      }
+      return;
+    }
+
     if (this.visitToDelete) {
       const visit = this.visitToDelete;
       this.cancelConfirm();
@@ -597,7 +681,8 @@ export class AppState {
           (id) => id !== visit["@id"],
         );
         this.showToast("Visita eliminata.");
-        this.goHome();
+        if (this.currentUserRole === "curatore") await this.loadMuseumState();
+        else this.goHome();
       } catch (e) {
         this.showToast((e as Error).message, "error");
       }
@@ -626,6 +711,156 @@ export class AppState {
     this.cancelConfirm();
     if (!item || !this.currentUser || this.owns(item)) return;
     await this.performPurchase(item);
+  }
+
+  // --- Gestione del museo ---------------------------------------------------------------
+
+  async loadMuseumState() {
+    const qid = this.selectedMuseum ? this.selectedMuseum.qid : "";
+    if (!qid) return;
+    try {
+      this.overview = await ArtAPI.fetchOverview(qid);
+      this.curatedItems = await ArtAPI.fetchCuratedItems(qid);
+      this.visits = await ArtAPI.fetchVisite();
+    } catch (e) {
+      this.showToast((e as Error).message, "error");
+    }
+  }
+
+
+  percentualeCopertura(riga: { opere: number }): number {
+    const totale = this.overview.copertura.opereTotali;
+    if (!totale) return 0;
+    return Math.round((riga.opere / totale) * 100);
+  }
+
+  accountLine(): string {
+    if (!this.overview) return "";
+    const a = this.overview.account;
+    const pezzi = [
+      `${a.autori} ${a.autori === 1 ? "autore" : "autori"}`,
+      `${a.visitatori} ${a.visitatori === 1 ? "visitatore" : "visitatori"}`,
+      `${a.curatori} ${a.curatori === 1 ? "curatore" : "curatori"}`,
+    ];
+    return pezzi.join(" · ");
+  }
+
+
+  setCatalogType(tipo: "tutti" | "item" | "visite") {
+    this.catalogTypeFilter = tipo;
+    this.catalogDurationFilter = "tutti";
+  }
+
+  catalogDurationOptions(): { value: string; label: string }[] {
+    if (this.catalogTypeFilter === "item") {
+      return secPerArt.map((s) => ({ value: String(s), label: `${s} secondi` }));
+    }
+    if (this.catalogTypeFilter === "visite") {
+      return [
+        { value: "breve", label: "meno di 30 min" },
+        { value: "media", label: "da 30 a 60 min" },
+        { value: "lunga", label: "oltre 60 min" },
+      ];
+    }
+    return [];
+  }
+
+  private curatedVisits(): any[] {
+    return (this.visits as any[]).filter((v) => this.belongsToMuseum(v));
+  }
+
+  catalogAuthors(): string[] {
+    const nomi = new Set<string>();
+    for (const it of this.curatedItems as any[]) {
+      if (it.author) nomi.add(it.author);
+    }
+    for (const v of this.curatedVisits()) {
+      if (v.author) nomi.add(v.author);
+    }
+    return [...nomi].sort((a, b) => a.localeCompare(b));
+  }
+
+  durationLabel(row: any): string {
+    if (row.kind === "item") return `${row.duration} s`;
+    return this.readableDuration(row.duration);
+  }
+
+  private matchesCatalogDuration(row: any): boolean {
+    if (this.catalogDurationFilter === "tutti") return true;
+    if (row.kind === "item") return String(row.duration) === this.catalogDurationFilter;
+    const min = Math.round(row.duration / 60);
+    if (this.catalogDurationFilter === "breve") return min < 30;
+    if (this.catalogDurationFilter === "media") return min >= 30 && min <= 60;
+    if (this.catalogDurationFilter === "lunga") return min > 60;
+    return true;
+  }
+
+  catalogRows(): any[] {
+    const cerca = this.catalogSearch.trim().toLowerCase();
+    const rows: any[] = [];
+
+    if (this.catalogTypeFilter !== "visite") {
+      for (const it of this.curatedItems as any[]) {
+        rows.push({
+          kind: "item",
+          id: it["@id"],
+          name: this.contentName(it as any),
+          author: it.author,
+          tone: it.educationalLevel,
+          duration: Number(it.timeRequired) || 0,
+          price: it.price || 0,
+          privato: it.visibility === "privato",
+          raw: it,
+        });
+      }
+    }
+    if (this.catalogTypeFilter !== "item") {
+      for (const v of this.curatedVisits()) {
+        rows.push({
+          kind: "visita",
+          id: v["@id"],
+          name: v.name,
+          author: v.author || "—",
+          tone: v.level,
+          duration: Number(v.duration) || 0,
+          price: v.price || 0,
+          guidata: Boolean(v.accessKey),
+          raw: v,
+        });
+      }
+    }
+
+    return rows.filter((r) => {
+      if (this.catalogToneFilter !== "tutti" && r.tone !== this.catalogToneFilter)
+        return false;
+      if (
+        this.catalogAuthorFilter !== "tutti" &&
+        r.author !== this.catalogAuthorFilter
+      )
+        return false;
+      if (!this.matchesCatalogDuration(r)) return false;
+      if (!cerca) return true;
+      const dove = `${r.name} ${r.author} ${r.tone}`.toLowerCase();
+      return dove.includes(cerca);
+    });
+  }
+
+  async openDeleteRow(row: any) {
+    if (!row) return;
+    if (row.kind === "visita") {
+      this.visitToDelete = row.raw;
+      this.confirmOpen = true;
+      return;
+    }
+    this.itemToDelete = row;
+    this.itemImpact = null;
+    this.confirmOpen = true;
+    try {
+      this.itemImpact = await ArtAPI.impattoItem(row.id);
+    } catch (e) {
+      this.itemImpact = null;
+      this.showToast((e as Error).message, "error");
+    }
   }
 
   showToast(messaggio: string, tipo: "success" | "error" = "success") {

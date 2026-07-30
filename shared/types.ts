@@ -22,13 +22,17 @@
  * - L'identita' di un User e' la COPPIA (username, role): lo stesso username
  *   puo' esistere come autore e come visitatore, e sono due account distinti e
  *   non collegati.
+ * - I ruoli sono tre e non si sovrappongono: il visitatore consuma, l'autore
+ *   produce contenuti, il curatore risponde del MUSEO — ne sorveglia il
+ *   catalogo e puo' ritirare o eliminare quel che non ci deve stare. Il
+ *   curatore non ha ne' portafoglio ne' collezione.
  */
 
 // ============================================================================
 //                                  Utenti
 // ============================================================================
 
-export type UserRole = "autore" | "visitatore";
+export type UserRole = "autore" | "visitatore" | "curatore";
 
 export interface User {
   username: string;

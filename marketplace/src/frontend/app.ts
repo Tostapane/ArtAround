@@ -229,7 +229,7 @@ export function swarm() {
           ? config.thresholdArtworks
           : [];
 
-        // La curatela sceglie quali opere e in che ordine (data/soglia.json sul
+        // Il curatore sceglie quali opere e in che ordine (data/soglia.json sul
         // server): il retino rende bene una figura grande con un forte stacco di
         // luce, e male una scena affollata di mezzi toni, e questo non si calcola.
         // Qui dentro non c'e' nessun qid: se la lista manca si ripiega sulle
