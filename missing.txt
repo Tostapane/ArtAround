@@ -1,29 +1,12 @@
 modulo di teletrasporto ?
 modulo geolocalizzazione ?
-visualizzatore test
-capire cosa fare con l'array logistics (per me completamente inutile, ne parleremo)
-come mantenre ordine (note logistiche)?
-come visualizzare le note logistiche?
 
-implementazione user admin con superpoteri.
 
 chiede AI se ci serve JWT.
 
 c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico (non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
 (hai detto facilmente risolvibile con prompt ma rimane irrisolto).
 
-
-le visite guidate possono essere generate con AI? -> i quiz devono poter essere generati con AI. In funzione di qualcosa (informazioni del twist stesso)?
-
-vanno rivisti i toni nei seed (potrebbero avere nomi diversi dai toni esistenti).
-
-
-questi sono già fatti (//)
-
-
-cambiare scritta "pubblica su marketplace" nel caso di visita guidata. (essa non verrà resa pubblica sul marketplace, ma accessibile solo tramite passkey).
-
-spostare lo script che permette di cambiare tema da index.html a un qualche file js.
 
 
 un visitatore può creare una visita mediante la schermata attuale ma anche attraverso una schermata di "creazione automatica" in cui il visitatore inserisce durata della visita (in minuti), il livello (esperto/principiante/adolescente), una chat con l'AI in cui il visitatore inserisce il twist (e.g. voglio vedere quadri verdi). Per fare ciò usa le funzioni che si trovano in ./server/src/services/llm.ts.

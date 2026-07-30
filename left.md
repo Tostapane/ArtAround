@@ -1,5 +1,42 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-07-30, fine sessione
+
+**Ultimo commit: `015663a curatore`** (ruolo curatore, due schermate, cascata di
+eliminazione). Tutto il resto è **in albero, non committato**, e tutto verde: `tsc` ×2 +
+`vue-tsc`, `marketplace/dist` ricostruito, server riavviato.
+
+Nell'albero ci sono sei lavori distinti, da committare separati (l'ordine è quello):
+
+1. **catalogo per museo** — `?museum=Qxxx` su artworks/items/visits, `initApp` risolve il
+   museo *prima* di scaricare, `GET /museums` porta i conteggi. 453 KB → 153 KB.
+2. **indici** — `models/{item,visit,artwork,user}.ts`. COLLSCAN → IXSCAN.
+3. **N+1 vendite** — `routes/users.ts`. 314 query → 3; 654 ms → 67 ms; verificato identico.
+4. **fix: il terzo ruolo cadeva nel ramo del visitatore** — `roleTitle()`. Difetto
+   utente-visibile: **da tenere in un commit suo**, non fuso col refactor.
+5. **tipi + logica fuori dai binding** — guardie in `shared/types.ts`, 94→55 `any`,
+   10→0 espressioni Alpine lunghe.
+6. **`MONGO_URI` in `env.ts`** + `guidelines.md` (nuovo, **untracked**) + `CLAUDE.md`
+   (puntava a `spec.md`, cancellato da tempo) + passata sui commenti del marketplace.
+
+**Aperto, in ordine di peso:**
+- 🐞 **Le note logistiche d'apertura migrano in fondo a ogni modifica.** Una nota messa
+  prima della prima opera si salva come `{after: null}` — giusto — ma `rebuildStops()` in
+  `marketplace/src/frontend/state.ts` accoda le note senza ancora **dopo** il ciclo sulle
+  opere. Riaprendo la visita in editor la nota compare in fondo, e un salvataggio che non
+  cambia nulla la riancora all'ultima tappa: nel navigator smette di accogliere il
+  visitatore all'ingresso e finisce sulla schermata di fine visita. Verificato con un giro
+  completo su una visita usa e getta. **Rimedio: spostare il ciclo su `unplacedNotes` PRIMA
+  di quello su `itemListElement`** — così `ultimoItem` è ancora `null` quando il server le
+  incontra. Tutto il resto del giro (nota fra due opere) è corretto.
+- ⚠️ **nel database non c'è nessuna visita guidata** (0 con `accessKey`, 0 con quiz, 0 con
+  tappe opzionali): il modulo I non è dimostrabile. `seedSpecialVisits()` non è mai stato
+  eseguito e *oggi funzionerebbe*. Vedi `state.md` §3.5. È il rimedio più economico che c'è.
+- **teleport** — l'unico buco di specifica (`state.md` §7.1).
+- passata sui commenti di `server/src` e `navigator/src` (non fatta, non urgente).
+
+---
+
 **Written 2026-07-27** (restyle, §0–§7). **Extended 2026-07-28** (feedback pass, §8).
 Task of the first: implement `prelude.md` end to end. Of the second: twelve corrections
 found by actually using it.

@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | 18–24 (base, mandatory) | marketplace+editor, navigator with visit selection/execution, map, TTS, on-screen text, controlled-vocabulary voice commands + equivalent buttons | **Complete.** Logistics now shown (§0.1), the visit now *ends* and the controlled vocabulary has a panel of its own (§0.2) |
 | Module I (18–27) | teacher-synchronized visit + end-of-visit quiz | Sync: **complete end-to-end**. Quiz: **complete end-to-end** since 2026-07-28 (§0.2) |
-| Module II (18–33) | QR localization, **teleport module**, deep LLM integration | QR: done. LLM (4 uses): done. **Teleport: not started** (§9.3) |
+| Module II (18–33) | QR localization, **teleport module**, deep LLM integration | QR: done. LLM (4 uses): done. Advanced localization (device + orientation): done 2026-07-30 (§5.3). **Teleport: not started** (§9.3) |
 
 Two blockers for the declared 18-33 target, and the second one is new:
 
@@ -158,6 +158,21 @@ already draw; `services/svgGraph.ts` parses it into a room graph. The contract:
 
 Connectivity is **authored only** — no geometric adjacency is inferred — so every walkable
 space (corridors included) must be a `data-room`. Single floor per map.
+
+Two further annotations belong to the **localization module** and are read by the *navigator*,
+not by `svgGraph.ts`:
+
+- `data-width-m` on the `<svg>` root — how many real metres the viewBox width spans
+  (80 / 95 / 110 on the three maps, deliberately different: a constant hardcoded in the client
+  would otherwise pass unnoticed). It is the only thing tying the drawing to the world; the
+  plans are schematic, so the number cannot be derived from what is drawn — the curator
+  measures it. Without it the automatic localization does not start, and the app falls back to
+  QR without claiming anything false.
+- `data-poi="entrance"` — where the coordinate system is born when the app opens.
+
+There is **no absolute georeference**: the frame is created at runtime with the visitor at the
+entrance, and the map's up *is* north by definition. That is what makes the module work in
+Bologna as well as in Bloomsbury, and it is why no museum's real coordinates appear anywhere.
 
 Everything else in the file is **drawing**, and the parser ignores it because it carries no
 `data-*`: the grid, the door leaves, the room labels, the legend under the plan. The three
@@ -647,8 +662,24 @@ ones do. Below a rule, the **su misura** block with example chips.
 - **Logistics transitions** — pressing `Prossimo` when the author left a note for that
   passage shows it as a step before the next stop (opening notes appear before stop 1).
   This is `Visit.logistics` finally reaching the person it was written for.
-- **`Posizione`** — one entry, two equal ways: scan the QR, or **type the code** (the tab is
-  disabled with a stated reason outside a secure context).
+- **`Posizione`** — one entry, three equal ways: scan the QR, **type the code** (the tab is
+  disabled with a stated reason outside a secure context), or **`Trovami`**, the advanced
+  localization of slide 33.
+  The estimate of where the visitor *physically stands* lives in `src/localization.ts` and is
+  **not** a second notion of "where I am" beside the open card: opening a card never moves it,
+  and only a declared act re-anchors it (QR, typed code, choosing among the candidates — and,
+  when it exists, the teleport module). The marker and its heading cone move on the map on
+  their own; they never open anything. The card opens only on a press, and when it does, the
+  logistics note written for that passage is shown first, through the same `transition` step
+  `Prossimo` uses — the slide's second purpose for localization.
+  One equation decides, with no branch per platform: each artwork costs
+  `(distance/σ_d)² + (angle/σ_θ)²`, `σ_d` being the accuracy the *device itself* declares and
+  `σ_θ` 30°. Where there is no compass (every desktop: no magnetometer in the hardware) the
+  angular term simply is not in the sum, the probabilities flatten and the picker appears —
+  orientation is not dropped, it is *absent*, and the formula already says what that means.
+  Verified against the real map before shipping: 2 m from a work with the compass on it, 93%;
+  midway between two, no winner; a compass with a 300 m fix stays at 15%, i.e. **a compass
+  alone never manufactures confidence**.
 
 ### 5.4 `GuidedGate`
 
@@ -739,6 +770,9 @@ a clean restyle.
 
 - ~~**Quiz UI in the navigator.**~~ **DONE 2026-07-28** — both screens, plus a generated quiz
   on the seeded guided visit. See §0.2 and §5.4.
+- ~~**Advanced localization.**~~ **DONE 2026-07-30** — `src/localization.ts` (frame, anchor,
+  the confidence equation), `composables/useSensors.ts` (geolocation + compass, tilt included),
+  the `Trovami` tab with the picker, and the position marker on the map. See §5.3 and §1.1.
 - **Teleport module.** Slide 34 asks for a module that takes you to a *predetermined position
   near each object of the visit*. The cheapest honest implementation reuses what already
   exists: a "Teletrasportami qui" action on each stop (list row, map node, Card) that sets

@@ -19,6 +19,8 @@
  * dalla visita viene mostrata comunque, senza toccare la progressione.
  */
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { useSensors } from "@/composables/useSensors";
+import { nodeOf, reanchor, startAtEntrance } from "@/localization";
 import Stage from "./Stage.vue";
 import Scheda from "./Scheda.vue";
 import Posizione from "./Posizione.vue";
@@ -32,6 +34,7 @@ import {
   includeOptional,
   isOptionalItem,
   loadVisitContent,
+  map,
   notesAfter,
   openingNotes,
   matchedContent,
@@ -79,6 +82,21 @@ const stageInert = computed(
 const currentArtwork = ref<Match | null>(null);
 const lastVisitIndex = ref(-1);
 const showLocator = ref(false);
+
+/**
+ * I sensori partono col tocco che apre "Dove sono?" — iOS concede il permesso
+ * per l'orientamento solo dentro un gesto dell'utente, e quello e' il gesto — e
+ * NON si spengono richiudendo il pannello: il segnalino sulla pianta deve
+ * continuare a seguire chi cammina. Muoversi pero' non apre mai una scheda: a
+ * decidere e' solo la pressione del bottone.
+ */
+const sensori = useSensors();
+watch(map, () => startAtEntrance(), { immediate: true });
+
+function apriPosizione() {
+  showLocator.value = true;
+  sensori.start();
+}
 const transition = ref<{ notes: string[]; target: number } | null>(null);
 
 /** Percorso finito: si mostra la chiusura, con la via di casa in evidenza. */
@@ -235,11 +253,39 @@ function closeTransition() {
   if (t.target >= 0) goToIndex(t.target);
 }
 
+/**
+ * Aprire una tappa a cui si e' arrivati: prima l'indicazione logistica scritta
+ * per quel passaggio, poi la scheda. E' lo stesso passo intermedio di
+ * "Prossimo", ed e' il secondo scopo che la slide 33 assegna alla
+ * localizzazione. Se la tappa e' gia' quella aperta la nota non si ripete.
+ */
+function apriTappa(i: number) {
+  let notes: string[] = [];
+  if (i === 0) {
+    notes = openingNotes();
+  } else {
+    const precedente = matchedContent.value[i - 1];
+    if (precedente) notes = notesAfter(precedente.item["@id"]);
+  }
+  if (notes.length > 0 && i !== indexInVisit()) {
+    transition.value = { notes, target: i };
+    announce(notes.join(". "));
+    return;
+  }
+  selectIndex(i);
+}
+
 async function goToArtwork(qid: string) {
   showLocator.value = false;
+
+  // Dire dove si e' ri-ancora il sistema di coordinate: da qui in poi i passi
+  // si contano da questo punto, non da dove il GPS credeva di essere.
+  const nodo = nodeOf(qid);
+  if (nodo) reanchor(nodo.x, nodo.y);
+
   const i = matchedContent.value.findIndex((m) => m.artwork.qid === qid);
   if (i >= 0) {
-    selectIndex(i);
+    apriTappa(i);
     return;
   }
   try {
@@ -318,7 +364,10 @@ onMounted(() => {
   if (guidedStudent.value || guidedTeacher.value) selectIndex(guidedCurrentStep.value);
 });
 
-onUnmounted(() => tts.stop());
+onUnmounted(() => {
+  tts.stop();
+  sensori.stop();
+});
 </script>
 
 <template>
@@ -385,7 +434,7 @@ onUnmounted(() => tts.stop());
         :current-index="lastVisitIndex"
         :inert="stageInert"
         @select="onStageSelect"
-        @locate="showLocator = true"
+        @locate="apriPosizione"
       />
     </div>
 
@@ -543,6 +592,7 @@ onUnmounted(() => tts.stop());
 
     <Posizione
       v-if="showLocator"
+      :sensor-error="sensori.error.value"
       @found="goToArtwork"
       @close="showLocator = false"
     />

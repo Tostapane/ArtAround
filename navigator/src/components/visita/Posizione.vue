@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * DOVE SONO — un solo ingresso, due modi, nessuno dei due privilegiato.
+ * DOVE SONO — un solo ingresso, tre modi, nessuno privilegiato.
  *
  * Inquadrare un QR accanto a un quadro e' esattamente il gesto che una persona
  * cieca non puo' compiere, in un'app il cui scopo e' parlarle. Ed e' anche il
@@ -11,10 +11,22 @@
  * Lo stesso campo risolve entrambe le cose: il codice dell'opera, stampato sul
  * foglio accanto al QR, si puo' digitare. Un solo campo incollabile, mai
  * spezzato in caselle, mai a tempo (WCAG 2.2, 3.3.8).
+ *
+ * La terza scheda e' la localizzazione automatica (slide 33): il calcolo sta in
+ * localization.ts, qui c'e' solo il momento in cui lo si interroga — premendo,
+ * mai da sola. Quando non vince nessuna opera si mostrano le possibili con la
+ * loro immagine e sceglie il visitatore: e' il comportamento che la slide
+ * chiede, e insieme l'unico modo di far funzionare la cosa dove una bussola non
+ * esiste. Le immagini sono le stesse del catalogo mostrate in piccolo — a chi
+ * deve riconoscere un quadro che ha davanti basta la sagoma.
  */
 import { ref, watch, onUnmounted, computed } from "vue";
 import { useQRScanner } from "@/composables/useQRScanner";
+import { artworkByQid } from "@/state";
+import { mediaOrigin } from "@/config";
+import { bussola, localizzabile, rank, stima, type Candidato } from "@/localization";
 
+const props = defineProps<{ sensorError: string }>();
 const emit = defineEmits<{ found: [qid: string]; close: [] }>();
 
 const scanner = useQRScanner();
@@ -25,7 +37,9 @@ const codeError = ref("");
 const cameraAvailable = computed(
   () => window.isSecureContext && !!navigator.mediaDevices,
 );
-const sheet = ref<"qr" | "codice">(cameraAvailable.value ? "qr" : "codice");
+const sheet = ref<"qr" | "codice" | "posizione">(
+  cameraAvailable.value ? "qr" : "codice",
+);
 
 function extractQid(raw: string): string {
   const m = raw.trim().toUpperCase().match(/Q\d+/);
@@ -48,6 +62,52 @@ watch(
   },
   { immediate: true },
 );
+
+// --- Localizzazione automatica ---------------------------------------------
+
+const candidati = ref<Candidato[]>([]);
+const esitoVuoto = ref("");
+
+/** Quel che i sensori sanno dire, detto a chi guarda: precisione e bussola. */
+const statoSensori = computed(() => {
+  const parti: string[] = [];
+  const dove = stima.value;
+  if (dove) parti.push(`posizione nota a circa ${Math.round(dove.accuracy)} m`);
+  else parti.push("posizione non ancora rilevata");
+  if (bussola.value === null) parti.push("nessuna bussola");
+  else parti.push(`bussola a ${Math.round(bussola.value)}°`);
+  return parti.join(" · ");
+});
+
+function nomeOpera(qid: string): string {
+  const opera = artworkByQid(qid);
+  if (opera) return opera.name;
+  return qid;
+}
+
+function immagineOpera(qid: string): string {
+  const opera = artworkByQid(qid);
+  if (!opera || !opera.imagePath) return "";
+  if (opera.imagePath.startsWith("http")) return opera.imagePath;
+  return mediaOrigin() + opera.imagePath;
+}
+
+function trova() {
+  esitoVuoto.value = "";
+  candidati.value = [];
+  const verdetto = rank();
+  if (!verdetto || verdetto.candidati.length === 0) {
+    esitoVuoto.value =
+      "Non riesco ancora a capire dove sei. Inquadra il QR o scrivi il codice.";
+    return;
+  }
+  const primo = verdetto.candidati[0];
+  if (verdetto.sicuro && primo) {
+    emit("found", primo.qid);
+    return;
+  }
+  candidati.value = verdetto.candidati;
+}
 
 function submitCode() {
   const qid = extractQid(code.value);
@@ -110,6 +170,16 @@ onUnmounted(() => scanner.stop());
         >
           Scrivi il codice
         </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="sheet === 'posizione'"
+          class="segmento"
+          :class="sheet === 'posizione' ? 'segmento-attivo' : ''"
+          @click="sheet = 'posizione'"
+        >
+          Trovami
+        </button>
       </div>
 
       <p v-if="!cameraAvailable" class="avviso mt-4">
@@ -158,6 +228,57 @@ onUnmounted(() => scanner.stop());
           Portami qui
         </button>
       </form>
+
+      <!-- Localizzazione automatica -->
+      <div v-show="sheet === 'posizione'" class="mt-4">
+        <p v-if="!localizzabile" class="avviso">
+          La pianta di questo museo non porta la propria misura, quindi non posso
+          convertire un passo in metri. Inquadra il QR o scrivi il codice.
+        </p>
+        <template v-else>
+          <p class="text-small text-muted">{{ statoSensori }}</p>
+          <p v-if="props.sensorError" class="avviso mt-3 text-danger" role="alert">
+            {{ props.sensorError }}
+          </p>
+          <p v-else-if="bussola === null" class="mt-3 text-caption text-muted">
+            Senza bussola posso solo dirti quali opere ti sono vicine: la scelta
+            resta a te.
+          </p>
+
+          <button type="button" class="btn-primario mt-4 w-full justify-center" @click="trova">
+            Trova l'opera che ho davanti
+          </button>
+
+          <p v-if="esitoVuoto" class="avviso mt-4" role="alert">{{ esitoVuoto }}</p>
+
+          <div v-if="candidati.length" class="mt-5">
+            <h3 class="text-small font-medium">Quale hai davanti?</h3>
+            <ul class="mt-3 grid grid-cols-2 gap-3">
+              <li v-for="c in candidati" :key="c.qid">
+                <button
+                  type="button"
+                  class="lastra w-full overflow-hidden p-0 text-left transition-colors hover:bg-surface-2"
+                  @click="emit('found', c.qid)"
+                >
+                  <img
+                    v-if="immagineOpera(c.qid)"
+                    :src="immagineOpera(c.qid)"
+                    alt=""
+                    loading="lazy"
+                    class="h-24 w-full object-cover"
+                  />
+                  <span class="block px-3 py-2">
+                    <span class="block text-small font-medium">{{ nomeOpera(c.qid) }}</span>
+                    <span class="block text-caption text-muted">
+                      {{ Math.round(c.p * 100) }}%
+                    </span>
+                  </span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </template>

@@ -25,6 +25,7 @@ import {
   stageView,
   setStageView,
 } from "@/state";
+import { bussola, stima } from "@/localization";
 
 const emit = defineEmits<{ select: [value: number]; locate: [] }>();
 const props = defineProps<{
@@ -154,6 +155,51 @@ function prepareMap() {
   });
 
   highlightCurrent();
+  drawPosition();
+}
+
+/**
+ * Dove sei col corpo, che non e' l'opera aperta: il segnalino si muove da solo
+ * coi sensori e non apre mai niente. Il cono e' la direzione in cui guardi —
+ * senza bussola non viene disegnato, invece di puntare a caso.
+ */
+function drawPosition() {
+  const root = container.value;
+  if (!root) return;
+  root.querySelectorAll(".segnalino-posizione").forEach((el) => el.remove());
+  const svg = root.querySelector("svg");
+  const dove = stima.value;
+  if (!svg || !dove) return;
+
+  const gruppo = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  gruppo.setAttribute("class", "segnalino-posizione");
+  gruppo.setAttribute("aria-hidden", "true");
+
+  if (bussola.value !== null) {
+    const apertura = 22;
+    const raggio = 70;
+    const rad = (apertura * Math.PI) / 180;
+    const dx = raggio * Math.sin(rad);
+    const dy = raggio * Math.cos(rad);
+    const cono = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    cono.setAttribute(
+      "d",
+      `M ${dove.x} ${dove.y} L ${dove.x - dx} ${dove.y - dy} ` +
+        `A ${raggio} ${raggio} 0 0 1 ${dove.x + dx} ${dove.y - dy} Z`,
+    );
+    cono.setAttribute("class", "cono-vista");
+    cono.setAttribute("transform", `rotate(${bussola.value} ${dove.x} ${dove.y})`);
+    gruppo.appendChild(cono);
+  }
+
+  const punto = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  punto.setAttribute("cx", String(dove.x));
+  punto.setAttribute("cy", String(dove.y));
+  punto.setAttribute("r", "7");
+  punto.setAttribute("class", "punto-posizione");
+  gruppo.appendChild(punto);
+
+  svg.appendChild(gruppo);
 }
 
 async function redraw() {
@@ -169,6 +215,7 @@ watch(stageView, (v) => {
   if (v === "mappa") redraw();
 });
 watch(() => props.currentLocationId, () => nextTick(highlightCurrent));
+watch([stima, bussola], () => nextTick(drawPosition));
 
 onBeforeUnmount(clearListeners);
 
@@ -320,7 +367,7 @@ const optionalCount = computed(() => {
   pointer-events: none;
 }
 
-/* "Sei qui": anello marcato, riconoscibile a colpo d'occhio */
+/* L'opera aperta: anello marcato, riconoscibile a colpo d'occhio */
 .mappa :deep(.nodo-corrente) {
   fill: var(--text);
   stroke: var(--accent);
@@ -340,6 +387,19 @@ const optionalCount = computed(() => {
   50% {
     stroke-opacity: 0.3;
   }
+}
+
+/* Dove sei col corpo: struttura, non accento — l'accento dice DOVE PUOI ANDARE,
+   e questo non e' un comando ma un fatto. Il cono e' la direzione dello sguardo. */
+.mappa :deep(.punto-posizione) {
+  fill: var(--structure);
+  stroke: var(--surface);
+  stroke-width: 3px;
+  paint-order: stroke;
+}
+.mappa :deep(.cono-vista) {
+  fill: var(--structure);
+  opacity: 0.16;
 }
 
 /* Tappe opzionali: tratteggio + attenuazione. Mai il solo colore. */

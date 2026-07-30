@@ -25,7 +25,7 @@
 import { ref } from "vue";
 import type { Artwork, Visit, Museum, Match } from "../../shared/types";
 import { languages, type Language } from "../../shared/constants";
-import { getMuseum, getVisitItems } from "./api";
+import { getMuseum, getMuseumArtworks, getVisitItems } from "./api";
 import { mediaOrigin } from "./config";
 
 // ============================================================================
@@ -37,6 +37,20 @@ export const museum = ref<Museum>();
 export const map = ref<string>("");
 export const matchedContent = ref<Match[]>([]);
 export const user = ref<string>("");
+
+/**
+ * Tutte le opere del museo, non solo le tappe: la localizzazione sceglie fra i
+ * nodi disegnati sulla pianta, e la pianta li porta tutti. Servono il nome e
+ * l'immagine per mostrarli quando la scelta la fa il visitatore.
+ */
+export const museumArtworks = ref<Artwork[]>([]);
+
+export function artworkByQid(qid: string): Artwork | null {
+  for (const a of museumArtworks.value) {
+    if (a.qid === qid) return a;
+  }
+  return null;
+}
 
 let contentVisitId = "";
 let museumLoadingPromise: Promise<void> | null = null;
@@ -164,6 +178,7 @@ export async function loadMuseum(id: string) {
     try {
       museum.value = await getMuseum(id);
       await loadMap(museum.value);
+      museumArtworks.value = await getMuseumArtworks(id);
     } catch (err) {
       console.error("Errore durante il caricamento del museo", err);
     } finally {

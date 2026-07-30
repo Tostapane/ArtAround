@@ -8,7 +8,7 @@
  * distingue "la sessione non c'e' piu'" da un errore di rete, perche' le due cose
  * vogliono reazioni diverse.
  */
-import type { Item, Match, Museum, Visit } from "../../shared/types";
+import type { Artwork, Item, Match, Museum, Visit } from "../../shared/types";
 import { apiBase } from "./config";
 
 const base = () => apiBase();
@@ -71,6 +71,20 @@ export async function getVisitsByMuseum(
   const res = await fetch(url);
   if (!res.ok)
     throw new Error(`Failed to fetch museum visits: ${res.statusText}`);
+  return res.json();
+}
+
+/**
+ * Tutte le opere del museo, tappe della visita o no. Servono alla
+ * localizzazione: le opere fra cui scegliere sono quelle disegnate sulla pianta,
+ * e la pianta non sa niente della visita in corso.
+ */
+export async function getMuseumArtworks(qid: string): Promise<Artwork[]> {
+  const res = await fetch(
+    `${base()}/museums/${encodeURIComponent(qid)}/artworks`,
+  );
+  if (!res.ok)
+    throw new Error(`Failed to fetch museum artworks: ${res.statusText}`);
   return res.json();
 }
 
