@@ -132,7 +132,7 @@ export async function sendAudioToBackend(
   lang: string,
 ): Promise<any> {
   const formData = new FormData();
-  formData.append("audioFile", audioBlob, "recording.webm");
+  formData.append("audioFile", audioBlob, "recording.wav");
   formData.append("lang", lang);
   const res = await fetch(`${base()}/speech`, {
     method: "POST",

@@ -49,6 +49,17 @@ export const licenses = [
 /** Lingua dei contenuti salvati nel database. La traduzione parte da qui. */
 export const SOURCE_LANG = "it";
 
+/**
+ * Frequenza dell'audio del comando vocale, in Hz.
+ *
+ * Sta qui e non nei due file che la usano perche' e' un accordo fra client e
+ * server: la navigator ricampiona a questo valore (`useVoce.ts`) e il server lo
+ * dichiara a Google (`services/stt.ts`), che non guarda i byte e crede a quel
+ * che gli si dice. Se i due numeri divergono non si ottiene un errore: si
+ * ottiene una trascrizione vuota, che e' il difetto appena chiuso.
+ */
+export const STT_SAMPLE_RATE = 16000;
+
 /** Una lingua selezionabile: nome mostrato + i tre codici dei servizi Google. */
 export interface Language {
   name: string;

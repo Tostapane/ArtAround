@@ -8,6 +8,7 @@ c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'al
 (hai detto facilmente risolvibile con prompt ma rimane irrisolto).
 
 
+testare il nuovo sistema di audio (ora compatibile per iphone)
 
 un visitatore può creare una visita mediante la schermata attuale ma anche attraverso una schermata di "creazione automatica" in cui il visitatore inserisce durata della visita (in minuti), il livello (esperto/principiante/adolescente), una chat con l'AI in cui il visitatore inserisce il twist (e.g. voglio vedere quadri verdi). Per fare ciò usa le funzioni che si trovano in ./server/src/services/llm.ts.
 In attesa di potere creare anche quiz con AI.

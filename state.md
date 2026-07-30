@@ -1152,15 +1152,46 @@ isn't running.
 
 ## 10. Compatibility defects — verified, and all three fail silently
 
+> **10.1 and 10.2 are closed**; 10.3 is half-closed (the typed code exists, §5.3). The entries
+> stay because the *rule* each states still holds.
+
 These are not style opinions and not "odd parts": they are **defects that make working
 features stop working** on a platform or in a situation we do not currently test. All three
 share the same shape — no exception, no error in the console, no visible breakage during
 development on a Linux laptop over `localhost`. They are listed here rather than in §9 because
 each needs a code fix, not a rewrite.
 
-### 10.1 Voice commands are broken on Safari / iOS — a **mandatory** 18-24 feature
+### 10.1 Voice commands are broken on Safari / iOS — **CLOSED 2026-07-30**
 
-**What happens.** On any iPhone or on macOS Safari, pressing "Comando vocale", speaking and
+> Closed by replacing the capture, not by negotiating the format. `useVoce.ts` no longer uses
+> `MediaRecorder`: it takes raw samples off the Web Audio API (`AudioContext` →
+> `createMediaStreamSource` → `createScriptProcessor`), averages them down to 16 kHz mono and
+> writes its own WAV header; `api.ts` uploads `recording.wav`; `stt.ts` declares
+> `LINEAR16` / `STT_SAMPLE_RATE`. **One path on every browser, no branch per platform** — an
+> `if (Safari)` would have had to contain this same code *plus* the old one, since no format
+> Safari can produce is decodable server-side.
+>
+> The sample rate now lives in `shared/constants.ts` as **`STT_SAMPLE_RATE`**, imported by
+> both ends. It is not tidiness: this defect *was* the client and the server disagreeing about
+> the audio format, and two copies of the number would let it recur in the same silent way.
+>
+> Two things to know before touching it. **`resume()` must stay inside the user gesture** or
+> iOS records silence from a suspended context; and the processor node must stay connected to
+> a **zero-gain** node into `destination` — it does not run if it reaches no destination, and
+> reaching the speakers directly would feed the microphone back into the room.
+>
+> Verified: 23 assertions on the two pure functions (48000 and 44100 → 16000, tone preserved
+> at 879/880 zero-crossings, amplitude within 0.001, every header field, data size, clipping
+> saturating instead of wrapping) — including that averaging attenuates a 15 kHz tone from
+> 0.566 to 0.044 rms where plain decimation would have let it back in disguised as a 1 kHz
+> tone that was never spoken. **Not verified: an actual iPhone**, and the round trip to Google
+> (no running server at the time). The Safari claim remains reasoning until someone records a
+> command on iOS.
+>
+> Unchanged, because it does not depend on the format: `getUserMedia` still needs a secure
+> context, so over `http://<lan-ip>:5173` there is still no microphone (§10.3).
+
+**What happened.** On any iPhone or on macOS Safari, pressing "Comando vocale", speaking and
 releasing produces no command and no error. The announcer says "Comando non riconosciuto" at
 best.
 
