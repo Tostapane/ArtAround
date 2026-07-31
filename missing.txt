@@ -1,12 +1,7 @@
-modulo di teletrasporto ?
-modulo geolocalizzazione ?
-
-
-chiede AI se ci serve JWT.
-
 c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico (non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
 (hai detto facilmente risolvibile con prompt ma rimane irrisolto).
 
+testare interazioni con movimento, logistica e indicazioni 
 
 testare il nuovo sistema di audio (ora compatibile per iphone)
 
@@ -17,7 +12,7 @@ Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tip
 
 fare in modo di avere un tasto home anche nel navigator
 
-da mobile dove sono > inquadra il qr non funziona
-
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
-fuori dalla finestra 
+fuori dalla finestra
+
+ci deve essere un tasto termina visita  

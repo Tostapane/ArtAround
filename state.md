@@ -61,7 +61,7 @@ Implementing `prelude.md` resolved a number of the items listed below. They are 
 | §9.4 two tone vocabularies | one vocabulary, the slides' four tones; **DB migrated** (130 items + 6 visits) via `testers.ts` |
 | §9.10 server TypeScript unchecked | `strict: true` + `skipLibCheck` + `shared/` in the program — `tsc --noEmit` now exits 0. Enabling it surfaced **6 real defects**, all fixed |
 | §9.5 `seedMuseums()` commented out | uncommented and moved first in `completeSeed()` |
-| §9.6 logistics lose their position | anchored `{after, text}`, round-trip preserved |
+| §9.6 logistics lose their position | anchored `{after, text}`, round-trip preserved — **fully** only since 2026-07-31: the anchoring was right on the way out but `rebuildStops()` put the opening notes last on the way back in, so re-saving an untouched visit moved them to the final stop (`left.md` §10) |
 | §9.7 `Map.vue` shipped with a `TODO TEMP` | toggle appears only when there are optional stops |
 | §9.8 hardcoded `localhost` / `Q6373` | `navigator/public/config.json` + `GET /api/config` |
 | §9.9 `visitaUtilizzabile` treats unknown items as owned | unresolvable ids now count as **missing**, not owned |
@@ -384,6 +384,10 @@ string). The user never sees a chat — every entry point is a form (slide 31, g
 
 Deterministic code owns correctness; the LLM owns interpretation. Same pattern as wayfinding.
 
+**Two entry points since 2026-07-31**: the navigator's `Biglietteria` (§5.2) and the
+marketplace's `sumisura` screen (§4.13-bis), which forwards the sentence rather than the
+generated visit. Nothing about this route changed to support the second one.
+
 ### 3.4 Guided sessions — ephemeral, in-memory, polling
 
 `routes/guidedSessions.ts` keeps `Map<sessionId, Sessione>` plus an `accessKey → id` index.
@@ -541,7 +545,9 @@ plaques right, each with tone, length, author, licence, price and one action. Ow
 **expand in place** (`x-collapse`) to reveal the text: no navigation, no overlay.
 **`visita`** — metadata, the strongest action first, the access key when guided, and the
 **percorso** as a numbered list with the **logistics notes rendered between the stops they
-belong to**. Quiz shown with the correct answer marked (author's view).
+belong to**; the ones anchored to nothing (`after: null`) **open** the list rather than
+trailing it, because that is where the navigator plays them. Quiz shown with the correct
+answer marked (author's view).
 
 ### 4.10 `libreria` (visitor) / 4.11 `lavori` (author)
 
@@ -564,6 +570,30 @@ carry the stop number, ▲▼ keyboard-safe reorder, an `aria-pressed` **Opziona
 remove; **logistics notes are visually distinct rows with no number** — they aren't stops.
 A sticky bar states `validazioneVisita()` **as text** at all times, and the publish button
 says `Attiva la visita guidata` when guided — it is not published to the marketplace.
+
+### 4.13-bis `sumisura` — la visita descritta a parole *(nuova 2026-07-31)*
+
+Un campo di testo, tre esempi da toccare, e un bottone che apre il navigator. È l'ingresso
+alla generazione su vincoli (§3.3) dal lato in cui la gente arriva: prima esisteva **solo**
+nella biglietteria del navigator, che un giorno sparirà.
+
+**Due porte, e si aprono l'una sull'altra.** Dalla home del visitatore, e da dentro il
+compositore manuale (§4.13), dove una striscia in cima offre la strada a parole *prima* che
+uno cominci a scegliere le tappe a mano — l'invito non compare in modifica, perché
+manderebbe via da un lavoro già aperto. Nel senso opposto, la riga che avverte che la visita
+non si salva rimanda al compositore, che è il modo per tenerne una. Sono le due metà dello
+stesso atto: comporre scegliendo, o comporre descrivendo.
+
+**Porta la frase, non la visita.** Una visita su misura non viene scritta nel database
+(§3.3) e le due applicazioni stanno su due origini diverse: non c'è modo di passarsela. Il
+collegamento è quindi `?museum=…&custom=<frase>&user=…` e a comporla è il navigator, una
+volta sola. Generarla qui per mostrarne un'anteprima darebbe un percorso **diverso** da
+quello poi eseguito — il modello non risponde due volte allo stesso modo — e l'anteprima
+sarebbe una bugia.
+
+La schermata dice per esteso che la visita non si salva in libreria, perché il marketplace
+è il posto in cui le cose si tengono e un oggetto che sparisce va dichiarato prima, non
+scoperto dopo.
 
 ### 4.14 `gestione` / 4.15 `catalogo` — le due schermate del curatore *(nuove 2026-07-30)*
 
@@ -629,8 +659,13 @@ adoptions with revenue `—`: the revenue of free content isn't `€ 0,00`, it d
 `App.vue` loads **`public/config.json`** first — `{museumQid, museumTitle, apiBase}`, the
 "file di configurazione" of slides 25/33. This removed the hardcoded `Q6373` and every
 `localhost` literal (`apiBase()` falls back to the page's own host on port 8000, so opening
-the navigator from a phone on the LAN works). Then it branches: guided student / guided
-teacher / `?visit=` deep link / normal entry.
+the navigator from a phone on the LAN works). Then it branches five ways: guided student /
+guided teacher / `?visit=` deep link / **`?custom=<frase>`** / normal entry.
+
+`?custom=` carries the *sentence* a visitor typed in the marketplace (§4.13-bis) and is
+composed here through `POST /visits/custom`, because a custom visit is never written to the
+DB and cannot be handed across origins. It takes ~6 s, so the opening screen says
+`Stiamo componendo la tua visita…` rather than `Apertura del museo…`.
 
 ### 5.2 `Biglietteria` — visit selection
 

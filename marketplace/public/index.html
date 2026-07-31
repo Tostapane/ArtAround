@@ -76,6 +76,9 @@
     <symbol id="ico-lavori" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
       <path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" />
     </symbol>
+    <symbol id="ico-scintilla" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 3 8.8 8.8 3 11l5.8 2.2L11 19l2.2-5.8L19 11l-5.8-2.2z" /><path d="M18 3v4" /><path d="M20 5h-4" />
+    </symbol>
     <symbol id="ico-vendite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
       <path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M3 20h18" />
     </symbol>
@@ -419,7 +422,15 @@
               Cosa vuoi fare <span class="whitespace-nowrap" x-text="'a ' + (selectedMuseum ? selectedMuseum.name : '')"></span>?
             </h1>
 
-            <div class="mt-8 grid gap-4 md:grid-cols-3">
+            <div class="mt-8 grid gap-4 md:grid-cols-2">
+              <a href="#/sumisura" class="lastra scheda-click flex flex-col p-6">
+                <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-scintilla" /></svg>
+                <h2 class="mt-4 font-display text-title-2">Raccontaci che visita vuoi</h2>
+                <p class="mt-2 flex-1 text-small text-muted">Descrivila a parole tue: il percorso lo compone l'intelligenza artificiale.</p>
+                <span class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent">
+                  Descrivi la visita <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
+                </span>
+              </a>
               <a href="#/visite" class="lastra scheda-click flex flex-col p-6">
                 <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-visite" /></svg>
                 <h2 class="mt-4 font-display text-title-2">Scegli una visita pronta</h2>
@@ -790,6 +801,18 @@
                 </template>
 
                 <h2 class="mt-12 font-display text-title-2">Il percorso</h2>
+
+                <template x-if="openingNotes(currentVisit()).length > 0">
+                  <ul class="mt-4 flex flex-col gap-2">
+                    <template x-for="note in openingNotes(currentVisit())">
+                      <li class="nota-logistica">
+                        <svg class="h-4 w-4 shrink-0" aria-hidden="true"><use href="#ico-nota" /></svg>
+                        <span x-text="note"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </template>
+
                 <ol class="mt-4 flex flex-col gap-2">
                   <template x-for="t in visitStops(currentVisit())" :key="t.id">
                     <li>
@@ -810,20 +833,6 @@
                     </li>
                   </template>
                 </ol>
-
-                <template x-if="unplacedNotes(currentVisit()).length > 0">
-                  <div class="mt-8">
-                    <h2 class="font-display text-title-3">Indicazioni generali</h2>
-                    <ul class="mt-3 flex flex-col gap-2">
-                      <template x-for="note in unplacedNotes(currentVisit())">
-                        <li class="nota-logistica">
-                          <svg class="h-4 w-4 shrink-0" aria-hidden="true"><use href="#ico-nota" /></svg>
-                          <span x-text="note"></span>
-                        </li>
-                      </template>
-                    </ul>
-                  </div>
-                </template>
 
                 <template x-if="currentVisit().quiz && currentVisit().quiz.length > 0">
                   <div class="mt-12">
@@ -1096,8 +1105,62 @@
             </form>
           </section>
 
+          <!-- ---------- VISITA SU MISURA ---------- -->
+          <section x-show="view === 'sumisura'" class="max-w-2xl">
+            <h1 class="font-display text-title-1">Raccontaci che visita vuoi</h1>
+            <p class="mt-2 text-body text-muted">
+              Descrivi il tempo che hai, con chi sei, cosa ti interessa. L'intelligenza
+              artificiale sceglie le opere fra quelle di
+              <span x-text="selectedMuseum ? selectedMuseum.name : 'questo museo'"></span>
+              e ne scrive le descrizioni seguendo quello che hai chiesto.
+            </p>
+
+            <div class="mt-6 flex flex-wrap gap-2">
+              <template x-for="e in customExamples" :key="e">
+                <button type="button" class="pastiglia-bottone normal-case" @click="customRequest = e" x-text="e"></button>
+              </template>
+            </div>
+
+            <label for="sumisura-testo" class="mt-6 block text-small font-semibold">
+              La visita che vorresti
+            </label>
+            <textarea id="sumisura-testo" x-model="customRequest" rows="4"
+              class="campo mt-2 resize-y"
+              placeholder="Ho solo mezz'ora e vorrei vedere i ritratti."></textarea>
+
+            <div class="barra-salva mt-6">
+              <p class="text-small" :class="customReady() ? 'text-sage' : 'text-muted'" role="status">
+                <span x-show="!customRequest.trim()">Scrivi una frase: bastano poche parole.</span>
+                <span x-show="customRequest.trim()">Pronta. Si apre nell'app da museo.</span>
+              </p>
+              <a :href="customVisitUrl()" class="btn-primario"
+                :class="customReady() ? '' : 'pointer-events-none opacity-50'"
+                :aria-disabled="customReady() ? false : true">
+                Componi e inizia <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-esterno" /></svg>
+              </a>
+            </div>
+
+            <p class="mt-6 text-small text-muted">
+              Una visita su misura non si salva in libreria: vive il tempo che la percorri.
+              Per tenerne una,
+              <a href="#/componi" @click="openComposer()" class="link">componila dal catalogo</a>.
+            </p>
+          </section>
+
           <section x-show="view === 'componi'" class="max-w-none">
             <h1 class="font-display text-title-1" x-text="editingId ? 'Modifica la visita' : 'Componi una visita'"></h1>
+
+            <!-- L'altra strada: descriverla invece di sceglierla tappa per tappa -->
+            <template x-if="!editingId">
+              <div class="lastra mt-4 flex flex-col gap-3 border-l-4 border-l-accent p-4 sm:flex-row sm:items-center">
+                <svg class="h-6 w-6 shrink-0 text-accent" aria-hidden="true"><use href="#ico-scintilla" /></svg>
+                <p class="flex-1 text-small">
+                  Non hai voglia di sceglierle una per una? Descrivi la visita che vorresti e
+                  la compone l'intelligenza artificiale.
+                </p>
+                <a href="#/sumisura" class="btn-secondario shrink-0">Raccontala a parole</a>
+              </div>
+            </template>
 
             <nav class="passi mt-6" aria-label="Passi della composizione">
               <template x-for="(p, i) in (currentUserRole === 'autore'

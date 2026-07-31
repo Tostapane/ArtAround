@@ -15,6 +15,12 @@
  *     ? ... : ...`, col visitatore nel ramo altrimenti: un ruolo nuovo ci cade
  *     dentro senza che nulla protesti. Nominarlo esplicitamente dove conta.
  *
+ * ⚠️ L'ORDINE di `draft.tappe` E' L'ANCORAGGIO delle note logistiche: il server non
+ * riceve una posizione, la ricava percorrendo `percorso` e legando ogni nota alla
+ * tappa che la precede (nessuna ⇒ `after: null`, cioe' nota d'apertura). Quindi
+ * ricostruire un percorso nell'ordine sbagliato non e' un difetto di visualizzazione:
+ * al primo salvataggio la nota si riancora dove l'ha messa `rebuildStops`.
+ *
  * ⚠️ Nel catalogo del curatore la durata di una descrizione e' in SECONDI esatti e
  * non in `formatDuration()`: le descrizioni sono uniche per (opera, autore, tono,
  * DURATA), quindi ogni riga ha una gemella identica in tutto il resto, e i minuti
@@ -116,6 +122,7 @@ export type View =
   | "visita"
   | "libreria"
   | "componi"
+  | "sumisura"
   | "nuovo"
   | "lavori"
   | "vendite"
@@ -154,6 +161,9 @@ export class AppState {
 
   editorSearch: string = "";
   editorFilter: "tutti" | "disponibili" | "da_acquistare" = "tutti";
+
+  // --- Visita su misura -----------------------------------------------------
+  customRequest: string = "";
 
   // --- Visita guidata (studente) --------------------------------------------
   passkeyInput: string = "";
@@ -227,6 +237,7 @@ export class AppState {
       "visita",
       "libreria",
       "componi",
+      "sumisura",
       "nuovo",
       "lavori",
       "vendite",
@@ -295,6 +306,7 @@ export class AppState {
       visita: "Scheda della visita",
       libreria: "La mia libreria",
       componi: this.editingId ? "Modifica la visita" : "Componi una visita",
+      sumisura: "Visita su misura",
       nuovo: this.editingId ? "Modifica la descrizione" : "Nuova descrizione",
       lavori: "I miei contenuti",
       vendite: "Vendite e adozioni",
@@ -457,6 +469,7 @@ export class AppState {
     this.roleChoice = null;
     this.guidedSession = null;
     this.passkeyInput = "";
+    this.customRequest = "";
     this.visitSearch = "";
     this.artworkSearch = "";
     this.librarySearch = "";
@@ -1197,7 +1210,7 @@ export class AppState {
     return notes;
   }
 
-  unplacedNotes(v: any): string[] {
+  openingNotes(v: any): string[] {
     const notes: string[] = [];
     for (const n of v.logistics || []) {
       if (typeof n === "string" && n.trim() !== "") notes.push(n);
@@ -1267,6 +1280,28 @@ export class AppState {
       `${this.navigatorBase()}/` +
       `?museum=${encodeURIComponent(museumQid)}` +
       `&visit=${encodeURIComponent(v["@id"])}` +
+      `&user=${encodeURIComponent(this.currentUser || "")}`
+    );
+  }
+
+  // --- Visita su misura -----------------------------------------------------
+
+  customExamples: string[] = [
+    "Ho solo mezz'ora, mostrami le cose più importanti",
+    "Siamo due adulti e due bambini di 5 e 8 anni",
+    "Mi piace il giallo",
+  ];
+
+  customReady(): boolean {
+    return this.customRequest.trim() !== "" && !!this.selectedMuseum;
+  }
+
+  customVisitUrl(): string {
+    if (!this.customReady()) return "#";
+    return (
+      `${this.navigatorBase()}/` +
+      `?museum=${encodeURIComponent(this.selectedMuseum!.qid)}` +
+      `&custom=${encodeURIComponent(this.customRequest.trim())}` +
       `&user=${encodeURIComponent(this.currentUser || "")}`
     );
   }
@@ -1487,14 +1522,14 @@ export class AppState {
       value: string;
       opzionale?: boolean;
     }[] = [];
+    for (const note of this.openingNotes(visit)) {
+      tappe.push({ tipo: "logistica", value: note });
+    }
     for (const id of visit.itemListElement || []) {
       tappe.push({ tipo: "item", value: id, opzionale: optionalIds.has(id) });
       for (const note of this.notesAfter(visit, id)) {
         tappe.push({ tipo: "logistica", value: note });
       }
-    }
-    for (const note of this.unplacedNotes(visit)) {
-      tappe.push({ tipo: "logistica", value: note });
     }
     return tappe;
   }

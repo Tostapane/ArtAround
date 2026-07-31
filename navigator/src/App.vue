@@ -3,10 +3,17 @@
  * Guscio dell'applicazione.
  *
  * Prima di ogni altra cosa carica il file di configurazione del curatore: da li'
- * arrivano il museo e l'indirizzo del server. Poi sceglie uno di quattro
+ * arrivano il museo e l'indirizzo del server. Poi sceglie uno di cinque
  * ingressi, letti dalla query string: studente di una visita guidata, docente
  * che apre la sala d'attesa, collegamento diretto a una visita dal marketplace,
- * oppure accesso normale alla biglietteria.
+ * richiesta di una visita su misura da comporre (`custom=`), oppure accesso
+ * normale alla biglietteria.
+ *
+ * `custom=` porta la FRASE, non la visita: una visita su misura non e' scritta
+ * nel database e le due applicazioni stanno su due origini, quindi non c'e' modo
+ * di passarsela. La compone qui chi la suonera', una volta sola — generarla nel
+ * marketplace per mostrarne un'anteprima darebbe un percorso diverso da quello
+ * poi eseguito, perche' il modello non risponde due volte allo stesso modo.
  *
  * Non c'e' intestazione fissa ne' piede durante la visita: su un telefono, in
  * piedi dentro un museo, ogni pixel appartiene alla mappa.
@@ -16,7 +23,7 @@ import Biglietteria from "./components/selection/Biglietteria.vue";
 import Visita from "./components/visita/Visita.vue";
 import GuidedGate from "./components/GuidedGate.vue";
 import { loadMuseum, setCustomVisit, setVisit, visit, user } from "./state";
-import { getVisit } from "./api";
+import { getVisit, createCustomVisit } from "./api";
 import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
 import { useAnnouncer } from "./composables/useAnnouncer";
@@ -26,6 +33,7 @@ const { message, announce } = useAnnouncer();
 
 const pronto = ref(false);
 const erroreAvvio = ref("");
+const testoAvvio = ref("Apertura del museo…");
 const started = ref(false);
 const choice = ref<string>("");
 
@@ -90,6 +98,20 @@ onMounted(async () => {
     return;
   }
   await loadMuseum(qid);
+
+  const richiesta = (params.get("custom") || "").trim();
+  if (richiesta !== "") {
+    testoAvvio.value = "Stiamo componendo la tua visita…";
+    try {
+      const risultato = await createCustomVisit(qid, richiesta);
+      onCustomStart(risultato);
+    } catch (err) {
+      console.error("Impossibile comporre la visita su misura", err);
+      erroreAvvio.value =
+        "Non è stato possibile comporre la visita. Torna al marketplace e riprova, magari descrivendola con altre parole.";
+    }
+  }
+
   pronto.value = true;
 });
 
@@ -121,7 +143,7 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
 
     <main id="contenuto" tabindex="-1" class="flex flex-1 flex-col">
       <div v-if="!pronto" class="flex flex-1 items-center justify-center p-8">
-        <p class="text-small text-muted" role="status">Apertura del museo…</p>
+        <p class="text-small text-muted" role="status">{{ testoAvvio }}</p>
       </div>
 
       <!-- Visita guidata (modulo 18-27) -->

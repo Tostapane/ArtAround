@@ -20,20 +20,13 @@ Nell'albero ci sono sei lavori distinti, da committare separati (l'ordine è que
    (puntava a `spec.md`, cancellato da tempo) + passata sui commenti del marketplace.
 
 **Aperto, in ordine di peso:**
-- 🐞 **Le note logistiche d'apertura migrano in fondo a ogni modifica.** Una nota messa
-  prima della prima opera si salva come `{after: null}` — giusto — ma `rebuildStops()` in
-  `marketplace/src/frontend/state.ts` accoda le note senza ancora **dopo** il ciclo sulle
-  opere. Riaprendo la visita in editor la nota compare in fondo, e un salvataggio che non
-  cambia nulla la riancora all'ultima tappa: nel navigator smette di accogliere il
-  visitatore all'ingresso e finisce sulla schermata di fine visita. Verificato con un giro
-  completo su una visita usa e getta. **Rimedio: spostare il ciclo su `unplacedNotes` PRIMA
-  di quello su `itemListElement`** — così `ultimoItem` è ancora `null` quando il server le
-  incontra. Tutto il resto del giro (nota fra due opere) è corretto.
 - ⚠️ **nel database non c'è nessuna visita guidata** (0 con `accessKey`, 0 con quiz, 0 con
   tappe opzionali): il modulo I non è dimostrabile. `seedSpecialVisits()` non è mai stato
   eseguito e *oggi funzionerebbe*. Vedi `state.md` §3.5. È il rimedio più economico che c'è.
-- **teleport** — l'unico buco di specifica (`state.md` §7.1).
 - passata sui commenti di `server/src` e `navigator/src` (non fatta, non urgente).
+
+**Chiuso il 2026-07-31:** le note logistiche d'apertura che migravano in fondo (§10), la
+visita su misura nel marketplace (§11) e il teletrasporto (§9, commit `87abfe2`).
 
 ---
 
@@ -828,3 +821,72 @@ console: il punto toccato riconvertito a mano coincide col segnalino a **0,000 u
 Due trappole *della prova*, non del codice: `.click()` lascia `clientX/clientY` a zero (ci
 vuole `Input.dispatchMouseEvent`), e la striscia armata sposta la pianta di ~50 px, quindi
 ogni misura va presa nell'istante del tocco. Il difetto vero trovato cosi' sta in §5.
+
+---
+
+## 10. La nota d'apertura che finiva a fine visita (2026-07-31)
+
+Una nota logistica messa **prima della prima opera** si salvava giusta (`{after: null}`) e
+poi si spostava da sola: bastava riaprire la visita in editor e risalvarla senza cambiare
+niente. Nel navigator la conseguenza era visibile all'estremo opposto della visita —
+l'accoglienza all'ingresso spariva e il testo ricompariva sulla schermata di fine visita.
+
+**La causa e' l'ordine di due cicli.** Il server non riceve la posizione di una nota: la
+ricava percorrendo `percorso` e legandola alla tappa che la precede (`routes/visits.ts`,
+`ultimoItem`). `rebuildStops()` in `marketplace/src/frontend/state.ts` ricostruiva pero' il
+percorso mettendo le opere **prima** delle note senza ancora, quindi al salvataggio
+successivo `ultimoItem` non era piu' `null` ma l'ultima tappa. Ora il ciclo sulle note
+d'apertura viene per primo. Il metodo si chiama `openingNotes` come nel navigator:
+`unplacedNotes` diceva che quelle note non hanno una posizione, e invece ce l'hanno.
+
+Nella pagina della visita le stesse note stavano in coda sotto «Indicazioni generali»,
+cioe' il marketplace mostrava un ordine che il navigator non suona: ora aprono il percorso.
+
+**Verificato contro il server vivo** con `AppState` compilato — non una copia della logica —
+su una visita usa e getta: tre salvataggi di fila che non cambiano niente lasciano gli
+ancoraggi identici. La prova e' stata rifatta con l'ordine vecchio per accertarsi che
+fallisse: 4 controlli su 6 rossi, con la nota d'apertura riancorata all'ultima tappa.
+
+---
+
+## 11. La visita su misura arriva nel marketplace (2026-07-31)
+
+Comporre una visita descrivendola a parole («mi piace il giallo») esisteva **solo** nella
+biglietteria del navigator. Siccome la biglietteria un giorno sparira', l'ingresso doveva
+stare nel marketplace: nuova schermata `#/sumisura`, quarta porta sulla home del visitatore.
+
+**Il server non e' stato toccato.** `POST /visits/custom` funziona ed era gia' completo; il
+buco era solo nell'ingresso.
+
+**La decisione che ha dato forma alla schermata:** una visita su misura non viene scritta nel
+database — e' una scelta di progetto (`dbActions.ts`: «le visite su misura vivono solo nel
+client»), e le due applicazioni stanno su **due origini diverse**, quindi non c'e' nessun modo
+di passarsi la visita gia' composta. Quindi il marketplace porta al navigator la **frase**, e
+a comporre e' chi poi la esegue. Le alternative sono state scartate cosi':
+
+- *generare nel marketplace e mostrare un'anteprima* — il navigator dovrebbe rigenerare, e il
+  modello non risponde due volte allo stesso modo: si guarderebbe un percorso e se ne
+  suonerebbe un altro;
+- *salvare gli item generati per poterla tenere in libreria* — scartata dall'utente: la visita
+  resta effimera. Da sapere se un giorno si cambia idea: `POST /visits` scrive
+  `itemListElement` **cosi' com'e'**, senza controllare che gli id esistano, quindi salvare
+  una visita con item non persistiti darebbe tappe che non si risolvono e che spariscono in
+  silenzio (§3.1 di `state.md` avverte proprio di questo).
+
+**Raggiungibile da due parti**, su richiesta: la porta sulla home e una striscia in cima al
+compositore manuale, cosi' la strada a parole si vede *prima* di mettersi a scegliere le
+tappe a una a una. L'invito e' nascosto quando si sta modificando una visita — manderebbe
+via da un lavoro aperto. Il senso opposto e' collegato pure lui: la riga che avverte che la
+visita non si salva porta al compositore.
+
+**Verificato in un browser vero, non solo compilato** (chromium via CDP, gli script sono nello
+scratchpad). Marketplace: 13 controlli — accesso, museo, la porta sulla home, la schermata, il
+bottone inerte finche' il campo e' vuoto, l'esempio che riempie il campo, l'indirizzo che ne
+esce — zero errori in console. Navigator: aperto sull'indirizzo generato, mostra «Stiamo
+componendo la tua visita…», e dopo la chiamata all'LLM parte davvero la visita («Percorso
+Dorato», 3 tappe, mappa disegnata), zero errori in console. I due sensi del collegamento col
+compositore: altri 7 controlli, percorsi cliccando davvero, zero errori.
+
+⚠️ Una trappola *della prova*: `document.body.innerText` non vede le viste nascoste da
+`x-show`, ma `querySelectorAll` **si'**. Un controllo fatto con il secondo passa anche quando
+la schermata non e' affatto aperta — i primi due «OK» di quella tornata erano falsi.
