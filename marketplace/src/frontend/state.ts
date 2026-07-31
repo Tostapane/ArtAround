@@ -182,6 +182,11 @@ export class AppState {
   editorSearch: string = "";
   editorFilter: "tutti" | "disponibili" | "da_acquistare" = "tutti";
 
+  // Biglietto di rientro dal navigator: sta in memoria e basta, come il resto
+  // della sessione, e non finisce mai in un QR — una credenziale stampata resta
+  // valida quanto la carta su cui sta.
+  handoff: string = "";
+
   // --- Visita su misura -----------------------------------------------------
   customRequest: string = "";
 
@@ -362,7 +367,32 @@ export class AppState {
     } catch {
       this.navigatorOrigin = "";
     }
+    await this.redeemHandoff();
     this.applyRoute();
+  }
+
+  /**
+   * Il biglietto si spende e sparisce dall'indirizzo: un ricaricamento non prova
+   * a spenderlo una seconda volta e la barra degli indirizzi non resta con una
+   * credenziale dentro.
+   */
+  private async redeemHandoff() {
+    const ticket = new URLSearchParams(window.location.search).get("handoff");
+    if (!ticket) return;
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + window.location.hash,
+    );
+    try {
+      const u = await ArtAPI.redeemHandoff(ticket);
+      await this.enterAs(u);
+    } catch {
+      this.showToast(
+        "Il collegamento non vale piu': entra con le tue credenziali.",
+        "error",
+      );
+    }
   }
 
   /**
@@ -406,7 +436,7 @@ export class AppState {
       (a.name || "").localeCompare(b.name || ""),
     );
     this.visits = await ArtAPI.fetchVisite(qid);
-    this.marketItems = await ArtAPI.fetchItems(qid);
+    this.marketItems = await ArtAPI.fetchItems(qid, this.currentUser || undefined);
 
     if (this.currentUser && this.currentUserRole === "autore") {
       this.myItems = await ArtAPI.fetchMyItems(this.currentUser);
@@ -451,11 +481,13 @@ export class AppState {
     role: UserRole;
     wallet?: number;
     collezione: string[];
+    handoff?: string;
   }) {
     this.currentUser = u.username;
     this.currentUserRole = u.role;
     this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
     this.userCollection = u.collezione || [];
+    this.handoff = u.handoff || "";
     this.loginForm = { username: "", password: "" };
     await this.initApp();
   }
@@ -496,6 +528,7 @@ export class AppState {
     this.guidedSession = null;
     this.passkeyInput = "";
     this.customRequest = "";
+    this.handoff = "";
     this.marketSearch = "";
     this.librarySearch = "";
     this.worksSearch = "";
@@ -1374,7 +1407,8 @@ export class AppState {
     return `${window.location.protocol}//${window.location.hostname}:5173`;
   }
 
-  navigatorUrl(v: any): string {
+  /** Senza biglietto: e' questa che finisce nel QR, cioe' su carta. */
+  private navigatorUrlBase(v: any): string {
     if (!v) return "#";
     const uri: string = v.ofMuseum || "";
     const museumQid = uri.split("/").pop() || "";
@@ -1384,6 +1418,12 @@ export class AppState {
       `&visit=${encodeURIComponent(v["@id"])}` +
       `&user=${encodeURIComponent(this.currentUser || "")}`
     );
+  }
+
+  navigatorUrl(v: any): string {
+    const base = this.navigatorUrlBase(v);
+    if (base === "#" || !this.handoff) return base;
+    return `${base}&handoff=${encodeURIComponent(this.handoff)}`;
   }
 
   // --- Visita su misura -----------------------------------------------------
@@ -1404,7 +1444,8 @@ export class AppState {
       `${this.navigatorBase()}/` +
       `?museum=${encodeURIComponent(this.selectedMuseum!.qid)}` +
       `&custom=${encodeURIComponent(this.customRequest.trim())}` +
-      `&user=${encodeURIComponent(this.currentUser || "")}`
+      `&user=${encodeURIComponent(this.currentUser || "")}` +
+      (this.handoff ? `&handoff=${encodeURIComponent(this.handoff)}` : "")
     );
   }
 
@@ -1426,7 +1467,7 @@ export class AppState {
   }
 
   visitQrUrl(v: any): string {
-    return `/api/qr?text=${encodeURIComponent(this.navigatorUrl(v))}`;
+    return `/api/qr?text=${encodeURIComponent(this.navigatorUrlBase(v))}`;
   }
 
   sampleUrl(): string {

@@ -44,6 +44,7 @@ import {
   matchedContent,
   setStageView,
   visit,
+  handoff,
 } from "@/state";
 import {
   guidedActive,
@@ -111,7 +112,7 @@ const fine = ref<{ notes: string[] } | null>(null);
 const pannelloAperto = ref(false);
 
 function tornaAllaHome() {
-  window.location.href = marketplaceHome();
+  window.location.href = marketplaceHome(handoff.value);
 }
 
 /**
@@ -162,6 +163,13 @@ const hasNext = computed(() => {
 const hasPrev = computed(() => {
   if (guidedStudent.value) return false;
   return stepIndex(navBase(), -1) >= 0;
+});
+
+const canEnd = computed(() => {
+  if (guidedActive.value) return false;
+  if (guidedStudent.value) return false;
+  if (lastVisitIndex.value < 0) return false;
+  return !hasNext.value;
 });
 
 // --- Avanzamento: "Tappa 3 di 13" -----------------------------------------
@@ -508,6 +516,7 @@ onUnmounted(() => {
       :optional="isOptionalItem(currentArtwork.item['@id'])"
       :has-next="hasNext"
       :has-prev="hasPrev"
+      :can-end="canEnd"
       :numero="currentPosition"
       :totale="navigableStops.length"
       :guided-student="guidedStudent"

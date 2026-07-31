@@ -10,6 +10,7 @@ import { Router } from "express";
 import { ArtworkModel } from "../models/artwork";
 import { ItemModel } from "../models/item";
 import { createDescription } from "../services/llm";
+import { purchasedBy, isReadable, withoutText } from "../access";
 
 const router = Router();
 
@@ -58,6 +59,11 @@ router.get("/:qid/preview", async (req, res) => {
     }
 
     if (item) {
+      const user = String(req.query.user || "");
+      const owned = await purchasedBy(user);
+      if (!isReadable(item, user, owned)) {
+        return res.json({ artwork, item: withoutText(item) });
+      }
       return res.json({ artwork, item });
     }
 

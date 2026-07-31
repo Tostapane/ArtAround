@@ -973,3 +973,35 @@ e quattro i toni, quindi a stringersi sono le descrizioni DENTRO ciascuna carta 
 Il controllo va fatto su quelle, non sul numero di opere.
 
 I vecchi `#/visite` e `#/opere` continuano a rispondere e arrivano con la specie gia' scelta.
+
+---
+
+## 14. Contenuti a pagamento e biglietto di rientro (2026-07-31)
+
+**Il paywall non teneva.** `GET /items` restituiva i documenti interi — testo compreso —
+filtrando solo `visibility`, e `collezione` non veniva consultata da nessuna parte prima di
+servire un testo. Con dei prezzi veri sarebbe bastato aprire la risposta (o la console: il
+testo stava gia' in `marketItems`) per leggere quel che era in vendita. Ora la regola sta in
+`server/src/access.ts`, una sola, usata dalle tre rotte che servono testi (`/items`,
+`/visits/:id/items`, `/artworks/:qid/preview`): si legge se e' gratuito, se l'hai scritto o
+se l'hai comprato; il resto del documento resta pubblico, perche' quello e' il catalogo.
+
+⚠️ **E' autorizzazione, non autenticazione.** Il nome utente arriva dalla richiesta e nessuno
+verifica che sia tuo: difende dal vedere per sbaglio, non da chi scrive un altro nome. La
+riga da dire all'esame e' questa, non «e' sicuro».
+
+**Il rientro dal navigator.** Il problema non era il formato del token ma il *trasporto*:
+altra origine, quindi o memoria del browser (la persistenza rifiutata) o indirizzo. JWT non
+crea un terzo canale, e qui sarebbe pure sbagliato — la verifica senza stato non serve a un
+processo solo, non si revoca senza una lista, e `jsonwebtoken` non si installa (`node_modules`
+di root). Quindi: biglietto monouso `crypto.randomUUID()`, **coniato dentro `POST /login`**
+perche' e' l'unico punto dove la password si verifica davvero.
+
+Verificato: 8 controlli sul server (password sbagliata → niente biglietto; monouso, il
+secondo tentativo 404; inventato 404; due accessi due biglietti) e 9 in browser (sta in
+memoria e non in `localStorage`, il collegamento diretto lo porta e **il QR no**, rientrando
+si e' sulla home, sparisce dall'indirizzo, riusarlo torna alla soglia, e `/` a mani nude
+mostra ancora la soglia).
+
+⚠️ **Trappola della prova, non del codice:** il metodo si chiama `visitQrUrl`, non `qrUrl`;
+il primo giro falliva dentro lo script e sembrava un difetto dell'app.

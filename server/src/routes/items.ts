@@ -18,6 +18,7 @@
 import { Router } from "express";
 import { ItemModel } from "../models/item";
 import { ArtworkModel } from "../models/artwork";
+import { purchasedBy, readableItems } from "../access";
 import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
 
@@ -48,7 +49,9 @@ router.get("/", async (req, res) => {
       localField: "about",
       justOne: true,
     });
-    res.json(items);
+    const user = String(req.query.user || "");
+    const owned = await purchasedBy(user);
+    res.json(readableItems(items, user, owned));
   } catch (error: any) {
     console.error(error);
     res.status(500).json({ error: "Errore nel recupero degli item" });

@@ -22,7 +22,7 @@ import { onMounted, ref, computed } from "vue";
 import Biglietteria from "./components/selection/Biglietteria.vue";
 import Visita from "./components/visita/Visita.vue";
 import GuidedGate from "./components/GuidedGate.vue";
-import { loadMuseum, setCustomVisit, setVisit, visit, user } from "./state";
+import { loadMuseum, setCustomVisit, setVisit, visit, user, handoff } from "./state";
 import { getVisit, createCustomVisit } from "./api";
 import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
@@ -47,6 +47,7 @@ onMounted(async () => {
 
   const params = new URLSearchParams(window.location.search);
   user.value = params.get("user") || "";
+  handoff.value = params.get("handoff") || "";
 
   const role = params.get("role");
   const guidedSessionParam = params.get("guidedSession");

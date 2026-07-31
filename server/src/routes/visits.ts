@@ -22,6 +22,7 @@ import { UserModel } from "../models/user";
 import { ArtworkModel } from "../models/artwork";
 import { planVisit } from "../services/llm";
 import { resolveOrGenerateItem } from "../dbActions";
+import { purchasedBy, readableItems } from "../access";
 
 const router = Router();
 
@@ -84,7 +85,9 @@ router.get("/:id/items", async (req, res) => {
 
     const byId = new Map(items.map((it: any) => [it["@id"], it]));
     const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
-    res.json(ordered);
+    const user = String(req.query.user || "");
+    const owned = await purchasedBy(user);
+    res.json(readableItems(ordered, user, owned));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nel caricamento degli item della visita" });
   }

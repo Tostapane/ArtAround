@@ -12,9 +12,20 @@ Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tip
 
 fare in modo di avere un tasto home anche nel navigator
 
+far selezionare una lingua?
+
+ci sono grandi problemi di sicurezza
+
+se non sicuro, deve blurrare le immagini
+
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra
 
 ci deve essere un tasto termina visita  
 
 i filtri mostra contenuti mentre crei una visita sono abbastanza dubbiosi
+
+la sezione riprendi ha senso?
+
+1) when the user logs in is supposed to choose one of the museums, right now its inside the last museum he used
+2) i tried the second museum and once i ended the visit i did not re enter the home, i was in the landing page

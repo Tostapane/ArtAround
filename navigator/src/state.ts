@@ -38,6 +38,9 @@ export const map = ref<string>("");
 export const matchedContent = ref<Match[]>([]);
 export const user = ref<string>("");
 
+/** Biglietto di rientro al marketplace: arriva nell'indirizzo e vale una volta. */
+export const handoff = ref<string>("");
+
 /**
  * Tutte le opere del museo, non solo le tappe: la localizzazione sceglie fra i
  * nodi disegnati sulla pianta, e la pianta li porta tutti. Servono il nome e
@@ -161,7 +164,7 @@ export async function loadVisitContent(visitId: string) {
   if (contentVisitId === visitId) return;
   matchedContent.value = [];
   try {
-    const items = await getVisitItems(visitId);
+    const items = await getVisitItems(visitId, user.value);
     matchedContent.value = items
       .filter((it) => it.about && typeof it.about === "object")
       .map((it) => ({ artwork: it.about as Artwork, item: it }));

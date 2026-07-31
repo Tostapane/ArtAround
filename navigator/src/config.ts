@@ -55,8 +55,10 @@ export function mediaOrigin(): string {
  * marketplace, quindi non c'e' un secondo indirizzo da configurare. E' li' che
  * si torna a fine visita.
  */
-export function marketplaceHome(): string {
-  return `${mediaOrigin()}/#/home`;
+export function marketplaceHome(handoff?: string): string {
+  const base = `${mediaOrigin()}/`;
+  if (handoff) return `${base}?handoff=${encodeURIComponent(handoff)}#/home`;
+  return `${base}#/home`;
 }
 
 export function museumQid(): string {

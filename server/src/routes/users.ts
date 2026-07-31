@@ -12,6 +12,7 @@
  * vendite, perche' account autore e visitatore sono separati.
  */
 import { Router } from "express";
+import { randomUUID } from "crypto";
 import { UserModel } from "../models/user";
 import { ItemModel } from "../models/item";
 import { VisitModel } from "../models/visit";
@@ -25,6 +26,35 @@ function sanitize(u: any) {
     wallet: u.wallet,
     collezione: u.collezione,
   };
+}
+
+/*
+  BIGLIETTO DI RIENTRO. Il navigator sta su un'altra origine, quindi tornando al
+  marketplace la pagina si ricarica e nessuno si ricorda chi eravamo; e la
+  sessione non si conserva, per scelta. Cio' che attraversa e' allora un
+  biglietto: si conia QUI DENTRO, al login, che e' l'unico punto in cui la
+  password viene davvero verificata — coniarlo altrove vorrebbe dire fabbricarlo
+  per un nome qualsiasi. Vale una volta sola e poche ore, sta in memoria e muore
+  col processo, come le sale guidate.
+*/
+const HANDOFF_TTL_MS = 6 * 60 * 60 * 1000;
+const handoffs = new Map<
+  string,
+  { username: string; role: string; expires: number }
+>();
+
+function issueHandoff(u: any): string {
+  const ticket = randomUUID();
+  handoffs.set(ticket, {
+    username: u.username,
+    role: u.role,
+    expires: Date.now() + HANDOFF_TTL_MS,
+  });
+  return ticket;
+}
+
+function withHandoff(u: any) {
+  return { ...sanitize(u), handoff: issueHandoff(u) };
 }
 
 function isValidRole(role: any): boolean {
@@ -80,7 +110,7 @@ router.post("/login", async (req, res) => {
         return res.status(401).json({
           error: "Credenziali non valide. Controlla username e password.",
         });
-      return res.json(sanitize(user));
+      return res.json(withHandoff(user));
     }
 
     const candidates = (await UserModel.find({ username, password })).filter(
@@ -90,7 +120,7 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({
         error: "Credenziali non valide. Controlla username e password.",
       });
-    if (candidates.length === 1) return res.json(sanitize(candidates[0]));
+    if (candidates.length === 1) return res.json(withHandoff(candidates[0]));
 
     res.status(300).json({
       scelta: true,
@@ -98,6 +128,34 @@ router.post("/login", async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore in login" });
+  }
+});
+
+/**
+ * POST /api/users/redeem  { handoff }
+ * Ritorna: l'account senza password. Il biglietto vale UNA volta sola: si
+ * cancella prima ancora di guardare se e' scaduto, cosi' non resta in giro.
+ */
+router.post("/redeem", async (req, res) => {
+  try {
+    const ticket = String(req.body.handoff || "");
+    const entry = handoffs.get(ticket);
+    if (!entry)
+      return res
+        .status(404)
+        .json({ error: "Biglietto non valido o gia' usato." });
+    handoffs.delete(ticket);
+    if (Date.now() > entry.expires)
+      return res.status(410).json({ error: "Biglietto scaduto." });
+
+    const user = await UserModel.findOne({
+      username: entry.username,
+      role: entry.role,
+    });
+    if (!user) return res.status(404).json({ error: "Account non trovato" });
+    res.json(sanitize(user));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Errore nel rientro" });
   }
 });
 

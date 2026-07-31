@@ -88,6 +88,27 @@ Twelve items of feedback, seven of them defects found by using the thing:
 | the seeded guided visit had **no quiz**, so slide 33's "test sensato di competenza" was unmet by a fresh seed | `server/src/data/quiz.ts` builds one **from the visit's own artworks** — author, style, "which of these is by X", distractors drawn from the same museum, `Unknown` filtered out. No hand-written question, so it holds for any museum |
 | "Il banco" | "Home" (route `#/home`), plus the soglia and the login lost the university strapline, the dead theme toggle and the profile line |
 
+### Il biglietto di rientro *(2026-07-31)*
+
+Tornando dal navigator la pagina si ricarica su **un'altra origine**, quindi il marketplace
+non sa piu' chi sei e mostrava la soglia. I canali per attraversare sono due soli — la
+memoria del browser (che e' la persistenza rifiutata) e l'indirizzo — e nessun formato di
+token ne crea un terzo: **JWT non c'entra**, e qui non servirebbe comunque (verifica senza
+stato non serve a un processo solo, non si revoca senza una lista lato server, e
+`jsonwebtoken` non si installa perche' `server/node_modules` e' di root).
+
+Quello che attraversa e' un **biglietto monouso**: `crypto.randomUUID()` coniato **dentro
+`POST /login`**, che e' l'unico punto in cui la password viene verificata — un endpoint che
+lo conia per un nome qualsiasi sarebbe falsificabile come il nome stesso. Sta in una `Map`
+in memoria con le sale guidate, vale 6 ore, e si cancella **prima** di guardare se e'
+scaduto. Il marketplace lo tiene in memoria (mai in `localStorage`), lo mette sui
+collegamenti dello stesso dispositivo e **mai nel QR** — una credenziale stampata vale
+quanto la carta su cui sta. Al rientro lo spende e lo toglie dall'indirizzo, cosi' un
+ricaricamento non lo rigioca.
+
+Cosi' la soglia resta raggiungibile aprendo `/` a mani nude, che era la proprieta' la cui
+perdita aveva fatto togliere la persistenza.
+
 **One change was made and then removed at the user's instruction: marketplace session
 persistence.** "Torna alla home" at the end of a visit crosses an origin, so it is a page
 load and the marketplace showed the soglia instead of the visitor's home; restoring the

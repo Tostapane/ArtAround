@@ -19,8 +19,10 @@ export async function getVisit(id: string): Promise<Visit> {
   return res.json();
 }
 
-export async function getVisitItems(id: string): Promise<Item[]> {
-  const res = await fetch(`${base()}/visits/${encodeURIComponent(id)}/items`);
+export async function getVisitItems(id: string, user?: string): Promise<Item[]> {
+  let url = `${base()}/visits/${encodeURIComponent(id)}/items`;
+  if (user) url += `?user=${encodeURIComponent(user)}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch visit items: ${res.statusText}`);
   return res.json();
 }

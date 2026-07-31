@@ -125,8 +125,21 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async fetchItems(museumQid?: string): Promise<Item[]> {
-    const q = museumQid ? `?museum=${encodeURIComponent(museumQid)}` : '';
+  async redeemHandoff(handoff: string): Promise<any> {
+    const response = await fetch('/api/users/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ handoff }),
+    });
+    if (!response.ok) throw new Error('Biglietto non valido');
+    return response.json();
+  },
+
+  async fetchItems(museumQid?: string, user?: string): Promise<Item[]> {
+    const params = new URLSearchParams();
+    if (museumQid) params.set('museum', museumQid);
+    if (user) params.set('user', user);
+    const q = params.toString() ? `?${params.toString()}` : '';
     const response = await fetch(`/api/items${q}`);
     if (!response.ok) throw new Error('Errore caricamento contenuti');
     return response.json();

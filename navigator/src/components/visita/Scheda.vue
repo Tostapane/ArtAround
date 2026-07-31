@@ -35,6 +35,7 @@ const props = defineProps<{
   optional: boolean;
   hasPrev: boolean;
   hasNext: boolean;
+  canEnd: boolean;
   numero: number;
   totale: number;
   guidedStudent: boolean;
@@ -281,7 +282,7 @@ const height = computed(() => {
       <Comando class="flex-1" @action="(a) => emit('action', a)" />
 
       <button
-        v-if="!guidedStudent"
+        v-if="!guidedStudent && !canEnd"
         type="button"
         class="btn-primario"
         :disabled="!hasNext"
@@ -293,6 +294,20 @@ const height = computed(() => {
         </span>
         <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
+      </button>
+
+      <button
+        v-if="canEnd"
+        type="button"
+        class="btn-pericolo-pieno"
+        aria-label="Termina la visita"
+        @click="emit('navigation', 'next')"
+      >
+        <span class="hidden sm:inline lg:hidden xl:inline">Termina visita</span>
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
+          <circle cx="12" cy="12" r="9" />
         </svg>
       </button>
 
