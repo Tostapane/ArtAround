@@ -35,6 +35,24 @@ A rejected alternative earns a mention in **one** case: when knowing it stops so
 reintroducing a bug — *"non usare `dbActions.deleteItem` per gli item: salta la cascata"*.
 That is operational, not self-congratulatory.
 
+### The story goes in `state.md`. The header gets the system.
+
+Two different readers. `state.md` is read by whoever wants to know **what happened to this
+project**: the rewrite, the defect, the measurement, the thing that was tried and dropped.
+A header is read by whoever has to **study this file and explain it**. Dates, *"prima
+era…"*, *"ora è…"*, counts, verifications and the account of a working session belong to
+the first reader — in the second's hands they age into lies, and they crowd out the one
+paragraph that was needed.
+
+| header | `state.md` |
+| --- | --- |
+| what the file is, and why it is shaped that way | why it was changed, and when |
+| the trap that will make the next edit break it | how it was verified, with what numbers |
+| the vocabulary needed to follow the code | what it replaced, and what was rejected |
+
+The test: **would the sentence still belong if the code had always been like this?**
+If not, it is history — move it to `state.md` and delete it here.
+
 ## 2. Inside the file, only separators
 
 ```ts

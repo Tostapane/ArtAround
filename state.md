@@ -27,11 +27,12 @@
 | --- | --- | --- |
 | 18–24 (base, mandatory) | marketplace+editor, navigator with visit selection/execution, map, TTS, on-screen text, controlled-vocabulary voice commands + equivalent buttons | **Complete.** Logistics now shown (§0.1), the visit now *ends* and the controlled vocabulary has a panel of its own (§0.2) |
 | Module I (18–27) | teacher-synchronized visit + end-of-visit quiz | Sync: **complete end-to-end**. Quiz: **complete end-to-end** since 2026-07-28 (§0.2) |
-| Module II (18–33) | QR localization, **teleport module**, deep LLM integration | QR: done. LLM (4 uses): done. Advanced localization (device + orientation): done 2026-07-30 (§5.3). **Teleport: not started** (§9.3) |
+| Module II (18–33) | QR localization, **teleport module**, deep LLM integration | QR: done. LLM (4 uses): done. Advanced localization (device + orientation): done 2026-07-30 (§5.3). **Teleport: done 2026-07-30** (§5.3) |
 
-Two blockers for the declared 18-33 target, and the second one is new:
+One blocker left for the declared 18-33 target:
 
-1. the **teleport module does not exist** (§7.1);
+1. ~~the **teleport module does not exist**~~ — **CLOSED 2026-07-30**, fourth tab of
+   `Posizione.vue` (§5.3);
 2. **the database contains no guided visit** — 0 with `accessKey`, 0 with a quiz, 0 with
    optional stops (§3.5). Module I is implemented and was proved against the running server,
    but a demo today has nothing to run it on. `seedSpecialVisits()` was never executed; it
@@ -662,9 +663,31 @@ ones do. Below a rule, the **su misura** block with example chips.
 - **Logistics transitions** — pressing `Prossimo` when the author left a note for that
   passage shows it as a step before the next stop (opening notes appear before stop 1).
   This is `Visit.logistics` finally reaching the person it was written for.
-- **`Posizione`** — one entry, three equal ways: scan the QR, **type the code** (the tab is
-  disabled with a stated reason outside a secure context), or **`Trovami`**, the advanced
-  localization of slide 33.
+- **`Posizione`** — one entry, four ways: scan the QR, **type the code** (the tab is
+  disabled with a stated reason outside a secure context), **`Trovami`** (the advanced
+  localization of slide 33), and **`Teletrasporto`** (slide 34).
+  **The teleport module moves the position and does nothing else** — it opens no card and does
+  not advance the visit, because declaring where you stand and choosing what to read are two
+  different acts; it is the same distinction that keeps opening a stop from moving the marker.
+  It is the only control that moves the position with no sensor, and that is the point: from
+  there `Trovami` runs the real equation, so the localization module is demonstrable indoors,
+  with no printed sheets and without crossing a museum.
+  Measured against the three real maps, not assumed: landing on a node, `Trovami` picks that
+  same artwork and is confident enough to open it directly in **39/39 cases**, worst case 98%.
+  A compass can only sharpen this — the angular term is skipped for the work you are standing
+  on (`metri > 0.5`) and only adds cost to the others.
+
+  **The jump is made by touching the plan** (2026-07-31; it used to be a list of the stops).
+  The tab holds one button that **arms** the mode and closes the panel — which would otherwise
+  cover the thing you have to touch — and a strip declares it until the touch lands or it is
+  cancelled (button or `Esc`). Single-shot, and announced: an invisible mode would let a
+  distracted tap silently move the position everything else is reasoned from. While armed the
+  stops change trade rather than disappearing — a map node or a list row **places** instead of
+  opening — so one act has three ways in: the plan for whoever looks, a stop for the
+  **predetermined position** the slide asks for, the list for whoever cannot aim at a point.
+  Why it was worth rewriting: a free point is the **only** way to reach the ambiguous branch
+  indoors — from a node `Trovami` always wins outright (39/39), so the chooser, half of the
+  slide-33 module, could never be shown. Landing between two works is what makes it appear.
   The estimate of where the visitor *physically stands* lives in `src/localization.ts` and is
   **not** a second notion of "where I am" beside the open card: opening a card never moves it,
   and only a declared act re-anchors it (QR, typed code, choosing among the candidates — and,
@@ -705,7 +728,7 @@ can report a *planned* close instead of a 410. It shows the student's mark, and 
 ### 5.5 Cross-cutting
 
 `useTTS` (server-side synthesis, request-id guarded), `useTranslation` (lives in `Visita` so
-`Leggi` reuses the translated text), `useAnnouncer`, `useVoce`, `useTheme` — the last one
+`Leggi` reuses the translated text), `useAnnouncer`, `useSTT`, `useTheme` — the last one
 wired to the toggle in `Biglietteria`'s utility row, which is also where the mandatory link
 back to the marketplace lives (both were lost with the deleted `Header.vue` and restored
 there: during a visit every pixel belongs to the map).
@@ -773,12 +796,20 @@ a clean restyle.
 - ~~**Advanced localization.**~~ **DONE 2026-07-30** — `src/localization.ts` (frame, anchor,
   the confidence equation), `composables/useSensors.ts` (geolocation + compass, tilt included),
   the `Trovami` tab with the picker, and the position marker on the map. See §5.3 and §1.1.
-- **Teleport module.** Slide 34 asks for a module that takes you to a *predetermined position
-  near each object of the visit*. The cheapest honest implementation reuses what already
-  exists: a "Teletrasportami qui" action on each stop (list row, map node, Card) that sets
-  the current position exactly as a QR scan does — i.e. `onScan`'s logic without the camera —
-  making the whole visit demonstrable indoors without printed sheets. It should be visibly a
-  *module* (its own affordance and label), not an implicit side effect of clicking a stop.
+- ~~**Teleport module.**~~ **DONE 2026-07-30** — built as the fourth tab of `Posizione.vue`
+  rather than as a per-stop action, so it keeps its own label and cannot be mistaken for a
+  side effect of opening a stop. It differs from what this entry proposed in one way that
+  matters: it does **not** reuse `goToArtwork` (QR's path), because that would also open the
+  card. Teleport only calls `reanchor()`; reading is left to `Trovami`. See §5.3.
+
+  Fixing it surfaced a real defect in `reanchor()`, which is why the two changes ship
+  together: it carried the old `lat`/`lon` into the new anchor, but `applyFix` writes that
+  pair **only once**, on the first fix ever. So the next fix measured its delta from the
+  session's first reading and re-applied every metre of drift since — sliding the visitor off
+  the point they had just declared, and doing the opposite of the header's promise to "buttare
+  via la deriva accumulata". Nulling the pair makes the next useful reading re-establish the
+  reference at the declared point. This bit QR and the typed code too, on any device with a
+  GPS; it was invisible on a desktop, where no fix ever arrives.
 
 ### 7.2 Show the logistics indications during the visit
 
@@ -1163,7 +1194,9 @@ each needs a code fix, not a rewrite.
 
 ### 10.1 Voice commands are broken on Safari / iOS — **CLOSED 2026-07-30**
 
-> Closed by replacing the capture, not by negotiating the format. `useVoce.ts` no longer uses
+> Closed by replacing the capture, not by negotiating the format. **`useVoce.ts` is now
+> `useSTT.ts`** — it is the listening half and belongs beside `useTTS.ts`, the speaking one;
+> older notes (§0.1, `left.md`) still use the old name. It no longer uses
 > `MediaRecorder`: it takes raw samples off the Web Audio API (`AudioContext` →
 > `createMediaStreamSource` → `createScriptProcessor`), averages them down to 16 kHz mono and
 > writes its own WAV header; `api.ts` uploads `recording.wav`; `stt.ts` declares

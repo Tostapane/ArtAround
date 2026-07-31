@@ -14,6 +14,12 @@
  *
  * Nota tecnica: getBBox non sa dire nulla su un SVG nascosto, percio' i numeri
  * vengono ricalcolati quando si torna sulla mappa.
+ *
+ * TELETRASPORTO ARMATO (`armed`): finche' e' acceso, nodi e righe dell'elenco
+ * collocano invece di aprire. Da pixel a unita' del disegno si passa per
+ * `getScreenCTM()` — i conti a mano su getBoundingClientRect sbagliano appena la
+ * pianta viene incorniciata; una tappa invece non si misura affatto, si emette
+ * quale e', cosi' vale anche dall'elenco, dove ogni misura darebbe zero.
  */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
@@ -27,10 +33,16 @@ import {
 } from "@/state";
 import { bussola, stima } from "@/localization";
 
-const emit = defineEmits<{ select: [value: number]; locate: [] }>();
+const emit = defineEmits<{
+  select: [value: number];
+  locate: [];
+  teleportPoint: [x: number, y: number];
+  teleportStop: [index: number];
+}>();
 const props = defineProps<{
   currentLocationId?: string;
   currentIndex?: number;
+  armed?: boolean;
 }>();
 
 const container = ref<HTMLElement | null>(null);
@@ -38,6 +50,32 @@ const listeners: { element: Element; type: string; handler: EventListener }[] = 
 
 function stopNumber(index: number): number {
   return index + 1;
+}
+
+// --- Teletrasporto: la pianta come bersaglio --------------------------------
+
+function onMapClick(event: MouseEvent) {
+  if (!props.armed) return;
+  const root = container.value;
+  if (!root) return;
+  const svg = root.querySelector("svg");
+  if (!svg) return;
+  const bersaglio = event.target;
+  if (!(bersaglio instanceof Node) || !svg.contains(bersaglio)) return;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return;
+  const punto = new DOMPoint(event.clientX, event.clientY).matrixTransform(
+    ctm.inverse(),
+  );
+  emit("teleportPoint", punto.x, punto.y);
+}
+
+function onStopPress(index: number) {
+  if (props.armed) {
+    emit("teleportStop", index);
+    return;
+  }
+  emit("select", index);
 }
 
 function clearListeners() {
@@ -124,14 +162,19 @@ function prepareMap() {
     }
     title.textContent = label;
 
-    const clickHandler = () => emit("select", index);
+    // Il nodo si tiene il tocco: senza fermarlo arriverebbe anche all'<svg>, che
+    // collocherebbe una seconda volta sul pixel invece che sull'opera.
+    const clickHandler = ((e: Event) => {
+      if (props.armed) e.stopPropagation();
+      onStopPress(index);
+    }) as EventListener;
     element.addEventListener("click", clickHandler);
     listeners.push({ element, type: "click", handler: clickHandler });
 
     const keyHandler = ((e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
         e.preventDefault();
-        emit("select", index);
+        onStopPress(index);
       }
     }) as EventListener;
     element.addEventListener("keydown", keyHandler);
@@ -284,8 +327,12 @@ const optionalCount = computed(() => {
       <div
         ref="container"
         class="mappa mx-auto w-full max-w-3xl"
-        :class="{ 'mappa-senza-opzionali': !includeOptional }"
+        :class="{
+          'mappa-senza-opzionali': !includeOptional,
+          'mappa-armata': props.armed,
+        }"
         v-html="map"
+        @click="onMapClick"
       ></div>
       <p v-if="!map" class="vuoto mt-4">
         La mappa di questo museo non è disponibile. Usa l'elenco delle tappe.
@@ -303,7 +350,7 @@ const optionalCount = computed(() => {
               'opacity-60': isOptionalItem(match.item['@id']) && !includeOptional,
               'border-l-4 border-l-accent': i === props.currentIndex,
             }"
-            @click="emit('select', i)"
+            @click="onStopPress(i)"
           >
             <span class="tabular w-9 shrink-0 text-center font-display text-title-2 text-muted">
               {{ String(stopNumber(i)).padStart(2, "0") }}
@@ -390,7 +437,13 @@ const optionalCount = computed(() => {
 }
 
 /* Dove sei col corpo: struttura, non accento — l'accento dice DOVE PUOI ANDARE,
-   e questo non e' un comando ma un fatto. Il cono e' la direzione dello sguardo. */
+   e questo non e' un comando ma un fatto. Il cono e' la direzione dello sguardo.
+   E' disegnato per ultimo, quindi sta sopra ai nodi: senza `pointer-events:
+   none` si prende lui il tocco, e la tappa su cui ci si trova diventa l'unica
+   che non si riesce piu' ad aprire. */
+.mappa :deep(.segnalino-posizione) {
+  pointer-events: none;
+}
 .mappa :deep(.punto-posizione) {
   fill: var(--structure);
   stroke: var(--surface);
@@ -400,6 +453,26 @@ const optionalCount = computed(() => {
 .mappa :deep(.cono-vista) {
   fill: var(--structure);
   opacity: 0.16;
+}
+
+/* Teletrasporto armato: la pianta e' un bersaglio e lo dice prima del tocco.
+   La velatura sta SOPRA il disegno — il fondo dell'SVG lo coprono le sale — e
+   lascia passare il tocco, che deve arrivare alla pianta. */
+.mappa-armata {
+  position: relative;
+}
+.mappa-armata::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background-color: color-mix(in oklab, var(--structure) 26%, transparent);
+  pointer-events: none;
+}
+.mappa-armata :deep(svg),
+.mappa-armata :deep(.nodo-opera) {
+  border-color: var(--structure);
+  cursor: crosshair;
 }
 
 /* Tappe opzionali: tratteggio + attenuazione. Mai il solo colore. */

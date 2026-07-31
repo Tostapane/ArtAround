@@ -617,6 +617,11 @@ never touches it.
   phase switch is stale for the phase you're about to run, and a stale one is usually
   *larger* than the whole new phase — i.e. progress 1 on frame 1. Cost: a visible jerk at
   every figure change in the backdrop, for weeks.
+- **Il segnalino di posizione si mangiava il tocco sul nodo sotto di lui.** E' disegnato per
+  ultimo, e un `<circle>` SVG raccoglie gli eventi come qualunque forma: dopo ogni
+  ancoraggio a un'opera (QR, codice, teletrasporto) **quella tappa era l'unica che non si
+  riusciva piu' ad aprire**. `pointer-events: none` sul gruppo, che e' gia' `aria-hidden`.
+  Nessun errore in console: si vede solo toccando, con `document.elementFromPoint`.
 - **`GET /visits/:id` is a student-facing route.** The navigator loads a guided visit through
   it, so anything on the document reaches the class — the quiz `correct` indices did. It now
   `select("-quiz")`s. The author's editor reads the quiz from the *list* route instead.
@@ -729,3 +734,97 @@ HEAD**. Non riaggiungerla.
 `Semplice`, `Medio`, `Avanzato` a 15/30/60. Trova zero item, stampa "esegui prima seed()" e
 torna — quindi **il quiz generato non e' ancora nel database**. E' la coda della migrazione
 dei toni (§4.1): o si rifa' il seed completo, o si riallineano prima i livelli.
+
+---
+
+## 9. Teletrasporto: toccare la pianta, o sceglierla da un elenco
+
+Discusso il 2026-07-30, **prima** di implementare la variante «tocchi la pianta e ci finisci».
+Quel che esiste gia' e' l'altra forma: la quarta scheda di `Posizione.vue`, un elenco delle
+tappe, si tocca una e la posizione ci va. Le due non sono alternative ovvie — hanno costi
+diversi e coprono requisiti diversi — e questa sezione serve a non rifare il ragionamento.
+
+### Cosa guadagna toccare la pianta
+
+**L'unica cosa che l'elenco non puo' dare: un punto qualunque.** Dall'elenco si atterra sempre
+*su* un'opera, e li' la localizzazione vince sempre — misurato sulle tre piante vere,
+**39 casi su 39**, il peggiore al 98%. Cioe' il ramo interessante dell'equazione — quello in
+cui nessuna opera vince e compare il pannello di scelta, che e' meta' del modulo della slide
+33 — **dall'elenco non si raggiunge mai**. Toccando il pavimento fra due quadri si', ed e'
+l'unico modo di mostrarlo al chiuso.
+
+In piu' il ritorno visivo e' gratis: `drawPosition()` (`Stage.vue:166`) disegna gia' segnalino
+e cono da `stima`, e c'e' gia' un `watch([stima, bussola])` che ridisegna. Un `reanchor(x, y)`
+e il pallino si sposta dove hai toccato, senza una riga di disegno in piu'.
+
+### Le quattro tensioni
+
+**1. La slide dice «posizione predeterminata».** Slide 34 chiede un modulo che porti a una
+*posizione predeterminata vicino a ciascun oggetto della visita*. Un tocco libero e'
+esattamente il contrario di predeterminato: **e' l'elenco a seguire la lettera del requisito**,
+non la pianta. Conta, perche' in questo progetto l'aderenza alla specifica batte la comodita'.
+Non e' un motivo per rinunciare al tocco, e' un motivo per non buttare l'elenco.
+
+**2. Chi non vede non puo' toccare un punto.** Indicare una coordinata su una mappa e' il
+gesto che un cieco non compie, in un'app fatta per parlargli — lo stesso ragionamento per cui
+il codice digitato esiste accanto al QR (§10.3 di `state.md`). Quindi il tocco **non puo'
+essere l'unico modo**: gli serve un equivalente non spaziale, e quell'equivalente e' l'elenco
+gia' scritto. Non e' un compromesso, e' il modello che il progetto usa gia': un atto, due
+modi di darlo — fotocamera e tastiera per il QR, pianta ed elenco per il teletrasporto.
+
+**3. I nodi si mangiano gia' il clic.** Ogni opera sulla pianta ha un `click` e un `keydown`
+che aprono la tappa (`Stage.vue:127-138`). Toccare la pianta per spostarsi entra in collisione
+con quello. Due uscite: ascoltare solo il pavimento vuoto — **da scartare**, perche' nessuno
+scopre un comando invisibile e un tocco distratto sposterebbe in silenzio una posizione su cui
+poi si ragiona; oppure una **modalita'**.
+
+**4. Una modalita' e' una cosa in cui si resta intrappolati.** Meglio *armata a colpo singolo*:
+si preme «Teletrasporto», il tocco successivo colloca, e la modalita' si spegne da sola (piu'
+Escape per annullare). Ha un'affordance e un'etichetta sue, quindi resta visibilmente un
+*modulo* come chiede `state.md` §7.1, senza diventare uno stato in cui ci si dimentica di
+essere.
+
+C'e' un effetto collaterale gradito: quando e' armata, il gestore del nodo esce subito e il
+tocco arriva all'`<svg>` — cosi' **toccare un'opera colloca sull'opera** (la posizione
+predeterminata della slide) e **toccare il pavimento colloca dove capita**. Una meccanica
+sola copre tutt'e due le letture del requisito.
+
+### Dettagli che decidono se funziona
+
+- **Da pixel a unita' dell'SVG**: `svg.createSVGPoint()` + `getScreenCTM().inverse()`, sei
+  righe, esatto qualunque sia il `viewBox` e qualunque sia la lettera del `preserveAspectRatio`.
+  La matematica a mano su `getBoundingClientRect` sbaglia appena la pianta viene incorniciata.
+- **Cosa annunciare.** Su un punto libero non c'e' un nome da dire: si annuncia «posizione
+  aggiornata» e basta. Dire li' quale opera e' la piu' vicina rimetterebbe insieme le due
+  meta' che teniamo separate apposta — il teletrasporto *sposta*, «Trovami» *risponde*.
+- **Nascondere il bottone se `localizzabile` e' falso.** Senza `data-width-m` la pianta non sa
+  quanti metri e' larga: il segnalino si disegnerebbe lo stesso, ma «Trovami» non puo' fare i
+  conti. Un comando che colloca un punto che nessuno sa leggere e' peggio di un comando assente.
+
+### Costo
+
+~80 righe: la modalita' armata, il gestore sull'`<svg>`, la conversione, l'uscita anticipata
+nei nodi e l'Escape stanno in `Stage.vue`; ~10 righe in `Visita.vue` per `reanchor` e
+l'annuncio; 6 di CSS per il cursore. **L'elenco gia' scritto resta dov'e'** e non si tocca: le
+due strade chiamano lo stesso gestore.
+
+### Come si racconta all'esame
+
+Il teletrasporto e' un modulo con **due ingressi per lo stesso atto**: la pianta per chi
+guarda, l'elenco per chi ascolta. Nessuno dei due misura niente — dichiarano soltanto — e
+la misura vera resta a «Trovami», che da li' in poi lavora sui numeri veri. E' anche la
+risposta alla domanda scomoda «non e' solo un collegamento?»: toccare una tappa nell'elenco
+delle tappe **apre** e non sposta; il teletrasporto **sposta** e non apre.
+
+### ✅ Fatto il 2026-07-31
+
+Come sopra, meno l'elenco dedicato: armata la modalita' sono le tappe che gia' ci sono —
+nodo o riga — a collocare invece di aprire, quindi un secondo elenco non serviva. Stato in
+`Visita.vue`, `Stage.vue` emette `teleportPoint`/`teleportStop`, `Posizione.vue` arma e si
+chiude.
+
+**Verificato pilotando chromium via CDP**, 18 controlli nei due temi, zero errori in
+console: il punto toccato riconvertito a mano coincide col segnalino a **0,000 unita'**.
+Due trappole *della prova*, non del codice: `.click()` lascia `clientX/clientY` a zero (ci
+vuole `Input.dispatchMouseEvent`), e la striscia armata sposta la pianta di ~50 px, quindi
+ogni misura va presa nell'istante del tocco. Il difetto vero trovato cosi' sta in §5.

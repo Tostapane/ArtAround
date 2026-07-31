@@ -18,7 +18,7 @@ import {
   errorMsg,
   startRecording,
   stopRecording,
-} from "./useVoce";
+} from "./useSTT";
 import { useAnnouncer } from "@/composables/useAnnouncer";
 import { labelForCommand } from "../../../../shared/constants";
 import { language } from "@/state";

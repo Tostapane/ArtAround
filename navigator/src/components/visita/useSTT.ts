@@ -1,5 +1,8 @@
 /**
- * Registrazione del comando vocale: PCM a 16 kHz, identico su ogni browser.
+ * STT: la voce dell'utente diventa testo. PCM a 16 kHz, identico su ogni browser.
+ *
+ * E' la meta' che ascolta, e sta accanto a `useTTS.ts`, che e' quella che parla:
+ * qui si registra e si manda al server, li' si riceve l'audio sintetizzato.
  *
  * `MediaRecorder` sceglie il formato al posto tuo, e il formato che sceglie su
  * Safari — quindi su ogni iPhone — e' MP4/AAC, che il riconoscimento vocale di

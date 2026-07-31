@@ -5,7 +5,7 @@
  * qui. Dichiararne di sbagliate non produce un errore ma una trascrizione
  * vuota, ed e' esattamente il difetto che rendeva muto il comando vocale su
  * iPhone. Percio' i due valori non sono liberi: descrivono il WAV che la
- * navigator costruisce a mano in `useVoce.ts` — PCM lineare a 16 bit, mono — e
+ * navigator costruisce a mano in `useSTT.ts` — PCM lineare a 16 bit, mono — e
  * la frequenza viene dalla costante condivisa, per non poter divergere.
  */
 import speech from "@google-cloud/speech";

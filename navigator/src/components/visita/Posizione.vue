@@ -19,6 +19,13 @@
  * chiede, e insieme l'unico modo di far funzionare la cosa dove una bussola non
  * esiste. Le immagini sono le stesse del catalogo mostrate in piccolo — a chi
  * deve riconoscere un quadro che ha davanti basta la sagoma.
+ *
+ * LA QUARTA E' IL TELETRASPORTO (slide 34): sposta il visitatore in un punto
+ * della pianta e nient'altro. E' l'unico comando che muove la posizione senza un
+ * sensore, ed e' il motivo per cui esiste — da li' "Trovami" ragiona sui numeri
+ * veri, quindi la localizzazione si mostra al chiuso, senza fogli stampati.
+ * Qui e' solo un interruttore: il salto si fa toccando la pianta, che questo
+ * pannello coprirebbe, percio' il bottone arma la modalita' e chiude.
  */
 import { ref, watch, onUnmounted, computed } from "vue";
 import { useQRScanner } from "@/composables/useQRScanner";
@@ -27,7 +34,11 @@ import { mediaOrigin } from "@/config";
 import { bussola, localizzabile, rank, stima, type Candidato } from "@/localization";
 
 const props = defineProps<{ sensorError: string }>();
-const emit = defineEmits<{ found: [qid: string]; close: [] }>();
+const emit = defineEmits<{
+  found: [qid: string];
+  arm: [];
+  close: [];
+}>();
 
 const scanner = useQRScanner();
 const video = ref<HTMLVideoElement | null>(null);
@@ -37,7 +48,7 @@ const codeError = ref("");
 const cameraAvailable = computed(
   () => window.isSecureContext && !!navigator.mediaDevices,
 );
-const sheet = ref<"qr" | "codice" | "posizione">(
+const sheet = ref<"qr" | "codice" | "posizione" | "teletrasporto">(
   cameraAvailable.value ? "qr" : "codice",
 );
 
@@ -180,6 +191,16 @@ onUnmounted(() => scanner.stop());
         >
           Trovami
         </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="sheet === 'teletrasporto'"
+          class="segmento"
+          :class="sheet === 'teletrasporto' ? 'segmento-attivo' : ''"
+          @click="sheet = 'teletrasporto'"
+        >
+          Teletrasporto
+        </button>
       </div>
 
       <p v-if="!cameraAvailable" class="avviso mt-4">
@@ -236,7 +257,9 @@ onUnmounted(() => scanner.stop());
           convertire un passo in metri. Inquadra il QR o scrivi il codice.
         </p>
         <template v-else>
-          <p class="text-small text-muted">{{ statoSensori }}</p>
+          <p class="text-small text-muted">
+            {{ statoSensori }}
+          </p>
           <p v-if="props.sensorError" class="avviso mt-3 text-danger" role="alert">
             {{ props.sensorError }}
           </p>
@@ -278,6 +301,23 @@ onUnmounted(() => scanner.stop());
             </ul>
           </div>
         </template>
+      </div>
+
+      <!-- Teletrasporto -->
+      <div v-show="sheet === 'teletrasporto'" class="mt-4">
+        <p class="text-small text-muted">
+          Ti porta dove vuoi sulla pianta senza attraversare il museo: il tocco
+          successivo ti sposta lì, su una tappa o sul pavimento. Non apre nessuna
+          scheda — da lì premi «Trovami».
+        </p>
+
+        <p v-if="!localizzabile" class="avviso mt-4">
+          La pianta di questo museo non porta la propria misura, quindi da un
+          punto qualunque non saprei calcolare niente.
+        </p>
+        <button v-else type="button" class="btn-primario mt-4 w-full justify-center" @click="emit('arm')">
+          Scegli il punto sulla pianta
+        </button>
       </div>
     </div>
   </div>

@@ -17,6 +17,10 @@
  *
  * QR e codice digitato approdano entrambi qui, in `goToArtwork`: un'opera fuori
  * dalla visita viene mostrata comunque, senza toccare la progressione.
+ *
+ * Il TELETRASPORTO cambia il significato di un tocco sul palcoscenico, quindi lo
+ * stato sta qui: si arma da "Dove sono?", una striscia lo dichiara finche' dura,
+ * e dura un tocco solo — una modalita' e' una cosa in cui si resta intrappolati.
  */
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useSensors } from "@/composables/useSensors";
@@ -38,6 +42,7 @@ import {
   notesAfter,
   openingNotes,
   matchedContent,
+  setStageView,
   visit,
 } from "@/state";
 import {
@@ -275,6 +280,53 @@ function apriTappa(i: number) {
   selectIndex(i);
 }
 
+// --- Teletrasporto (slide 34) ----------------------------------------------
+const teletrasportoArmato = ref(false);
+
+/** Sposta la posizione e basta: non apre la scheda e non fa avanzare la visita —
+ *  dichiarare dove si e' e decidere cosa leggere sono due atti diversi. */
+function armaTeletrasporto() {
+  showLocator.value = false;
+  teletrasportoArmato.value = true;
+  setStageView("mappa");
+  announce("Teletrasporto pronto: tocca la pianta nel punto in cui ti trovi.");
+}
+
+function annullaTeletrasporto() {
+  teletrasportoArmato.value = false;
+  announce("Teletrasporto annullato");
+}
+
+/** Su un punto qualunque non c'e' un nome da dire: quale opera sia e' il
+ *  mestiere di "Trovami", non di chi sposta. */
+function teletrasportaSuPunto(x: number, y: number) {
+  reanchor(x, y);
+  teletrasportoArmato.value = false;
+  announce("Posizione aggiornata");
+}
+
+/** Una tappa: la "posizione predeterminata" accanto all'opera (slide 34). */
+function teletrasportaSuTappa(i: number) {
+  const match = matchedContent.value[i];
+  if (!match) return;
+  const nodo = nodeOf(match.artwork.qid);
+  if (!nodo) {
+    announce("Non so dove si trovi quest'opera sulla pianta");
+    return;
+  }
+  reanchor(nodo.x, nodo.y);
+  teletrasportoArmato.value = false;
+  announce(`Sei accanto a ${match.artwork.name}`);
+}
+
+function onKeyTeletrasporto(e: KeyboardEvent) {
+  if (e.key === "Escape") annullaTeletrasporto();
+}
+watch(teletrasportoArmato, (armato) => {
+  if (armato) window.addEventListener("keydown", onKeyTeletrasporto);
+  else window.removeEventListener("keydown", onKeyTeletrasporto);
+});
+
 async function goToArtwork(qid: string) {
   showLocator.value = false;
 
@@ -367,6 +419,7 @@ onMounted(() => {
 onUnmounted(() => {
   tts.stop();
   sensori.stop();
+  window.removeEventListener("keydown", onKeyTeletrasporto);
 });
 </script>
 
@@ -427,14 +480,23 @@ onUnmounted(() => {
         ></div>
       </div>
 
+      <!-- TELETRASPORTO ARMATO -->
+      <div v-if="teletrasportoArmato" class="flex shrink-0 items-center gap-3 bg-structure px-3 py-2 text-on-structure">
+        <p class="min-w-0 flex-1 text-small font-medium">Tocca la pianta nel punto in cui ti trovi.</p>
+        <button type="button" class="btn-fantasma-chiaro shrink-0" @click="annullaTeletrasporto">Annulla</button>
+      </div>
+
       <!-- PALCOSCENICO -->
       <Stage
         class="min-h-0 flex-1"
         :current-location-id="currentLocationId"
         :current-index="lastVisitIndex"
+        :armed="teletrasportoArmato"
         :inert="stageInert"
         @select="onStageSelect"
         @locate="apriPosizione"
+        @teleport-point="teletrasportaSuPunto"
+        @teleport-stop="teletrasportaSuTappa"
       />
     </div>
 
@@ -594,6 +656,7 @@ onUnmounted(() => {
       v-if="showLocator"
       :sensor-error="sensori.error.value"
       @found="goToArtwork"
+      @arm="armaTeletrasporto"
       @close="showLocator = false"
     />
   </div>

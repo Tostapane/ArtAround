@@ -177,22 +177,23 @@ export function startAtEntrance() {
 }
 
 /**
- * Un atto dichiarato — QR, codice, scelta fra i candidati — da adesso "qui" e'
- * questo punto della pianta, e la deriva accumulata dal GPS si butta via. Chi
- * dichiara sta davanti all'opera, quindi l'incertezza torna a pochi passi: e' il
- * dato migliore che il sistema possa avere, meglio di qualunque fix.
+ * Un atto dichiarato — QR, codice, scelta fra i candidati, teletrasporto — da
+ * adesso "qui" e' questo punto della pianta, e la deriva accumulata dal GPS si
+ * butta via. Chi dichiara sta davanti all'opera, quindi l'incertezza torna a
+ * pochi passi: e' il dato migliore che il sistema possa avere, meglio di
+ * qualunque fix.
+ *
+ * `lat` e `lon` tornano nulle, e non e' una dimenticanza: la lettura ricordata
+ * nell'ancora e' la PRIMA arrivata e non viene piu' aggiornata, quindi tenerla
+ * qui vorrebbe dire misurare il prossimo fix a partire da quella — cioe'
+ * riapplicare, tutta in una volta, la deriva accumulata da allora, buttando via
+ * il punto appena dichiarato. Azzerandole, la prima lettura utile ridiventa il
+ * riferimento proprio qui. Al chiuso, dove nessun fix arriva, la differenza non
+ * si vede: e' il motivo per cui non si vedeva.
  */
 export function reanchor(x: number, y: number) {
-  const accuracy = ACCURACY_DICHIARATA;
-  const attuale = ancora.value;
-  let lat: number | null = null;
-  let lon: number | null = null;
-  if (attuale) {
-    lat = attuale.lat;
-    lon = attuale.lon;
-  }
-  ancora.value = { x, y, lat, lon };
-  stima.value = { x, y, accuracy };
+  ancora.value = { x, y, lat: null, lon: null };
+  stima.value = { x, y, accuracy: ACCURACY_DICHIARATA };
 }
 
 /** Il punto della pianta di un'opera, per chi deve ri-ancorare a una scansione. */
