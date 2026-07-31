@@ -307,6 +307,29 @@ perche' il caldo e' gia' occupato due volte — un accento rame finisce a ΔRGB 
 `#284B63`, accento Verderame `#3C6E71`. Le sorgenti gia' provate stanno in coda al file,
 pronte da reincollare.
 
+**I quattro semantici erano dichiarati e non usati.** Fino al 2026-07-31 `--brass`,
+`--slate` e `--tint` comparivano **zero volte** in entrambe le app, e il navigator non usava
+nessuna delle quattro tinte: ogni pastiglia era grigia e il colore restava un capitolo del
+foglio di stile. Ora il tono, il livello, «Privato», «Opzionale» e la parola chiave portano
+l'**ardesia** della categoria, e ogni prezzo l'**ottone** del valore, in tutte e due le app.
+Non e' decorazione aggiunta: sono i ruoli che il sistema gia' descriveva, finalmente accesi.
+
+⚠️ Accendendoli e' venuto fuori un difetto di contrasto vero: `--slate` al buio stava a
+`oklch(… 0.76 …)`, e dentro una pastiglia — corpo caption su `surface-2`, non sulla lastra —
+faceva **4,44:1**, sotto AA. Portato a **0.8** (solo la luminosita': tinta e croma restano,
+quindi l'ardesia non scivola nelle famiglie dell'oro o del rosso). Misurato, non stimato:
+16 rapporti, due temi, tutti sopra 4,5:1.
+
+**L'IRIDE — la sola eccezione al «un ruolo, un colore».** `--iride` e' i quattro semantici
+in fila, e serve a una cosa sola: la visita che nasce da una frase (§4.13-bis), l'unica del
+prodotto che li attraversa tutti — sceglie per categoria, e' un percorso da fare, consegna
+contenuti, ha un valore. Non rompe la seconda regola della sorgente perche' nessuna delle
+quattro tinte viene qui *asserita*: e' una scorsa, non un'etichetta. L'ordine e' per distanza
+di tinta (oro → verde → verderame → ardesia, ~60° per gradino) e non per importanza, cosi'
+si legge come piu' colori anche dentro una tessera di 40 px; con ardesia e verderame vicini,
+meta' gradiente sembrava una tinta sola. Le `var()` dentro si risolvono sull'elemento che lo
+usa, quindi al buio prende da se' le versioni schiarite.
+
 Verificato in un browser vero, non stimato: 18 rapporti per tema, letti **dipingendo** i
 token su un canvas e leggendone i byte. (`getComputedStyle` restituisce `oklab(…)` per i
 `color-mix`, e leggerne i numeri come RGB da' nero — e' un modo perfetto per credere che
@@ -483,7 +506,9 @@ focus and collapse plugins are **served locally** from `public/vendor/`.
 
 - **No top header.** A **left rail** (`bg-structure`) holds the wordmark, the museum
   switcher, 3–4 role-scoped destinations with `aria-current`, the wallet, the user and the
-  theme toggle. Below `lg` it becomes a **bottom tab bar** (destinations only) plus a slim
+  theme toggle. Il visitatore ne ha **tre** da quando `visite` e `opere` sono una
+  (`Home · Vetrina · Libreria`): sotto `lg` il binario diventa una barra in basso, dove una
+  voce in meno si sente. Below `lg` it becomes a **bottom tab bar** (destinations only) plus a slim
   top bar for wallet/theme/exit.
 - Two skip links (`#contenuto`, `#binario`), a `role="status"` live region fed by
   `annuncia()`, `[x-cloak]` on the root so views never render stacked before Alpine boots.
@@ -530,13 +555,41 @@ deep link to the navigator's waiting room). Below, a **Riprendi** strip of owned
 Called `banco` until 2026-07-28; the route, the rail item and the page title are all `home`
 now. "Banco di lavoro" survives only where it means the *editor's* workbench.
 
-### 4.6 `visite` / 4.7 `opere` — two catalogues, one object type each
+### 4.6 `vetrina` — un posto solo, due specie dentro *(riunita 2026-07-31)*
 
-`visite`: title + count, one search field and **two** filters (livello, durata in *minutes*,
-bucketed). Cards carry a **typographic cover**, `N tappe · N min · livello`, curator, price,
-and the strongest action available (`Inizia` / `Completa` / `Sblocca`).
-`opere`: one card per artwork (the scale answer), matted image, `N descrizioni · da € X`.
-The old per-artwork duration filter is **deleted** — it silently excluded every visit.
+Erano due schermate, `visite` e `opere`, con due ricerche e due serie di filtri. Ora una
+sola, con **due sezioni intitolate**: le visite (copertina tipografica, `N tappe · N min`,
+livello, curatore, prezzo, e l'azione piu' forte disponibile — `Inizia` / `Completa` /
+`Sblocca`) e le opere (immagine con passe-partout, `N descrizioni · da € X`, con le
+descrizioni della stessa opera **raggruppate**, che e' il modo in cui reggono le 104 del
+Louvre). I due mazzi di carte restano diversi perche' dicono cose diverse: una visita si
+compra e si percorre, un'opera e' un contenitore di descrizioni.
+
+Ricerca e filtri sono **una serie sola** (`market*` in `state.ts`): due copie tornerebbero a
+divergere. La specie e' un controllo segmentato *Tutto · Visite · Opere*; scegliendola le
+intestazioni di sezione spariscono, perche' a quel punto le ripeterebbero il controllo.
+
+**La durata la calcola sempre il server, prima di scrivere**, sommando i `timeRequired` degli
+item davvero trovati. Due punti in cui non era cosi', e una visita a tappe di lunghezza
+diversa dichiarava un totale che le sue tappe non fanno: `POST /visits` faceva
+`payload.duration ?? somma`, cioe' si fidava di un totale mandato dal client, e
+`/visits/custom` sommava la durata **pianificata** invece di quella dell'item trovato —
+mentre `resolveOrGenerateItem` ripiega su un item di qualunque lunghezza quando quella voluta
+non esiste.
+
+**Perche' i filtri prima non filtravano**, misurato sul database vivo e non dedotto:
+
+| Difetto | Ora |
+| --- | --- |
+| Fasce di durata `< 30` / `30-60` / `> 60` min: **tutte e 9 le visite cadevano nella prima**, cioe' due opzioni su tre restituivano zero e la terza tutto | soglie tarate su quel che `Visit.duration` misura davvero, cioe' minuti di **lettura**: `meno di 5 min` · `da 5 a 15 min` · `oltre 15 min`. Stanno in **una tabella sola** (`VISIT_DURATION_BANDS`), etichetta e predicato nella stessa riga cosi' non possono dire due cose diverse; il confronto e' `banda.test(min)`. Quando la durata contera' anche il cammino fra le sale si rialzano quei tre numeri e non serve toccare altro |
+| `availableLevels()` accodava qualunque valore trovato, quindi **`Personalizzata` compariva come quinto livello** (§7.3 lo aveva previsto) e sceglierlo dava una visita sola | solo i quattro toni veri: `Personalizzata` e `Su misura` sono etichette di *provenienza*, non livelli |
+| Il livello confrontava `Visit.level`, un campo solo — una visita composta a mano che mescola i toni non si trovava sotto nessuno di essi | si confrontano i **toni delle tappe** (`visitTones`), piu' la voce **`Misto`** per i percorsi che ne hanno piu' d'uno. Una visita a due toni si trova sotto `Misto` **e** sotto ciascuno dei due |
+| La durata era un filtro solo per due grandezze diverse | **contestuale**, come nel catalogo del curatore (§4.15): minuti per le visite, i due secondi veri (`secPerArt`) per le descrizioni, e su *Tutto* non compare, con una riga che dice perche' |
+
+I due indirizzi vecchi **rispondono ancora** e arrivano con la specie gia' scelta:
+`#/visite` apre la vetrina sulle visite, `#/opere` sulle opere. Erano scritti in giro per
+l'app e in qualunque segnalibro, e un indirizzo che smette di funzionare rimanda alla soglia
+senza spiegare niente.
 
 ### 4.8 `opera/<qid>` · 4.9 `visita/<id>` — pages, not modals
 
@@ -594,6 +647,17 @@ sarebbe una bugia.
 La schermata dice per esteso che la visita non si salva in libreria, perché il marketplace
 è il posto in cui le cose si tengono e un oggetto che sparisce va dichiarato prima, non
 scoperto dopo.
+
+**Il marchio è l'iride** (§2.2): tessera con la scintilla, filo sul bordo, bottone che avvia
+— tre segni, gli stessi tre in tutti e tre i punti da cui ci si arriva, e in nessun altro
+posto dell'app.
+
+⚠️ **L'interfaccia non nomina mai l'intelligenza artificiale**, per scelta: dice cosa
+succede («il percorso nasce da lì», «la trovi già composta», «le opere vengono scelte fra
+quelle di X»), non da quale macchina. È la regola del progetto — si nomina ciò che la
+persona controlla e riconosce, non come è costruito il sistema — e vale anche qui, dove la
+tentazione di vantare il meccanismo è massima. Nella documentazione e all'esame si chiama
+col suo nome; sullo schermo no.
 
 ### 4.14 `gestione` / 4.15 `catalogo` — le due schermate del curatore *(nuove 2026-07-30)*
 

@@ -224,8 +224,8 @@ const height = computed(() => {
           </span>
         </p>
 
-        <p v-if="!inVisit" class="pastiglia mt-3">Non fa parte di questa visita</p>
-        <p v-else-if="optional" class="pastiglia mt-3">Tappa opzionale</p>
+        <p v-if="!inVisit" class="pastiglia pastiglia-ardesia mt-3">Non fa parte di questa visita</p>
+        <p v-else-if="optional" class="pastiglia pastiglia-ardesia mt-3">Tappa opzionale</p>
 
         <p class="measure mt-4 text-body">{{ fields[2] }}</p>
 

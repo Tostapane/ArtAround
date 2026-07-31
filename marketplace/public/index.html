@@ -322,8 +322,7 @@
               <li class="contents">
                 <template x-for="v in [
                     {id:'home',     ico:'#ico-banco',    raw:'Home'},
-                    {id:'visite',   ico:'#ico-visite',   raw:'Visite'},
-                    {id:'opere',    ico:'#ico-opere',    raw:'Opere'},
+                    {id:'vetrina',  ico:'#ico-visite',   raw:'Vetrina'},
                     {id:'libreria', ico:'#ico-libreria', raw:'Libreria'}
                   ]" :key="v.id">
                   <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
@@ -423,15 +422,17 @@
             </h1>
 
             <div class="mt-8 grid gap-4 md:grid-cols-2">
-              <a href="#/sumisura" class="lastra scheda-click flex flex-col p-6">
-                <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-scintilla" /></svg>
+              <a href="#/sumisura" class="lastra scheda-click filo-iride flex flex-col p-6">
+                <span class="tessera-iride">
+                  <svg class="h-6 w-6" aria-hidden="true"><use href="#ico-scintilla" /></svg>
+                </span>
                 <h2 class="mt-4 font-display text-title-2">Raccontaci che visita vuoi</h2>
-                <p class="mt-2 flex-1 text-small text-muted">Descrivila a parole tue: il percorso lo compone l'intelligenza artificiale.</p>
+                <p class="mt-2 flex-1 text-small text-muted">Descrivi la giornata che hai in mente: il percorso nasce da lì.</p>
                 <span class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent">
                   Descrivi la visita <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
                 </span>
               </a>
-              <a href="#/visite" class="lastra scheda-click flex flex-col p-6">
+              <a href="#/vetrina" @click="setMarketType('visite')" class="lastra scheda-click flex flex-col p-6">
                 <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-visite" /></svg>
                 <h2 class="mt-4 font-display text-title-2">Scegli una visita pronta</h2>
                 <p class="mt-2 flex-1 text-small text-muted">Percorsi già composti, gratuiti o a pagamento.</p>
@@ -496,142 +497,129 @@
             </template>
           </section>
 
-          <!-- ---------- CATALOGO VISITE ---------- -->
-          <section x-show="view === 'visite'">
-            <h1 class="font-display text-title-1">Visite</h1>
+          <!-- ---------- LA VETRINA: visite e opere in un posto solo ---------- -->
+          <section x-show="view === 'vetrina'">
+            <h1 class="font-display text-title-1">Vetrina</h1>
             <p class="mt-1 text-small text-muted">
-              <span class="tabular" x-text="shownVisits().length"></span>
-              <span x-text="shownVisits().length === 1 ? ' visita' : ' visite'"></span>
+              <span class="tabular" x-text="marketSummary()"></span>
               <span x-text="' · ' + (selectedMuseum ? selectedMuseum.name : '')"></span>
             </p>
 
             <div class="barra mt-6">
               <div class="campo-cerca">
                 <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
-                <label for="cerca-visite" class="sr-only">Cerca fra le visite</label>
-                <input id="cerca-visite" type="search" x-model="visitSearch" placeholder="Cerca una visita…"
-                  @input="announce(shownVisits().length + ' risultati')">
+                <label for="cerca-vetrina" class="sr-only">Cerca in vetrina</label>
+                <input id="cerca-vetrina" type="search" x-model="marketSearch"
+                  placeholder="Cerca una visita, un'opera, un pittore…"
+                  @input="announce(marketSummary())">
               </div>
               <div class="flex flex-wrap gap-3">
+                <div class="segmenti" role="group" aria-label="Che cosa mostrare">
+                  <template x-for="f in [{v:'tutti',t:'Tutto'},{v:'visite',t:'Visite'},{v:'opere',t:'Opere'}]" :key="f.v">
+                    <button type="button" class="segmento" :class="marketType === f.v ? 'segmento-attivo' : ''"
+                      :aria-pressed="marketType === f.v" @click="setMarketType(f.v)" x-text="f.t"></button>
+                  </template>
+                </div>
                 <div>
-                  <label for="f-liv-visite" class="sr-only">Filtra per livello</label>
-                  <select id="f-liv-visite" x-model="visitLevelFilter" class="campo-select">
+                  <label for="f-liv-vetrina" class="sr-only">Filtra per livello</label>
+                  <select id="f-liv-vetrina" x-model="marketLevelFilter" class="campo-select">
                     <option value="tutti">Ogni livello</option>
                     <template x-for="d in availableLevels()" :key="d"><option :value="d" x-text="d"></option></template>
+                    <option x-show="marketType !== 'opere'" value="misto">Misto (più livelli)</option>
                   </select>
                 </div>
-                <div>
-                  <label for="f-dur-visite" class="sr-only">Filtra per durata</label>
-                  <select id="f-dur-visite" x-model="visitDurationFilter" class="campo-select">
+                <div x-show="marketDurationOptions().length > 0">
+                  <label for="f-dur-vetrina" class="sr-only">Filtra per durata</label>
+                  <select id="f-dur-vetrina" x-model="marketDurationFilter" class="campo-select">
                     <option value="tutti">Ogni durata</option>
-                    <option value="breve">Meno di 30 min</option>
-                    <option value="media">Da 30 a 60 min</option>
-                    <option value="lunga">Più di 60 min</option>
+                    <template x-for="o in marketDurationOptions()" :key="o.value">
+                      <option :value="o.value" x-text="o.label"></option>
+                    </template>
                   </select>
                 </div>
               </div>
             </div>
 
-            <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <template x-for="v in shownVisits()" :key="v['@id']">
-                <article class="lastra flex flex-col overflow-hidden">
-                  <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="copertina" :aria-label="'Apri la scheda di ' + v.name">
-                    <span class="font-display" x-text="v.name"></span>
-                  </a>
-                  <div class="flex flex-1 flex-col p-5">
-                    <h2 class="font-display text-title-3 leading-tight">
-                      <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="link-scuro" x-text="v.name"></a>
-                    </h2>
-                    <p class="tabular mt-1 text-small text-muted" x-text="visitSummary(v)"></p>
-                    <p class="mt-1 text-caption uppercase tracking-wider text-muted">
-                      Curatore: <span x-text="v.author || '—'"></span>
-                    </p>
-                    <div class="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
-                      <span class="valore font-display text-title-3" x-text="readablePrice(v.price)"></span>
-                      <template x-if="visitUsable(v)">
-                        <a :href="navigatorUrl(v)" class="btn-primario" :aria-label="'Inizia la visita ' + v.name">
-                          <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
-                        </a>
-                      </template>
-                      <template x-if="!visitUsable(v) && owns(v)">
-                        <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario">Completa</a>
-                      </template>
-                      <template x-if="!owns(v)">
-                        <button type="button" @click="buy(v)" class="btn-primario" :aria-label="'Sblocca ' + v.name">Sblocca</button>
-                      </template>
-                    </div>
-                  </div>
-                </article>
-              </template>
-            </div>
-
-            <div x-show="shownVisits().length === 0" class="vuoto mt-8">
-              <p x-show="visitSearch || visitLevelFilter !== 'tutti' || visitDurationFilter !== 'tutti'">
-                Nessuna visita con questi filtri.
-              </p>
-              <p x-show="!visitSearch && visitLevelFilter === 'tutti' && visitDurationFilter === 'tutti'">
-                In questo museo non ci sono ancora visite pubblicate.
-              </p>
-              <button type="button" class="btn-secondario mt-4"
-                x-show="visitSearch || visitLevelFilter !== 'tutti' || visitDurationFilter !== 'tutti'"
-                @click="visitSearch=''; visitLevelFilter='tutti'; visitDurationFilter='tutti'">Azzera i filtri</button>
-            </div>
-          </section>
-
-          <!-- ---------- CATALOGO OPERE ---------- -->
-          <section x-show="view === 'opere'">
-            <h1 class="font-display text-title-1">Opere</h1>
-            <p class="mt-1 text-small text-muted">
-              <span class="tabular" x-text="shownArtworks().length"></span>
-              <span x-text="shownArtworks().length === 1 ? ' opera' : ' opere'"></span>
-              <span x-text="' · ' + (selectedMuseum ? selectedMuseum.name : '')"></span>
+            <!-- La durata di una visita sta in minuti, quella di una descrizione in
+                 secondi: un filtro solo per tutt'e due sarebbe una trappola. -->
+            <p x-show="marketType === 'tutti'" class="mt-2 text-caption text-muted">
+              Scegli Visite o Opere per filtrare anche per durata.
             </p>
 
-            <div class="barra mt-6">
-              <div class="campo-cerca">
-                <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
-                <label for="cerca-opere" class="sr-only">Cerca fra le opere</label>
-                <input id="cerca-opere" type="search" x-model="artworkSearch" placeholder="Cerca un'opera, un pittore, uno stile…"
-                  @input="announce(shownArtworks().length + ' risultati')">
+            <!-- ---------- LE VISITE ---------- -->
+            <section x-show="shownVisits().length > 0" class="mt-10" aria-labelledby="vetrina-visite">
+              <h2 id="vetrina-visite" x-show="marketType === 'tutti'"
+                class="font-display text-title-2">Visite</h2>
+              <div class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <template x-for="v in shownVisits()" :key="v['@id']">
+                  <article class="lastra flex flex-col overflow-hidden">
+                    <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="copertina" :aria-label="'Apri la scheda di ' + v.name">
+                      <span class="font-display" x-text="v.name"></span>
+                    </a>
+                    <div class="flex flex-1 flex-col p-5">
+                      <h3 class="font-display text-title-3 leading-tight">
+                        <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="link-scuro" x-text="v.name"></a>
+                      </h3>
+                      <p class="tabular mt-1 text-small text-muted" x-text="visitSummary(v)"></p>
+                      <p class="mt-1 text-caption uppercase tracking-wider text-muted">
+                        Curatore: <span x-text="v.author || '—'"></span>
+                      </p>
+                      <div class="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
+                        <span class="valore font-display text-title-3" x-text="readablePrice(v.price)"></span>
+                        <template x-if="visitUsable(v)">
+                          <a :href="navigatorUrl(v)" class="btn-primario" :aria-label="'Inizia la visita ' + v.name">
+                            <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
+                          </a>
+                        </template>
+                        <template x-if="!visitUsable(v) && owns(v)">
+                          <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario">Completa</a>
+                        </template>
+                        <template x-if="!owns(v)">
+                          <button type="button" @click="buy(v)" class="btn-primario" :aria-label="'Sblocca ' + v.name">Sblocca</button>
+                        </template>
+                      </div>
+                    </div>
+                  </article>
+                </template>
               </div>
-              <div>
-                <label for="f-liv-opere" class="sr-only">Filtra per livello</label>
-                <select id="f-liv-opere" x-model="artworkLevelFilter" class="campo-select">
-                  <option value="tutti">Ogni livello</option>
-                  <template x-for="d in availableLevels()" :key="d"><option :value="d" x-text="d"></option></template>
-                </select>
+            </section>
+
+            <!-- ---------- LE OPERE, con le loro descrizioni ---------- -->
+            <section x-show="shownArtworks().length > 0" class="mt-10" aria-labelledby="vetrina-opere">
+              <h2 id="vetrina-opere" x-show="marketType === 'tutti'"
+                class="font-display text-title-2">Opere</h2>
+              <div class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <template x-for="g in shownArtworks()" :key="g.artwork['@id']">
+                  <article class="lastra flex flex-col overflow-hidden" x-data="{ rotta: false }">
+                    <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])" class="mat block"
+                      :aria-label="'Apri la scheda dell\'opera ' + (g.artwork.name || 'senza titolo')">
+                      <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true"
+                        :alt="'Immagine dell\'opera: ' + (g.artwork.name || '')" loading="lazy">
+                      <span x-show="!artworkImage(g.artwork) || rotta" class="mat-vuoto" x-text="g.artwork.name || 'Opera'"></span>
+                    </a>
+                    <div class="flex flex-1 flex-col p-5">
+                      <h3 class="font-display text-title-3 leading-tight">
+                        <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])" class="link-scuro"
+                          x-text="g.artwork.name || 'Senza titolo'"></a>
+                      </h3>
+                      <p class="mt-1 text-small text-muted" x-text="g.artwork.author ? g.artwork.author.name : ''"></p>
+                      <p class="tabular mt-auto pt-4 text-caption uppercase tracking-wider text-muted" x-text="artworkSummary(g)"></p>
+                    </div>
+                  </article>
+                </template>
               </div>
-            </div>
+            </section>
 
-            <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <template x-for="g in shownArtworks()" :key="g.artwork['@id']">
-                <article class="lastra flex flex-col overflow-hidden" x-data="{ rotta: false }">
-                  <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])" class="mat block"
-                    :aria-label="'Apri la scheda dell\'opera ' + (g.artwork.name || 'senza titolo')">
-                    <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true"
-                      :alt="'Immagine dell\'opera: ' + (g.artwork.name || '')" loading="lazy">
-                    <span x-show="!artworkImage(g.artwork) || rotta" class="mat-vuoto" x-text="g.artwork.name || 'Opera'"></span>
-                  </a>
-                  <div class="flex flex-1 flex-col p-5">
-                    <h2 class="font-display text-title-3 leading-tight">
-                      <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])" class="link-scuro"
-                        x-text="g.artwork.name || 'Senza titolo'"></a>
-                    </h2>
-                    <p class="mt-1 text-small text-muted" x-text="g.artwork.author ? g.artwork.author.name : ''"></p>
-                    <p class="tabular mt-auto pt-4 text-caption uppercase tracking-wider text-muted" x-text="artworkSummary(g)"></p>
-                  </div>
-                </article>
-              </template>
-            </div>
-
-            <div x-show="shownArtworks().length === 0" class="vuoto mt-8">
-              <p>Nessuna opera con questi filtri.</p>
-              <button type="button" class="btn-secondario mt-4" @click="artworkSearch=''; artworkLevelFilter='tutti'">Azzera i filtri</button>
+            <div x-show="marketEmpty()" class="vuoto mt-8">
+              <p x-show="marketFiltered()">Niente in vetrina con questi filtri.</p>
+              <p x-show="!marketFiltered()">In questo museo non c'è ancora niente pubblicato.</p>
+              <button type="button" class="btn-secondario mt-4" x-show="marketFiltered()"
+                @click="resetMarketFilters()">Azzera i filtri</button>
             </div>
           </section>
 
           <section x-show="view === 'opera'" x-data="{ rotta: false }">
-            <a href="#/opere" class="btn-fantasma -ml-3 mb-6">
+            <a href="#/vetrina" class="btn-fantasma -ml-3 mb-6">
               <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> Torna alle opere
             </a>
             <template x-if="currentArtwork()">
@@ -668,7 +656,7 @@
                           <span class="pastiglia pastiglia-ardesia" x-text="it.educationalLevel"></span>
                           <span class="tabular text-caption text-muted" x-text="it.timeRequired + 's di lettura'"></span>
                           <span class="text-caption text-muted" x-text="'di ' + (it.author || '—')"></span>
-                          <span x-show="it.visibility === 'privato'" class="pastiglia">Privato</span>
+                          <span x-show="it.visibility === 'privato'" class="pastiglia pastiglia-ardesia">Privato</span>
                           <span class="valore ml-auto font-display text-title-3" x-text="readablePrice(it.price)"></span>
                         </div>
 
@@ -822,7 +810,7 @@
                           <p class="font-medium" x-text="t.nome"></p>
                           <p class="text-caption text-muted" x-text="itemDetail(t.id)"></p>
                         </div>
-                        <span x-show="t.opzionale" class="pastiglia">Opzionale</span>
+                        <span x-show="t.opzionale" class="pastiglia pastiglia-ardesia">Opzionale</span>
                       </div>
                       <template x-for="note in notesAfter(currentVisit(), t.id)">
                         <p class="nota-logistica">
@@ -903,7 +891,7 @@
             </ul>
             <div x-show="myVisits().length === 0" class="vuoto mt-4">
               <p>Non hai ancora visite.</p>
-              <a href="#/visite" class="btn-primario mt-4">Vai alle visite</a>
+              <a href="#/vetrina" @click="setMarketType('visite')" class="btn-primario mt-4">Vai alle visite</a>
             </div>
 
             <h2 class="mt-12 font-display text-title-2">Descrizioni</h2>
@@ -924,7 +912,7 @@
             </div>
             <div x-show="myItemGroups().length === 0" class="vuoto mt-4">
               <p>Non hai ancora descrizioni.</p>
-              <a href="#/opere" class="btn-primario mt-4">Sfoglia le opere</a>
+              <a href="#/vetrina" @click="setMarketType('opere')" class="btn-primario mt-4">Sfoglia le opere</a>
             </div>
           </section>
 
@@ -964,7 +952,7 @@
                         <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
                         <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                         <p class="mt-1 flex flex-wrap items-center gap-2">
-                          <span x-show="v.accessKey" class="pastiglia">
+                          <span x-show="v.accessKey" class="pastiglia pastiglia-ardesia">
                             <svg class="h-3.5 w-3.5" aria-hidden="true"><use href="#ico-chiave" /></svg>
                             <span x-text="v.accessKey"></span>
                           </span>
@@ -1107,12 +1095,13 @@
 
           <!-- ---------- VISITA SU MISURA ---------- -->
           <section x-show="view === 'sumisura'" class="max-w-2xl">
-            <h1 class="font-display text-title-1">Raccontaci che visita vuoi</h1>
+            <span class="tessera-iride"><svg class="h-6 w-6" aria-hidden="true"><use href="#ico-scintilla" /></svg></span>
+            <h1 class="mt-4 font-display text-title-1">Raccontaci che visita vuoi</h1>
             <p class="mt-2 text-body text-muted">
-              Descrivi il tempo che hai, con chi sei, cosa ti interessa. L'intelligenza
-              artificiale sceglie le opere fra quelle di
+              Descrivi il tempo che hai, con chi sei, cosa ti interessa. Le opere vengono
+              scelte fra quelle di
               <span x-text="selectedMuseum ? selectedMuseum.name : 'questo museo'"></span>
-              e ne scrive le descrizioni seguendo quello che hai chiesto.
+              e le descrizioni scritte su quello che hai chiesto.
             </p>
 
             <div class="mt-6 flex flex-wrap gap-2">
@@ -1128,12 +1117,12 @@
               class="campo mt-2 resize-y"
               placeholder="Ho solo mezz'ora e vorrei vedere i ritratti."></textarea>
 
-            <div class="barra-salva mt-6">
+            <div class="barra-salva filo-iride mt-6 pl-5">
               <p class="text-small" :class="customReady() ? 'text-sage' : 'text-muted'" role="status">
                 <span x-show="!customRequest.trim()">Scrivi una frase: bastano poche parole.</span>
                 <span x-show="customRequest.trim()">Pronta. Si apre nell'app da museo.</span>
               </p>
-              <a :href="customVisitUrl()" class="btn-primario"
+              <a :href="customVisitUrl()" class="btn-iride"
                 :class="customReady() ? '' : 'pointer-events-none opacity-50'"
                 :aria-disabled="customReady() ? false : true">
                 Componi e inizia <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-esterno" /></svg>
@@ -1152,11 +1141,13 @@
 
             <!-- L'altra strada: descriverla invece di sceglierla tappa per tappa -->
             <template x-if="!editingId">
-              <div class="lastra mt-4 flex flex-col gap-3 border-l-4 border-l-accent p-4 sm:flex-row sm:items-center">
-                <svg class="h-6 w-6 shrink-0 text-accent" aria-hidden="true"><use href="#ico-scintilla" /></svg>
+              <div class="lastra filo-iride mt-4 flex flex-col gap-3 p-4 pl-5 sm:flex-row sm:items-center">
+                <span class="tessera-iride">
+                  <svg class="h-6 w-6" aria-hidden="true"><use href="#ico-scintilla" /></svg>
+                </span>
                 <p class="flex-1 text-small">
-                  Non hai voglia di sceglierle una per una? Descrivi la visita che vorresti e
-                  la compone l'intelligenza artificiale.
+                  Non hai voglia di sceglierle una per una? Descrivi la visita che vorresti
+                  e la trovi già composta.
                 </p>
                 <a href="#/sumisura" class="btn-secondario shrink-0">Raccontala a parole</a>
               </div>
@@ -1301,8 +1292,8 @@
                           <template x-for="it in g.items" :key="it['@id']">
                             <li class="flex items-center gap-3">
                               <span class="min-w-0 flex-1">
-                                <span class="pastiglia" x-text="it.educationalLevel"></span>
-                                <span class="tabular ml-2 text-caption text-muted" x-text="it.timeRequired + 's · ' + readablePrice(it.price)"></span>
+                                <span class="pastiglia pastiglia-ardesia" x-text="it.educationalLevel"></span>
+                                <span class="tabular ml-2 text-caption text-muted" x-text="it.timeRequired + 's · '"></span><span class="valore text-caption" x-text="readablePrice(it.price)"></span>
                               </span>
                               <button type="button" @click="addStop('item', it['@id'])" :disabled="itemInVisit(it['@id'])"
                                 class="btn-secondario shrink-0"

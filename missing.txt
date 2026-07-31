@@ -16,3 +16,5 @@ da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede 
 fuori dalla finestra
 
 ci deve essere un tasto termina visita  
+
+i filtri mostra contenuti mentre crei una visita sono abbastanza dubbiosi

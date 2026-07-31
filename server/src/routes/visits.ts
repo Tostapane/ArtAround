@@ -2,8 +2,10 @@
  * Rotte delle visite.
  *
  * Il salvataggio fa tre cose non ovvie:
- * - ricava la durata totale sommando i tempi degli item, perche' l'editor non la
- *   chiede;
+ * - calcola sempre lui la durata totale, sommando i tempi degli item davvero
+ *   trovati: un totale mandato dal client non si accetta e quello pianificato
+ *   non si usa, o una visita con tappe di lunghezza diversa dichiarerebbe una
+ *   durata che le sue tappe non fanno;
  * - ancora ogni nota logistica alla tappa che segue, cosi' il navigator puo'
  *   mostrarla al momento giusto (slide 21); una nota che perde il suo posto non
  *   puo' piu' dire come si va da un'opera alla successiva;
@@ -129,7 +131,7 @@ router.post("/custom", async (req, res) => {
       );
       if (item) {
         content.push({ artwork, item });
-        totalSec += durationSec;
+        totalSec += Number((item as any).timeRequired) || 0;
       }
     }
 
@@ -199,12 +201,17 @@ router.post("/", async (req, res) => {
     const items = itemIds.length
       ? await ItemModel.find({ "@id": { $in: itemIds } })
       : [];
-    const duration =
-      payload.duration ??
-      items.reduce((s, it: any) => s + (Number(it.timeRequired) || 0), 0);
+    const duration = items.reduce(
+      (s, it: any) => s + (Number(it.timeRequired) || 0),
+      0,
+    );
 
     const visitId = payload.id || payload["@id"];
     const author = payload.autore || payload.author;
+    const name = payload.titolo || payload.name;
+    if (typeof name !== "string" || name.trim() === "") {
+      return res.status(400).json({ error: "La visita deve avere un titolo." });
+    }
 
     // --- Visita GUIDATA (con parola chiave) ---
     const accessKey: string | undefined =

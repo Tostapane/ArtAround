@@ -10,7 +10,14 @@
  *     credenziali; il museo si sceglie una volta e resta in `localStorage`. Il
  *     catalogo si scarica per museo, quindi entrambi vanno noti prima (`initApp`).
  *  3. DUE CATALOGHI SEPARATI: le visite si vendono, le opere si sfogliano.
- *  4. TRE RUOLI: visitatore, autore, curatore.
+ *  4. LA VETRINA E' UN ELENCO SOLO con dentro due specie, visite e opere, e
+ *     quindi UNA serie sola di ricerca e filtri (`market*`): due copie
+ *     tornerebbero a divergere. Il livello di una visita si legge dai toni
+ *     delle sue tappe e non da `Visit.level`, che per una visita composta a
+ *     mano dice "Personalizzata" — che non e' un tono ma l'assenza di una
+ *     dichiarazione; le tappe possono averne piu' d'uno, e allora e' "Misto".
+ *     `#/visite` e `#/opere` rispondono ancora, con la specie gia' scelta.
+ *  5. TRE RUOLI: visitatore, autore, curatore.
  *     ⚠️ Le diramazioni per ruolo qui dentro sono scritte `role === "autore"
  *     ? ... : ...`, col visitatore nel ramo altrimenti: un ruolo nuovo ci cade
  *     dentro senza che nulla protesti. Nominarlo esplicitamente dove conta.
@@ -47,6 +54,22 @@ import {
 } from "../../../shared/constants.js";
 import { ArtAPI } from "./api.js";
 
+
+/*
+  Le fasce di durata delle visite: etichetta e prova nella stessa riga, cosi'
+  non possono dire due cose diverse. Sono minuti di LETTURA, che e' quel che
+  `Visit.duration` somma; quando contera' anche il cammino fra le sale, i tre
+  numeri qui vanno rialzati e non serve toccare altro.
+*/
+const VISIT_DURATION_BANDS: {
+  value: string;
+  label: string;
+  test: (min: number) => boolean;
+}[] = [
+  { value: "corta", label: "meno di 5 min", test: (m) => m < 5 },
+  { value: "media", label: "da 5 a 15 min", test: (m) => m >= 5 && m <= 15 },
+  { value: "lunga", label: "oltre 15 min", test: (m) => m > 15 },
+];
 
 /** Cio' su cui valgono gli aiutanti comuni (cercare, dire di che museo e', il tono). */
 export type Catalogabile = Content | Artwork;
@@ -116,8 +139,7 @@ export type View =
   | "registrati"
   | "musei"
   | "home"
-  | "visite"
-  | "opere"
+  | "vetrina"
   | "opera"
   | "visita"
   | "libreria"
@@ -140,12 +162,10 @@ export class AppState {
   announcement: string = "";
 
   // --- Ricerca e filtri -----------------------------------------------------
-  visitSearch: string = "";
-  visitLevelFilter: string = "tutti";
-  visitDurationFilter: "tutti" | "breve" | "media" | "lunga" = "tutti";
-
-  artworkSearch: string = "";
-  artworkLevelFilter: string = "tutti";
+  marketSearch: string = "";
+  marketType: "tutti" | "visite" | "opere" = "tutti";
+  marketLevelFilter: string = "tutti";
+  marketDurationFilter: string = "tutti";
 
   librarySearch: string = "";
   libraryTypeFilter: "tutti" | "item" | "visite" = "tutti";
@@ -231,8 +251,7 @@ export class AppState {
       "registrati",
       "musei",
       "home",
-      "visite",
-      "opere",
+      "vetrina",
       "opera",
       "visita",
       "libreria",
@@ -246,6 +265,14 @@ export class AppState {
     ];
     for (const candidate of knownViews) {
       if (head === candidate) return { view: candidate, param };
+    }
+    if (head === "visite") {
+      this.marketType = "visite";
+      return { view: "vetrina", param: "" };
+    }
+    if (head === "opere") {
+      this.marketType = "opere";
+      return { view: "vetrina", param: "" };
     }
     return { view: "soglia", param: "" };
   }
@@ -300,8 +327,7 @@ export class AppState {
       registrati: "Crea un profilo",
       musei: "Scegli il museo",
       home: "Home",
-      visite: "Visite",
-      opere: "Opere",
+      vetrina: "Vetrina",
       opera: "Scheda dell'opera",
       visita: "Scheda della visita",
       libreria: "La mia libreria",
@@ -470,14 +496,13 @@ export class AppState {
     this.guidedSession = null;
     this.passkeyInput = "";
     this.customRequest = "";
-    this.visitSearch = "";
-    this.artworkSearch = "";
+    this.marketSearch = "";
     this.librarySearch = "";
     this.worksSearch = "";
     this.editorSearch = "";
-    this.visitLevelFilter = "tutti";
-    this.visitDurationFilter = "tutti";
-    this.artworkLevelFilter = "tutti";
+    this.marketType = "tutti";
+    this.marketLevelFilter = "tutti";
+    this.marketDurationFilter = "tutti";
     this.libraryTypeFilter = "tutti";
     this.worksTypeFilter = "tutti";
     this.editorFilter = "tutti";
@@ -599,9 +624,7 @@ export class AppState {
       const d = this.levelOf(c);
       if (d) present.add(d);
     }
-    const ordered = educationalLevels.filter((l) => present.has(l));
-    for (const d of present) if (!ordered.includes(d)) ordered.push(d);
-    return ordered;
+    return educationalLevels.filter((l) => present.has(l));
   }
 
   owns(item: Content | null): boolean {
@@ -1067,28 +1090,73 @@ export class AppState {
       `${tappe} ${tappe === 1 ? "tappa" : "tappe"}`,
       formatDuration(v.duration),
     ];
-    if (v.level) parts.push(v.level);
+    const livello = this.visitLevelLabel(v);
+    if (livello) parts.push(livello);
     return parts.join(" · ");
   }
 
-  shownVisits(): Visit[] {
-    const base = this.visits.filter(
-      (v) =>
-        this.belongsToMuseum(v) &&
-        this.visibleInMarket(v) &&
-        this.matchesSearch(v, this.visitSearch),
+  setMarketType(tipo: "tutti" | "visite" | "opere") {
+    this.marketType = tipo;
+    this.marketDurationFilter = "tutti";
+  }
+
+  marketDurationOptions(): { value: string; label: string }[] {
+    if (this.marketType === "opere") {
+      return secPerArt.map((s) => ({
+        value: String(s),
+        label: `${s} secondi di lettura`,
+      }));
+    }
+    if (this.marketType === "visite") {
+      return VISIT_DURATION_BANDS.map((b) => ({ value: b.value, label: b.label }));
+    }
+    return [];
+  }
+
+  private matchesMarketDuration(min: number): boolean {
+    if (this.marketType !== "visite") return true;
+    const banda = VISIT_DURATION_BANDS.find(
+      (b) => b.value === this.marketDurationFilter,
     );
-    return base.filter((v) => {
-      if (
-        this.visitLevelFilter !== "tutti" &&
-        v.level !== this.visitLevelFilter
-      )
-        return false;
-      if (this.visitDurationFilter === "tutti") return true;
-      const min = this.visitMinutes(v);
-      if (this.visitDurationFilter === "breve") return min < 30;
-      if (this.visitDurationFilter === "media") return min >= 30 && min <= 60;
-      return min > 60;
+    if (!banda) return true;
+    return banda.test(min);
+  }
+
+  visitTones(v: any): string[] {
+    const toni = new Set<string>();
+    for (const id of v.itemListElement || []) {
+      const it = this.findItem(id);
+      if (it && isItem(it) && it.educationalLevel) toni.add(it.educationalLevel);
+    }
+    if (toni.size === 0 && v.level) toni.add(v.level);
+    return [...toni];
+  }
+
+  isMixedVisit(v: any): boolean {
+    return this.visitTones(v).length > 1;
+  }
+
+  visitLevelLabel(v: any): string {
+    if (this.isMixedVisit(v)) return "Misto";
+    const toni = this.visitTones(v);
+    if (toni.length === 1) return toni[0];
+    return v.level || "";
+  }
+
+  private matchesMarketLevel(tones: string[]): boolean {
+    if (this.marketLevelFilter === "tutti") return true;
+    if (this.marketLevelFilter === "misto") return tones.length > 1;
+    return tones.includes(this.marketLevelFilter);
+  }
+
+  shownVisits(): Visit[] {
+    if (this.marketType === "opere") return [];
+    return this.visits.filter((v) => {
+      if (!this.belongsToMuseum(v)) return false;
+      if (!this.visibleInMarket(v)) return false;
+      if (!this.matchesSearch(v, this.marketSearch)) return false;
+      if (!this.matchesMarketLevel(this.visitTones(v))) return false;
+      return this.matchesMarketDuration(this.visitMinutes(v));
     });
   }
 
@@ -1129,19 +1197,53 @@ export class AppState {
   }
 
   shownArtworks(): ArtworkGroup[] {
-    const items = this.visibleItems().filter((i) => {
+    if (this.marketType === "visite") return [];
+    const items = this.visibleItems().filter((i: any) => {
+      if (this.marketLevelFilter === "misto") return false;
       if (
-        this.artworkLevelFilter !== "tutti" &&
-        i.educationalLevel !== this.artworkLevelFilter
+        this.marketLevelFilter !== "tutti" &&
+        i.educationalLevel !== this.marketLevelFilter
       )
         return false;
+      if (this.marketType === "opere" && this.marketDurationFilter !== "tutti") {
+        if (String(i.timeRequired) !== this.marketDurationFilter) return false;
+      }
       return true;
     });
     const groups = this.groupByArtwork(items);
-    if (!this.artworkSearch.trim()) return groups;
-    return groups.filter((g) =>
-      this.matchesSearch(g.artwork, this.artworkSearch),
+    if (!this.marketSearch.trim()) return groups;
+    return groups.filter((g) => this.matchesSearch(g.artwork, this.marketSearch));
+  }
+
+  marketSummary(): string {
+    const v = this.shownVisits().length;
+    const o = this.shownArtworks().length;
+    const pezzi: string[] = [];
+    if (this.marketType !== "opere")
+      pezzi.push(`${v} ${v === 1 ? "visita" : "visite"}`);
+    if (this.marketType !== "visite")
+      pezzi.push(`${o} ${o === 1 ? "opera" : "opere"}`);
+    return pezzi.join(" · ");
+  }
+
+  marketEmpty(): boolean {
+    return this.shownVisits().length === 0 && this.shownArtworks().length === 0;
+  }
+
+  marketFiltered(): boolean {
+    return (
+      this.marketSearch.trim() !== "" ||
+      this.marketType !== "tutti" ||
+      this.marketLevelFilter !== "tutti" ||
+      this.marketDurationFilter !== "tutti"
     );
+  }
+
+  resetMarketFilters() {
+    this.marketSearch = "";
+    this.marketType = "tutti";
+    this.marketLevelFilter = "tutti";
+    this.marketDurationFilter = "tutti";
   }
 
   artworkSummary(g: ArtworkGroup): string {

@@ -890,3 +890,86 @@ compositore: altri 7 controlli, percorsi cliccando davvero, zero errori.
 ⚠️ Una trappola *della prova*: `document.body.innerText` non vede le viste nascoste da
 `x-show`, ma `querySelectorAll` **si'**. Un controllo fatto con il secondo passa anche quando
 la schermata non e' affatto aperta — i primi due «OK» di quella tornata erano falsi.
+
+---
+
+## 12. Colore: accendere quel che era gia' dichiarato (2026-07-31)
+
+Tre richieste in una passata: togliere «intelligenza artificiale» dallo schermo, dare piu'
+colore all'app, e dare un segno multicolore alla visita generata.
+
+**La seconda si e' risolta da se' guardando i numeri.** `--brass`, `--slate` e `--tint`
+erano definiti, documentati e usati **zero volte** in tutte e due le app; il navigator non
+usava **nessuna** delle quattro tinte semantiche. Quindi non serviva inventare colori:
+bastava accendere i ruoli che `theme.css` gia' descriveva. Tono, livello, «Privato»,
+«Opzionale» e la parola chiave sono passati all'ardesia; i prezzi all'ottone.
+
+⚠️ **Accendendoli e' saltato fuori un difetto vero di contrasto**, che prima non mordeva
+perche' la pastiglia ardesia si vedeva in cinque punti soli: al buio `--slate` faceva
+**4,44:1** dentro una pastiglia (corpo caption su `surface-2`), cioe' sotto AA. Alzata la
+sola luminosita' a `oklch(… 0.8 …)` — tinta e croma intatte, quindi l'ardesia non scivola
+nelle famiglie dell'oro o del rosso, che e' la regola 2 della sorgente.
+
+**L'iride** (`--iride` in `theme.css`) e' i quattro semantici in fila, per la sola visita
+generata. Due cose imparate mettendolo:
+1. **L'ordine conta piu' di quali colori sono.** Con ardesia e verderame adiacenti — tinte
+   vicine — meta' gradiente sembrava una tinta sola dentro una tessera di 40 px. Riordinato
+   per distanza di tinta (oro → verde → verderame → ardesia, ~60° a gradino) si legge come
+   multicolore a qualunque dimensione. Visto in uno scatto, non dedotto.
+2. **`border-image` non convive col raggio della lastra** — squadra l'angolo. Il filo e'
+   disegnato con uno `::before` di 3 px.
+
+**Verificato dipingendo i token su un canvas e leggendone i byte** (`getComputedStyle`
+restituisce `oklab(…)` per i `color-mix`: leggerne i numeri come RGB da' nero, ed e' il modo
+perfetto per credere che sia tutto rotto quando non lo e'). 16 rapporti, due temi: il testo
+del bottone iride sta fra 5,74:1 e 7,88:1 su **tutte e quattro** le fermate del gradiente.
+
+**Il copy non nomina la macchina.** Dice cosa succede, non chi lo fa. Vale solo per lo
+schermo: qui e all'esame si chiama col suo nome.
+
+---
+
+## 13. La vetrina: visite e opere in un posto solo (2026-07-31)
+
+`visite` e `opere` erano due schermate con due ricerche e due serie di filtri. Ora sono una,
+`#/vetrina`, con due sezioni intitolate. Il binario del visitatore passa da quattro voci a
+tre, che sotto `lg` e' una barra in basso e si sente.
+
+**Il raggruppamento delle descrizioni per opera resta com'era** — funziona, e con 104
+descrizioni per museo e' l'unica cosa che rende sfogliabile il catalogo.
+
+**La durata si calcola prima di scrivere, ed e' la somma delle tappe vere.** Lo era gia' in
+teoria, ma due punti la tradivano su una visita a tappe di lunghezza diversa: `POST /visits`
+faceva `payload.duration ?? somma` — si fidava di un totale mandato dal client — e
+`/visits/custom` sommava la durata **pianificata** invece di quella dell'item trovato, mentre
+`resolveOrGenerateItem` ripiega su un item di qualunque lunghezza quando quella voluta non
+esiste. Provato contro il server riavviato: 15+60+15 fa 90, e un client che ne dichiara 99999
+viene ignorato.
+
+**I filtri non filtravano, e non era un'opinione.** Misurato sul database prima di toccare
+niente:
+
+- le fasce di durata (`< 30` / `30-60` / `> 60` min) prendevano **tutte e 9 le visite nella
+  prima**: due opzioni su tre restituivano zero, la terza tutto. Non era sbagliato il filtro
+  ma le soglie: `Visit.duration` somma minuti di **lettura**, non di visita, quindi 13 tappe
+  da 15s fanno 3 minuti. Ora le soglie sono 5 e 15, in **una tabella sola** con etichetta e
+  predicato nella stessa riga, e il confronto e' `banda.test(min)`. Una prima versione
+  ricavava le fasce dai dati, ~25 righe: buttata, un filtro dev'essere un `if`;
+- `availableLevels()` accodava qualunque valore trovato, quindi **`Personalizzata` compariva
+  come quinto livello** — `state.md` §7.3 lo aveva previsto anni fa;
+- il livello confrontava `Visit.level`, che e' **un campo solo**: una visita che mescola i
+  toni non si trovava sotto nessuno di essi. Ora si guardano i toni delle tappe, con la voce
+  **`Misto`** in piu'.
+
+⚠️ **`Misto` non aveva dati con cui provarsi**: nessuna visita del seed mescola i toni (0 su
+9). Provato fabbricandone una via API con una tappa `Infantile` e una `Avanzato`: la vetrina
+legge due toni, la etichetta `Misto` invece di `Personalizzata`, la trova sotto `Misto` e
+sotto ciascuno dei due toni, e **non** sotto un terzo. Poi buttata. Un filtro che nessun dato
+esercita e' un filtro non provato.
+
+**Trappola del provare, non del codice.** Filtrando per `Medio` restano **tutte e 13** le
+opere, e sembra che il filtro non morda: e' giusto invece: ogni opera ha descrizioni in tutti
+e quattro i toni, quindi a stringersi sono le descrizioni DENTRO ciascuna carta — 104 → 26.
+Il controllo va fatto su quelle, non sul numero di opere.
+
+I vecchi `#/visite` e `#/opere` continuano a rispondere e arrivano con la specie gia' scelta.

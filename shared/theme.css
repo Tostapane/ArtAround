@@ -187,6 +187,37 @@
 }
 
 /*
+  L'IRIDE — i quattro semantici in fila, e l'unico posto dove compaiono insieme.
+  Serve alla visita nata da una frase: e' la sola cosa del prodotto che li
+  attraversa tutti e quattro, perche' sceglie per CATEGORIA, e' un percorso da
+  fare (ACCENTO), consegna contenuti (ACQUISITO) e ha un VALORE. Sta li' e in
+  nessun altro punto: usato altrove sarebbe decorazione, e smetterebbe di
+  indicare qualcosa.
+
+  Non e' un'eccezione alle due regole della sorgente: nessuna delle quattro
+  tinte viene qui asserita da sola — e' una scorsa, non un'etichetta — quindi
+  l'oro resta l'oro del valore e il rosso resta fuori.
+
+  L'ordine e' per DISTANZA DI TINTA, non per importanza: oro, verde, verderame,
+  ardesia sono quattro gradini da ~60 gradi l'uno dall'altro, quindi la scorsa
+  si legge come piu' colori anche dentro una tessera di 40 px. Mettendo vicini
+  ardesia e verderame — che dell'altro ordine erano i primi due — meta'
+  gradiente sembrava una tinta sola.
+
+  Le `var()` dentro si risolvono sull'elemento che usa il gradiente, non qui:
+  al buio prende da se' le versioni schiarite, senza una seconda definizione.
+*/
+:root {
+  --iride: linear-gradient(
+    112deg,
+    var(--brass) 0%,
+    var(--sage) 34%,
+    var(--accent) 68%,
+    var(--slate) 100%
+  );
+}
+
+/*
   Al buio si scambiano i ruoli dei neutri — l'inchiostro diventa la lastra e il
   muro scende sotto — e le tinte si schiariscono quanto basta a reggere su un
   fondo scuro. E' la stessa palette, letta al contrario: nessun secondo elenco
@@ -233,7 +264,10 @@
     --accent: oklch(from var(--accento) 0.78 c h);
     --danger: oklch(from var(--allarme) 0.71 c h);
     --brass: oklch(from var(--valore) 0.77 c h);
-    --slate: oklch(from var(--categoria) 0.76 c h);
+    /* Piu' chiaro degli altri di un gradino: la categoria e' l'unica che si
+       legge a corpo caption dentro una pastiglia, cioe' su `surface-2` invece
+       che sulla lastra, ed e' li' che 0.76 restava sotto AA (4.44:1). */
+    --slate: oklch(from var(--categoria) 0.8 c h);
     --sage: oklch(from var(--acquisito) 0.78 c h);
   }
 }

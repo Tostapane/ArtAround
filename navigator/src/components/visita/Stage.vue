@@ -366,7 +366,7 @@ const optionalCount = computed(() => {
                 </span>
               </span>
             </span>
-            <span v-if="isOptionalItem(match.item['@id'])" class="pastiglia shrink-0">
+            <span v-if="isOptionalItem(match.item['@id'])" class="pastiglia pastiglia-ardesia shrink-0">
               Opzionale
             </span>
           </button>
