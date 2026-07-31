@@ -158,7 +158,7 @@ shared/components.css  component vocabulary, imported by BOTH apps
 
 ### 1.1 The genericity mechanism (the heavily-weighted criterion)
 
-Three museums are configured, each with a real Wikidata QID, a generated JSON config and a
+Four museums are configured, each with a real Wikidata QID, a hand-written JSON config and a
 hand-annotated SVG floor map:
 
 | Config file | qid | rooms / artwork nodes / POIs / edges / obstacles in the SVG |
@@ -166,6 +166,30 @@ hand-annotated SVG floor map:
 | `British Museum.json` | `Q6373` | 5 / 13 / 5 / 4 / 2 |
 | `Metropolitan Museum of Art.json` | `Q160236` | 6 / 13 / 6 / 7 / 3 |
 | `Museo del Louvre.json` | `Q19675` | 6 / 13 / 6 / 5 / 3 |
+| `Galleria degli Uffizi.json` | `Q51252` | 21 / **104** / 10 / 20 / 4 |
+
+**The config file is an INPUT, and only since 2026-07-31.** Before that the list of museums was
+a TypeScript module (`data/museumContent.ts`) and these JSON files were *written* by the seed
+from Wikidata: adding a museum meant editing code, and anything the curator put in the file was
+overwritten on the next run. `data/museumConfigs.ts` now reads the directory and nothing writes
+it; `data/museumContent.ts` and `services/museumConfig.ts` are deleted. The file's fields, and
+why each one is there rather than derivable, are documented at the top of `museumConfigs.ts`.
+Two consequences worth knowing:
+
+- **`name` beats Wikidata**, which is queried only for the fields left blank. For the Uffizi the
+  Italian Wikidata label is *"Palazzo degli Uffizi"* — the building, not the gallery. A museum's
+  name is a curatorial choice, so the file has the last word.
+- **`logistics`** (new) holds the indications that belong to the museum and not to one visit —
+  slide 21's own example is "l'entrata è da via Garibaldi 2, il biglietto costa 15€, c'è un
+  guardaroba gratuito". The seed attaches them to every visit it generates as **opening notes**
+  (`{after: null}`), which is where the navigator plays them.
+
+**Where an artwork *is* comes from the map, not from the file.** `locationId` used to be
+`art-<position in activeArtworks>`, i.e. two parallel lists to keep aligned by hand; inserting one
+qid in the middle would have moved every artwork after it onto the wrong node, silently. The seed
+now looks the artwork up by `data-qid` in the SVG and takes that element's `id`
+(`manager.ts locationsFromMap`, `GraphNode.elementId`). Verified against the three old maps first:
+their `art-N` ids already matched their config order, so the change is a no-op for them.
 
 The **SVG map is the single spatial source of truth**. The curator annotates the map they
 already draw; `services/svgGraph.ts` parses it into a room graph. The contract:
@@ -185,8 +209,8 @@ Two further annotations belong to the **localization module** and are read by th
 not by `svgGraph.ts`:
 
 - `data-width-m` on the `<svg>` root — how many real metres the viewBox width spans
-  (80 / 95 / 110 on the three maps, deliberately different: a constant hardcoded in the client
-  would otherwise pass unnoticed). It is the only thing tying the drawing to the world; the
+  (80 / 95 / 110 / 150 on the four maps, deliberately different: a constant hardcoded in the
+  client would otherwise pass unnoticed). It is the only thing tying the drawing to the world; the
   plans are schematic, so the number cannot be derived from what is drawn — the curator
   measures it. Without it the automatic localization does not start, and the app falls back to
   QR without claiming anything false.
@@ -221,6 +245,8 @@ Tre punti dove invece **l'idea non scala**, misurati il 2026-07-30:
 | ~~Nessun filtro per museo~~ **CHIUSO 2026-07-30** | l'accesso scaricava **453 KB**, ora **153 KB (−67%)** | `GET /artworks`, `/items`, `/visits` accettano `?museum=Qxxx`; `initApp()` **risolve il museo prima di scaricare** e `selectMuseum()` ricarica. Conseguenza da conoscere: il selettore non poteva più contare i musei che non ha scaricato, quindi `GET /museums` porta ora `opere` e `visite` contati dal server. Resta senza paginazione *dentro* un museo (104 item): con il decuplo di contenuti per museo servirà anche quella |
 | ~~**Un solo indice** in tutto il database~~ **CHIUSO 2026-07-30** | `explain()` sulla stessa query, prima e dopo: **COLLSCAN, 312 documenti esaminati per restituirne 104, 0 chiavi** → **IXSCAN, 104 esaminati per 104 restituiti** | senza indice Mongo legge *ogni* documento e scarta a mano: il costo cresce col numero di documenti, non con quello dei risultati, cioè peggiora esattamente quando il museo si riempie. Aggiunti solo gli indici corrispondenti a forme di query che esistono davvero nel codice: `Item.{@id,about,author}`, `Visit.{@id,ofMuseum,author,itemListElement}`, `Artwork.{qid,ofMuseum}`, `User.collezione` |
 | ~~N+1 nel resoconto vendite~~ **CHIUSO 2026-07-30** | **654 ms → 67 ms** su 312 righe (≈10×), e le query passano da **314 a 3, fisse** | `countDocuments` stava *dentro* il ciclo sulle righe: una query per riga, sequenziali, e ognuna a sua volta una scansione di `users`. Ora una sola `find({collezione: {$in: ids}})` e il conteggio in memoria. **Verificato identico**: le 312 righe confrontate una per una col metodo precedente, zero divergenze |
+
+| ~~Il catalogo di un museo viaggia intero, testi compresi~~ **CHIUSO 2026-07-31** | `GET /items?museum=Q19675`: **138 KB per 104 item**, cioè ~1,1 MB proiettati sugli 832 degli Uffizi. Ora l'accesso ne scarica **36 KB** (−74%), più 6 KB per ogni opera che si apre davvero | vedi §3.1-bis. La riga qui sopra prometteva la paginazione «col decuplo di contenuti»; il decuplo è arrivato con la Galleria degli Uffizi (104 opere × 4 toni × 2 durate = **832 item in un museo solo**), ed è servita un'altra cosa: non tagliare l'elenco, ma togliergli i testi |
 
 Nota minore: la cache delle traduzioni (`services/translate.ts`) è una `Map` **senza tetto né
 sfratto**, con dentro i testi interi. È la scelta giusta per la demo — gli stessi testi li
@@ -366,13 +392,14 @@ diverse prima di essere fissata: tutte e tre passano AA senza ritocchi.
 | Endpoint | Purpose | Consumed by |
 | --- | --- | --- |
 | `GET /artworks` | all artworks | marketplace editor |
-| `GET /artworks/:qid/items` | items of an artwork | **nobody** (§8.1) |
+| `GET /artworks/:qid/items?user=` | the **texts** of one artwork's public descriptions, gated by `access.ts` | marketplace, on expanding a description (§3.1-bis) |
 | `GET /artworks/:qid/preview?level&duration` | `Match` for an artwork **outside** the current visit; falls back level+duration → level → any; **generates and persists** an LLM item if none exists | navigator QR scan |
 | `GET /visits` · `GET /visits/:id` · `GET /visits/:id/items` | listing, deep-link, ordered items with `about` populated | marketplace / navigator |
 | `POST /visits` | upsert by `@id`; computes `duration`, extracts `optionalItems` and `logistics` from `percorso`; validates guided-visit **key uniqueness (409)** and the **anti-loophole rule (400)**; validates the quiz | marketplace editor |
 | `POST /visits/custom` | constraint-based visit generation (§3.3) | navigator |
 | `DELETE /visits/:id` | delete + `$pull` from every `collezione` | marketplace |
-| `GET /items` | all **public** items, `about` populated | marketplace |
+| `GET /items` | all **public** items, texts included, `about` populated | **nobody since 2026-07-31** — kept deliberately (§3.1-bis) |
+| `GET /items/metadata` | the same items **without `text`** and with `about` as a bare id | marketplace, at museum load (§3.1-bis) |
 | `GET /items/author/:name` | an author's items (incl. private) | marketplace |
 | `POST /items` | create (marketplace `tipo:"Item"` or Schema.org form) or **edit** (`editId`: only text+price mutate) | marketplace editor |
 | `POST /items/batch` | items by id list | **nobody** (§8.1) |
@@ -395,6 +422,44 @@ error — it simply fails to appear. So `DELETE /items/:id` also deletes every v
 for confirmation* rather than discovering it afterwards. Verified end-to-end on throwaway
 data (8 assertions), including that an unrelated item sharing the same visit survives.
 
+### 3.1-bis Il catalogo in due metà: i metadati e i testi *(2026-07-31)*
+
+Il marketplace scaricava, all'ingresso in un museo, **ogni descrizione con il suo testo**. Con
+tredici opere sono 138 KB e nessuno se ne accorge; con le centoquattro della Galleria degli
+Uffizi diventano **832 descrizioni, circa 1,1 MB**, e nell'istante in cui arrivano non se ne
+sta leggendo nemmeno una: la vetrina mostra «8 descrizioni · da gratis», cioè un conto e un
+prezzo. Il testo è il **74%** del peso, e serve a una schermata sola.
+
+Quindi il catalogo si è diviso in due, per come lo si guarda e non per come lo si taglia:
+
+| | cosa porta | quando |
+| --- | --- | --- |
+| `GET /items/metadata?museum=` | tono, durata, autore, licenza, prezzo — i **metadati** della slide 21. Niente `text`, e `about` come id nudo | all'ingresso nel museo |
+| `GET /artworks/:qid/items?user=` | i **testi** delle descrizioni di UNA opera | quando qualcuno ne apre una |
+
+Misurato sul server vivo, sul Louvre: **138 KB → 36 KB** all'accesso, più **6 KB** per opera
+aperta. Proiettato sugli Uffizi: **1,1 MB → 285 KB**. Il pareggio sarebbe dopo 183 opere aperte,
+e nel museo ce ne sono 104 — quindi anche chi le aprisse tutte scaricherebbe meno di prima. Il
+motivo è che la risposta vecchia ripeteva l'opera intera dentro ciascuna delle sue otto
+descrizioni; qui l'opera si manda una volta e il client la **ricuce** (`withArtwork`), così
+raggruppamento, ricerca e filtri non si accorgono di niente e non è stato necessario toccarli.
+
+Tre cose da sapere prima di rimetterci le mani:
+
+- **`GET /items` non è stata toccata** e risponde byte per byte come prima, per scelta esplicita.
+  Oggi non la chiama nessuno: è la primitiva completa, tenuta perché una seconda strada non
+  dovrebbe togliere la prima.
+- **Testo assente e testo negato sono due stati diversi.** `access.ts withoutText` manda
+  `text: ""` con `locked: true` a chi non ha comprato una descrizione a pagamento;
+  `/items/metadata` **omette** la proprietà. Confonderli farebbe sembrare sotto chiave ogni
+  descrizione gratuita. Il client distingue con `'text' in item`.
+- **Il paywall vale identico sulla rotta nuova**, perché è lo stesso `readableItems` di
+  `GET /items`. Provato su un database usa-e-getta con una descrizione a pagamento: anonimo →
+  `text: ""` + `locked`, compratore e autore → il testo. La descrizione privata non compare in
+  nessuna delle due rotte pubbliche.
+- **Dopo un acquisto l'opera esce dalla cache dei testi** (`artworksWithText`): il testo poteva
+  essere già stato chiesto quando ancora non si aveva diritto a leggerlo, ed era arrivato vuoto.
+
 ### 3.2 The four LLM uses (slide 31) — all present
 
 1. **Create items for undescribed objects / missing level or length** —
@@ -409,6 +474,26 @@ data (8 assertions), including that an unrelated item sharing the same visit sur
 
 Model: `gemini-3.1-flash-lite` for everything (`MODEL` and `MODEL_LIGHT` are the same
 string). The user never sees a chat — every entry point is a form (slide 31, green rule).
+
+**Quando il modello non risponde** *(2026-08-01, trovato esaurendo la quota gratuita: 500
+richieste al giorno per modello)*. Il comando vocale restava a «Sto capendo…» e poi non
+succedeva niente. Due difetti in fila, nessuno dei due dovuto alla quota:
+
+1. **Il server rispondeva 200 con `{}`.** Il `catch` di `mapRequest` non aveva un `return`,
+   quindi tornava `undefined`, che `JSON.stringify` toglie dall'oggetto: un guasto arrivava al
+   client con la stessa forma di «ho capito, e non era niente». Ora `mapRequest` ritorna `null`
+   quando il modello non risponde e la rotta risponde **503**. I tre casi — comando riconosciuto,
+   niente da riconoscere, servizio giù — sono tre risposte diverse, perché chiedono all'utente
+   due cose opposte: ripetere, oppure smettere di ripetere.
+2. **Il fallimento si annunciava ma non si scriveva.** `Comando.vue` chiamava `announce()`, che
+   parla solo alla regione viva: chi guarda lo schermo vedeva l'etichetta tornare a «Parla» e
+   nient'altro. Ora il messaggio compare anche scritto, **senza** `role="alert"` — `announce` ha
+   già detto la stessa frase, e due regioni vive la leggerebbero due volte.
+
+Quel che resta in piedi senza Gemini: mappa, sintesi vocale, riconoscimento vocale e traduzione
+(sono Google Cloud, quota separata), QR, teletrasporto, visite guidate e tutto il marketplace.
+Cadono le quattro voci qui sopra: descrizioni generate, mappatura dei comandi liberi, risposte
+alle domande sull'opera e visite su misura.
 
 ### 3.3 Custom visit ("su misura") — planner/resolver split
 
@@ -461,19 +546,49 @@ Notable server-side rules:
 
 ### 3.5 Seeding
 
-- `seed.ts` `completeSeed()` = `seed()` + `seedDownload()` + `seedSpecialVisits()`.
-  **`seedMuseums()` is commented out** (line 310) — a fresh DB therefore has *no museums*
-  unless that line is re-enabled or the function is run by hand (§9.5).
-- `seed()` wipes artworks/items/visits, then per museum: `populateArtwork` (skips artworks
-  with no Wikidata P18 image, so every stored artwork is displayable), then one LLM item per
-  (level × duration) with a **5 s delay** between calls, then one visit per (level ×
-  duration) containing *every* artwork of that museum.
-- `seedSpecialVisits()` adds the two visits the homogeneous seed cannot produce: a visit
-  with `optionalItems` (second half of the stops) and the **guided visit** "Visita guidata
-  del docente" with key **`Fenice rossa`**, plus the accounts `docente1` (autore) and
-  `studente1..3` (visitatore), password `12345678`.
+**Rewritten 2026-07-31.** `seed.ts` is a small CLI over the config files, and it seeds **one
+museum at a time**:
+
+```
+npx ts-node src/seed.ts                 elenca i musei configurati
+npx ts-node src/seed.ts Q51252          semina quel museo
+npx ts-node src/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
+npx ts-node src/seed.ts tutti           tutti i musei configurati
+npx ts-node src/seed.ts speciali        le due visite dimostrative
+```
+
+Two properties decide the shape of the file, and both were forced by the fourth museum:
+
+- **Additive.** The old `seed()` opened with `deleteMany({})` on artworks, items *and* visits,
+  then rebuilt every museum. With the Uffizi in the directory that meant regenerating all
+  **1144** items to add one museum — and taking every purchase and every hand-composed visit
+  that points at the old ids down with them. Nothing is deleted now; each run touches only the
+  museum it was asked for.
+- **Resumable.** 104 artworks × 4 tones × 2 durations = **832 LLM calls** at a 6 s pause, i.e.
+  roughly **two hours** (the run's own ETA settled at ~112 min). Something interrupts a two-hour
+  job. An artwork already stored is not re-fetched, an item already stored is not regenerated,
+  and re-running picks up where it stopped. This is what `dbActions.insert*` became upserts for:
+  they create or update by `@id` instead of `create()`-ing into a duplicate-key error.
+  `--force` is the way to overwrite deliberately.
+
+Also: the image is downloaded right after its artwork instead of in a final pass, so an
+interruption leaves complete artworks rather than artworks with no face. `populateArtwork` still
+skips artworks with no Wikidata P18 image. `locationId` is looked up in the map (§1.1) and
+re-checked on every run, so moving a node on the plan and re-seeding is enough to move an artwork.
+
+- `seed.ts speciali` adds the two visits the homogeneous seed cannot produce, on the **first**
+  configured museum: a visit with `optionalItems` (second half of the stops) and the **guided
+  visit** "Visita guidata del docente" with key **`Fenice rossa`**, plus the accounts `docente1`
+  (autore) and `studente1..3` (visitatore), password `12345678`.
 - `seedUsers.ts` seeds the four slide-mandated accounts (`autore1`, `autore2`,
   `visitatore1`, `visitatore2`, password `12345678`), idempotently.
+
+⚠️ **Nei testi generati manca ogni tanto l'apostrofo dell'elisione** — «L opera», «dall arte»,
+«nell insieme». Misurato sui quattro musei: 5‰, 5‰, 3‰ e 7‰ delle parole, quindi è un vezzo
+del modello e **non** una regressione di un seed particolare. Non c'è nessuna sostituzione nel
+codice che tolga apostrofi: `createDescription` scrive quel che riceve. Si nota leggendo, e la
+sintesi vocale lo pronuncia comunque bene; se un giorno dà fastidio, il posto per rimediarlo è
+il prompt, non una `replace` a valle — che dovrebbe indovinare quali «l» sono articoli.
 - **The guided visit now carries a quiz**, built by `data/quiz.ts` from the artworks of that
   very visit (§0.2). It is generated, not authored: no question, artwork or museum is named
   in the code, so it survives a change of museum. Three shapes — author of X, style of X,
@@ -508,8 +623,9 @@ Le conseguenze non sono cosmetiche:
 - i nomi sono tornati quelli automatici (`Visita Infantile · 15s per opera`): dopo la
   risemina **`testers.ts nomi` non è stato rieseguito**.
 
-Rimedio: `npx ts-node src/testers.ts nomi`, e far girare `seedSpecialVisits()` — che ora
-trova quel che cerca. Non serve rifare il seed completo (lento: 8 item LLM per opera).
+Rimedio, dal 2026-07-31 in un comando: **`npx ts-node src/seed.ts speciali`**, piu'
+`npx ts-node src/testers.ts nomi`. Non serve rifare il seed completo (lento: 8 item LLM
+per opera).
 
 ---
 
@@ -1266,11 +1382,12 @@ server is the only part with no real type safety, and it is where the domain log
 
 - `dbActions.ts` exports **`intertMuseum`** (typo for `insertMuseum`), used as such by
   `manager.ts`.
-- `server/src/data/museumContent.ts` keys are **wrong**: `uffizi` holds `Q19675`
-  (the Louvre), `louvreab` holds `Q6373` (the British Museum), `britishMuseum` holds
-  `Q160236` (the Met). The QIDs and the generated configs are correct; only the identifiers
-  lie — which is exactly the sort of thing that costs an hour during a demo. (`louvreab` is
-  also just an unfinished word.)
+- ~~`server/src/data/museumContent.ts` keys are **wrong**~~ — **CLOSED 2026-07-31**, the file
+  is deleted. It read `uffizi: Q19675` (the Louvre), `louvreab: Q6373` (the British Museum),
+  `britishMuseum: Q160236` (the Met): every key named a different museum than the one it held.
+  Museums are now keyed by qid out of the config directory, so there is no name to lie.
+  Worth keeping in mind for the presentation: the real Uffizi (`Q51252`) is the fourth museum,
+  and until this file went away its name was taken by the Louvre.
 - `marketplace/package.json` → `"name": "markeplace"`.
 - `stt.ts` → `const transcrtiption`.
 - `manager.ts:populateItem` decides "generate a description" from `if (!itemAuthor &&

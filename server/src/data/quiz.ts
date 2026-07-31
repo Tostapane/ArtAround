@@ -5,7 +5,7 @@
  * di competenza alla fine": sensato vuol dire che le domande parlano di cio' che
  * si e' appena visto, e i distrattori sono altri autori e altri stili dello
  * stesso museo — non nomi inventati. Nessuna domanda e' scritta a mano, percio'
- * la regola vale per qualunque museo si metta in `museumContent.ts`.
+ * la regola vale per qualunque museo si configuri in `data/museums/`.
  *
  * Se il museo non offre abbastanza autori o stili diversi per fare tre
  * distrattori, la domanda semplicemente non viene prodotta: meglio un quiz

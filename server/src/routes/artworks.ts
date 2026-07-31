@@ -5,12 +5,17 @@
  * della visita in corso (serve al QR e al codice digitato). Sceglie l'item per
  * livello e durata, ripiega sul solo livello, poi su uno qualsiasi; se l'opera non
  * ha descrizioni ne genera una con l'LLM e la salva, cosi' la volta dopo c'e'.
+ *
+ * `/:qid/items` e' l'altra meta' di `GET /items/metadata`: quella porta tutto il
+ * catalogo senza i testi, questa i testi di UNA sola opera, quando qualcuno la
+ * apre davvero. I testi sono il 74% del peso del catalogo e quasi nessuno li
+ * legge tutti.
  */
 import { Router } from "express";
 import { ArtworkModel } from "../models/artwork";
 import { ItemModel } from "../models/item";
 import { createDescription } from "../services/llm";
-import { purchasedBy, isReadable, withoutText } from "../access";
+import { purchasedBy, isReadable, withoutText, readableItems } from "../access";
 
 const router = Router();
 
@@ -28,6 +33,30 @@ router.get("/", async (req, res) => {
     res.json(artworks);
   } catch (error: any) {
     res.status(500).json({ error: "Errore nel caricamento delle opere" });
+  }
+});
+
+/**
+ * GET /api/artworks/:qid/items[?user=nome]
+ * Ritorna: le descrizioni PUBBLICHE di quell'opera, col testo (protetto dalla
+ * regola di `access.ts`: si legge se e' gratuito, se l'hai scritto o comprato).
+ * E' la meta' "pesante" del catalogo, chiesta un'opera alla volta.
+ */
+router.get("/:qid/items", async (req, res) => {
+  try {
+    const { qid } = req.params;
+    const artwork = await ArtworkModel.findOne({ qid });
+    if (!artwork) return res.status(404).json({ error: "Artwork non trovato" });
+
+    const items = await ItemModel.find({
+      about: artwork["@id"],
+      visibility: { $ne: "privato" },
+    });
+    const user = String(req.query.user || "");
+    const owned = await purchasedBy(user);
+    res.json(readableItems(items, user, owned));
+  } catch (error: any) {
+    res.status(500).json({ error: "Errore nel recupero delle descrizioni dell'opera" });
   }
 });
 

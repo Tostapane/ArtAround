@@ -15,14 +15,13 @@
  */
 import { Router } from "express";
 import QRCode from "qrcode";
-import fs from "fs";
-import path from "path";
 import { MuseumModel } from "../models/museum";
 import { ArtworkModel } from "../models/artwork";
 import { ItemModel } from "../models/item";
 import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
 import { educationalLevels } from "../../../shared/constants";
+import { findMuseumConfig } from "../data/museumConfigs";
 const router = Router();
 
 function museumUri(qid: string): string {
@@ -33,8 +32,6 @@ async function artworkIdsOf(qid: string): Promise<string[]> {
   const artworks = await ArtworkModel.find({ ofMuseum: museumUri(qid) });
   return artworks.map((a) => a["@id"]);
 }
-
-const CONFIG_DIR = path.join(__dirname, "..", "data", "museums");
 
 function escapeHtml(value: string): string {
   return value
@@ -68,16 +65,14 @@ router.get("/", async (req, res) => {
 router.get("/:qid/config", async (req, res) => {
   try {
     const { qid } = req.params;
-    const files = fs.readdirSync(CONFIG_DIR).filter((f) => f.endsWith(".json"));
-    for (const file of files) {
-      const raw = fs.readFileSync(path.join(CONFIG_DIR, file), "utf-8");
-      const config = JSON.parse(raw);
-      if (config.qid === qid) {
-        config["@id"] = `http://www.wikidata.org/entity/${qid}`;
-        return res.json(config);
-      }
+    const config = findMuseumConfig(qid);
+    if (!config) {
+      return res.status(404).json({ error: "Configurazione del museo non trovata" });
     }
-    return res.status(404).json({ error: "Configurazione del museo non trovata" });
+    return res.json({
+      ...config,
+      "@id": `http://www.wikidata.org/entity/${qid}`,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nel caricamento della configurazione del museo" });
   }

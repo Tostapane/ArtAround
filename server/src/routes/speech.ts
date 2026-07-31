@@ -2,8 +2,13 @@
  * Rotte della voce: riconoscimento e sintesi.
  *
  * Il riconoscimento passa poi dall'LLM, che mappa la frase libera su un comando
- * del vocabolario controllato. Se non si e' capito nulla si risponde comunque, con
- * un comando vuoto: il client dira' "non ho capito" invece di restare in attesa.
+ * del vocabolario controllato.
+ *
+ * Le tre risposte sono distinte apposta: un comando riconosciuto, un comando
+ * vuoto quando non c'era niente da capire (200, e il client dice "non ho
+ * capito"), e un **503 quando il modello non risponde**. Confonderli faceva
+ * annunciare "non ho capito" durante un guasto del servizio, cioe' invitava a
+ * ripetere una frase che nessuno stava ascoltando.
  */
 import { Router } from "express";
 import multer from "multer";
@@ -26,6 +31,11 @@ router.post("/", upload.single("audioFile"), async (req, res) => {
     const transcript = await recognizeAudio(file.buffer, sttLang);
     if (!transcript) return res.json({ mappedTranscript: "" });
     const mappedTranscript = await mapRequest(transcript);
+    if (mappedTranscript === null) {
+      return res.status(503).json({
+        error: "Il servizio che interpreta i comandi vocali non risponde",
+      });
+    }
     res.json({ mappedTranscript });
   } catch (err) {
     res.status(500).json({ error: "Server error processing audio" });

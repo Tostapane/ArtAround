@@ -18,6 +18,20 @@
  * QR e codice digitato approdano entrambi qui, in `goToArtwork`: un'opera fuori
  * dalla visita viene mostrata comunque, senza toccare la progressione.
  *
+ * "Ho una domanda" porta la sua etichetta SEMPRE, anche sullo schermo stretto
+ * dove il resto della barra si riduce a icone. E' la porta d'ingresso al
+ * vocabolario controllato — cioe' al modo in cui si chiede qualunque cosa
+ * all'applicazione — e un punto interrogativo da solo non dice che si puo'
+ * parlare: si legge come "aiuto". Per lo stesso motivo non ha `aria-label`:
+ * il nome accessibile e' il testo scritto, cosi' chi comanda a voce puo'
+ * pronunciare quello che vede.
+ *
+ * Sotto `sm` a cedere il posto e' il NOME DELLA VISITA, che li' si accorciava a
+ * "Visita I…": e' l'unica delle quattro cose nella barra che non serve durante
+ * la visita — la si e' appena scelta — mentre le altre tre (uscire, chiedere,
+ * sapere a che tappa si e') servono in ogni momento. Uno spazio che non basta a
+ * riconoscere niente e' meglio darlo a chi ci scrive qualcosa.
+ *
  * Il TELETRASPORTO cambia il significato di un tocco sul palcoscenico, quindi lo
  * stato sta qui: si arma da "Dove sono?", una striscia lo dichiara finche' dura,
  * e dura un tocco solo — una modalita' e' una cosa in cui si resta intrappolati.
@@ -182,6 +196,21 @@ const currentPosition = computed(() => {
   if (!currentArtwork.value) return 0;
   const id = currentArtwork.value.item["@id"];
   return navigableStops.value.findIndex((m) => m.item["@id"] === id) + 1;
+});
+
+/*
+ * Le due scritture dell'avanzamento. Quella per esteso e' la sola che arriva a
+ * chi ascolta; quella breve serve sotto `sm`, dove "Tappa 104 di 104" non ci sta
+ * accanto agli altri comandi. Prima di aprire una tappa sono la stessa frase.
+ */
+const progresso = computed(() => {
+  const totale = navigableStops.value.length;
+  const qui = currentPosition.value;
+  if (qui === 0) {
+    const tutte = `${totale} tappe`;
+    return { esteso: tutte, compatto: tutte };
+  }
+  return { esteso: `Tappa ${qui} di ${totale}`, compatto: `${qui}/${totale}` };
 });
 
 function selectIndex(i: number) {
@@ -448,33 +477,33 @@ onUnmounted(() => {
           <span class="sr-only sm:not-sr-only">Esci</span>
         </button>
 
-        <p class="min-w-0 flex-1 truncate text-small font-medium">{{ title }}</p>
+        <p class="hidden min-w-0 flex-1 truncate text-small font-medium sm:block">
+          {{ title }}
+        </p>
 
         <!-- I comandi del vocabolario controllato, sempre a un tocco: prima
              erano raggiungibili solo aprendo la scheda a tutta altezza. -->
         <button
           type="button"
-          class="btn-secondario shrink-0 px-2"
+          class="btn-secondario ml-auto shrink-0 px-2"
           :aria-expanded="pannelloAperto"
-          aria-label="Chiedi qualcosa"
           @click="pannelloAperto = true"
         >
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.7.2-1.2.9-1.2 1.6v.5" />
             <circle cx="11.5" cy="17" r=".7" fill="currentColor" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18z" />
           </svg>
-          <span class="sr-only sm:not-sr-only">Chiedi</span>
+          <span class="whitespace-nowrap">Ho una domanda</span>
         </button>
 
         <p
           v-if="navigableStops.length"
           class="tabular shrink-0 text-small text-muted"
         >
-          <span v-if="currentPosition > 0">
-            Tappa {{ currentPosition }} di {{ navigableStops.length }}
-          </span>
-          <span v-else>{{ navigableStops.length }} tappe</span>
+          <span class="sr-only">{{ progresso.esteso }}</span>
+          <span aria-hidden="true" class="sm:hidden">{{ progresso.compatto }}</span>
+          <span aria-hidden="true" class="hidden sm:inline">{{ progresso.esteso }}</span>
         </p>
       </div>
       <div

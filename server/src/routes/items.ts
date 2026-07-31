@@ -4,6 +4,14 @@
  * L'elenco pubblico esclude gli item privati, che esistono solo per le visite
  * guidate del loro autore, e si restringe a un museo con `?museum=Qxxx`: il client
  * scarica il catalogo di un museo alla volta, non tutto per poi buttare via.
+ *
+ * Di elenchi ce ne sono DUE, e la differenza e' il testo. `GET /items` porta i
+ * documenti interi ed e' quello che serve a chi il testo lo vuole davvero;
+ * `GET /items/metadata` porta gli stessi item senza il testo, per le schermate
+ * che mostrano solo tono, durata, autore e prezzo. Il testo e' circa i tre quarti
+ * del peso di un catalogo, e in un museo da centoquattro opere sono ottocento
+ * descrizioni: la prima rotta manda 1,1 MB, la seconda 300 KB. Chi apre una
+ * descrizione la chiede a `GET /artworks/:qid/items`.
  * In creazione un autore puo' pubblicare UN solo item per coppia (opera, tono): i
  * duplicati vengono rifiutati invece di sovrascrivere in silenzio. In modifica
  * cambiano solo testo e prezzo — opera, tono, durata, licenza e visibilita'
@@ -24,6 +32,25 @@ import { UserModel } from "../models/user";
 
 const router = Router();
 
+/**
+ * Quali item sono "quelli pubblici di questo museo": niente privati, e — se il
+ * museo e' indicato — solo quelli che descrivono una sua opera. Il filtro passa
+ * dalle opere perche' e' l'opera a sapere a che museo appartiene.
+ *
+ * Sta in un posto solo perche' le due rotte che elencano il catalogo devono
+ * elencare le STESSE cose: se un giorno cambia chi e' pubblico, non possono
+ * cambiare a meta'.
+ */
+async function filtroPubblico(museum: string): Promise<Record<string, unknown>> {
+  const filter: Record<string, unknown> = { visibility: { $ne: "privato" } };
+  if (!museum) return filter;
+  const arts = await ArtworkModel.find({
+    ofMuseum: `http://www.wikidata.org/entity/${museum}`,
+  }).select("@id");
+  filter.about = { $in: arts.map((a) => a["@id"]) };
+  return filter;
+}
+
 // --- Lettura ----------------------------------------------------------------
 
 /**
@@ -34,14 +61,7 @@ const router = Router();
  */
 router.get("/", async (req, res) => {
   try {
-    const filter: Record<string, unknown> = { visibility: { $ne: "privato" } };
-    const museum = String(req.query.museum || "");
-    if (museum) {
-      const arts = await ArtworkModel.find({
-        ofMuseum: `http://www.wikidata.org/entity/${museum}`,
-      }).select("@id");
-      filter.about = { $in: arts.map((a) => a["@id"]) };
-    }
+    const filter = await filtroPubblico(String(req.query.museum || ""));
     const items = await ItemModel.find(filter).populate({
       path: "about",
       model: "Artwork",
@@ -55,6 +75,32 @@ router.get("/", async (req, res) => {
   } catch (error: any) {
     console.error(error);
     res.status(500).json({ error: "Errore nel recupero degli item" });
+  }
+});
+
+/**
+ * GET /api/items/metadata[?museum=Qxxx]
+ * Ritorna: gli stessi item di `GET /items`, ma SENZA il campo `text` e senza
+ * l'opera popolata dentro ognuno. E' il catalogo per decidere: tono, durata,
+ * autore, licenza, prezzo — i metadati che la slide 21 chiede — e basta.
+ *
+ * Perche' `text` viene OMESSO e non svuotato: `access.ts withoutText` manda
+ * `text: ""` con `locked: true` per dire «non puoi leggerlo». Qui il testo non
+ * c'e' perche' non e' stato ancora chiesto, che e' un'altra cosa; il client
+ * distingue i due casi guardando se la proprieta' esiste, e una descrizione
+ * gratuita non deve mai sembrare sotto chiave.
+ *
+ * L'opera non viene popolata perche' il client ha gia' scaricato le opere del
+ * museo, e ripeterla dentro ognuna delle sue descrizioni la manda otto volte.
+ */
+router.get("/metadata", async (req, res) => {
+  try {
+    const filter = await filtroPubblico(String(req.query.museum || ""));
+    const items = await ItemModel.find(filter).select("-text");
+    res.json(items);
+  } catch (error: any) {
+    console.error(error);
+    res.status(500).json({ error: "Errore nel recupero dei metadati degli item" });
   }
 });
 

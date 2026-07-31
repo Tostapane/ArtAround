@@ -1,8 +1,14 @@
 /**
  * Scritture e letture elementari sul database.
  *
- * Qui stanno gli inserimenti idempotenti (upsert per @id) usati dal seed e la
- * risoluzione degli item per le visite su misura. `resolveOrGenerateItem` usa il
+ * Le `insert*` CREANO O AGGIORNANO, cercando per `@id`, e restituiscono il
+ * documento come farebbe una `create()`. Il seed dev'essere ripetibile:
+ * centinaia di chiamate all'LLM di fila si interrompono, e riprendere non deve
+ * significare ne' cancellare quel che c'e' ne' schiantarsi su una chiave
+ * duplicata.
+ *
+ * Qui sta anche la risoluzione degli item per le visite su misura.
+ * `resolveOrGenerateItem` usa il
  * `twist` come interruttore: senza angolazione particolare riusa un item curato
  * gia' presente, con un'angolazione ne genera uno nuovo che NON viene salvato —
  * le visite su misura vivono solo nel client.
@@ -18,7 +24,10 @@ import { IMuseum, MuseumModel } from "./models/museum";
  * ARTWORK
  */
 export async function insertArtwork(artwork: Partial<IArtwork>) {
-  return await ArtworkModel.create(artwork);
+  return await ArtworkModel.findOneAndUpdate({ "@id": artwork["@id"] }, artwork, {
+    upsert: true,
+    new: true,
+  });
 }
 
 export async function deleteArtwork(Qid: string) {
@@ -27,7 +36,10 @@ export async function deleteArtwork(Qid: string) {
 }
 
 export async function insertItem(item: Partial<IItem>) {
-  return await ItemModel.create(item);
+  return await ItemModel.findOneAndUpdate({ "@id": item["@id"] }, item, {
+    upsert: true,
+    new: true,
+  });
 }
 export async function deleteItem(itemId: string) {
   const result = await ItemModel.deleteOne({ "@id": itemId });
@@ -81,7 +93,10 @@ export async function resolveOrGenerateItem(
 }
 
 export async function insertVisit(visit: Partial<IVisit>) {
-  return await VisitModel.create(visit);
+  return await VisitModel.findOneAndUpdate({ "@id": visit["@id"] }, visit, {
+    upsert: true,
+    new: true,
+  });
 }
 export async function deleteVisit(visitId: string) {
   const result = await VisitModel.deleteOne({ "@id": visitId });
@@ -90,7 +105,10 @@ export async function deleteVisit(visitId: string) {
 }
 
 export async function intertMuseum(museum: Partial<IMuseum>) {
-  return await MuseumModel.create(museum);
+  return await MuseumModel.findOneAndUpdate({ "@id": museum["@id"] }, museum, {
+    upsert: true,
+    new: true,
+  });
 }
 export async function deleteMuseum(museumId: string) {
   const result = await MuseumModel.deleteOne({ "@id": museumId });

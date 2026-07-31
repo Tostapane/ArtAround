@@ -426,7 +426,12 @@ export class AppState {
     }
   }
 
-  /** Scarica il catalogo del museo scelto, e solo quello. */
+  /**
+   * Scarica il catalogo del museo scelto, e solo quello — SENZA i testi delle
+   * descrizioni, che arrivano un'opera alla volta quando qualcuno la apre
+   * (`caricaTesti`). Nel museo piu' grande i testi sono tre quarti del peso:
+   * 1,1 MB contro 300 KB, e all'arrivo non se ne legge nessuno.
+   */
   private async loadCatalogue() {
     if (!this.selectedMuseum) return;
     const qid = this.selectedMuseum.qid;
@@ -436,7 +441,8 @@ export class AppState {
       (a.name || "").localeCompare(b.name || ""),
     );
     this.visits = await ArtAPI.fetchVisite(qid);
-    this.marketItems = await ArtAPI.fetchItems(qid, this.currentUser || undefined);
+    this.marketItems = this.withArtwork(await ArtAPI.fetchItemsMetadata(qid));
+    this.artworksWithText = [];
 
     if (this.currentUser && this.currentUserRole === "autore") {
       this.myItems = await ArtAPI.fetchMyItems(this.currentUser);
@@ -444,6 +450,27 @@ export class AppState {
       this.myItems = [];
     }
     if (this.currentUserRole === "curatore") await this.loadMuseumState();
+  }
+
+  /**
+   * Rimette dentro ogni descrizione l'opera che descrive.
+   *
+   * `GET /items/metadata` manda `about` come semplice id, per non ripetere la
+   * stessa opera dentro tutte e otto le sue descrizioni. Le opere pero' ci sono
+   * gia', quindi si ricuce qui: da questo punto in poi una descrizione ha la
+   * forma di sempre, e raggruppamento, ricerca e filtri non si accorgono di
+   * niente.
+   */
+  private withArtwork(items: Item[]): Item[] {
+    const perId = new Map<string, Artwork>();
+    for (const a of this.availableArtworks) perId.set(a["@id"], a);
+    for (const it of items) {
+      if (typeof it.about === "string") {
+        const art = perId.get(it.about);
+        if (art) it.about = art;
+      }
+    }
+    return items;
   }
 
   async login() {
@@ -519,6 +546,7 @@ export class AppState {
     this.userCollection = [];
     this.visits = [];
     this.marketItems = [];
+    this.artworksWithText = [];
     this.myItems = [];
     this.museums = [];
     this.selectedMuseum = null;
@@ -695,6 +723,14 @@ export class AppState {
       const u = await ArtAPI.buy(this.currentUser, item["@id"], item.price || 0);
       this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
       this.userCollection = u.collezione;
+      // Il testo di quest'opera puo' essere gia' stato chiesto quando ancora non
+      // si aveva diritto a leggerlo, e allora era arrivato vuoto: si dimentica
+      // di averlo chiesto, cosi' la prossima apertura lo riprende per davvero.
+      if (isItem(item) && item.about && typeof item.about === "object") {
+        const qid = item.about.qid;
+        const i = this.artworksWithText.indexOf(qid);
+        if (i >= 0) this.artworksWithText.splice(i, 1);
+      }
       const nome = this.contentName(item) || "Contenuto";
       this.showToast(`"${nome}" è ora nella tua libreria.`);
     } catch (e) {
@@ -1311,11 +1347,46 @@ export class AppState {
   }
 
   openItems: string[] = [];
+  /** Le opere di cui si sono gia' chiesti i testi: non si richiedono due volte. */
+  artworksWithText: string[] = [];
 
-  toggleItem(id: string) {
+  async toggleItem(id: string) {
     const i = this.openItems.indexOf(id);
-    if (i >= 0) this.openItems.splice(i, 1);
-    else this.openItems.push(id);
+    if (i >= 0) return this.openItems.splice(i, 1);
+    this.openItems.push(id);
+    // L'opera si ricava dalla descrizione, non dalla schermata aperta: cosi'
+    // il testo arriva da qualunque punto lo si apra.
+    const item = this.findItem(id);
+    const art = item && isItem(item) ? item.about : null;
+    if (art && typeof art === "object") await this.caricaTesti(art.qid);
+  }
+
+  /**
+   * Chiede al server i testi delle descrizioni di un'opera e li versa in quelle
+   * gia' in memoria.
+   *
+   * Un testo assente e un testo negato sono due cose diverse e si distinguono
+   * cosi': qui la proprieta' `text` non esiste ancora, mentre a chi non ha
+   * comprato una descrizione a pagamento il server manda `text: ""` con
+   * `locked`. Solo il primo caso si puo' rimediare chiedendo.
+   */
+  private async caricaTesti(artworkQid: string) {
+    if (!artworkQid || this.artworksWithText.includes(artworkQid)) return;
+    try {
+      const pieni = await ArtAPI.fetchArtworkItems(
+        artworkQid,
+        this.currentUser || undefined,
+      );
+      const testi = new Map<string, string>();
+      for (const it of pieni) testi.set(it["@id"], it.text || "");
+      for (const it of this.marketItems) {
+        const testo = testi.get(it["@id"]);
+        if (testo !== undefined) it.text = testo;
+      }
+      this.artworksWithText.push(artworkQid);
+    } catch (e) {
+      this.showToast((e as Error).message, "error");
+    }
   }
 
   currentVisit(): Visit | null {

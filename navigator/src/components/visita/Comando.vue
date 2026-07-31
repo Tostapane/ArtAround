@@ -8,7 +8,12 @@
  *
  * Ogni cambio di stato viene annunciato, e il comando riconosciuto viene
  * ripetuto PRIMA di essere eseguito: cosi' si sa sempre cosa sta per succedere.
- * Se non si capisce, lo si dice e si rimanda ai pulsanti.
+ *
+ * L'esito negativo si ANNUNCIA e si SCRIVE. Annunciarlo soltanto lo consegnava
+ * alla sola regione viva, quindi chi guarda lo schermo vedeva "Sto capendo…",
+ * poi di nuovo "Parla", e nient'altro: il comando sembrava non fare niente.
+ * Il messaggio scritto non ha `role="alert"` perche' `announce` ha gia' detto la
+ * stessa frase, e due regioni vive la farebbero leggere due volte.
  */
 import { ref, watch, onUnmounted, computed } from "vue";
 import { sendAudioToBackend } from "@/api";
@@ -27,6 +32,12 @@ const emit = defineEmits<{ action: [value: string] }>();
 
 const { announce } = useAnnouncer();
 const processing = ref(false);
+const esito = ref("");
+
+function riferisci(testo: string) {
+  esito.value = testo;
+  announce(testo);
+}
 
 const stato = computed(() => {
   if (isRecording.value) return "registrando";
@@ -46,6 +57,7 @@ async function press() {
     stopRecording();
     return;
   }
+  esito.value = "";
   await startRecording();
   if (isRecording.value) announce("Registrazione avviata. Parla pure.");
 }
@@ -53,6 +65,7 @@ async function press() {
 watch(finalBlob, async (blob) => {
   if (!blob) return;
   processing.value = true;
+  esito.value = "";
   announce("Sto capendo il comando");
   try {
     const result = await sendAudioToBackend(blob, language.value.stt);
@@ -61,10 +74,12 @@ watch(finalBlob, async (blob) => {
       announce(`Comando: ${labelForCommand(command)}`);
       emit("action", command);
     } else {
-      announce("Non ho capito. Prova a ripetere, oppure usa i pulsanti.");
+      riferisci("Non ho capito. Prova a ripetere, oppure usa i pulsanti.");
     }
   } catch {
-    announce("Non sono riuscito a inviare il comando vocale.");
+    // Il server distingue "non ho capito" da "non rispondo": qui si arriva solo
+    // nel secondo caso, e ripetere la frase non servirebbe a niente.
+    riferisci("Il comando vocale non è disponibile ora. Usa i pulsanti qui sopra.");
   } finally {
     processing.value = false;
   }
@@ -107,6 +122,9 @@ onUnmounted(() => {
 
     <p v-if="errorMsg" class="avviso mt-2 text-danger" role="alert">
       {{ errorMsg }}
+    </p>
+    <p v-else-if="esito" class="avviso mt-2">
+      {{ esito }}
     </p>
   </div>
 </template>

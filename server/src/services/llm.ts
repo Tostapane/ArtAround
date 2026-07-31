@@ -243,7 +243,18 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
   }
 }
 
-export async function mapRequest(transcript: string) {
+/**
+ * Ritorna il comando riconosciuto, la stringa vuota se non c'era niente da
+ * riconoscere, e **null se il modello non ha risposto affatto**.
+ *
+ * I tre casi non si possono confondere: «non ho capito quel che hai detto» e «il
+ * servizio non risponde» chiedono due cose diverse a chi ascolta — ripetere, o
+ * smettere di provare e usare i pulsanti. Prima il fallimento cadeva fuori dal
+ * `catch` senza `return`, quindi tornava `undefined`, che `JSON.stringify`
+ * toglie dalla risposta: il client riceveva `{}` con uno stato 200, cioe' un
+ * «ho capito, e non era niente».
+ */
+export async function mapRequest(transcript: string): Promise<string | null> {
   try {
     const range = options.map((o) => o.id);
     const request = `La tua funzione e' quella di mappare la richiesta
@@ -259,9 +270,10 @@ export async function mapRequest(transcript: string) {
         contents: request,
       }),
     );
-    if (!response.text) return response.text;
+    if (!response.text) return "";
     return response.text.trim();
   } catch (err) {
     console.error("Richiesta al modello fallita dopo i tentativi", err);
+    return null;
   }
 }

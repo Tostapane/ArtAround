@@ -135,13 +135,23 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async fetchItems(museumQid?: string, user?: string): Promise<Item[]> {
+  async fetchItemsMetadata(museumQid?: string): Promise<Item[]> {
     const params = new URLSearchParams();
     if (museumQid) params.set('museum', museumQid);
+    const q = params.toString() ? `?${params.toString()}` : '';
+    const response = await fetch(`/api/items/metadata${q}`);
+    if (!response.ok) throw new Error('Errore caricamento contenuti');
+    return response.json();
+  },
+
+  async fetchArtworkItems(artworkQid: string, user?: string): Promise<Item[]> {
+    const params = new URLSearchParams();
     if (user) params.set('user', user);
     const q = params.toString() ? `?${params.toString()}` : '';
-    const response = await fetch(`/api/items${q}`);
-    if (!response.ok) throw new Error('Errore caricamento contenuti');
+    const response = await fetch(
+      `/api/artworks/${encodeURIComponent(artworkQid)}/items${q}`,
+    );
+    if (!response.ok) throw new Error('Errore caricamento delle descrizioni');
     return response.json();
   },
 

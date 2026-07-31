@@ -1,5 +1,58 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-07-31, quarto museo
+
+**Il quarto museo esiste come configurazione, non ancora nel database.** Tutto il codice è
+verde (`tsc` server + marketplace, `vue-tsc` navigator) e provato contro Mongo su un database
+usa-e-getta, ma **il seed vero non è stato lanciato**: sono ~832 chiamate all'LLM, circa due ore.
+
+⚠️ **La quota gratuita di Gemini è 500 richieste al giorno per modello, e il seed ne ha
+bisogno di una per descrizione.** Il primo giorno si è fermato a **438/832** (56 opere su 104,
+nessun testo vuoto o troncato: `populateItem` non scrive un item che il modello non ha
+prodotto). Ne restano **394**, che stanno in una quota giornaliera.
+
+**Da fare, in quest'ordine:**
+
+1. `cd server && npx ts-node src/seed.ts Q51252` — riprende dalle 394 mancanti. Si può
+   interrompere e rilanciare: le opere e gli item già scritti li salta, e lo dice riga per riga.
+   **Mai con `--force`**: rigenererebbe tutte le 832 e brucerebbe la quota nelle prime 500.
+   Quando la quota finisce conviene fermarlo subito, perché ogni item rimasto spende comunque
+   i suoi 3 ritentativi senza produrre niente.
+2. `npx ts-node src/seed.ts speciali` — visita guidata + tappe opzionali (il buco aperto da più
+   tempo, `state.md` §3.5). Le semina sul **primo** museo configurato, che in ordine alfabetico
+   è il British Museum.
+3. `npx ts-node src/testers.ts nomi`.
+
+**Che cos'è cambiato nel codice** (dettaglio e motivi in `state.md` §1.1 e §3.5):
+
+- `data/museumConfigs.ts` (nuovo) legge `data/museums/*.json`, che ora sono l'**ingresso**:
+  aggiungere un museo è un JSON più una SVG, senza toccare codice. Cancellati
+  `data/museumContent.ts` (l'elenco dei musei in TypeScript) e `services/museumConfig.ts`
+  (riscriveva i JSON del curatore a ogni seed).
+- `seed.ts` riscritto: un museo per volta, additivo, riprendibile, con CLI. `dbActions.insert*`
+  sono diventate create-or-update per `@id`.
+- `Artwork.locationId` si risolve cercando il `data-qid` **nella mappa** invece di contare le
+  posizioni nell'elenco del file (`GraphNode.elementId`, nuovo).
+- Le `logistics` del file di configurazione finiscono in apertura a ogni visita seminata.
+
+**Due cose da sapere prima della dimostrazione:**
+
+- ⚠️ **Un titolo è rotto su Wikidata, non nel codice.** `Q1569622` (la *Maestà di Santa Trinita*
+  di Cimabue, terza tappa) ha come etichetta italiana «Madonna in trono col Bambino fra angeli e
+  profitieren. ˋMaestà di Santa Trinitá» — con dentro una parola tedesca. È tenuta lo stesso
+  perché è la Maestà che nella sala 2 degli Uffizi sta accanto a quelle di Duccio e Giotto, che
+  ci sono entrambe. Per toglierla: un qid nel JSON e il `data-qid` del nodo `art-3` nella SVG.
+- ~~⚠️ **832 item in un museo solo rendono visibile la paginazione mancante**~~ — **fatto**,
+  ed è venuto fuori che non serviva paginare ma togliere i testi dall'elenco (`state.md`
+  §3.1-bis). Accesso al museo: **138 KB → 36 KB** sul Louvre, ~1,1 MB → ~285 KB proiettati
+  sugli Uffizi. Due rotte nuove (`GET /items/metadata`, `GET /artworks/:qid/items`);
+  **`GET /items` è rimasta identica** e ora non la chiama nessuno — tenuta apposta.
+  Guidato in chromium per davvero: entrata, vetrina, ricerca, filtro per tono, acquisto,
+  apertura di una descrizione col **testo visibile nel DOM**, pagina di una visita, libreria,
+  compositore dell'autore. Zero errori in console.
+
+---
+
 ## ⏸ Ripresa — 2026-07-30, fine sessione
 
 **Ultimo commit: `015663a curatore`** (ruolo curatore, due schermate, cascata di
@@ -661,8 +714,8 @@ typed; the CDN one is closed).
 - `Infantile` has no content in the DB (the old seed made three levels). A full re-seed
   makes four — see §4.2 for the new cost.
 - Three role-less accounts (`a`, `b`, `docente`) can't log in. Give them a role or delete.
-- `state.md` §9.11 (naming: `intertMuseum`, `"markeplace"`, `transcrtiption`, the wrong keys
-  in `museumContent.ts`) — cosmetic, untouched.
+- `state.md` §9.11 (naming: `intertMuseum`, `"markeplace"`, `transcrtiption`) — cosmetic,
+  untouched. The wrong keys in `museumContent.ts` are closed: the file is gone.
 
 **The real next step is still to open both apps in a browser — but the marketplace has now
 been opened, and it was worth it.** Only the *soglia* was driven for real (chromium via CDP,

@@ -27,5 +27,7 @@ i filtri mostra contenuti mentre crei una visita sono abbastanza dubbiosi
 
 la sezione riprendi ha senso?
 
+e se avesse piu' piani?
+
 1) when the user logs in is supposed to choose one of the museums, right now its inside the last museum he used
 2) i tried the second museum and once i ended the visit i did not re enter the home, i was in the landing page

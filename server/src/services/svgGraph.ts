@@ -9,46 +9,42 @@
  * cosi' i muri contano. I collegamenti sono solo quelli disegnati, nessuna
  * adiacenza viene indovinata — quindi ogni spazio percorribile, corridoi
  * compresi, dev'essere una sala, altrimenti non puo' comparire in un percorso.
- */
-import fs from "fs";
-import path from "path";
-
-/*
- * Parser SVG -> grafo del museo.
  *
- * La mappa SVG e' l'UNICA fonte di verita' spaziale: il curatore arricchisce
- * la mappa che disegna gia' con attributi data-*, e qui la trasformiamo in un
- * grafo navigabile (nodi, archi, sale, ostacoli) usato per le indicazioni.
- *
- * Convenzione (vedi spec.md):
- *  - sala (AREA)  -> una forma (circle/rect/polygon) con data-room="Nome". La sala
- *                    di un nodo/ostacolo e' quella la cui AREA lo CONTIENE
- *                    (point-in-region): rispetta i muri = i confini dell'area, non
- *                    la semplice vicinanza. Le aree si valutano in ordine di
- *                    documento: la prima che contiene il punto vince (mettere prima
- *                    le aree piu' specifiche, es. una stanza dentro un'altra).
- *  - nodo-opera   -> data-qid="Qxxx" (una forma puo' essere insieme area e opera:
- *                    un'opera che e' essa stessa una sala)
+ * La convenzione che il curatore annota sul disegno:
+ *  - sala (AREA)  -> una forma (circle/rect/polygon) con data-room="Nome". Le aree
+ *                    si valutano in ordine di documento: la prima che contiene il
+ *                    punto vince, quindi una sala dentro un'altra va scritta prima
+ *                    di quella che la circonda.
+ *  - nodo-opera   -> data-qid="Qxxx" [+ data-label] (una forma puo' essere insieme
+ *                    area e opera: un'opera che e' essa stessa una sala)
  *  - nodo-POI     -> data-poi="exit|emergency_exit|toilet|bar|shop|elevator|stairs" [+ data-label]
  *  - ostacolo     -> data-obstacle="steps|door|chairs|object" + data-desc
  *  - collegamento -> <line data-edge ...> tra due sale: ogni estremo viene
  *                    risolto alla sala che lo CONTIENE (non al nodo piu' vicino).
  *
- * La connettivita' e' SOLO autorale (archi data-edge): nessuna adiacenza
- * geometrica viene inferita. Ogni spazio percorribile deve essere una sala
- * (data-room), corridoi e atri compresi, cosi' compare tra le sale da
- * attraversare anche se non contiene opere.
+ * Le coordinate si leggono ALLA LETTERA (cx/cy oppure x/y/width/height): un
+ * transform su un elemento con data-* non viene applicato, e il nodo finisce
+ * nella sala sbagliata senza che nessuno se ne accorga.
  */
+import fs from "fs";
+import path from "path";
 
 export interface GraphNode {
   id: string;
   kind: "artwork" | "poi";
-  qid: string; 
-  poiType: string; 
+  qid: string;
+  poiType: string;
   label: string;
   x: number;
   y: number;
   room: string;
+  /**
+   * L'attributo `id` dell'elemento SVG, che il navigator usa per ritrovare la
+   * forma da colorare e numerare (`Artwork.locationId`). Non e' `id` qui sopra:
+   * quello, per un'opera, e' il qid, perche' e' con quello che il pathfinding
+   * indica una destinazione.
+   */
+  elementId: string;
 }
 
 export interface GraphRegion {
@@ -141,7 +137,8 @@ export function parseSvg(svg: string): MuseumGraph {
           label,
           x: center.x,
           y: center.y,
-          room: "", 
+          room: "",
+          elementId: attrs["id"] || "",
         });
       }
     } else if (attrs["data-poi"]) {
@@ -159,6 +156,7 @@ export function parseSvg(svg: string): MuseumGraph {
           x: center.x,
           y: center.y,
           room: "",
+          elementId: attrs["id"] || "",
         });
       }
     } else if (attrs["data-obstacle"]) {
