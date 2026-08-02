@@ -7,6 +7,12 @@
  * mappa, che risponde prima con la sola zona e, su richiesta, con il percorso
  * passo-passo; tutte le altre vengono riformulate e mandate all'LLM.
  *
+ * `target` e' la stessa domanda posta senza passare da un comando: la manda chi
+ * tocca un servizio sulla pianta, ed e' il `data-poi` che il curatore ha scritto
+ * sul disegno. Per questo la tabella qui sotto traduce i COMANDI e non elenca i
+ * servizi: i servizi di un museo sono quelli della sua mappa, non quelli che il
+ * codice sa nominare.
+ *
  * La domanda resta scritta sopra la risposta: senza, la risposta perde il suo
  * riferimento appena si distoglie lo sguardo — e questo riquadro serve proprio
  * a chi non ha capito il testo precedente.
@@ -32,7 +38,7 @@ import { labelForCommand } from "../../../../shared/constants";
 import type { Match } from "../../../../shared/types";
 
 const tts = useTTS();
-const props = defineProps<{ request: string; about: Match }>();
+const props = defineProps<{ request: string; about: Match; target: string }>();
 defineEmits<{ close: [] }>();
 
 const LOADING = "__loading__";
@@ -59,10 +65,15 @@ watch(
   () => (detailed.value = false),
 );
 
-const canDetail = computed(() => {
-  const target = POSITIONAL[props.request.trim()];
-  return !!target && target !== "obstacles";
+/** Vuoto se la domanda e' sull'opera: allora a rispondere e' l'LLM. */
+const bersaglio = computed(() => {
+  if (props.target) return props.target;
+  const comando = POSITIONAL[props.request.trim()];
+  if (comando) return comando;
+  return "";
 });
+
+const canDetail = computed(() => bersaglio.value !== "" && bersaglio.value !== "obstacles");
 
 const title = computed(() => labelForCommand(props.request));
 
@@ -82,14 +93,13 @@ async function ask() {
   const myId = ++requestId;
   responseText.value = LOADING;
 
-  const target = POSITIONAL[cleanRequest];
-  if (target) {
+  if (bersaglio.value) {
     try {
       const museumQid = museum.value ? museum.value.qid : "";
       const text = await getDirections(
         museumQid,
         partenza(),
-        target,
+        bersaglio.value,
         language.value.name,
         detailed.value,
       );
@@ -139,7 +149,7 @@ async function ask() {
 }
 
 watch(
-  () => [props.request, props.about, language.value, detailed.value],
+  () => [props.request, props.target, props.about, language.value, detailed.value],
   ask,
   { immediate: true },
 );

@@ -10,7 +10,9 @@
  *
  * I nodi della mappa vengono trasformati in veri controlli da tastiera (ruolo,
  * tabindex, aria-label e <title>, che alcune tecnologie assistive leggono al
- * posto dell'etichetta) e ci viene disegnato sopra il numero della tappa.
+ * posto dell'etichetta) e ci viene disegnato sopra il numero della tappa. Anche
+ * i servizi lo sono: un'opera toccata si apre, un servizio toccato dice come ci
+ * si arriva.
  *
  * Nota tecnica: getBBox non sa dire nulla su un SVG nascosto, percio' i numeri
  * vengono ricalcolati quando si torna sulla mappa.
@@ -57,6 +59,7 @@ const emit = defineEmits<{
   locate: [];
   teleportPoint: [x: number, y: number];
   teleportStop: [index: number];
+  poi: [value: { target: string; label: string }];
 }>();
 const props = defineProps<{
   currentLocationId?: string;
@@ -179,6 +182,54 @@ function onStopPress(index: number) {
   emit("select", index);
 }
 
+/**
+ * I servizi sono nodi come le opere, e si toccano come le opere: la risposta
+ * pero' non e' una didascalia ma la strada per arrivarci. Tipo ed etichetta si
+ * leggono dal disegno (`data-poi`, `data-label`), quindi vale qualunque servizio
+ * il curatore abbia messo sulla sua pianta — nessun elenco qui dentro.
+ * A teletrasporto armato il tocco non viene fermato: scivola all'<svg>, che
+ * colloca. Cosi' un servizio non e' un buco nel bersaglio.
+ */
+function preparePois() {
+  const root = container.value;
+  if (!root) return;
+
+  root.querySelectorAll("[data-poi]").forEach((element) => {
+    const tipo = element.getAttribute("data-poi") || "";
+    if (!tipo) return;
+    let label = element.getAttribute("data-label") || "";
+    if (!label) label = tipo;
+
+    element.setAttribute("tabindex", "0");
+    element.setAttribute("role", "button");
+    const testo = `${label}: come arrivarci`;
+    element.setAttribute("aria-label", testo);
+    let title = element.querySelector("title") as SVGTitleElement | null;
+    if (!title) {
+      title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+      element.appendChild(title);
+    }
+    title.textContent = testo;
+
+    const apri = () => {
+      if (props.armed) return;
+      emit("poi", { target: tipo, label });
+    };
+    const clickHandler = (() => apri()) as EventListener;
+    element.addEventListener("click", clickHandler);
+    listeners.push({ element, type: "click", handler: clickHandler });
+
+    const keyHandler = ((e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        apri();
+      }
+    }) as EventListener;
+    element.addEventListener("keydown", keyHandler);
+    listeners.push({ element, type: "keydown", handler: keyHandler });
+  });
+}
+
 function clearListeners() {
   listeners.forEach(({ element, type, handler }) =>
     element.removeEventListener(type, handler),
@@ -298,6 +349,7 @@ function prepareMap() {
     }
   });
 
+  preparePois();
   highlightCurrent();
   drawPosition();
   leggiPiani();
@@ -609,6 +661,27 @@ const optionalCount = computed(() => {
 .mappa-armata :deep(svg),
 .mappa-armata :deep(.nodo-opera) {
   border-color: var(--structure);
+  cursor: crosshair;
+}
+
+/* I servizi si toccano: lo dicono col cursore e con l'anello del fuoco, come le
+   tappe. Il colore resta quello che il curatore ha dato loro sul disegno —
+   un'opera e un bagno non devono somigliarsi. */
+.mappa :deep([data-poi]) {
+  cursor: pointer;
+}
+.mappa :deep([data-poi]:hover) {
+  stroke: var(--text);
+  stroke-width: 2px;
+  paint-order: stroke;
+}
+.mappa :deep([data-poi]:focus-visible) {
+  outline: none;
+  stroke: var(--focus-ink);
+  stroke-width: 3px;
+  paint-order: stroke;
+}
+.mappa-armata :deep([data-poi]) {
   cursor: crosshair;
 }
 

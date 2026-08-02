@@ -19,6 +19,7 @@ DA TESTARE
 - Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tipo filtrarle per periodi (vendite effettuate in mese x anno y)
 - E se avesse piu' piani?
 - E se ci fossero piu' bagni o x?
+- dimensioni della scheda always on da mobile
 
 PROBLEMI
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco

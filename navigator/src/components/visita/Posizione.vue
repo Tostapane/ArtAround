@@ -330,7 +330,7 @@ onUnmounted(() => scanner.stop());
         <p class="text-small text-muted">
           Ti porta dove vuoi sulla pianta senza attraversare il museo: il tocco
           successivo ti sposta lì, su una tappa o sul pavimento. Non apre nessuna
-          scheda — da lì premi «Trovami».
+          tappa — da lì premi «Trovami».
         </p>
 
         <p v-if="!localizzabile" class="avviso mt-4">

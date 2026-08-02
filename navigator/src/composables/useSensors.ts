@@ -8,7 +8,7 @@
  * DUE STRADE PER UNA BUSSOLA SOLA. Android e Chrome danno `alpha` riferito al
  * nord su `deviceorientationabsolute`; iOS lo da' su `deviceorientation` come
  * `webkitCompassHeading`, e prima vuole `requestPermission()` DENTRO il gesto
- * dell'utente — per questo si parte dal tocco che apre la scheda e non al
+ * dell'utente — per questo si parte dal tocco che apre "Dove sono?" e non al
  * caricamento della pagina. Se nessuna delle due strada da' un riferimento
  * assoluto la bussola resta spenta: `alpha` relativo e' un numero che sembra una
  * direzione senza esserlo, e una bussola sicura di se' e sbagliata e' peggio di

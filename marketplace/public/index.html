@@ -283,7 +283,7 @@
     <div x-show="guscioMontato()" class="lg:flex">
 
       <!-- Barra compatta (solo telefono) -->
-      <header class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-structure px-4 py-3 text-on-structure lg:hidden">
+      <header class="sticky top-0 z-30 flex h-[var(--app-bar)] items-center justify-between gap-3 border-b border-line bg-structure px-4 text-on-structure lg:hidden">
         <button type="button" @click="goHome()" class="font-display text-title-3">ArtAround<span class="text-accent">.</span></button>
         <div class="flex items-center gap-2">
           <span x-show="currentUserRole === 'visitatore'" class="tabular text-small" x-text="'€ ' + wallet.toFixed(2)"

@@ -109,9 +109,18 @@
            placeholder:text-muted focus:outline-none;
   }
 
-  /* --- Barra di strumenti ------------------------------------------------ */
+  /* --- Barra di strumenti ------------------------------------------------
+     Sta INCOLLATA in alto perche' cercare accorcia la pagina: filtrando da
+     meta' elenco il documento si accorcia di colpo, il browser riporta lo
+     scorrimento all'ultima riga possibile e il campo in cui si sta scrivendo
+     scivola fuori dallo schermo. Incollata, la barra resta dov'e' e a muoversi
+     sono solo i risultati. Lo sfondo e' obbligatorio: sotto ci scorre roba.
+     Si ferma sotto la barra dell'applicazione, se c'e' una: `--app-bar` la
+     dichiara alta quanto e', ed e' la stessa misura con cui e' disegnata. */
   .barra {
-    @apply flex flex-col gap-3 md:flex-row md:items-center;
+    @apply sticky z-20 flex flex-col gap-3 border-b border-line bg-bg py-3
+           md:flex-row md:items-center;
+    top: var(--app-bar, 0px);
   }
 
   /* --- Controllo segmentato: la selezione e' un filo, non un riempimento -- */

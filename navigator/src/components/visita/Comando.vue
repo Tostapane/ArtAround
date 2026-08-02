@@ -14,6 +14,11 @@
  * poi di nuovo "Parla", e nient'altro: il comando sembrava non fare niente.
  * Il messaggio scritto non ha `role="alert"` perche' `announce` ha gia' detto la
  * stessa frase, e due regioni vive la farebbero leggere due volte.
+ *
+ * Quel messaggio pero' racconta l'ULTIMO TENTATIVO, non la visita: `tappa` serve
+ * solo a sapere quando quel tentativo e' passato di moda. Senza, un "Non ho
+ * capito" preso una volta resta scritto sotto al microfono per tutto il resto
+ * del percorso, e sembra il commento all'opera che si sta guardando.
  */
 import { ref, watch, onUnmounted, computed } from "vue";
 import { sendAudioToBackend } from "@/api";
@@ -28,11 +33,20 @@ import { useAnnouncer } from "@/composables/useAnnouncer";
 import { labelForCommand } from "../../../../shared/constants";
 import { language } from "@/state";
 
+const props = defineProps<{ tappa: string }>();
 const emit = defineEmits<{ action: [value: string] }>();
 
 const { announce } = useAnnouncer();
 const processing = ref(false);
 const esito = ref("");
+
+watch(
+  () => props.tappa,
+  () => {
+    esito.value = "";
+    errorMsg.value = null;
+  },
+);
 
 function riferisci(testo: string) {
   esito.value = testo;

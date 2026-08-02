@@ -1,11 +1,11 @@
 /**
  * LOCALIZZAZIONE AVANZATA — dove sei, e quindi davanti a cosa (slide 33).
  *
- * Qui non si guarda nessuna scheda e non si tocca nessun sensore: c'e' solo la
- * geometria. I sensori stanno in composables/useSensors.ts, la scheda aperta
+ * Qui non si guarda nessuna tappa e non si tocca nessun sensore: c'e' solo la
+ * geometria. I sensori stanno in composables/useSensors.ts, la tappa aperta
  * resta affare di Visita.vue. Questo modulo tiene una stima di DOVE SI E'
  * fisicamente, che e' una cosa diversa da quel che si sta guardando: aprire una
- * scheda per curiosita' non sposta nessuno.
+ * tappa per curiosita' non sposta nessuno.
  *
  * IL SISTEMA DI COORDINATE NASCE ALL'AVVIO. Il visitatore parte dall'ingresso
  * della pianta e la mappa e' un dipinto steso intorno a lui, che sia a Bologna o

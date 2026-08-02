@@ -1,181 +1,215 @@
 <script setup lang="ts">
 /**
- * LA SCHEDA — la didascalia dell'opera, ingrandita.
+ * LA SCHEDA — la didascalia dell'opera e i comandi, in un pannello sempre aperto.
  *
- * Non e' piu' una finestra che copre la mappa: e' un foglio che sale dal basso,
- * con tre altezze. "Che cos'e' questo" e "dove sono" erano le due domande del
- * visitatore, e il disegno precedente costringeva a sceglierne una.
- *   riposo — numero, titolo, ascolto, avanti/indietro; non e' modale, dietro si
- *            continua a navigare col Tab.
- *   media  — immagine, autore, testo. E' l'altezza con cui si apre una tappa.
- *   piena  — aggiunge Chiedi e Orientati.
- * Da lg in su non e' un foglio ma una colonna, e non e' mai modale.
+ * Non e' una finestra e non e' un foglio che si apre: e' meta' fissa dello
+ * schermo, una colonna accanto alla pianta da `lg` in su e una fascia sotto di
+ * essa sul telefono. Le due domande del visitatore — «che cos'e' questo» e «dove
+ * sono» — hanno cosi' una risposta ciascuna, tutte e due in vista, e non c'e'
+ * nessun comando da scoprire per passare dall'una all'altra.
+ *
+ * Dall'alto in basso, che e' l'ordine in cui la si usa: la lingua dei contenuti,
+ * l'opera, la barra della voce e dell'avanzamento, Chiedi/Orientati. Lingua e
+ * barra sono le due cose che si cercano senza guardare, quindi stanno ai due
+ * bordi e non si spostano mai; a spartirsi il resto dell'altezza sono l'opera e
+ * i comandi, in proporzione fissa (`grow-[3]` / `grow-[2]`), ognuno con il
+ * proprio scorrimento. Con una risposta aperta la proporzione si ribalta: quella
+ * risposta e' il motivo per cui si e' premuto.
+ *
+ * Finche' non c'e' nessuna tappa aperta, al posto dell'opera c'e' la porta
+ * d'ingresso della visita: un pannello sempre presente deve dire cosa fare anche
+ * quando non c'e' niente da leggere. Le domande invece funzionano da subito,
+ * perche' `riferimento` vale l'ultima tappa raggiunta — «dov'e' il bagno?» non
+ * richiede di aver aperto prima una didascalia.
  *
  * Chiedi e Orientati sono separati perche' sono domande di natura diversa, a
  * sistemi diversi: la prima riguarda l'opera e risponde l'LLM, la seconda
  * riguarda l'edificio e risponde il grafo ricavato dalla mappa.
  *
- * Il microfono e' un controllo permanente del piede, non un'opzione nascosta:
+ * Il microfono e' un controllo permanente della barra, non un'opzione nascosta:
  * per chi non vede e' l'ingresso principale all'applicazione.
  */
-import { computed, ref, watch, nextTick } from "vue";
+import { computed, ref, watch } from "vue";
 import Pannello from "./Pannello.vue";
 import Comando from "./Comando.vue";
 import { useTTS } from "./useTTS";
-import { labelForCommand } from "../../../../shared/constants";
+import { labelForCommand, languages } from "../../../../shared/constants";
 import { mediaOrigin } from "@/config";
 import { language, setLanguage } from "@/state";
-import { languages } from "../../../../shared/constants";
 import type { Match } from "../../../../shared/types";
 
 const props = defineProps<{
-  content: Match;
+  content: Match | null;
   fields: string[];
+  riferimento: Match | null;
+  azione: { label: string; index: number } | null;
   inVisit: boolean;
   optional: boolean;
   hasPrev: boolean;
   hasNext: boolean;
   canEnd: boolean;
   numero: number;
-  totale: number;
   guidedStudent: boolean;
   guidedTeacher: boolean;
   richiesta: string;
+  /** Il servizio toccato sulla pianta, se la domanda viene da li'. */
+  target: string;
 }>();
 
 const emit = defineEmits<{
   navigation: [value: string];
   action: [value: string];
   closeRequest: [];
-  snap: [value: "riposo" | "media" | "piena"];
+  apriTappa: [];
 }>();
 
 const tts = useTTS();
-const snap = ref<"riposo" | "media" | "piena">("media");
-const sheet = ref<HTMLElement | null>(null);
-
-watch(snap, (v) => emit("snap", v), { immediate: true });
-
-watch(
-  () => props.content,
-  () => {
-    snap.value = "media";
-  },
-);
-
-watch(
-  () => props.richiesta,
-  (r) => {
-    if (r) snap.value = "piena";
-  },
-);
-
-async function expand() {
-  snap.value = snap.value === "piena" ? "media" : "piena";
-  if (snap.value === "piena") {
-    await nextTick();
-    if (sheet.value) sheet.value.focus();
-  }
-}
-
-function collapse() {
-  if (snap.value === "piena") snap.value = "media";
-  else if (snap.value === "media") snap.value = "riposo";
-}
 
 const nextLabel = computed(() => {
   if (props.guidedTeacher) return "Porta tutti alla prossima opera";
   return labelForCommand("Prossimo");
 });
 
+// --- L'opera -----------------------------------------------------------------
+
+/** Cambiando tappa il testo riparte dall'inizio: la colonna non scorre da se'. */
+const opera = ref<HTMLElement | null>(null);
 const imgBroken = ref(false);
-watch(() => props.content, () => (imgBroken.value = false));
+watch(
+  () => props.content,
+  () => {
+    imgBroken.value = false;
+    if (opera.value) opera.value.scrollTop = 0;
+  },
+);
+
 const imgSrc = computed(() => {
+  if (!props.content) return "";
   const a = props.content.artwork;
-  if (a && a.imagePath) {
-    return a.imagePath.startsWith("http")
-      ? a.imagePath
-      : mediaOrigin() + a.imagePath;
+  if (a.imagePath) {
+    return a.imagePath.startsWith("http") ? a.imagePath : mediaOrigin() + a.imagePath;
   }
-  return (a && a.imageUri) || "";
+  if (a.imageUri) return a.imageUri;
+  return "";
 });
 
-const height = computed(() => {
-  if (snap.value === "riposo") return "max-h-[6.5rem]";
-  if (snap.value === "media") return "max-h-[62dvh]";
-  return "max-h-[92dvh]";
-});
+function cambiaLingua(codice: string) {
+  const scelta = languages.find((l) => l.translate === codice);
+  if (scelta) setLanguage(scelta);
+}
 </script>
 
 <template>
-  <!-- Velo: solo a foglio pieno, e solo sul telefono -->
-  <div
-    v-if="snap === 'piena'"
-    class="fixed inset-0 z-30 bg-black/50 lg:hidden"
-    aria-hidden="true"
-    @click="snap = 'media'"
-  ></div>
-
   <section
-    ref="sheet"
-    tabindex="-1"
-    :aria-label="'Tappa corrente: ' + fields[0]"
-    :role="snap === 'piena' ? 'dialog' : undefined"
-    :aria-modal="snap === 'piena' ? 'true' : undefined"
-    class="fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-card border border-line
-           bg-surface shadow-l2 transition-[max-height] duration-200 ease-[var(--ease-aa)]
-           lg:static lg:z-auto lg:w-[26rem] lg:shrink-0 lg:rounded-none lg:border-y-0
-           lg:border-r-0 lg:shadow-none"
-    :class="[height, 'lg:!max-h-none']"
+    aria-label="Scheda dell'opera e comandi"
+    class="flex h-[55dvh] shrink-0 flex-col border-t border-line bg-surface
+           lg:h-auto lg:w-[26rem] lg:border-l lg:border-t-0"
     style="padding-bottom: env(safe-area-inset-bottom)"
-    @keydown.escape="collapse"
   >
-    <!-- ===== RIPOSO: sempre visibile ===== -->
-    <div class="flex shrink-0 items-center gap-3 border-b border-line p-3">
-      <span
-        v-if="numero > 0"
-        class="tabular shrink-0 font-display text-title-2 text-muted"
-        aria-hidden="true"
+    <!-- LINGUA -->
+    <div class="flex shrink-0 items-center gap-3 border-b border-line px-3 py-2">
+      <label
+        for="lingua-scheda"
+        class="shrink-0 text-caption uppercase tracking-wider text-muted"
       >
-        {{ String(numero).padStart(2, "0") }}
-      </span>
+        Lingua dei contenuti
+      </label>
+      <select
+        id="lingua-scheda"
+        class="campo-select ml-auto min-w-0 max-w-[11rem] flex-1"
+        :value="language.translate"
+        @change="cambiaLingua(($event.target as HTMLSelectElement).value)"
+      >
+        <option v-for="l in languages" :key="l.translate" :value="l.translate">
+          {{ l.name }}
+        </option>
+      </select>
+    </div>
 
-      <!-- L'invito ad aprire era una didascalia grigia sotto al titolo: si
-           leggeva come una descrizione, non come una cosa da premere. Ora e' una
-           pastiglia con la freccia che ruota — la stessa forma che altrove nel
-           prodotto vuol dire "si preme". -->
-      <button
-        type="button"
-        class="group min-w-0 flex-1 text-left"
-        :aria-expanded="snap === 'piena'"
-        @click="expand"
-      >
-        <span class="block truncate font-display text-title-3 leading-tight">
-          {{ fields[0] }}
-        </span>
-        <span
-          class="pastiglia mt-1.5 gap-1.5 transition-colors group-hover:border-accent
-                 group-hover:text-accent"
-        >
-          <svg
-            class="h-3.5 w-3.5 shrink-0 transition-transform duration-200"
-            :class="snap === 'piena' ? 'rotate-180' : ''"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.25"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
+    <!-- OPERA -->
+    <div ref="opera" class="min-h-0 basis-0 overflow-y-auto" :class="richiesta ? 'grow-[2]' : 'grow-[3]'">
+      <template v-if="content">
+        <!-- Sul telefono l'intestazione e' una didascalia da museo — miniatura a
+             sinistra del titolo — perche' la colonna e' alta 200px e una foto a
+             piena larghezza se la prenderebbe tutta, lasciando fuori proprio il
+             testo. Da `lg` in su c'e' l'altezza per il passe-partout intero. -->
+        <div class="flex items-start gap-3 p-4 lg:block lg:p-0">
+          <div
+            v-if="imgSrc && !imgBroken"
+            class="mat h-16 w-16 shrink-0 lg:h-auto lg:max-h-48 lg:w-full lg:rounded-none
+                   lg:border-x-0 lg:border-t-0"
           >
-            <path stroke-linecap="round" stroke-linejoin="round" d="m6 15 6-6 6 6" />
-          </svg>
-          {{ snap === "piena" ? "Riduci" : "Apri la scheda" }}
-        </span>
+            <img
+              :src="imgSrc"
+              :alt="'Immagine dell\'opera: ' + content.artwork.name"
+              @error="imgBroken = true"
+            />
+          </div>
+
+          <div class="min-w-0 lg:p-4 lg:pb-0">
+            <div class="flex items-baseline gap-3">
+              <span
+                v-if="numero > 0"
+                class="tabular shrink-0 font-display text-title-3 text-muted lg:text-title-2"
+                aria-hidden="true"
+              >
+                {{ String(numero).padStart(2, "0") }}
+              </span>
+              <h2 class="min-w-0 font-display text-title-3 leading-tight lg:text-title-2">
+                {{ fields[0] }}
+              </h2>
+            </div>
+
+            <p class="mt-1 text-small text-muted">
+              {{ fields[1] }}
+              <span v-if="content.artwork.style && content.artwork.style.name">
+                · {{ content.artwork.style.name }}
+              </span>
+            </p>
+
+            <p v-if="!inVisit" class="pastiglia pastiglia-ardesia mt-3">Non fa parte di questa visita</p>
+            <p v-else-if="optional" class="pastiglia pastiglia-ardesia mt-3">Tappa opzionale</p>
+          </div>
+        </div>
+
+        <p class="measure px-4 pb-4 text-body lg:pt-4">{{ fields[2] }}</p>
+      </template>
+
+      <!-- PORTA D'INGRESSO: nessuna tappa aperta -->
+      <div v-else class="p-4">
+        <button
+          v-if="azione"
+          type="button"
+          class="btn-primario w-full justify-center text-title-3"
+          @click="emit('apriTappa')"
+        >
+          {{ azione.label }}
+        </button>
+        <p v-else-if="guidedStudent" class="vuoto">La prima tappa la apre il docente.</p>
+        <p v-else class="vuoto">Questa visita non ha tappe.</p>
+      </div>
+    </div>
+
+    <!-- BARRA: voce e avanzamento -->
+    <div class="flex shrink-0 items-center gap-2 border-t border-line p-3">
+      <button
+        v-if="!guidedStudent"
+        type="button"
+        class="btn-secondario"
+        :disabled="!hasPrev"
+        @click="emit('navigation', 'prev')"
+      >
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19 8 12l7-7" />
+        </svg>
+        <span class="sr-only">{{ labelForCommand("Precedente") }}</span>
       </button>
 
       <button
         v-if="!tts.isSpeaking.value"
         type="button"
         class="icona-tonda shrink-0"
+        :disabled="!content"
         aria-label="Leggi la descrizione ad alta voce"
         @click="emit('action', 'Leggi')"
       >
@@ -195,91 +229,11 @@ const height = computed(() => {
         </svg>
       </button>
 
-      <button
-        type="button"
-        class="icona-tonda shrink-0"
-        aria-label="Chiudi la scheda"
-        @click="emit('navigation', 'close')"
-      >
-        <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-
-    <!-- ===== MEDIA e PIENA ===== -->
-    <div v-show="snap !== 'riposo'" class="min-h-0 flex-1 overflow-y-auto">
-      <div v-if="imgSrc && !imgBroken" class="mat rounded-none border-x-0 border-t-0">
-        <img
-          :src="imgSrc"
-          :alt="'Immagine dell\'opera: ' + content.artwork.name"
-          @error="imgBroken = true"
-        />
-      </div>
-
-      <div class="p-4">
-        <p class="text-small text-muted">
-          {{ fields[1] }}
-          <span v-if="content.artwork.style && content.artwork.style.name">
-            · {{ content.artwork.style.name }}
-          </span>
-        </p>
-
-        <p v-if="!inVisit" class="pastiglia pastiglia-ardesia mt-3">Non fa parte di questa visita</p>
-        <p v-else-if="optional" class="pastiglia pastiglia-ardesia mt-3">Tappa opzionale</p>
-
-        <p class="measure mt-4 text-body">{{ fields[2] }}</p>
-
-        <div v-show="snap === 'piena'" class="mt-8 border-t border-line pt-5">
-          <Pannello
-            :about="content"
-            :richiesta="richiesta"
-            id-prefix="scheda"
-            @action="(a) => emit('action', a)"
-            @close-request="emit('closeRequest')"
-          />
-
-          <div class="mt-8 border-t border-line pt-4">
-            <label for="lingua-scheda" class="text-caption uppercase tracking-wider text-muted">
-              Lingua dei contenuti
-            </label>
-            <select
-              id="lingua-scheda"
-              class="campo-select mt-2 w-full"
-              :value="language.translate"
-              @change="
-                setLanguage(
-                  languages.find(
-                    (l) => l.translate === ($event.target as HTMLSelectElement).value,
-                  )!,
-                )
-              "
-            >
-              <option v-for="l in languages" :key="l.translate" :value="l.translate">
-                {{ l.name }}
-              </option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== Piede: navigazione + voce ===== -->
-    <div class="flex shrink-0 items-center gap-2 border-t border-line p-3">
-      <button
-        v-if="!guidedStudent"
-        type="button"
-        class="btn-secondario"
-        :disabled="!hasPrev"
-        @click="emit('navigation', 'prev')"
-      >
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19 8 12l7-7" />
-        </svg>
-        <span class="sr-only">{{ labelForCommand("Precedente") }}</span>
-      </button>
-
-      <Comando class="flex-1" @action="(a) => emit('action', a)" />
+      <Comando
+        class="min-w-0 flex-1"
+        :tappa="content ? content.item['@id'] : ''"
+        @action="(a) => emit('action', a)"
+      />
 
       <button
         v-if="!guidedStudent && !canEnd"
@@ -311,9 +265,23 @@ const height = computed(() => {
         </svg>
       </button>
 
-      <p v-if="guidedStudent" class="flex-1 text-center text-caption text-muted">
+      <p v-if="guidedStudent" class="text-center text-caption text-muted">
         La tappa la decide il docente
       </p>
+    </div>
+
+    <!-- CHIEDI / ORIENTATI -->
+    <div
+      class="min-h-0 basis-0 overflow-y-auto border-t border-line p-3"
+      :class="richiesta ? 'grow-[3]' : 'grow-[2]'"
+    >
+      <Pannello
+        :about="riferimento"
+        :richiesta="richiesta"
+        :target="target"
+        @action="(a) => emit('action', a)"
+        @close-request="emit('closeRequest')"
+      />
     </div>
   </section>
 </template>

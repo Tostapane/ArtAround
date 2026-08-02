@@ -239,7 +239,8 @@ async function consegna() {
 <template>
   <div
     v-if="guidedStato === 'attesa'"
-    class="flex flex-1 flex-col justify-between bg-structure p-6 text-on-structure sm:p-10"
+    class="flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-structure p-6
+           text-on-structure sm:p-10"
   >
     <p class="text-caption uppercase tracking-[0.18em] text-on-structure/70">
       Visita guidata
@@ -450,7 +451,7 @@ async function consegna() {
   <!-- DOCENTE: il tabellone dei risultati -->
   <div
     v-else-if="guidedStato === 'quiz' && isTeacher"
-    class="flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
+    class="min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
   >
     <div class="mx-auto max-w-2xl">
       <p class="text-caption uppercase tracking-[0.18em] text-on-structure/70">
@@ -535,7 +536,7 @@ async function consegna() {
   <!-- STUDENTE: il compito -->
   <div
     v-else-if="guidedStato === 'quiz'"
-    class="flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
+    class="min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
   >
     <div class="mx-auto max-w-xl">
       <div class="flex items-baseline justify-between gap-3">
@@ -633,7 +634,11 @@ async function consegna() {
     </div>
   </div>
 
-  <div v-else class="flex flex-1 items-center justify-center bg-structure p-6 text-on-structure">
+  <div
+    v-else
+    class="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-structure p-6
+           text-on-structure"
+  >
     <div class="max-w-md text-center">
       <h1 class="font-display text-title-1">
         {{ guidedPlannedEnd ? "La visita è finita." : "La sessione è stata chiusa." }}

@@ -20,6 +20,20 @@
   display: none !important;
 }
 
+/* Quant'e' alta la barra dell'applicazione, che sotto `lg` sta incollata in alto
+   e da `lg` in su non esiste (li' la navigazione e' il binario a sinistra). La
+   misura sta qui perche' la usano in due: l'intestazione, che ci si disegna
+   dentro, e le barre di strumenti, che ci si fermano sotto. Scritta due volte,
+   una delle due invecchierebbe e i campi di ricerca finirebbero nascosti. */
+:root {
+  --app-bar: 4rem;
+}
+@media (min-width: 1024px) {
+  :root {
+    --app-bar: 0px;
+  }
+}
+
 @layer components {
   /* --- Voci del binario -------------------------------------------------- */
   .voce-binario {

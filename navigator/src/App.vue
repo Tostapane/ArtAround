@@ -17,6 +17,12 @@
  *
  * Non c'e' intestazione fissa ne' piede durante la visita: su un telefono, in
  * piedi dentro un museo, ogni pixel appartiene alla mappa.
+ *
+ * Il guscio e' alto ESATTAMENTE lo schermo (`h-[100dvh] overflow-hidden`) e non
+ * scorre: durante la visita pianta e scheda si spartiscono l'altezza, e una
+ * pagina che scorre le farebbe uscire dallo schermo tutt'e due. Chi ha bisogno
+ * di scorrere lo fa dentro di se' — per questo la biglietteria, che e' l'unica
+ * schermata lunga, riceve `overflow-y-auto` da qui.
  */
 import { onMounted, ref, computed } from "vue";
 import Biglietteria from "./components/selection/Biglietteria.vue";
@@ -139,10 +145,10 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
 </script>
 
 <template>
-  <div class="flex min-h-[100dvh] flex-col bg-bg text-text">
+  <div class="flex h-[100dvh] flex-col overflow-hidden bg-bg text-text">
     <a href="#contenuto" class="salta">Salta al contenuto</a>
 
-    <main id="contenuto" tabindex="-1" class="flex flex-1 flex-col">
+    <main id="contenuto" tabindex="-1" class="flex min-h-0 flex-1 flex-col">
       <div v-if="!pronto" class="flex flex-1 items-center justify-center p-8">
         <p class="text-small text-muted" role="status">{{ testoAvvio }}</p>
       </div>
@@ -162,6 +168,7 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
       <!-- Fase 1: la biglietteria -->
       <Biglietteria
         v-else-if="!started"
+        class="min-h-0 flex-1 overflow-y-auto"
         @start="onStart"
         @customStart="onCustomStart"
       />

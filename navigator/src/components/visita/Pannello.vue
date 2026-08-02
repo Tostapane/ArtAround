@@ -9,10 +9,10 @@
  * diversi — l'LLM la prima, il grafo delle sale la seconda — e tenerle separate
  * evita un elenco unico di quindici bottoni in cui non si trova niente.
  *
- * Vive in due posti: dentro la scheda dell'opera, quando è aperta a tutta
- * altezza, e dentro il pannello che si apre dal pulsante "Chiedi" della barra
- * della visita. È lo stesso componente, quindi i due elenchi non possono
- * divergere.
+ * Sta in fondo alla scheda, sempre visibile: chiedere è un comando come
+ * "Prossimo", non una schermata da aprire. I comandi stanno su due colonne
+ * perché la scheda ha da spartire l'altezza con l'opera che si sta leggendo, e
+ * un elenco a piena larghezza costringerebbe a scorrere per vedere l'ultimo.
  */
 import { computed, ref, watch } from "vue";
 import Info from "./Info.vue";
@@ -22,8 +22,8 @@ import type { Match } from "../../../../shared/types";
 const props = defineProps<{
   about: Match | null;
   richiesta: string;
-  /** Prefisso degli id di aiuto: due copie del pannello non possono ripeterli. */
-  idPrefix?: string;
+  /** Il servizio toccato sulla pianta: una domanda d'orientamento senza comando. */
+  target: string;
 }>();
 
 const emit = defineEmits<{ action: [value: string]; closeRequest: [] }>();
@@ -35,6 +35,13 @@ watch(
   () => (tab.value = "chiedi"),
 );
 
+watch(
+  () => props.target,
+  (t) => {
+    if (t) tab.value = "orientati";
+  },
+);
+
 const askCommands = computed(() => options.filter((o) => o.surface === "chiedi"));
 const orientCommands = computed(() =>
   options.filter((o) => o.surface === "orientati"),
@@ -44,9 +51,7 @@ const shown = computed(() =>
 );
 
 function hintId(id: string): string {
-  let prefix = "hint";
-  if (props.idPrefix) prefix = props.idPrefix;
-  return `${prefix}-${id.replace(/[^a-zA-Z0-9]+/g, "-")}`;
+  return `hint-${id.replace(/[^a-zA-Z0-9]+/g, "-")}`;
 }
 </script>
 
@@ -83,7 +88,7 @@ function hintId(id: string): string {
       }}
     </p>
 
-    <div class="mt-3 flex flex-col gap-2">
+    <div class="mt-3 grid grid-cols-2 gap-2">
       <button
         v-for="o in shown"
         :key="o.id"
@@ -109,6 +114,7 @@ function hintId(id: string): string {
       class="mt-4"
       :request="richiesta"
       :about="about"
+      :target="target"
       @close="emit('closeRequest')"
     />
   </div>

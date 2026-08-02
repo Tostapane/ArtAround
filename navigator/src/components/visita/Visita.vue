@@ -6,31 +6,25 @@
  * solo le tappe che "Prossimo" raggiungera' davvero), il palcoscenico e la
  * scheda dell'opera.
  *
- * Due comportamenti meritano una spiegazione:
- * - Andando avanti, se l'autore ha lasciato un'indicazione per arrivare
- *   all'opera successiva, la si mostra PRIMA di aprirla; le note d'apertura
- *   compaiono prima della prima tappa. E' lo scopo per cui esistono (slide 21).
- * - Quando la scheda e' aperta a tutto schermo copre il palcoscenico, che
- *   diventa inerte: altrimenti il fuoco da tastiera finisce su controlli
- *   invisibili. Da lg in su la scheda e' una colonna affiancata, non un foglio,
- *   quindi li' non si rende inerte nulla.
+ * Lo schermo e' diviso in due meta' che convivono sempre — la pianta e la
+ * scheda — perche' "dove sono" e "che cos'e' questo" sono due domande che il
+ * visitatore si fa insieme. La scheda quindi non copre mai niente e non ha
+ * bisogno di essere aperta: qui non si rende inerte nulla e non si tiene nessuno
+ * stato di apertura. E' anche l'unico posto dove si chiede qualcosa
+ * all'applicazione, cosi' il vocabolario controllato (slide 27-28) sta in un
+ * elenco solo.
+ *
+ * Andando avanti, se l'autore ha lasciato un'indicazione per arrivare all'opera
+ * successiva, la si mostra PRIMA di aprirla; le note d'apertura compaiono prima
+ * della prima tappa. E' lo scopo per cui esistono (slide 21).
  *
  * QR e codice digitato approdano entrambi qui, in `goToArtwork`: un'opera fuori
  * dalla visita viene mostrata comunque, senza toccare la progressione.
  *
- * "Ho una domanda" porta la sua etichetta SEMPRE, anche sullo schermo stretto
- * dove il resto della barra si riduce a icone. E' la porta d'ingresso al
- * vocabolario controllato — cioe' al modo in cui si chiede qualunque cosa
- * all'applicazione — e un punto interrogativo da solo non dice che si puo'
- * parlare: si legge come "aiuto". Per lo stesso motivo non ha `aria-label`:
- * il nome accessibile e' il testo scritto, cosi' chi comanda a voce puo'
- * pronunciare quello che vede.
- *
  * Sotto `sm` a cedere il posto e' il NOME DELLA VISITA, che li' si accorciava a
- * "Visita I…": e' l'unica delle quattro cose nella barra che non serve durante
- * la visita — la si e' appena scelta — mentre le altre tre (uscire, chiedere,
- * sapere a che tappa si e') servono in ogni momento. Uno spazio che non basta a
- * riconoscere niente e' meglio darlo a chi ci scrive qualcosa.
+ * "Visita I…": e' l'unica cosa nella barra che non serve durante la visita — la
+ * si e' appena scelta — mentre uscire e sapere a che tappa si e' servono in ogni
+ * momento.
  *
  * Il TELETRASPORTO cambia il significato di un tocco sul palcoscenico, quindi lo
  * stato sta qui: si arma da "Dove sono?", una striscia lo dichiara finche' dura,
@@ -42,7 +36,6 @@ import { nodeOf, reanchor, startAtEntrance } from "@/localization";
 import Stage from "./Stage.vue";
 import Scheda from "./Scheda.vue";
 import Posizione from "./Posizione.vue";
-import Pannello from "./Pannello.vue";
 import { marketplaceHome } from "@/config";
 import { useTTS } from "./useTTS";
 import { useTranslation } from "@/composables/useTranslation";
@@ -89,17 +82,6 @@ watch(
   { immediate: true },
 );
 
-const sheetSnap = ref<"riposo" | "media" | "piena">("media");
-const wideScreen = ref(false);
-if (typeof window !== "undefined" && window.matchMedia) {
-  const mq = window.matchMedia("(min-width: 1024px)");
-  wideScreen.value = mq.matches;
-  mq.addEventListener("change", (e) => (wideScreen.value = e.matches));
-}
-const stageInert = computed(
-  () => sheetSnap.value === "piena" && !wideScreen.value,
-);
-
 // --- Posizione corrente ----------------------------------------------------
 const currentArtwork = ref<Match | null>(null);
 const lastVisitIndex = ref(-1);
@@ -133,9 +115,6 @@ const transition = ref<{ notes: string[]; target: number } | null>(null);
 
 /** Percorso finito: si mostra la chiusura, con la via di casa in evidenza. */
 const fine = ref<{ notes: string[] } | null>(null);
-
-/** Il pannello dei comandi aperto dalla barra della visita (slide 27-28). */
-const pannelloAperto = ref(false);
 
 function tornaAllaHome() {
   window.location.href = marketplaceHome(handoff.value);
@@ -257,18 +236,15 @@ const currentLocationId = computed(() => {
 });
 
 /**
- * La porta d'ingresso alla visita, quando non c'e' nessuna tappa aperta: senza,
- * l'unico modo di cominciare era scoprire che i dischi sulla pianta si toccano.
- * Serve anche a rientrare dopo aver chiuso la scheda. Nella visita guidata non
- * compare: li' a decidere la tappa e' il docente.
+ * La porta d'ingresso alla visita, dentro la scheda finche' non c'e' nessuna
+ * tappa aperta: senza, l'unico modo di cominciare sarebbe scoprire che i dischi
+ * sulla pianta si toccano. Nella visita guidata non compare: li' a decidere la
+ * tappa e' il docente.
  */
 const azioneTappa = computed(() => {
   if (guidedStudent.value) return null;
   if (currentArtwork.value) return null;
   if (navigableStops.value.length === 0) return null;
-  if (lastVisitIndex.value >= 0) {
-    return { label: "Riapri la tappa", index: lastVisitIndex.value };
-  }
   return { label: "Inizia dalla prima tappa", index: stepIndex(-1, 1) };
 });
 
@@ -286,10 +262,6 @@ function goToIndex(i: number) {
 }
 
 function navigationHandler(direction: string) {
-  if (direction === "close") {
-    currentArtwork.value = null;
-    return;
-  }
   if (guidedStudent.value) return;
   const base = navBase();
   const target = stepIndex(base, direction === "next" ? 1 : -1);
@@ -361,7 +333,7 @@ function apriTappa(i: number) {
 // --- Teletrasporto (slide 34) ----------------------------------------------
 const teletrasportoArmato = ref(false);
 
-/** Sposta la posizione e basta: non apre la scheda e non fa avanzare la visita —
+/** Sposta la posizione e basta: non apre nessuna tappa e non fa avanzare la visita —
  *  dichiarare dove si e' e decidere cosa leggere sono due atti diversi. */
 function armaTeletrasporto() {
   showLocator.value = false;
@@ -439,10 +411,19 @@ async function goToArtwork(qid: string) {
 const openRequest = ref("");
 
 /**
- * L'opera a cui si riferiscono le domande del pannello. Se la scheda e' chiusa
- * vale l'ultima tappa aperta, e in mancanza di tutto la prima della visita:
- * "dov'e' il bagno?" deve poter partire da dove ci si trova, non richiedere di
- * aprire prima una didascalia.
+ * Il servizio toccato sulla pianta. E' la stessa domanda di "Dove e' il bagno?",
+ * posta pero' indicando: il bersaglio e' il `data-poi` scritto sul disegno,
+ * quindi vale per tutti i servizi di tutte le piante e non solo per i quattro
+ * che il vocabolario controllato sa nominare. La risposta esce dove escono le
+ * altre — dentro Orientati — perche' una risposta sola in un posto solo e' la
+ * ragione per cui la scheda sta sempre aperta.
+ */
+const openTarget = ref("");
+
+/**
+ * L'opera a cui si riferiscono le domande. Finche' non se n'e' aperta nessuna
+ * vale la prima della visita: "dov'e' il bagno?" deve poter partire da dove ci
+ * si trova, non richiedere di aprire prima una didascalia.
  */
 const riferimento = computed<Match | null>(() => {
   if (currentArtwork.value) return currentArtwork.value;
@@ -468,8 +449,20 @@ function actionHandler(option: string) {
   if (option === "Precedente") return navigationHandler("prev");
 
   openRequest.value = option;
+  openTarget.value = "";
   const art = riferimento.value;
   studentAsk(option, art ? art.artwork.name : "");
+}
+
+function chiediServizio(servizio: { target: string; label: string }) {
+  openRequest.value = servizio.label;
+  openTarget.value = servizio.target;
+  announce(`Indicazioni per ${servizio.label}`);
+}
+
+function chiudiRisposta() {
+  openRequest.value = "";
+  openTarget.value = "";
 }
 
 const translatedFields = useTranslation(() => {
@@ -479,7 +472,7 @@ const translatedFields = useTranslation(() => {
 });
 
 watch(currentArtwork, () => {
-  openRequest.value = "";
+  chiudiRisposta();
   tts.stop();
 });
 
@@ -502,7 +495,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col lg:flex-row">
+  <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
     <div class="flex min-h-0 flex-1 flex-col">
       <div
         class="flex shrink-0 items-center gap-3 border-b border-line bg-surface px-3 py-2"
@@ -522,25 +515,9 @@ onUnmounted(() => {
           {{ title }}
         </p>
 
-        <!-- I comandi del vocabolario controllato, sempre a un tocco: prima
-             erano raggiungibili solo aprendo la scheda a tutta altezza. -->
-        <button
-          type="button"
-          class="btn-secondario ml-auto shrink-0 px-2"
-          :aria-expanded="pannelloAperto"
-          @click="pannelloAperto = true"
-        >
-          <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.7.2-1.2.9-1.2 1.6v.5" />
-            <circle cx="11.5" cy="17" r=".7" fill="currentColor" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18z" />
-          </svg>
-          <span class="whitespace-nowrap">Ho una domanda</span>
-        </button>
-
         <p
           v-if="navigableStops.length"
-          class="tabular shrink-0 text-small text-muted"
+          class="tabular ml-auto shrink-0 text-small text-muted"
         >
           <span class="sr-only">{{ progresso.esteso }}</span>
           <span aria-hidden="true" class="sm:hidden">{{ progresso.compatto }}</span>
@@ -570,47 +547,33 @@ onUnmounted(() => {
         :current-location-id="currentLocationId"
         :current-index="lastVisitIndex"
         :armed="teletrasportoArmato"
-        :inert="stageInert"
         @select="onStageSelect"
         @locate="apriPosizione"
+        @poi="chiediServizio"
         @teleport-point="teletrasportaSuPunto"
         @teleport-stop="teletrasportaSuTappa"
       />
-
-      <!-- PORTA D'INGRESSO: sta dove poi comparira' la scheda, cioe' dove si
-           guarda per sapere che si fa adesso. -->
-      <div
-        v-if="azioneTappa"
-        class="shrink-0 border-t border-line bg-surface p-3"
-      >
-        <button
-          type="button"
-          class="btn-primario w-full justify-center text-title-3"
-          @click="apriTappaCorrente"
-        >
-          {{ azioneTappa.label }}
-        </button>
-      </div>
     </div>
 
     <Scheda
-      v-if="currentArtwork"
       :content="currentArtwork"
       :fields="translatedFields"
+      :riferimento="riferimento"
+      :azione="azioneTappa"
       :in-visit="inVisit"
-      :optional="isOptionalItem(currentArtwork.item['@id'])"
+      :optional="currentArtwork ? isOptionalItem(currentArtwork.item['@id']) : false"
       :has-next="hasNext"
       :has-prev="hasPrev"
       :can-end="canEnd"
       :numero="currentPosition"
-      :totale="navigableStops.length"
       :guided-student="guidedStudent"
       :guided-teacher="guidedTeacher"
       :richiesta="openRequest"
+      :target="openTarget"
       @navigation="navigationHandler"
       @action="actionHandler"
-      @close-request="openRequest = ''"
-      @snap="sheetSnap = $event"
+      @close-request="chiudiRisposta"
+      @apri-tappa="apriTappaCorrente"
     />
 
     <div
@@ -653,51 +616,6 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- PANNELLO DEI COMANDI -->
-    <div
-      v-if="pannelloAperto"
-      class="fixed inset-0 z-50 flex items-end justify-center bg-black/55 sm:items-center"
-      @click.self="pannelloAperto = false"
-    >
-      <aside
-        class="lastra flex max-h-[85dvh] w-full max-w-md flex-col overflow-y-auto p-5 shadow-l2"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pannello-titolo"
-        @keydown.escape="pannelloAperto = false"
-      >
-        <div class="flex shrink-0 items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h2 id="pannello-titolo" class="font-display text-title-3">
-              Chiedi qualcosa
-            </h2>
-            <p v-if="riferimento" class="truncate text-caption text-muted">
-              {{ riferimento.artwork.name }}
-            </p>
-          </div>
-          <button
-            type="button"
-            class="icona-mini shrink-0"
-            aria-label="Chiudi il pannello"
-            @click="pannelloAperto = false"
-          >
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <Pannello
-          class="mt-4"
-          :about="riferimento"
-          :richiesta="openRequest"
-          id-prefix="pannello"
-          @action="actionHandler"
-          @close-request="openRequest = ''"
-        />
-      </aside>
     </div>
 
     <!-- FINE DELLA VISITA -->

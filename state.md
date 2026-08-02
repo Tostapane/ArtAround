@@ -862,6 +862,14 @@ focus and collapse plugins are **served locally** from `public/vendor/`.
   portavano da nessuna parte (2026-08-02).
 - **Only two overlays remain**: the confirm dialog and the toast. Everything that used to be
   a modal is now a page.
+- **The toolbar (`.barra`) sticks to the top** — vetrina, libreria, lavori (2026-08-02).
+  Reported as "the search bar does something strange while I type", and it did: filtering
+  shortens the document, so typing one letter from halfway down a list makes the page collapse
+  under the scroll position, the browser clamps to the new bottom, and **the field being typed
+  into slides off the top of the screen** (measured: scroll 1200 → 139, the input at −13px).
+  Pinned, only the results move. It stops under the app bar via **`--app-bar`**, declared once
+  in `marketplace/style.css` and used both to draw that bar and to offset this one — written
+  twice, one of the two would age and hide the field again.
 
 ### 4.2 `soglia` — the front door *(new)*
 
@@ -1112,18 +1120,32 @@ ones do. Below a rule, the **su misura** block with example chips.
   map becomes visible again), each a real keyboard target with `aria-label` **and** an SVG
   `<title>`. Optional stops keep the three-signal encoding. The `TODO TEMP` is gone: the
   toggle appears only when `optionalCount > 0`.
-- **`Scheda`** — the bottom sheet, three snaps (`riposo`/`media`/`piena`). Only at `piena`,
-  and only below `lg`, does it become `role="dialog"` and mark the stage `inert`; from `lg`
-  it is a side column and never modal. Inside: matted image, badges, description, then
-  `Pannello`, the language selector, and a **permanent microphone** in the footer. The
-  open/close control is a pill with a rotating chevron, not a caption.
+  **Services are targets too** (§5.3-quater): every `[data-poi]` on the plan is a button —
+  an artwork opens, a service answers *how to get there*, in the same `Info` block, with the
+  same read-aloud and the same escalation to step-by-step directions. Type and name are the
+  map's own `data-poi` / `data-label`, so a museum whose plan has a cloakroom gets a routable
+  cloakroom without a line of code; the four `Orientati` commands stay for whoever cannot aim
+  at a point.
+- **`Scheda`** — a **permanent panel**, never a dialog and never dismissable: a `26rem`
+  column beside the plan from `lg`, a `55dvh` band below it on a phone. Top to bottom, which
+  is the order it gets used in: content language · artwork (thumbnail + label on a phone,
+  full passe-partout from `lg`) · the bar (voice, read aloud, previous/next) · Chiedi /
+  Orientati. Language and bar sit at the two edges and never move; the artwork and the
+  commands split what is left in a fixed `3:2`, each scrolling inside itself, and the ratio
+  flips to `2:3` while an answer is open. With no stop open yet the artwork half holds the
+  door into the visit (*Inizia dalla prima tappa*) — a panel that is always there has to say
+  what to do even when there is nothing to read (§5.3-bis).
 - **`Pannello`** — the controlled vocabulary as buttons, split **Chiedi** (artwork questions
-  → LLM) / **Orientati** (building questions → room graph), with the answer (`Info`) below.
-  One component, **two mounts**: inside the sheet at `piena`, and behind the **Chiedi**
-  button in the visit rail — which is the one that satisfies slide 28's "bottoni equivalenti
-  ai comandi vocali" without requiring a sheet to be opened first. Questions work from the
-  current stop even with the sheet closed (`riferimento`: the open artwork, else the last
-  stop reached, else the first).
+  → LLM) / **Orientati** (building questions → room graph), with the answer (`Info`) below;
+  two columns of chips, because the panel shares its height with the artwork being read.
+  **One mount**, at the foot of the sheet: asking is a command like *Prossimo*, not a screen
+  to open, and that is what satisfies slide 28's "bottoni equivalenti ai comandi vocali".
+  Questions work before any stop is open (`riferimento`: the open artwork, else the last stop
+  reached, else the first).
+- **The shell is exactly one screen tall** (`App.vue`, `h-[100dvh] overflow-hidden`) and does
+  not scroll. Two halves that must both stay on screen cannot live on a page that grows;
+  whatever needs scrolling scrolls inside itself, which is why `Biglietteria` — the one long
+  screen — is handed `overflow-y-auto` by the shell.
 - **Logistics transitions** — pressing `Prossimo` when the author left a note for that
   passage shows it as a step before the next stop (opening notes appear before stop 1).
   This is `Visit.logistics` finally reaching the person it was written for.
@@ -1187,6 +1209,72 @@ riesco a riaprirla». Nella visita guidata non compare: li' la tappa la decide i
 
 Da tappa aperta in poi non serviva aggiungere niente: la scheda **a riposo** e' alta 6,5rem e
 tiene gia' numero, titolo, ascolto e avanti/indietro sempre in vista.
+
+### 5.3-ter La scheda smette di aprirsi e di chiudersi *(2026-08-02)*
+
+Segnalato: «il bottone *apri la scheda / riduci* non mi convince, potrebbe anche non esistere
+e mostrare il contenuto direttamente per intero». Con la proposta gia' dentro: tenerla aperta
+sempre, su pc **e** su telefono, con la mappa che resta visibile e usabile, e **fondervi
+dentro** il bottone d'inizio visita e il pannello delle domande — «un pannello di opzioni
+costante, unito a quello di lettura».
+
+**Che cosa e' sparito**: i tre scatti (`riposo`/`media`/`piena`) e il loro bottone, il velo
+nero, `role="dialog"` con la mappa resa `inert` e il `matchMedia` che lo pilotava, il bottone
+di chiusura, il secondo montaggio di `Pannello` dietro «Ho una domanda» nella barra, e il
+riquadro della porta d'ingresso sotto la mappa. **−136 righe.** Restava una domanda a cui
+l'interfaccia costringeva a rispondere — *guardare dove sono* o *leggere che cos'e'* — e
+l'unica ragione per cui esisteva era che la scheda copriva la mappa.
+
+**Il cambiamento che ha fatto piu' danno e' stato il piu' piccolo.** Finche' la scheda era
+`fixed`, sul telefono non occupava spazio nel flusso; diventata una fascia nel flusso, il
+guscio `min-h-[100dvh]` la lasciava **sfondare di 97px sotto il bordo dello schermo**, con la
+barra dei comandi fuori. Un'applicazione a due meta' vuole un guscio alto *esattamente* lo
+schermo, quindi `h-[100dvh] overflow-hidden`, e allora ogni schermata lunga deve scorrere
+dentro di se': `Biglietteria` riceve `overflow-y-auto` dal guscio, `GuidedGate` `min-h-0` sulle
+sue quattro fasi.
+
+**Due misure decise guardando gli scatti, non stimate.** L'immagine a piena proporzione 4/3 e'
+alta 310px su 407 di colonna: il testo dell'opera non entrava affatto. Da `lg` in su e'
+incappucciata a `max-h-48`; sotto, dove la meta' visibile e' 183px, diventa una **miniatura
+64px accanto al titolo**, cioe' la didascalia da museo — e il titolo scende a `text-title-3`,
+altrimenti va a due righe e si mangia il posto delle prime parole del testo.
+
+**Verificato pilotando chromium**, 32 controlli a 1400 e a 390px, zero errori in console:
+ordine verticale (lingua < opera < barra < chiedi), mappa e scheda affiancate a 1400 e
+impilate a 390, la pianta ancora toccabile da telefono con 255px di altezza, la domanda che
+parte dalla scheda senza aprire niente, e — per il guscio — la biglietteria che si scorre fino
+a «Crea la visita» e la fine visita col bottone «Torna alla home» dentro lo schermo.
+
+### 5.3-quater I servizi sulla pianta si toccano *(2026-08-02)*
+
+Segnalato: «bagni, emergenze e servizi non sono cliccabili; sarebbe carino che aprissero le
+indicazioni per raggiungerli, possibilmente con un pulsante che te le legge».
+
+Erano disegnati, etichettati e **inerti**: gli unici servizi raggiungibili erano i quattro che
+il vocabolario controllato sa nominare (uscita, bagno, bar, shop), quindi l'uscita di
+emergenza e l'ingresso — che sulla pianta si vedono — non avevano nessuna risposta.
+
+**Il bersaglio e' il `data-poi` del disegno, non un elenco nel codice.** `POST /wayfinding`
+accettava gia' un tipo di POI e risolve il piu' vicino, quindi non e' stato toccato niente sul
+server: `Stage` emette `{target, label}` letti dagli attributi, e `Info` — che finora ricavava
+il bersaglio da una tabella comando→tipo — lo accetta anche dall'esterno. Cosi' un museo che
+disegna un guardaroba ottiene un guardaroba istradabile senza una riga di codice, che e' la
+stessa regola con cui i piani prendono il nome dal disegno.
+
+La risposta esce **dove escono le altre**, nel riquadro `Info` sotto *Orientati*, con la
+lettura ad alta voce e il passaggio alle indicazioni dettagliate che erano gia' li'. I quattro
+comandi restano: chi non vede non punta un dito su una pianta, ed e' lo stesso motivo per cui
+il codice si puo' digitare accanto al QR.
+
+⚠️ **A teletrasporto armato un servizio colloca, non risponde**: il gestore esce subito e il
+tocco scivola all'`<svg>`. Senza, i servizi sarebbero sei buchi nel bersaglio, proprio nei
+punti che uno indica per dire «sono qui accanto al bar».
+
+**Verificato in chromium**, 11 controlli, zero errori in console: i sei servizi del British
+sono controlli da tastiera con `aria-label` e `<title>`, la toilette risponde «Ala Est» sotto
+*Orientati*, l'uscita di emergenza — che nessun comando nomina — risponde «Ala Nord», le
+indicazioni dettagliate arrivano dall'LLM passando per il grafo, e a teletrasporto armato il
+tocco su un servizio sposta il segnalino senza aprire niente.
 
 ### 5.4 `GuidedGate`
 

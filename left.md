@@ -1,5 +1,47 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-02, la scheda non si apre piu' perche' non si chiude mai
+
+Quattro richieste in fila; questa e' la prima. Dettaglio in `state.md` §5.3-ter.
+
+- **Via gli scatti della scheda** (`riposo`/`media`/`piena`) e il bottone che li pilotava, il
+  velo, il `dialog` con la mappa `inert`, la chiusura, il pannello «Ho una domanda» della barra
+  e il riquadro d'ingresso sotto la mappa: **−136 righe**. La scheda e' un pannello fisso —
+  colonna da `lg`, fascia da 55dvh sul telefono — con dentro, in quest'ordine: lingua, opera,
+  barra (voce e avanti/indietro), Chiedi/Orientati.
+- ⚠️ **Il guscio ora e' alto esattamente lo schermo** (`App.vue`: `h-[100dvh] overflow-hidden`).
+  Era `min-h-`, e con la scheda non piu' `fixed` la barra dei comandi finiva **97px sotto il
+  bordo** del telefono. Chi ha bisogno di scorrere scorre dentro di se': se si aggiunge una
+  schermata lunga va data a lei `overflow-y-auto`, come alla biglietteria.
+- Le due meta' della scheda si spartiscono l'altezza `3:2` con `basis-0 grow-[n]`, che si
+  ribalta a `2:3` con una risposta aperta. Servono altezze definite: senza `basis-0` i due
+  riquadri prendono l'altezza del contenuto e la barra esce dallo schermo.
+
+**Verificato pilotando chromium** (script nello scratchpad), 32 controlli a 1400 e 390 px, zero
+errori in console, scatti guardati davvero.
+
+### Le altre tre della stessa tornata
+
+2. **L'esito del comando vocale non si porta piu' appresso.** «Non ho capito» restava scritto
+   sotto al microfono per tutto il resto della visita, e sembrava il commento all'opera che si
+   stava guardando: `esito` si azzerava solo ripremendo *Parla*. Ora `Comando` riceve la tappa
+   e, quando cambia, azzera esito **e** `errorMsg` (che sta in `useSTT` ed e' di modulo, quindi
+   sopravvive anche lui). Riprodotto davvero in chromium con il microfono finto
+   (`--use-fake-device-for-media-stream`): il messaggio compare, e alla tappa dopo non c'e'.
+3. **I servizi della pianta si toccano** (`state.md` §5.3-quater). Nessuna modifica al server:
+   `POST /wayfinding` accettava gia' un tipo di POI. ⚠️ Il bersaglio e' il `data-poi` del
+   disegno — **non aggiungere una tabella di servizi nel codice**, e' il motivo per cui
+   funziona anche l'uscita di emergenza, che nessun comando nomina.
+4. **«La barra di ricerca fa uno strano effetto quando scrivo»** — ed era un difetto vero,
+   misurato: filtrando da meta' elenco la pagina si accorcia, il browser riporta lo
+   scorrimento in fondo (1200 → 139) e **il campo in cui stai scrivendo esce dallo schermo**.
+   Ora `.barra` e' incollata in alto (vetrina, libreria, lavori: sono le tre che la usano).
+   ⚠️ Sotto `lg` c'e' gia' un'intestazione incollata a `z-30`: la barra ci finiva sotto. Si
+   ferma a `--app-bar`, che e' anche l'altezza con cui quell'intestazione e' disegnata —
+   se cambia una, cambiano tutt'e due. **`marketplace/dist` ricostruito.**
+
+---
+
 ## ⏸ Ripresa — 2026-08-02, come si comincia una visita
 
 «Vorrei un bottone che mi apre la descrizione della prima opera»: non c'era, e non era solo un
