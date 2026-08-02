@@ -15,6 +15,24 @@
  * Nota tecnica: getBBox non sa dire nulla su un SVG nascosto, percio' i numeri
  * vengono ricalcolati quando si torna sulla mappa.
  *
+ * I PIANI. Una mappa a piu' piani li disegna tutti nello stesso disegno, uno
+ * sopra l'altro, dentro un <g data-floor> per ciascuno (il contratto sta in
+ * server/src/services/svgGraph.ts). Qui se ne INQUADRA uno per volta spostando
+ * il viewBox sull'estensione del suo gruppo, invece di nascondere gli altri: un
+ * sottoalbero nascosto non ha piu' un getBBox, e i numeri delle tappe si
+ * disegnano proprio con quello. Inquadrando invece non si nasconde niente, e il
+ * resto viene da se' — i numeri e il segnalino di posizione degli altri piani
+ * cadono fuori dal riquadro, cioe' spariscono senza che nessuno li tolga.
+ * L'elenco dei piani e i loro nomi si leggono dal disegno, quindi valgono
+ * quanti piani vuole il museo e si chiamano come li chiama il curatore; il
+ * selettore non compare affatto finche' i piani sono zero o uno.
+ *
+ * Il piano si ANNUNCIA a ogni cambio, scelto a mano o seguito da una tappa. E'
+ * il selettore stesso a rispondere alla domanda "a che piano sono": nessun
+ * sensore dice su che pavimento si e' (il GPS da' due coordinate, non tre), e
+ * chi non vede la pianta ha lo stesso identico modo di dichiararlo e di
+ * risentirselo dire di chi la guarda.
+ *
  * TELETRASPORTO ARMATO (`armed`): finche' e' acceso, nodi e righe dell'elenco
  * collocano invece di aprire. Da pixel a unita' del disegno si passa per
  * `getScreenCTM()` — i conti a mano su getBoundingClientRect sbagliano appena la
@@ -32,6 +50,7 @@ import {
   setStageView,
 } from "@/state";
 import { bussola, stima } from "@/localization";
+import { useAnnouncer } from "@/composables/useAnnouncer";
 
 const emit = defineEmits<{
   select: [value: number];
@@ -45,11 +64,93 @@ const props = defineProps<{
   armed?: boolean;
 }>();
 
+const { announce } = useAnnouncer();
 const container = ref<HTMLElement | null>(null);
 const listeners: { element: Element; type: string; handler: EventListener }[] = [];
 
 function stopNumber(index: number): number {
   return index + 1;
+}
+
+// --- I piani: se ne inquadra uno per volta -----------------------------------
+
+interface Piano {
+  numero: number;
+  etichetta: string;
+}
+
+const piani = ref<Piano[]>([]);
+const pianoAttivo = ref<number | null>(null);
+
+function leggiPiani() {
+  const root = container.value;
+  const trovati = new Map<number, string>();
+  if (root) {
+    root.querySelectorAll("[data-floor]").forEach((el) => {
+      const numero = parseInt(el.getAttribute("data-floor") || "", 10);
+      if (isNaN(numero)) return;
+      if (trovati.has(numero)) return;
+      let etichetta = el.getAttribute("data-floor-label") || "";
+      if (!etichetta) etichetta = `Piano ${numero}`;
+      trovati.set(numero, etichetta);
+    });
+  }
+
+  const elenco: Piano[] = [];
+  trovati.forEach((etichetta, numero) => elenco.push({ numero, etichetta }));
+  elenco.sort((a, b) => a.numero - b.numero);
+  piani.value = elenco;
+
+  // Cambiando museo il piano ricordato puo' non esistere piu': si riparte dal
+  // piu' basso, che e' quello da cui si entra.
+  let esiste = false;
+  for (const p of elenco) {
+    if (p.numero === pianoAttivo.value) esiste = true;
+  }
+  if (!esiste) {
+    const piuBasso = elenco[0];
+    if (piuBasso) pianoAttivo.value = piuBasso.numero;
+    else pianoAttivo.value = null;
+  }
+}
+
+function pianoDi(el: Element | null): number | null {
+  if (!el) return null;
+  const gruppo = el.closest("[data-floor]");
+  if (!gruppo) return null;
+  const numero = parseInt(gruppo.getAttribute("data-floor") || "", 10);
+  if (isNaN(numero)) return null;
+  return numero;
+}
+
+function inquadraPiano() {
+  const root = container.value;
+  if (!root || pianoAttivo.value === null) return;
+  const svg = root.querySelector("svg");
+  if (!svg) return;
+  const gruppo = svg.querySelector(
+    `[data-floor="${pianoAttivo.value}"]`,
+  ) as SVGGraphicsElement | null;
+  if (!gruppo) return;
+  try {
+    const box = gruppo.getBBox();
+    if (!box.width || !box.height) return;
+    const margine = 16;
+    svg.setAttribute(
+      "viewBox",
+      `${box.x - margine} ${box.y - margine} ` +
+        `${box.width + margine * 2} ${box.height + margine * 2}`,
+    );
+  } catch {
+  }
+}
+
+/** La tappa aperta decide il piano: aprirne una di sopra porta la pianta di sopra. */
+function seguiTappa() {
+  const root = container.value;
+  if (!root || !props.currentLocationId) return;
+  const numero = pianoDi(root.querySelector(`#${CSS.escape(props.currentLocationId)}`));
+  if (numero !== null) pianoAttivo.value = numero;
 }
 
 // --- Teletrasporto: la pianta come bersaglio --------------------------------
@@ -199,6 +300,9 @@ function prepareMap() {
 
   highlightCurrent();
   drawPosition();
+  leggiPiani();
+  seguiTappa();
+  inquadraPiano();
 }
 
 /**
@@ -257,7 +361,19 @@ watch(includeOptional, redraw);
 watch(stageView, (v) => {
   if (v === "mappa") redraw();
 });
-watch(() => props.currentLocationId, () => nextTick(highlightCurrent));
+watch(() => props.currentLocationId, () =>
+  nextTick(() => {
+    highlightCurrent();
+    seguiTappa();
+  }),
+);
+watch(pianoAttivo, (nuovo, vecchio) => {
+  nextTick(inquadraPiano);
+  if (vecchio === null || nuovo === vecchio) return;
+  for (const p of piani.value) {
+    if (p.numero === nuovo) announce(`Pianta: ${p.etichetta}`);
+  }
+});
 watch([stima, bussola], () => nextTick(drawPosition));
 
 onBeforeUnmount(clearListeners);
@@ -324,6 +440,27 @@ const optionalCount = computed(() => {
       v-show="stageView === 'mappa'"
       class="min-h-0 flex-1 overflow-auto p-3"
     >
+      <!-- PIANI: compare solo se il museo ne ha piu' d'uno -->
+      <div
+        v-show="piani.length > 1"
+        class="segmenti mx-auto mb-2 flex max-w-3xl flex-wrap"
+        role="radiogroup"
+        aria-label="Piano del museo"
+      >
+        <button
+          v-for="p in piani"
+          :key="p.numero"
+          type="button"
+          role="radio"
+          :aria-checked="pianoAttivo === p.numero"
+          class="segmento"
+          :class="pianoAttivo === p.numero ? 'segmento-attivo' : ''"
+          @click="pianoAttivo = p.numero"
+        >
+          {{ p.etichetta }}
+        </button>
+      </div>
+
       <div
         ref="container"
         class="mappa mx-auto w-full max-w-3xl"

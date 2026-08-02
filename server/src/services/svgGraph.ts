@@ -21,10 +21,45 @@
  *  - ostacolo     -> data-obstacle="steps|door|chairs|object" + data-desc
  *  - collegamento -> <line data-edge ...> tra due sale: ogni estremo viene
  *                    risolto alla sala che lo CONTIENE (non al nodo piu' vicino).
+ *  - piano        -> <g data-floor="1" data-floor-label="Primo piano"> ... </g>
+ *                    attorno a tutto quel che sta su quel piano. I piani si
+ *                    disegnano uno sopra l'altro DENTRO LO STESSO viewBox, come
+ *                    su una pianta stampata; il navigator inquadra un piano per
+ *                    volta partendo dall'estensione del gruppo.
  *
  * Le coordinate si leggono ALLA LETTERA (cx/cy oppure x/y/width/height): un
  * transform su un elemento con data-* non viene applicato, e il nodo finisce
  * nella sala sbagliata senza che nessuno se ne accorga.
+ *
+ * IL GRAFO NON SI DIVIDE PER PIANO. Le scale (o l'ascensore) sono un vano su
+ * ciascun piano, i due vani sono collegati da un data-edge come due sale
+ * confinanti, e un percorso attraversa i piani nello stesso modo in cui
+ * attraversa le sale. Cosi' la ricerca del cammino resta quella di prima e non
+ * esiste un caso "cambio piano" da trattare a parte: c'e' una sala in piu'.
+ *
+ * IL PIANO SI LEGGE DAL GRUPPO, MA LO DECIDE LA SALA. Scandendo il file il piano
+ * corrente e' quello del <g data-floor> piu' esterno rimasto aperto: si conta la
+ * profondita' dei <g> perche' dentro il gruppo di un piano ce ne sono altri (i
+ * nodi, i servizi, gli ostacoli), e col primo </g> il piano si spegnerebbe
+ * mentre si e' ancora dentro il piano. A nodo risolto pero' il piano buono e'
+ * quello della sala che lo contiene: e' il pavimento su cui si sta a dire dove
+ * si e', non il gruppo in cui l'elemento e' finito.
+ *
+ * IL NOME DI UN PIANO LO SCRIVE IL CURATORE, in `data-floor-label`: un museo ha
+ * il Mezzanino e il Piano Nobile, un altro cinque piani numerati, e un elenco di
+ * ordinali scritto nel codice sarebbe l'italiano di un museo solo imposto a
+ * tutti gli altri. Un piano numerato e non nominato si chiama "piano N", che e'
+ * un ripiego dichiarato e non una traduzione inventata.
+ *
+ * I NOMI DELLE SALE SONO UNICI SU TUTTA LA MAPPA, piani compresi. Il nome e' la
+ * parola con cui le indicazioni nominano la sala, e le adiacenze si tengono per
+ * nome: due sale omonime su due piani diventerebbero una sala sola, cioe' un
+ * passaggio fra i piani che non esiste e che nessuno ha disegnato. Il parser lo
+ * segnala invece di indovinare quale delle due intendeva il curatore.
+ *
+ * I COMMENTI SI TOLGONO PRIMA DI SCANDIRE: la scansione e' a espressione
+ * regolare, e questi file spiegano se stessi a lungo — un <g> nominato dentro un
+ * commento sposterebbe il conto dei gruppi, e con lui il piano di tutto il resto.
  */
 import fs from "fs";
 import path from "path";
@@ -38,6 +73,8 @@ export interface GraphNode {
   x: number;
   y: number;
   room: string;
+  /** Il piano: quello della sua sala, o del gruppo che lo contiene. */
+  floor: number;
   /**
    * L'attributo `id` dell'elemento SVG, che il navigator usa per ritrovare la
    * forma da colorare e numerare (`Artwork.locationId`). Non e' `id` qui sopra:
@@ -49,7 +86,9 @@ export interface GraphNode {
 
 export interface GraphRegion {
   name: string;
-  neighbors: string[]; 
+  neighbors: string[];
+  /** Il piano su cui sta la sala. Senza `data-floor` sulla mappa e' 0. */
+  floor: number;
 }
 
 export interface GraphObstacle {
@@ -59,16 +98,29 @@ export interface GraphObstacle {
   room: string;
 }
 
+export interface GraphFloor {
+  floor: number;
+  /** Come lo chiama il curatore. Un piano senza `data-floor-label` e' "piano N". */
+  label: string;
+}
+
 export interface MuseumGraph {
   nodes: GraphNode[];
   regions: GraphRegion[];
   obstacles: GraphObstacle[];
+  /**
+   * I piani che la mappa dichiara, dal basso in alto. Resta VUOTO se la mappa
+   * non ne dichiara nessuno: un museo a un piano solo non ha piani di cui
+   * parlare, e da questo elenco vuoto discende che non se ne parli mai.
+   */
+  floors: GraphFloor[];
 }
 
-type RegionShape =
+type RegionShape = { floor: number } & (
   | { kind: "circle"; name: string; cx: number; cy: number; r: number }
   | { kind: "rect"; name: string; x: number; y: number; w: number; h: number }
-  | { kind: "polygon"; name: string; pts: { x: number; y: number }[] };
+  | { kind: "polygon"; name: string; pts: { x: number; y: number }[] }
+);
 
 const PUBLIC_DIR = path.join(__dirname, "..", "..", "public");
 
@@ -83,7 +135,7 @@ export function getMuseumGraph(mapPath: string): MuseumGraph {
 }
 
 function emptyGraph(): MuseumGraph {
-  return { nodes: [], regions: [], obstacles: [] };
+  return { nodes: [], regions: [], obstacles: [], floors: [] };
 }
 
 function parseSvgFile(mapPath: string): MuseumGraph {
@@ -113,14 +165,49 @@ export function parseSvg(svg: string): MuseumGraph {
   let poiCount = 0;
   let obstacleCount = 0;
 
-  const tagRe = /<[a-zA-Z]+\b([^>]*?)\/?>/g;
+  let gDepth = 0;
+  let floor = 0;
+  let floorDepth = -1;
+  const floorLabels = new Map<number, string>();
+
+  const disegno = svg.replace(/<!--[\s\S]*?-->/g, "");
+  const tagRe = /<(\/?)([a-zA-Z]+)\b([^>]*?)(\/?)>/g;
   let match: RegExpExecArray | null;
-  while ((match = tagRe.exec(svg)) !== null) {
-    const rawAttrs = match[1];
+  while ((match = tagRe.exec(disegno)) !== null) {
+    const chiusura = match[1] === "/";
+    const nome = match[2];
+    const rawAttrs = match[3];
+    const autochiuso = match[4] === "/";
+
+    if (nome === "g") {
+      if (chiusura) {
+        gDepth--;
+        if (floorDepth >= 0 && gDepth <= floorDepth) {
+          floor = 0;
+          floorDepth = -1;
+        }
+        continue;
+      }
+      if (!autochiuso) {
+        const suoi = parseAttrs(rawAttrs);
+        const suo = suoi["data-floor"];
+        if (suo !== undefined && floorDepth < 0) {
+          floor = parseInt(suo, 10) || 0;
+          floorDepth = gDepth;
+          let label = suoi["data-floor-label"];
+          if (!label) label = `piano ${floor}`;
+          floorLabels.set(floor, label);
+        }
+        gDepth++;
+      }
+      continue;
+    }
+    if (chiusura) continue;
+
     const attrs = parseAttrs(rawAttrs);
 
     if (attrs["data-room"]) {
-      const region = makeRegion(attrs);
+      const region = makeRegion(attrs, floor);
       if (region) regions.push(region);
     }
 
@@ -138,6 +225,7 @@ export function parseSvg(svg: string): MuseumGraph {
           x: center.x,
           y: center.y,
           room: "",
+          floor,
           elementId: attrs["id"] || "",
         });
       }
@@ -156,6 +244,7 @@ export function parseSvg(svg: string): MuseumGraph {
           x: center.x,
           y: center.y,
           room: "",
+          floor,
           elementId: attrs["id"] || "",
         });
       }
@@ -192,7 +281,13 @@ export function parseSvg(svg: string): MuseumGraph {
     }
   }
 
-  for (const n of nodes) n.room = resolveRoom(regions, n.x, n.y);
+  for (const n of nodes) {
+    const sala = regionAt(regions, n.x, n.y);
+    if (sala) {
+      n.room = sala.name;
+      n.floor = sala.floor;
+    }
+  }
   const obstacles: GraphObstacle[] = obstaclesRaw.map((o) => ({
     id: o.id,
     type: o.type,
@@ -200,14 +295,30 @@ export function parseSvg(svg: string): MuseumGraph {
     room: resolveRoom(regions, o.x, o.y),
   }));
 
+  const floors: GraphFloor[] = [];
+  for (const [numero, label] of floorLabels) {
+    floors.push({ floor: numero, label });
+  }
+  floors.sort((a, b) => a.floor - b.floor);
+
   const graphRegions = buildRegions(regions, rawEdges);
-  return { nodes, regions: graphRegions, obstacles };
+  return { nodes, regions: graphRegions, obstacles, floors };
+}
+
+function regionAt(
+  regions: RegionShape[],
+  x: number,
+  y: number,
+): RegionShape | null {
+  for (const region of regions) {
+    if (regionContains(region, x, y)) return region;
+  }
+  return null;
 }
 
 function resolveRoom(regions: RegionShape[], x: number, y: number): string {
-  for (const region of regions) {
-    if (regionContains(region, x, y)) return region.name;
-  }
+  const region = regionAt(regions, x, y);
+  if (region) return region.name;
   return "";
 }
 
@@ -228,12 +339,15 @@ function regionContains(region: RegionShape, x: number, y: number): boolean {
   return pointInPolygon(x, y, region.pts);
 }
 
-function makeRegion(attrs: Record<string, string>): RegionShape | null {
+function makeRegion(
+  attrs: Record<string, string>,
+  floor: number,
+): RegionShape | null {
   const name = attrs["data-room"];
   if (attrs["points"] !== undefined) {
     const pts = parsePoints(attrs["points"]);
     if (pts.length < 3) return null;
-    return { kind: "polygon", name, pts };
+    return { kind: "polygon", name, pts, floor };
   }
   if (
     attrs["r"] !== undefined &&
@@ -246,6 +360,7 @@ function makeRegion(attrs: Record<string, string>): RegionShape | null {
       cx: parseFloat(attrs["cx"]),
       cy: parseFloat(attrs["cy"]),
       r: parseFloat(attrs["r"]),
+      floor,
     };
   }
   if (
@@ -261,6 +376,7 @@ function makeRegion(attrs: Record<string, string>): RegionShape | null {
       y: parseFloat(attrs["y"]),
       w: parseFloat(attrs["width"]),
       h: parseFloat(attrs["height"]),
+      floor,
     };
   }
   return null;
@@ -310,9 +426,27 @@ function buildRegions(
     link(neighbors, a, b);
   }
 
+  const piani = new Map<string, number>();
+  for (const r of regions) {
+    const gia = piani.get(r.name);
+    if (gia === undefined) {
+      piani.set(r.name, r.floor);
+    } else if (gia !== r.floor) {
+      console.warn(
+        `[svgGraph] la sala "${r.name}" compare sul piano ${gia} e sul piano ` +
+          `${r.floor}: le due diventano una sola, cioe' un passaggio fra i ` +
+          `piani che nessuno ha disegnato. Dai un nome diverso a una delle due.`,
+      );
+    }
+  }
+
   const result: GraphRegion[] = [];
   for (const [name, set] of neighbors) {
-    result.push({ name, neighbors: Array.from(set) });
+    result.push({
+      name,
+      neighbors: Array.from(set),
+      floor: piani.get(name) || 0,
+    });
   }
   return result;
 }

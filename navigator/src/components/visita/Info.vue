@@ -13,11 +13,21 @@
  *
  * Un contatore di richieste scarta le risposte che arrivano in ritardo, cosi'
  * un cambio di lingua non viene sovrascritto da una risposta vecchia.
+ *
+ * DA DOVE parte un'indicazione: dall'opera piu' vicina a dove si e', se la
+ * posizione e' accesa e il calcolo se la sente; altrimenti dall'opera aperta.
+ * Non si cerca la sala esatta perche' il percorso ragiona per SALE e un'opera
+ * basta a nominarne una: due quadri della stessa stanza danno lo stesso
+ * cammino, e sbagliare quadro costa al massimo una sala di scarto.
+ * La condizione `sicuro` non e' una raffinatezza: all'apertura la posizione e'
+ * l'ingresso con un'incertezza larga quanto il museo, e senza quel controllo le
+ * indicazioni partirebbero con sicurezza da un'opera qualsiasi vicina all'entrata.
  */
 import { computed, ref, watch } from "vue";
 import { getInfo, getDirections } from "@/api";
 import { useTTS } from "./useTTS";
-import { language, museum } from "@/state";
+import { language, museum, posizioneAttiva } from "@/state";
+import { rank } from "@/localization";
 import { labelForCommand } from "../../../../shared/constants";
 import type { Match } from "../../../../shared/types";
 
@@ -56,6 +66,17 @@ const canDetail = computed(() => {
 
 const title = computed(() => labelForCommand(props.request));
 
+/** L'opera da cui far partire il percorso. */
+function partenza(): string {
+  if (posizioneAttiva.value) {
+    const verdetto = rank();
+    if (verdetto && verdetto.sicuro && verdetto.candidati[0]) {
+      return verdetto.candidati[0].qid;
+    }
+  }
+  return props.about.artwork.qid;
+}
+
 async function ask() {
   const cleanRequest = props.request.trim();
   const myId = ++requestId;
@@ -67,7 +88,7 @@ async function ask() {
       const museumQid = museum.value ? museum.value.qid : "";
       const text = await getDirections(
         museumQid,
-        props.about.artwork.qid,
+        partenza(),
         target,
         language.value.name,
         detailed.value,

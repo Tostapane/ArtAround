@@ -1,5 +1,89 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-02, cinque asperita' del marketplace
+
+Cinque voci di `missing.txt`, tutte nel marketplace. Il ragionamento sta in `state.md`
+§4.1, §4.12 e §4.13; qui il minimo per proseguire.
+
+1. **Le voci dell'autore dicono l'azione**: `Contenuti · Descrizione · Visita` →
+   `I miei contenuti · Crea descrizione · Crea visita`. Guardate anche a 390 px, dove il
+   binario e' una barra in basso: stanno su una riga sola, non vanno a capo.
+2. **L'opera si vede mentre la si descrive.** Seconda colonna da `lg`, appiccicata in alto;
+   sotto `lg` apre la pagina e non e' appiccicata (con la barra di salvataggio incollata in
+   basso, su un telefono non restava schermo per scrivere). `draftArtwork()` e
+   `draftArtworkFacts()` in `state.ts`, la seconda salta gli `Unknown` di Wikidata.
+3. **Il compositore e' una strada**: si pubblica solo dall'ultimo passo, prima il bottone
+   dice `Continua · Impostazioni` e poi `Continua · Quiz`. Quale sia l'ultimo passo lo sa
+   solo `nextVisitStep()`, perche' il quiz esiste solo per le visite guidate.
+4. **Il "Salta al contenuto" invisibile che non faceva niente** non era un mistero: e' il
+   collegamento di salto per chi naviga da tastiera, sr-only finche' non prende il fuoco. Su
+   soglia e accesso pero' puntava a `#contenuto`, che li' e' dentro un sottoalbero
+   `display:none` — quindi si prendeva il primo Tab della pagina e non portava da nessuna
+   parte. Ora tutti e due i salti seguono `guscioMontato()`.
+
+**Verificato in chromium via CDP**, non solo compilato — sono binding Alpine, che nessun
+compilatore controlla: 15 controlli (salti spenti su soglia e accesso, accesi e con i bersagli
+visibili una volta dentro, le tre voci nuove, il pannello dell'opera vuoto e pieno, immagine,
+`position: sticky`, l'opera ancora in vista col testo al centro, la catena
+percorso → impostazioni → pubblica e percorso → impostazioni → quiz → attiva), zero errori in
+console, piu' gli scatti a 1400 px e a 390 px guardati davvero. **`marketplace/dist`
+ricostruito.**
+
+⚠️ **Trappola della prova:** `.barra-salva` esiste anche nell'editor delle descrizioni, che
+sta PRIMA nel documento ed e' solo `x-show`-nascosto — `querySelector('.barra-salva button')`
+prende quello e fa sembrare che la catena dei passi non funzioni. Va presa la barra con
+`offsetParent !== null`.
+
+---
+
+## ⏸ Ripresa — 2026-08-02, i piani
+
+**Fatto:** un museo puo' avere piu' piani. Il ragionamento e il contratto stanno in `state.md`
+§1.1-ter; qui resta quel che serve a chi prosegue.
+
+- **Server:** `svgGraph.ts` legge `<g data-floor data-floor-label>` e riempie
+  `MuseumGraph.floors`; `wayfinding.ts` mette `floor`+`floorLabel` su ogni `RouteStep`;
+  `llm.ts` scrive `SALI/SCENDI al <etichetta>` nel prompt dove il piano cambia; la risposta
+  semplice aggiunge `(Primo piano)` solo se il piano cambia davvero.
+- **Navigator:** `Stage.vue` ha il selettore dei piani, che compare solo con piu' d'uno e
+  **inquadra** un piano per volta col `viewBox` invece di nascondere gli altri.
+- **Mappa:** il **Metropolitan** e' ora su due piani — e' l'unica pianta che li abbia, apposta,
+  cosi' le altre tre restano la prova che un museo a un piano solo non e' cambiato.
+  `art-8` e `art-13` sono saliti di sopra: `id` e `data-qid` sono gli stessi, quindi
+  `locationId` nel database non si muove e **non serve riseminare**.
+
+**Verificato**, non dedotto: 4 piante parsate (le tre vecchie danno `floors: []` e grafo
+identico), percorsi che salgono e scendono in tutti e due i versi, l'avviso sulle sale omonime,
+un `<g>` dentro un commento che non sposta piu' il piano; **22 controlli** in chromium via CDP
+(selettore, etichette dalla mappa, `viewBox` che combacia col `getBBox` del gruppo, l'opera di
+sotto fuori dal riquadro, la pianta che segue la tappa aperta, i tre annunci, il British
+immutato), zero errori in console, piu' gli scatti dei due piani guardati davvero. Server
+riavviato e interrogato: `Galleria Superiore (Primo piano)` sulla risposta semplice, «Prosegua
+verso lo Scalone e salga al Primo piano» su quella parlata, «Descend to the Ground Floor» in
+inglese.
+
+⚠️ **Due trappole della prova, non del codice.** La vista mappa/elenco sta in `localStorage`:
+una prova che la lascia su *elenco* fa fallire la successiva con `getBBox` a zero e nessun
+numero di tappa, e sembra una regressione grossa. E il `getBBox` di un gruppo si assesta col
+caricamento del font: il riquadro puo' differire di ~0,06 unita' da quello che si rimisura
+dopo, quindi va confrontato con una tolleranza e non con `===`.
+
+**Difetto vecchio quanto la rotta, trovato provando e corretto:** le indicazioni dettagliate
+verso un'opera dicevano il **qid** invece del titolo — «dove si trova la destinazione Q248101».
+`GraphNode.label` ripiega su `data-qid` e nessuna delle quattro piante da' un `data-label` ai
+nodi-opera, perche' il titolo non e' roba della mappa: e' del database. Ora `RouteIR.to` porta
+anche il `qid` (vuoto per i servizi) e `routes/wayfinding.ts` cerca il nome in `Artwork` prima
+di far verbalizzare — **solo sulla strada dettagliata**, che e' l'unica che usa quel nome.
+Provato sul server vivo: «Per raggiungere la sezione Bronzi del Benin…», e la Toilette del
+British resta l'etichetta della mappa.
+
+**A che piano si e' lo dice il selettore, non un sensore** — nessuna misura che l'app fa
+distingue un pavimento dall'altro, quindi il piano si **dichiara**, come la posizione col QR o
+col teletrasporto. Perche' valga anche per chi non vede, ogni cambio di piano si **annuncia**
+(`Pianta: Primo piano`), sia scelto a mano sia seguito da una tappa.
+
+---
+
 ## ⏸ Ripresa — 2026-07-31, quarto museo
 
 **Il quarto museo esiste come configurazione, non ancora nel database.** Tutto il codice è

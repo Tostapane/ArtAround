@@ -8,28 +8,43 @@
  *
  * Restituisce una struttura intermedia, non una frase: la lingua la mette l'LLM.
  * Gli ostacoli riportati sono solo quelli nelle sale davvero attraversate.
+ *
+ * I PIANI non sono un caso a parte. Il vano scale e' una sala su ciascun piano e
+ * le due sono collegate come due sale confinanti (`svgGraph.ts`), quindi la
+ * stessa ricerca in ampiezza sale e scende senza saperlo. Quel che serve a valle
+ * e' solo il piano di ogni sala attraversata: chi mette le parole dice "sali" o
+ * "scendi" dove il piano CAMBIA, e in un museo a un piano solo non lo dice mai —
+ * nessuna soglia da attivare, nessun museo da distinguere.
+ *
+ * COME SI CHIAMA un piano non lo decide il codice: la parola sta sulla mappa
+ * (`data-floor-label`) e da qui passa e basta. Un museo puo' avere il Mezzanino
+ * e il Piano Nobile, un altro cinque piani numerati: qualunque elenco scritto
+ * qui sarebbe l'italiano di un museo solo, imposto a tutti gli altri.
  */
 import { GraphNode, GraphObstacle, MuseumGraph } from "./svgGraph";
 
-/*
- * Pathfinding sul grafo del museo (ricavato dalla mappa SVG).
- *
- * Il grafo navigabile e' fatto di SALE: i nodi (opere, POI) vivono dentro una
- * sala e servono solo da estremi (partenza/destinazione); il percorso e' la
- * sequenza di sale da attraversare. Le sale sono collegate da archi o porte,
- * quindi una BFS basta: il percorso piu' breve e' quello che attraversa meno sale.
- *
- * Produce una rappresentazione intermedia (RouteIR) deterministica: la
- * fraseologia in linguaggio naturale e' delegata all'LLM (services/llm.ts):
- * qui garantiamo SOLO la correttezza del percorso.
+/**
+ * Una sala del percorso. `floor` serve a sapere se si sale o si scende;
+ * `floorLabel` e' la parola con cui il piano si nomina, e viene dalla mappa.
  */
+export interface RouteStep {
+  room: string;
+  floor: number;
+  floorLabel: string;
+}
 
 export interface RouteIR {
   kind: "route" | "obstacles" | "unavailable";
-  reason: string; 
-  from: { room: string };
-  to: { label: string; room: string };
-  steps: string[]; 
+  reason: string;
+  from: RouteStep;
+  /**
+   * `label` e' come si chiama la destinazione. Per un servizio la mappa lo sa
+   * (`data-label`); per un'opera no — sul disegno un nodo-opera porta il qid, e
+   * il titolo sta nel database. `qid` e' vuoto per i servizi ed e' il modo in cui
+   * chi ha accesso alle opere sa che qui c'e' un nome da andare a prendere.
+   */
+  to: { label: string; qid: string; room: string; floor: number; floorLabel: string };
+  steps: RouteStep[];
   obstacles: GraphObstacle[];
 }
 
@@ -43,13 +58,19 @@ export function computeDirections(
     return unavailable("posizione corrente sconosciuta");
   }
 
+  const qui: RouteStep = {
+    room: fromNode.room,
+    floor: fromNode.floor,
+    floorLabel: etichettaPiano(graph, fromNode.floor),
+  };
+
   if (target === "obstacles") {
     const here = graph.obstacles.filter((o) => o.room === fromNode.room);
     return {
       kind: "obstacles",
       reason: "",
-      from: { room: fromNode.room },
-      to: { label: "", room: "" },
+      from: qui,
+      to: { label: "", qid: "", room: "", floor: qui.floor, floorLabel: qui.floorLabel },
       steps: [],
       obstacles: here,
     };
@@ -88,29 +109,48 @@ export function computeDirections(
   }
 
   const path = reconstructPath(prev, fromNode.room, targetNode.room);
-  const steps = path.slice(1);
+  const piani = new Map<string, number>();
+  for (const r of graph.regions) piani.set(r.name, r.floor);
+
+  const steps: RouteStep[] = [];
+  for (const room of path.slice(1)) {
+    let floor = piani.get(room);
+    if (floor === undefined) floor = fromNode.floor;
+    steps.push({ room, floor, floorLabel: etichettaPiano(graph, floor) });
+  }
+
   const traversedRooms = new Set(path);
   const obstacles = graph.obstacles.filter((o) => traversedRooms.has(o.room));
 
   return {
     kind: "route",
     reason: "",
-    from: { room: fromNode.room },
+    from: qui,
     to: {
       label: targetNode.label,
+      qid: targetNode.qid,
       room: targetNode.room,
+      floor: targetNode.floor,
+      floorLabel: etichettaPiano(graph, targetNode.floor),
     },
     steps,
     obstacles,
   };
 }
 
+function etichettaPiano(graph: MuseumGraph, floor: number): string {
+  for (const f of graph.floors) {
+    if (f.floor === floor) return f.label;
+  }
+  return `piano ${floor}`;
+}
+
 function unavailable(reason: string): RouteIR {
   return {
     kind: "unavailable",
     reason,
-    from: { room: "" },
-    to: { label: "", room: "" },
+    from: { room: "", floor: 0, floorLabel: "" },
+    to: { label: "", qid: "", room: "", floor: 0, floorLabel: "" },
     steps: [],
     obstacles: [],
   };

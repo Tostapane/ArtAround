@@ -315,6 +315,19 @@ export class AppState {
     else window.location.hash = nuovo;
   }
 
+  /**
+   * Se sono montati il binario e il <main>. Soglia, accesso e registrazione sono
+   * schermate a se': non hanno ne' l'uno ne' l'altro, e i due collegamenti di
+   * salto vanno nascosti li' insieme a quello che dovrebbero scavalcare.
+   */
+  guscioMontato(): boolean {
+    if (!this.currentUser) return false;
+    if (this.view === "soglia") return false;
+    if (this.view === "accedi") return false;
+    if (this.view === "registrati") return false;
+    return true;
+  }
+
   roleHome(): View {
     if (this.currentUserRole === "curatore") return "gestione";
     if (this.currentUserRole === "autore") return "lavori";
@@ -1468,6 +1481,38 @@ export class AppState {
     return riga ? riga.adozioni : null;
   }
 
+  /**
+   * L'opera che si sta descrivendo, per tenerla sotto gli occhi mentre si
+   * scrive: il testo parla di un quadro, e sceglierlo da un menu a tendina lo
+   * riduceva a un titolo. `null` finche' non se n'e' scelta una.
+   */
+  draftArtwork(): any {
+    if (!this.draft.selectedArtworkUri) return null;
+    const trovata = this.availableArtworks.find(
+      (a: any) => a["@id"] === this.draft.selectedArtworkUri,
+    );
+    if (!trovata) return null;
+    return trovata;
+  }
+
+  /**
+   * Autore e stile dell'opera che si sta descrivendo, saltando quel che il
+   * catalogo non sa: Wikidata lascia scritto "Unknown", e stamparlo fa sembrare
+   * rotta una scheda che invece e' solo incompleta.
+   */
+  draftArtworkFacts(): string[] {
+    const opera = this.draftArtwork();
+    if (!opera) return [];
+    const fatti: string[] = [];
+    if (opera.author && opera.author.name && opera.author.name !== "Unknown") {
+      fatti.push(opera.author.name);
+    }
+    if (opera.style && opera.style.name && opera.style.name !== "Unknown") {
+      fatti.push(opera.style.name);
+    }
+    return fatti;
+  }
+
   artworkImage(about: any): string {
     if (!about || typeof about !== "object") return "";
     return about.imagePath || about.imageUri || "";
@@ -1944,6 +1989,29 @@ export class AppState {
     const issues = this.visitIssues();
     if (issues.length > 0) return `Manca ancora: ${issues.join(", ")}.`;
     return `Pronta · ${this.stopCount()} tappe · ${formatDuration(this.estimatedDuration())}`;
+  }
+
+  /**
+   * Il passo dopo quello aperto, "" se non ce n'e' un altro. E' quel che rende
+   * il compositore una strada invece di tre schede: si pubblica solo dall'ultimo
+   * passo, quindi dalle impostazioni si passa comunque — prima si poteva
+   * pubblicare dal percorso senza averle mai viste. Il quiz e' un passo solo per
+   * le visite guidate, percio' l'ultimo passo non e' sempre lo stesso.
+   */
+  nextVisitStep(): string {
+    if (this.visitStep === "percorso") return "impostazioni";
+    if (this.visitStep === "impostazioni") {
+      if (this.currentUserRole === "autore" && this.draft.guidata) return "quiz";
+      return "";
+    }
+    return "";
+  }
+
+  nextVisitStepLabel(): string {
+    const dopo = this.nextVisitStep();
+    if (dopo === "impostazioni") return "Continua · Impostazioni";
+    if (dopo === "quiz") return "Continua · Quiz";
+    return "";
   }
 
   publishLabel(): string {

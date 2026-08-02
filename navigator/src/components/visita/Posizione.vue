@@ -20,6 +20,12 @@
  * esiste. Le immagini sono le stesse del catalogo mostrate in piccolo — a chi
  * deve riconoscere un quadro che ha davanti basta la sagoma.
  *
+ * L'INTERRUTTORE in cima decide se l'applicazione tiene conto di dove si e'.
+ * Parte spento, e finche' lo e' non si legge nessun sensore, non si chiede
+ * nessun permesso e le indicazioni partono dall'opera aperta. Il QR e il codice
+ * digitato restano accesi comunque: NOMINANO un oggetto, non misurano una
+ * posizione, ed e' il modo in cui una persona cieca dice dov'e'.
+ *
  * LA QUARTA E' IL TELETRASPORTO (slide 34): sposta il visitatore in un punto
  * della pianta e nient'altro. E' l'unico comando che muove la posizione senza un
  * sensore, ed e' il motivo per cui esiste — da li' "Trovami" ragiona sui numeri
@@ -33,11 +39,12 @@ import { artworkByQid } from "@/state";
 import { mediaOrigin } from "@/config";
 import { bussola, localizzabile, rank, stima, type Candidato } from "@/localization";
 
-const props = defineProps<{ sensorError: string }>();
+const props = defineProps<{ sensorError: string; posizioneAttiva: boolean }>();
 const emit = defineEmits<{
   found: [qid: string];
   arm: [];
   close: [];
+  cambiaPosizione: [attiva: boolean];
 }>();
 
 const scanner = useQRScanner();
@@ -158,6 +165,21 @@ onUnmounted(() => scanner.stop());
           </svg>
         </button>
       </div>
+
+      <label class="mt-4 flex cursor-pointer items-center gap-3 rounded-card border border-line bg-surface-2 px-4 py-3">
+        <input
+          type="checkbox"
+          class="h-5 w-5 shrink-0 accent-[var(--accent)]"
+          :checked="props.posizioneAttiva"
+          @change="emit('cambiaPosizione', ($event.target as HTMLInputElement).checked)"
+        />
+        <span class="text-small">
+          <span class="font-medium">Tieni conto di dove sono</span>
+          <span class="block text-caption text-muted">
+            Le indicazioni partono da dove ti trovi, invece che dall'opera aperta.
+          </span>
+        </span>
+      </label>
 
       <div class="segmenti mt-4" role="tablist" aria-label="Come indicare l'opera">
         <button

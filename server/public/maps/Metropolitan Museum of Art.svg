@@ -1,4 +1,4 @@
-<svg viewBox="0 0 800 660" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="95">
+<svg viewBox="0 -690 800 1350" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="95">
   <!--
     PIANTA DI METROPOLITAN MUSEUM OF ART.
 
@@ -13,6 +13,22 @@
     localizzazione: la nota estesa sta in "British Museum.svg". Le tre piante
     sono schematiche e larghe uguali in unita' di disegno, quindi e' proprio
     questo numero — diverso per ogni museo — a dire quanto e' grande davvero.
+
+    QUESTO MUSEO HA DUE PIANI, ed e' la sola pianta che li abbia: sono due
+    <g data-floor>, disegnati uno sopra l'altro nello stesso disegno, e ciascuno
+    porta il nome con cui va chiamato (data-floor-label) perche' "primo piano"
+    non e' una parola che il codice debba sapere. Il navigator ne inquadra uno
+    per volta; i piani si aggiungono in su o in giu' senza toccare niente.
+
+    I due piani sono LARGHI UGUALI e impilati, quindi data-width-m resta la
+    larghezza di un piano: e' la larghezza del viewBox, che non e' cambiata.
+    Affiancarli invece la raddoppierebbe, e con essa il numero da scrivere qui.
+
+    IL VANO SCALE E' UNA SALA SU CIASCUN PIANO ("Scalone" e "Scalone Superiore"),
+    e i due sono collegati da un data-edge come due sale confinanti: e' cosi' che
+    un percorso sale e scende senza che il calcolo del cammino sappia dei piani.
+    Due sale non possono chiamarsi uguale nemmeno su piani diversi — le adiacenze
+    si tengono per nome, e due omonime diventerebbero un passaggio inesistente.
 
     Tre regole da rispettare se si sposta qualcosa:
       1. L'ORDINE delle aree conta: vince la PRIMA che contiene il punto, quindi
@@ -176,157 +192,270 @@
     </filter>
   </defs>
 
-  <!-- Cornice / muro perimetrale dell'edificio -->
-  <rect class="foglio" x="10" y="10" width="780" height="580" filter="url(#mt-ombra)" />
+  <!-- ===================== PRIMO PIANO ===================== -->
+  <g data-floor="1" data-floor-label="Primo piano">
 
-  <!-- Sale (AREE data-room): griglia 3x2. La Great Hall e' lo snodo centrale in
-       basso; ogni altra sala e' una collezione. -->
-  <g pointer-events="none">
-    <rect class="sala t-ottone"    data-room="Arte Egizia"         x="10"  y="10"  width="260" height="290" />
-    <rect class="sala t-notte"     data-room="Dipinti Europei"     x="270" y="10"  width="260" height="290" />
-    <rect class="sala t-verderame" data-room="Arte Greca e Romana" x="530" y="10"  width="260" height="290" />
-    <rect class="sala t-ardesia"   data-room="American Wing"       x="10"  y="300" width="260" height="290" />
-    <rect class="sala sala-atrio"  data-room="Great Hall"          x="270" y="300" width="260" height="290" />
-    <rect class="sala t-salvia"    data-room="Arte Asiatica"       x="530" y="300" width="260" height="290" />
-  </g>
+    <rect class="foglio" x="10" y="-650" width="780" height="580" filter="url(#mt-ombra)" />
 
-  <!-- Griglia leggera sopra le sale -->
-  <rect x="10" y="10" width="780" height="580" fill="url(#mt-griglia)" pointer-events="none" />
+    <!-- Sale: la galleria sopra, la loggia sotto, e dentro la loggia il vano
+         scale — che sta PRIMA perche' e' contenuto in essa. -->
+    <g pointer-events="none">
+      <rect class="sala sala-atrio"  data-room="Scalone Superiore"  x="280" y="-340" width="110" height="80" />
+      <rect class="sala t-ardesia"   data-room="Galleria Superiore" x="10"  y="-650" width="780" height="290" />
+      <rect class="sala t-salvia"    data-room="Loggia"             x="10"  y="-360" width="780" height="290" />
+    </g>
 
-  <!-- Etichette delle sale -->
-  <g class="nome-sala" pointer-events="none">
-    <text x="140" y="34">Arte Egizia</text>
-    <text x="400" y="34">Dipinti Europei</text>
-    <text x="660" y="34">Arte Greca e Romana</text>
-    <text x="140" y="324">American Wing</text>
-    <text x="350" y="412">Great Hall</text>
-    <text x="660" y="324">Arte Asiatica</text>
-  </g>
+    <rect x="10" y="-650" width="780" height="580" fill="url(#mt-griglia)" pointer-events="none" />
 
-  <!-- Muri interni: linee con un VARCO = porta fra due sale. -->
-  <g class="muro">
-    <!-- divisorio verticale x=270 (varchi a y=155 e y=445) -->
-    <line x1="270" y1="10"  x2="270" y2="135" />
-    <line x1="270" y1="175" x2="270" y2="425" />
-    <line x1="270" y1="465" x2="270" y2="590" />
-    <!-- divisorio verticale x=530 (varchi a y=155 e y=445) -->
-    <line x1="530" y1="10"  x2="530" y2="135" />
-    <line x1="530" y1="175" x2="530" y2="425" />
-    <line x1="530" y1="465" x2="530" y2="590" />
-    <!-- divisorio orizzontale y=300 (varchi a x=140, x=400, x=660) -->
-    <line x1="10"  y1="300" x2="120" y2="300" />
-    <line x1="160" y1="300" x2="380" y2="300" />
-    <line x1="420" y1="300" x2="640" y2="300" />
-    <line x1="680" y1="300" x2="790" y2="300" />
-  </g>
+    <g class="nome-sala" pointer-events="none">
+      <text x="400" y="-626">Galleria Superiore</text>
+      <text x="140" y="-336">Loggia</text>
+      <text x="335" y="-326">Scalone</text>
+      <text x="335" y="-312">Superiore</text>
+    </g>
 
-  <!-- Battenti delle porte -->
-  <g class="porta">
-    <path d="M270 135 L310 135 A40 40 0 0 1 270 175" />
-    <path d="M270 425 L310 425 A40 40 0 0 1 270 465" />
-    <path d="M530 135 L490 135 A40 40 0 0 0 530 175" />
-    <path d="M530 425 L490 425 A40 40 0 0 0 530 465" />
-    <path d="M120 300 L120 260 A40 40 0 0 1 160 300" />
-    <path d="M380 300 L380 260 A40 40 0 0 1 420 300" />
-    <path d="M640 300 L640 260 A40 40 0 0 1 680 300" />
-  </g>
+    <!-- Muri: il divisorio fra galleria e loggia (varco a x=400) e il vano scale -->
+    <g class="muro">
+      <line x1="10"  y1="-360" x2="380" y2="-360" />
+      <line x1="420" y1="-360" x2="790" y2="-360" />
+      <line x1="280" y1="-340" x2="280" y2="-280" />
+      <line x1="390" y1="-340" x2="390" y2="-280" />
+      <line x1="280" y1="-340" x2="390" y2="-340" />
+    </g>
 
-  <!-- Grafo di navigazione: ogni arco collega due sale passando per un varco. -->
-  <g class="arco" id="nav-edges">
-    <line data-edge="" x1="240" y1="155" x2="300" y2="155" /> <!-- Egizia <-> Dipinti -->
-    <line data-edge="" x1="500" y1="155" x2="560" y2="155" /> <!-- Dipinti <-> Greca/Romana -->
-    <line data-edge="" x1="240" y1="445" x2="300" y2="445" /> <!-- American Wing <-> Great Hall -->
-    <line data-edge="" x1="500" y1="445" x2="560" y2="445" /> <!-- Great Hall <-> Asiatica -->
-    <line data-edge="" x1="140" y1="270" x2="140" y2="330" /> <!-- Egizia <-> American Wing -->
-    <line data-edge="" x1="400" y1="270" x2="400" y2="330" /> <!-- Dipinti <-> Great Hall -->
-    <line data-edge="" x1="660" y1="270" x2="660" y2="330" /> <!-- Greca/Romana <-> Asiatica -->
-  </g>
+    <g class="porta">
+      <path d="M380 -360 L380 -320 A40 40 0 0 0 420 -360" />
+    </g>
 
-  <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks e
-       data-qid col relativo qid. -->
-  <g class="nodo-arte">
-    <!-- Arte Egizia -->
-    <circle id="art-1"  class="interactive-node" data-qid="Q19925045" cx="80"  cy="95"  r="11" />
-    <rect   id="art-2"  class="interactive-node" data-qid="Q606662"   x="179" y="81"  width="22" height="22" rx="3" />
-    <circle id="art-3"  class="interactive-node" data-qid="Q1603141"  cx="120" cy="225" r="11" />
-    <!-- Dipinti Europei -->
-    <circle id="art-4"  class="interactive-node" data-qid="Q251147"   cx="340" cy="95"  r="11" />
-    <circle id="art-5"  class="interactive-node" data-qid="Q19912235" cx="460" cy="95"  r="11" />
-    <circle id="art-6"  class="interactive-node" data-qid="Q609292"   cx="400" cy="225" r="11" />
-    <!-- Arte Greca e Romana -->
-    <rect   id="art-7"  class="interactive-node" data-qid="Q582103"   x="599" y="89"  width="22" height="22" rx="3" />
-    <circle id="art-8"  class="interactive-node" data-qid="Q248101"   cx="710" cy="215" r="11" />
-    <!-- American Wing -->
-    <circle id="art-9"  class="interactive-node" data-qid="Q217796"   cx="90"  cy="410" r="11" />
-    <circle id="art-10" class="interactive-node" data-qid="Q2324840"  cx="190" cy="515" r="11" />
-    <!-- Great Hall -->
-    <circle id="art-11" class="interactive-node" data-qid="Q152509"   cx="350" cy="470" r="13" />
-    <!-- Arte Asiatica -->
-    <circle id="art-12" class="interactive-node" data-qid="Q2351239"  cx="610" cy="410" r="11" />
-    <circle id="art-13" class="interactive-node" data-qid="Q1246609"  cx="710" cy="515" r="11" />
-  </g>
+    <!-- Grafo del piano. Il collegamento FRA i piani non sta qui dentro: vedi
+         sotto, fuori da tutti e due i gruppi. -->
+    <g class="arco" id="nav-edges-p1">
+      <line data-edge="" x1="400" y1="-380" x2="400" y2="-320" /> <!-- Galleria Superiore <-> Loggia -->
+      <line data-edge="" x1="320" y1="-300" x2="320" y2="-230" /> <!-- Scalone Superiore <-> Loggia -->
+    </g>
 
-  <!-- Servizi (POI): data-poi = tipo, data-label = nome mostrato e letto. -->
-  <g id="pois">
-    <rect class="poi-node nodo-servizio" data-poi="entrance" data-label="Ingresso" x="451" y="556" width="18" height="18" rx="5">
-      <title>Ingresso</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="exit" data-label="Uscita" x="391" y="556" width="18" height="18" rx="5">
-      <title>Uscita</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette" x="231" y="551" width="18" height="18" rx="5">
-      <title>Toilette</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="bar" data-label="Caffetteria" x="731" y="126" width="18" height="18" rx="5">
-      <title>Caffetteria</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="shop" data-label="Bookshop" x="471" y="336" width="18" height="18" rx="5">
-      <title>Bookshop</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore" x="321" y="551" width="18" height="18" rx="5">
-      <title>Ascensore</title>
-    </rect>
-    <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza" x="731" y="336" width="18" height="18" rx="5">
-      <title>Uscita di emergenza</title>
-    </rect>
-    <g class="nome-servizio" pointer-events="none">
-      <text x="400" y="548">Uscita</text>
-      <text x="460" y="596">Ingresso</text>
-      <text x="240" y="543">Toilette</text>
-      <text x="740" y="115">Caffetteria</text>
-      <text x="480" y="367">Bookshop</text>
-      <text x="330" y="586">Ascensore</text>
-      <text x="740" y="367">Emergenza</text>
+    <!-- Nodi-opera: id e data-qid restano quelli di sempre, e' solo il posto a
+         cambiare — locationId nel database e' l'id, quindi non si muove. -->
+    <g class="nodo-arte">
+      <circle id="art-8"  class="interactive-node" data-qid="Q248101"  cx="300" cy="-500" r="11" />
+      <circle id="art-13" class="interactive-node" data-qid="Q1246609" cx="520" cy="-500" r="11" />
+    </g>
+
+    <g id="pois-p1">
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scale" x="306" y="-307" width="18" height="18" rx="5">
+        <title>Scale</title>
+      </rect>
+      <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore" x="346" y="-307" width="18" height="18" rx="5">
+        <title>Ascensore</title>
+      </rect>
+      <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette" x="731" y="-149" width="18" height="18" rx="5">
+        <title>Toilette</title>
+      </rect>
+      <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza" x="41" y="-149" width="18" height="18" rx="5">
+        <title>Uscita di emergenza</title>
+      </rect>
+      <g class="nome-servizio" pointer-events="none">
+        <text x="335" y="-272">Scale · Ascensore</text>
+        <text x="740" y="-118">Toilette</text>
+        <text x="50"  y="-118">Emergenza</text>
+      </g>
+    </g>
+
+    <g id="obstacles-p1">
+      <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="un gradino all'uscita dello scalone, verso la loggia" x="394" y="-266" width="12" height="12" rx="2">
+        <title>Un gradino all'uscita dello scalone, verso la loggia</title>
+      </rect>
+    </g>
+
+    <!-- Titolo e legenda del piano: inquadrando un piano si vede la sua didascalia -->
+    <g pointer-events="none">
+      <text class="titolo-mappa" x="10" y="-32">Metropolitan Museum of Art · Primo piano</text>
+      <g class="voce-legenda">
+        <circle class="nodo-arte" cx="336" cy="-36" r="7" />
+        <text x="349" y="-32">Opera</text>
+        <rect class="nodo-servizio" x="406" y="-43" width="14" height="14" rx="4" />
+        <text x="427" y="-32">Servizio</text>
+        <rect class="nodo-servizio nodo-emergenza" x="498" y="-43" width="14" height="14" rx="4" />
+        <text x="519" y="-32">Emergenza</text>
+        <rect class="ostacolo" x="608" y="-42" width="12" height="12" rx="2" />
+        <text x="627" y="-32">Ostacolo</text>
+      </g>
     </g>
   </g>
 
-  <!-- Ostacoli: data-obstacle = tipo, data-desc = descrizione letta all'utente. -->
-  <g id="obstacles">
-    <rect class="obstacle-marker ostacolo" data-obstacle="object" data-desc="un grande sarcofago al centro della sala egizia che restringe il passaggio" x="195" y="155" width="12" height="12" rx="2">
-      <title>Un grande sarcofago al centro della sala egizia che restringe il passaggio</title>
-    </rect>
-    <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="tre gradini tra i Dipinti Europei e la Great Hall" x="394" y="330" width="12" height="12" rx="2">
-      <title>Tre gradini tra i Dipinti Europei e la Great Hall</title>
-    </rect>
-    <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="alcune panche disposte al centro della Great Hall" x="440" y="464" width="12" height="12" rx="2">
-      <title>Alcune panche disposte al centro della Great Hall</title>
-    </rect>
+  <!-- Il collegamento FRA i piani: sta fuori da tutti e due i gruppi apposta.
+       Il navigator inquadra un piano dall'estensione del suo gruppo, e una linea
+       che parte di sopra e arriva di sotto porterebbe quell'estensione sull'altro
+       piano — inquadrando il primo piano si vedrebbe mezzo piano terra. Il parser
+       non se ne accorge: risolve i due estremi alla sala che li contiene, e i due
+       vani scale restano collegati esattamente come prima. -->
+  <g class="arco" id="nav-edges-piani">
+    <line data-edge="" x1="320" y1="-300" x2="320" y2="350" /> <!-- Scalone Superiore <-> Scalone -->
   </g>
 
-  <!-- Titolo e legenda, fuori dall'edificio. Nessun data-*: il parser non li vede. -->
-  <g pointer-events="none">
-    <text class="titolo-mappa" x="10" y="628">Metropolitan Museum of Art</text>
-    <g class="voce-legenda">
-      <circle class="nodo-arte" cx="266" cy="624" r="7" />
-      <text x="279" y="628">Opera</text>
-      <rect class="nodo-servizio" x="336" y="617" width="14" height="14" rx="4" />
-      <text x="357" y="628">Servizio</text>
-      <rect class="nodo-servizio nodo-emergenza" x="428" y="617" width="14" height="14" rx="4" />
-      <text x="449" y="628">Emergenza</text>
-      <rect class="ostacolo" x="538" y="618" width="12" height="12" rx="2" />
-      <text x="557" y="628">Ostacolo</text>
-      <path class="porta" d="M638 632 L638 618 A14 14 0 0 1 652 632" />
-      <text x="659" y="628">Porta</text>
+  <!-- ===================== PIANO TERRA ===================== -->
+  <g data-floor="0" data-floor-label="Piano terra">
+
+    <!-- Cornice / muro perimetrale dell'edificio -->
+    <rect class="foglio" x="10" y="10" width="780" height="580" filter="url(#mt-ombra)" />
+
+    <!-- Sale (AREE data-room): griglia 3x2. La Great Hall e' lo snodo centrale in
+         basso; ogni altra sala e' una collezione. -->
+    <g pointer-events="none">
+      <rect class="sala t-ottone"    data-room="Arte Egizia"         x="10"  y="10"  width="260" height="290" />
+      <rect class="sala t-notte"     data-room="Dipinti Europei"     x="270" y="10"  width="260" height="290" />
+      <rect class="sala t-verderame" data-room="Arte Greca e Romana" x="530" y="10"  width="260" height="290" />
+      <rect class="sala t-ardesia"   data-room="American Wing"       x="10"  y="300" width="260" height="290" />
+      <rect class="sala sala-atrio"  data-room="Scalone"             x="280" y="310" width="110" height="80" />
+      <rect class="sala sala-atrio"  data-room="Great Hall"          x="270" y="300" width="260" height="290" />
+      <rect class="sala t-salvia"    data-room="Arte Asiatica"       x="530" y="300" width="260" height="290" />
+    </g>
+
+    <!-- Griglia leggera sopra le sale -->
+    <rect x="10" y="10" width="780" height="580" fill="url(#mt-griglia)" pointer-events="none" />
+
+    <!-- Etichette delle sale -->
+    <g class="nome-sala" pointer-events="none">
+      <text x="140" y="34">Arte Egizia</text>
+      <text x="400" y="34">Dipinti Europei</text>
+      <text x="660" y="34">Arte Greca e Romana</text>
+      <text x="140" y="324">American Wing</text>
+      <text x="335" y="326">Scalone</text>
+      <text x="440" y="412">Great Hall</text>
+      <text x="660" y="324">Arte Asiatica</text>
+    </g>
+
+    <!-- Muri interni: linee con un VARCO = porta fra due sale. -->
+    <g class="muro">
+      <!-- divisorio verticale x=270 (varchi a y=155 e y=445) -->
+      <line x1="270" y1="10"  x2="270" y2="135" />
+      <line x1="270" y1="175" x2="270" y2="425" />
+      <line x1="270" y1="465" x2="270" y2="590" />
+      <!-- divisorio verticale x=530 (varchi a y=155 e y=445) -->
+      <line x1="530" y1="10"  x2="530" y2="135" />
+      <line x1="530" y1="175" x2="530" y2="425" />
+      <line x1="530" y1="465" x2="530" y2="590" />
+      <!-- divisorio orizzontale y=300 (varchi a x=140, x=400, x=660) -->
+      <line x1="10"  y1="300" x2="120" y2="300" />
+      <line x1="160" y1="300" x2="380" y2="300" />
+      <line x1="420" y1="300" x2="640" y2="300" />
+      <line x1="680" y1="300" x2="790" y2="300" />
+      <!-- vano scale dentro la Great Hall: aperto sul lato basso, verso l'atrio -->
+      <line x1="280" y1="310" x2="280" y2="370" />
+      <line x1="390" y1="310" x2="390" y2="370" />
+      <line x1="280" y1="310" x2="390" y2="310" />
+    </g>
+
+    <!-- Battenti delle porte -->
+    <g class="porta">
+      <path d="M270 135 L310 135 A40 40 0 0 1 270 175" />
+      <path d="M270 425 L310 425 A40 40 0 0 1 270 465" />
+      <path d="M530 135 L490 135 A40 40 0 0 0 530 175" />
+      <path d="M530 425 L490 425 A40 40 0 0 0 530 465" />
+      <path d="M120 300 L120 260 A40 40 0 0 1 160 300" />
+      <path d="M380 300 L380 260 A40 40 0 0 1 420 300" />
+      <path d="M640 300 L640 260 A40 40 0 0 1 680 300" />
+    </g>
+
+    <!-- Grafo di navigazione: ogni arco collega due sale passando per un varco. -->
+    <g class="arco" id="nav-edges">
+      <line data-edge="" x1="240" y1="155" x2="300" y2="155" /> <!-- Egizia <-> Dipinti -->
+      <line data-edge="" x1="500" y1="155" x2="560" y2="155" /> <!-- Dipinti <-> Greca/Romana -->
+      <line data-edge="" x1="240" y1="445" x2="300" y2="445" /> <!-- American Wing <-> Great Hall -->
+      <line data-edge="" x1="500" y1="445" x2="560" y2="445" /> <!-- Great Hall <-> Asiatica -->
+      <line data-edge="" x1="140" y1="270" x2="140" y2="330" /> <!-- Egizia <-> American Wing -->
+      <line data-edge="" x1="400" y1="270" x2="400" y2="330" /> <!-- Dipinti <-> Great Hall -->
+      <line data-edge="" x1="660" y1="270" x2="660" y2="330" /> <!-- Greca/Romana <-> Asiatica -->
+      <line data-edge="" x1="320" y1="350" x2="320" y2="420" /> <!-- Scalone <-> Great Hall -->
+    </g>
+
+    <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks e
+         data-qid col relativo qid. -->
+    <g class="nodo-arte">
+      <!-- Arte Egizia -->
+      <circle id="art-1"  class="interactive-node" data-qid="Q19925045" cx="80"  cy="95"  r="11" />
+      <rect   id="art-2"  class="interactive-node" data-qid="Q606662"   x="179" y="81"  width="22" height="22" rx="3" />
+      <circle id="art-3"  class="interactive-node" data-qid="Q1603141"  cx="120" cy="225" r="11" />
+      <!-- Dipinti Europei -->
+      <circle id="art-4"  class="interactive-node" data-qid="Q251147"   cx="340" cy="95"  r="11" />
+      <circle id="art-5"  class="interactive-node" data-qid="Q19912235" cx="460" cy="95"  r="11" />
+      <circle id="art-6"  class="interactive-node" data-qid="Q609292"   cx="400" cy="225" r="11" />
+      <!-- Arte Greca e Romana (art-8 sta al primo piano) -->
+      <rect   id="art-7"  class="interactive-node" data-qid="Q582103"   x="599" y="89"  width="22" height="22" rx="3" />
+      <!-- American Wing -->
+      <circle id="art-9"  class="interactive-node" data-qid="Q217796"   cx="90"  cy="410" r="11" />
+      <circle id="art-10" class="interactive-node" data-qid="Q2324840"  cx="190" cy="515" r="11" />
+      <!-- Great Hall -->
+      <circle id="art-11" class="interactive-node" data-qid="Q152509"   cx="350" cy="470" r="13" />
+      <!-- Arte Asiatica (art-13 sta al primo piano) -->
+      <circle id="art-12" class="interactive-node" data-qid="Q2351239"  cx="610" cy="410" r="11" />
+    </g>
+
+    <!-- Servizi (POI): data-poi = tipo, data-label = nome mostrato e letto. -->
+    <g id="pois">
+      <rect class="poi-node nodo-servizio" data-poi="entrance" data-label="Ingresso" x="451" y="556" width="18" height="18" rx="5">
+        <title>Ingresso</title>
+      </rect>
+      <rect class="poi-node nodo-servizio" data-poi="exit" data-label="Uscita" x="391" y="556" width="18" height="18" rx="5">
+        <title>Uscita</title>
+      </rect>
+      <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette" x="231" y="551" width="18" height="18" rx="5">
+        <title>Toilette</title>
+      </rect>
+      <rect class="poi-node nodo-servizio" data-poi="bar" data-label="Caffetteria" x="731" y="126" width="18" height="18" rx="5">
+        <title>Caffetteria</title>
+      </rect>
+      <rect class="poi-node nodo-servizio" data-poi="shop" data-label="Bookshop" x="471" y="336" width="18" height="18" rx="5">
+        <title>Bookshop</title>
+      </rect>
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scale" x="306" y="343" width="18" height="18" rx="5">
+        <title>Scale</title>
+      </rect>
+      <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore" x="346" y="343" width="18" height="18" rx="5">
+        <title>Ascensore</title>
+      </rect>
+      <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza" x="731" y="336" width="18" height="18" rx="5">
+        <title>Uscita di emergenza</title>
+      </rect>
+      <g class="nome-servizio" pointer-events="none">
+        <text x="400" y="548">Uscita</text>
+        <text x="460" y="596">Ingresso</text>
+        <text x="240" y="543">Toilette</text>
+        <text x="740" y="115">Caffetteria</text>
+        <text x="480" y="367">Bookshop</text>
+        <text x="335" y="378">Scale · Ascensore</text>
+        <text x="740" y="367">Emergenza</text>
+      </g>
+    </g>
+
+    <!-- Ostacoli: data-obstacle = tipo, data-desc = descrizione letta all'utente. -->
+    <g id="obstacles">
+      <rect class="obstacle-marker ostacolo" data-obstacle="object" data-desc="un grande sarcofago al centro della sala egizia che restringe il passaggio" x="195" y="155" width="12" height="12" rx="2">
+        <title>Un grande sarcofago al centro della sala egizia che restringe il passaggio</title>
+      </rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="tre gradini tra i Dipinti Europei e la Great Hall" x="394" y="330" width="12" height="12" rx="2">
+        <title>Tre gradini tra i Dipinti Europei e la Great Hall</title>
+      </rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="alcune panche disposte al centro della Great Hall" x="440" y="464" width="12" height="12" rx="2">
+        <title>Alcune panche disposte al centro della Great Hall</title>
+      </rect>
+    </g>
+
+    <!-- Titolo e legenda, fuori dall'edificio. Nessun data-*: il parser non li vede. -->
+    <g pointer-events="none">
+      <text class="titolo-mappa" x="10" y="628">Metropolitan Museum of Art · Piano terra</text>
+      <g class="voce-legenda">
+        <circle class="nodo-arte" cx="336" cy="624" r="7" />
+        <text x="349" y="628">Opera</text>
+        <rect class="nodo-servizio" x="406" y="617" width="14" height="14" rx="4" />
+        <text x="427" y="628">Servizio</text>
+        <rect class="nodo-servizio nodo-emergenza" x="498" y="617" width="14" height="14" rx="4" />
+        <text x="519" y="628">Emergenza</text>
+        <rect class="ostacolo" x="608" y="618" width="12" height="12" rx="2" />
+        <text x="627" y="628">Ostacolo</text>
+        <path class="porta" d="M708 632 L708 618 A14 14 0 0 1 722 632" />
+        <text x="729" y="628">Porta</text>
+      </g>
     </g>
   </g>
 </svg>

@@ -59,6 +59,8 @@ import {
   setStageView,
   visit,
   handoff,
+  posizioneAttiva,
+  setPosizioneAttiva,
 } from "@/state";
 import {
   guidedActive,
@@ -104,7 +106,9 @@ const lastVisitIndex = ref(-1);
 const showLocator = ref(false);
 
 /**
- * I sensori partono col tocco che apre "Dove sono?" — iOS concede il permesso
+ * I sensori partono solo se il visitatore ha ACCESO la posizione (`posizioneAttiva`,
+ * spenta di suo): finche' e' spenta non si chiede nessun permesso e non si legge
+ * nessun sensore. Da accesa partono col tocco che apre "Dove sono?" — iOS concede il permesso
  * per l'orientamento solo dentro un gesto dell'utente, e quello e' il gesto — e
  * NON si spengono richiudendo il pannello: il segnalino sulla pianta deve
  * continuare a seguire chi cammina. Muoversi pero' non apre mai una scheda: a
@@ -115,7 +119,15 @@ watch(map, () => startAtEntrance(), { immediate: true });
 
 function apriPosizione() {
   showLocator.value = true;
-  sensori.start();
+  if (posizioneAttiva.value) sensori.start();
+}
+
+/** L'interruttore della posizione: accendendola i sensori partono subito, e il
+ *  tocco che l'ha accesa e' il gesto dentro cui iOS concede il permesso. */
+function cambiaPosizione(attiva: boolean) {
+  setPosizioneAttiva(attiva);
+  if (attiva) sensori.start();
+  else sensori.stop();
 }
 const transition = ref<{ notes: string[]; target: number } | null>(null);
 
@@ -693,6 +705,8 @@ onUnmounted(() => {
     <Posizione
       v-if="showLocator"
       :sensor-error="sensori.error.value"
+      :posizione-attiva="posizioneAttiva"
+      @cambia-posizione="cambiaPosizione"
       @found="goToArtwork"
       @arm="armaTeletrasporto"
       @close="showLocator = false"

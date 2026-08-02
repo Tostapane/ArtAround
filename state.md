@@ -164,7 +164,7 @@ hand-annotated SVG floor map:
 | Config file | qid | rooms / artwork nodes / POIs / edges / obstacles in the SVG |
 | --- | --- | --- |
 | `British Museum.json` | `Q6373` | 5 / 13 / 5 / 4 / 2 |
-| `Metropolitan Museum of Art.json` | `Q160236` | 6 / 13 / 6 / 7 / 3 |
+| `Metropolitan Museum of Art.json` | `Q160236` | 10 / 13 / 12 / 11 / 4 — **su due piani** (§1.1-ter) |
 | `Museo del Louvre.json` | `Q19675` | 6 / 13 / 6 / 5 / 3 |
 | `Galleria degli Uffizi.json` | `Q51252` | 21 / **104** / 10 / 20 / 4 |
 
@@ -201,9 +201,10 @@ already draw; `services/svgGraph.ts` parses it into a room graph. The contract:
   toilet|bar|shop|elevator|stairs"` `[+ data-label]` → POI node.
 - `data-obstacle="steps|door|chairs|object"` + `data-desc` → obstacle.
 - `<line data-edge …>` → link between the two rooms containing its endpoints.
+- `<g data-floor="1" data-floor-label="Primo piano">…</g>` → everything on that floor (§1.1-ter).
 
 Connectivity is **authored only** — no geometric adjacency is inferred — so every walkable
-space (corridors included) must be a `data-room`. Single floor per map.
+space (corridors included) must be a `data-room`.
 
 Two further annotations belong to the **localization module** and are read by the *navigator*,
 not by `svgGraph.ts`:
@@ -229,6 +230,59 @@ map follows the app's light/dark theme, and the classes `Stage.vue` adds at runt
 editing: the parser reads `cx/cy` or `x/y/width/height` **verbatim** (a `transform` on a
 `data-*` element is not applied), and resizing a POI/obstacle square means recomputing `x`
 and `y` to keep its centre — the centre is what decides its room.
+
+### 1.1-ter I piani: una sala in piu', non un caso in piu' *(2026-08-02)*
+
+`missing.txt` chiedeva «e se avesse piu' piani?». La risposta che il sistema da' ora e' che un
+piano **non e' una dimensione nuova**: il vano scale e' una sala su ciascun piano, le due sono
+collegate da un `data-edge` come due sale confinanti, e la ricerca del cammino sale e scende
+senza sapere che esistono i piani. Non c'e' un ramo "cambio piano" da nessuna parte — c'e' una
+sala in piu'. La Galleria degli Uffizi, il Louvre e il British Museum non dichiarano nessun
+piano e si comportano **esattamente** come prima: `MuseumGraph.floors` resta vuoto e la parola
+"piano" non compare mai.
+
+**Dove sta il numero e dove sta la parola.** `data-floor` e' il numero, e serve a una cosa
+sola: sapere se si **sale** o si **scende**. Il nome lo scrive il curatore in
+`data-floor-label`, perche' un museo ha il Mezzanino e il Piano Nobile e un altro ha cinque
+piani numerati: un elenco di ordinali italiani scritto nel codice sarebbe la lingua di un museo
+solo imposta a tutti. Un piano numerato e non nominato ripiega su `piano N`, che e' un ripiego
+dichiarato e non una traduzione inventata. Le stesse etichette le usano il selettore del
+navigator e le indicazioni parlate.
+
+**Il piano si nomina solo quando cambia.** `RouteStep` porta `floor` e `floorLabel`; la
+risposta semplice aggiunge `(Primo piano)` **solo** se la destinazione e' su un altro piano, e
+il prompt inserisce `SALI al …` / `SCENDI al …` dove il piano cambia lungo il percorso. Non
+c'e' nessuna soglia da attivare e nessun museo da distinguere: in un edificio a un piano solo
+la condizione non e' mai vera.
+
+**I piani stanno nello stesso disegno**, impilati come su una pianta stampata, e il navigator
+ne **inquadra** uno per volta spostando il `viewBox` sull'estensione del gruppo — non
+nascondendo gli altri, perche' un sottoalbero nascosto non ha piu' un `getBBox()` e i numeri
+delle tappe si disegnano proprio con quello. Inquadrando, i numeri e il segnalino di posizione
+degli altri piani cadono fuori dal riquadro da soli. Il selettore compare solo con piu' di un
+piano, e la tappa aperta porta con se' la pianta: aprirne una di sopra fa salire il disegno.
+Impilando invece di affiancare, `data-width-m` resta la larghezza di **un** piano, quindi la
+scala della localizzazione non cambia.
+
+**A che piano si e' lo dice il selettore, non un sensore**, ed e' una risposta e non una
+rinuncia: il GPS da' due coordinate, non tre, e nessuna delle misure che l'app fa distingue un
+pavimento dall'altro. Il piano e' quindi **dichiarato**, come lo e' la posizione col QR, col
+codice digitato e col teletrasporto — la stessa forma che il progetto usa ovunque. Il selettore
+e' un gruppo di radio etichettato e **ogni cambio si annuncia** (`Pianta: Primo piano`), scelto
+a mano o seguito da una tappa: chi non vede la pianta ha lo stesso identico modo di dichiarare
+il piano e di risentirselo dire di chi la guarda.
+
+**Due trappole trovate provando, non leggendo.** La linea che collega i due vani scale non puo'
+stare dentro il gruppo di un piano: allunga il suo `getBBox()` fino all'altro piano, e
+inquadrando il primo piano si vedeva mezzo piano terra. Sta fuori da entrambi i gruppi, e il
+parser non se ne accorge perche' risolve gli estremi alla sala che li contiene. E i **nomi
+delle sale devono essere unici su tutta la mappa**, piani compresi: le adiacenze si tengono per
+nome, quindi due sale omonime su due piani diventerebbero una sola, cioe' un passaggio fra i
+piani che nessuno ha disegnato — ora il parser lo segnala invece di indovinare.
+
+Il parser inoltre **toglie i commenti prima di scandire**: queste piante si spiegano da sole a
+lungo, e da quando il conto dei `<g>` e' uno stato, un `<g>` nominato dentro un commento
+sposterebbe il piano di tutto quel che segue.
 
 ### 1.1-bis Concorrenza: dove l'idea regge e dove no
 
@@ -647,8 +701,15 @@ focus and collapse plugins are **served locally** from `public/vendor/`.
   (`Home · Vetrina · Libreria`): sotto `lg` il binario diventa una barra in basso, dove una
   voce in meno si sente. Below `lg` it becomes a **bottom tab bar** (destinations only) plus a slim
   top bar for wallet/theme/exit.
+- Le voci dell'autore dicono l'**azione** e non la categoria: `I miei contenuti ·
+  Crea descrizione · Crea visita · Vendite` (2026-08-02). "Descrizione" e "Visita" da sole
+  sembravano due elenchi, non due bottoni che aprono un editor.
 - Two skip links (`#contenuto`, `#binario`), a `role="status"` live region fed by
   `annuncia()`, `[x-cloak]` on the root so views never render stacked before Alpine boots.
+  **I salti compaiono solo dove c'e' un binario da scavalcare** (`guscioMontato()`): soglia,
+  accesso e registrazione non montano il guscio, e li' i due collegamenti puntavano dentro un
+  sottoalbero `display:none` — c'erano, si prendevano il primo Tab della pagina e non
+  portavano da nessuna parte (2026-08-02).
 - **Only two overlays remain**: the confirm dialog and the toast. Everything that used to be
   a modal is now a page.
 
@@ -748,9 +809,18 @@ production, with adoption counts, the guided visit's key, `Sala d'attesa`, and a
 
 ### 4.12 `nuovo` — item editor
 
-Single column. Artwork → **tone** (four described choices) → duration → text → price →
-licence → private. A live **`stimaLettura()`** ties the written text back to the declared
-duration. In edit mode the frozen fields are shown as read-only facts with one shared reason.
+Artwork → **tone** (four described choices) → duration → text → price → licence → private.
+A live **`stimaLettura()`** ties the written text back to the declared duration. In edit mode
+the frozen fields are shown as read-only facts with one shared reason.
+
+**L'opera si vede mentre la si descrive** *(2026-08-02)*. Sceglierla da un menu a tendina la
+riduceva a un titolo, e il testo che si sta scrivendo parla di un quadro: da `lg` in su la
+schermata e' a due colonne e la seconda tiene l'immagine **appiccicata in alto**, perche'
+serve proprio quando si e' scesi fino al testo, cioe' quando la tendina e' gia' fuori schermo.
+Sotto `lg` la stessa scheda apre la pagina ma **non** e' appiccicata: fra lei e la barra di
+salvataggio, che sta incollata in basso, su un telefono non resterebbe schermo per scrivere.
+`draftArtworkFacts()` salta autore e stile quando valgono `Unknown` — e' il valore che
+Wikidata lascia scritto, e stamparlo fa sembrare rotta una scheda solo incompleta.
 
 ### 4.13 `componi` — visit workbench
 
@@ -760,6 +830,14 @@ carry the stop number, ▲▼ keyboard-safe reorder, an `aria-pressed` **Opziona
 remove; **logistics notes are visually distinct rows with no number** — they aren't stops.
 A sticky bar states `validazioneVisita()` **as text** at all times, and the publish button
 says `Attiva la visita guidata` when guided — it is not published to the marketplace.
+
+**I tre passi sono una strada, non tre schede** *(2026-08-02)*. Il bottone della barra
+pubblica **solo dall'ultimo passo**; prima porta al successivo (`Continua · Impostazioni`,
+poi `Continua · Quiz`). Prima si poteva pubblicare dal percorso senza avere mai aperto le
+impostazioni, cioe' con nome, livello, prezzo e licenza mai guardati. Qual e' l'ultimo passo
+dipende dalla visita: il quiz esiste solo per le guidate, e `nextVisitStep()` e' l'unico posto
+che lo sa. Le linguette in cima restano cliccabili — sono navigazione, e bloccarle
+imprigionerebbe chi sta modificando una visita gia' fatta.
 
 ### 4.13-bis `sumisura` — la visita descritta a parole *(nuova 2026-07-31)*
 

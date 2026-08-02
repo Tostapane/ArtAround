@@ -208,7 +208,18 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
     } else {
       let pathLine = "La destinazione e' nella stessa sala.";
       if (route.steps.length > 0) {
-        pathLine = `Sale da attraversare, in ordine: ${route.steps.join(" -> ")}.`;
+        const tappe: string[] = [];
+        let piano = route.from.floor;
+        for (const step of route.steps) {
+          if (step.floor > piano) {
+            tappe.push(`SALI al ${step.floorLabel}`);
+          } else if (step.floor < piano) {
+            tappe.push(`SCENDI al ${step.floorLabel}`);
+          }
+          piano = step.floor;
+          tappe.push(step.room);
+        }
+        pathLine = `Sale da attraversare, in ordine: ${tappe.join(" -> ")}.`;
       }
       let obstacleLine = "";
       if (route.obstacles.length > 0) {
@@ -223,7 +234,9 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
               ${pathLine}
               ${obstacleLine}
               Genera indicazioni brevi e chiare seguendo ESATTAMENTE il percorso.
-              NON inventare sale o luoghi non elencati.`;
+              NON inventare sale o luoghi non elencati.
+              Dove il percorso dice SALI o SCENDI il visitatore cambia piano:
+              dillo esplicitamente, col nome del piano che trovi scritto.`;
     }
 
     const request = `Sei una guida museale che fornisce indicazioni di orientamento.

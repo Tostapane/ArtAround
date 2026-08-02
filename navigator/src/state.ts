@@ -71,6 +71,23 @@ export function setStageView(value: "mappa" | "elenco") {
   localStorage.setItem("artaround-stage", value);
 }
 
+/**
+ * Se il visitatore vuole che l'applicazione tenga conto di dove si trova.
+ *
+ * Parte SPENTA: nessun sensore, nessun permesso chiesto, e le indicazioni
+ * partono dall'opera aperta come hanno sempre fatto. Accendendola, i sensori si
+ * avviano e le indicazioni partono da dove si e' — comunque ci si sia arrivati,
+ * camminando o col teletrasporto.
+ */
+export const posizioneAttiva = ref(
+  localStorage.getItem("artaround-posizione") === "si",
+);
+
+export function setPosizioneAttiva(value: boolean) {
+  posizioneAttiva.value = value;
+  localStorage.setItem("artaround-posizione", value ? "si" : "no");
+}
+
 // ============================================================================
 //                                 Lingua
 // ============================================================================

@@ -5,9 +5,15 @@
  * preso dalla mappa, senza scomodare l'LLM. Su richiesta si passa al percorso
  * passo-passo, dove il grafo garantisce la correttezza e l'LLM si limita a dirlo
  * in parole.
+ *
+ * IL TITOLO DELL'OPERA LO SA IL DATABASE, non la mappa: sul disegno un nodo-opera
+ * porta il qid, e senza cercarne il nome qui le indicazioni parlate finivano per
+ * dire «la destinazione Q248101». Si cerca solo sulla strada dettagliata, che e'
+ * l'unica che usa quel nome — la risposta semplice dice la sala, non l'opera.
  */
 import { Router } from "express";
 import { MuseumModel } from "../models/museum";
+import { ArtworkModel } from "../models/artwork";
 import { getMuseumGraph } from "../services/svgGraph";
 import { computeDirections } from "../services/wayfinding";
 import { directionsFromRoute } from "../services/llm";
@@ -28,7 +34,9 @@ const router = Router();
  * Due livelli di risposta:
  *  - SEMPLICE (default): comunica solo in quale ZONA si trova la destinazione,
  *    cioe' il nome della sala (data-room) authorata nell'SVG che la contiene
- *    (es. "Ala Nord"). Nessun LLM: e' un valore statico della mappa.
+ *    (es. "Ala Nord"). Nessun LLM: e' un valore statico della mappa. Il piano
+ *    compare solo se e' un ALTRO piano — dirlo quando non cambia sarebbe rumore,
+ *    e in un museo a un piano solo non compare mai.
  *  - DETTAGLIATA (detailed=true, oppure target="obstacles"): calcola il percorso
  *    sul grafo e lo verbalizza con l'LLM (sistema completo, non rimosso).
  */
@@ -47,8 +55,18 @@ router.post("/", async (req, res) => {
 
     if (!detailed && target !== "obstacles") {
       let directions = "Zona non disponibile.";
-      if (route.kind === "route" && route.to.room) directions = route.to.room;
+      if (route.kind === "route" && route.to.room) {
+        directions = route.to.room;
+        if (route.to.floor !== route.from.floor) {
+          directions = `${route.to.room} (${route.to.floorLabel})`;
+        }
+      }
       return res.json({ directions });
+    }
+
+    if (route.to.qid) {
+      const opera = await ArtworkModel.findOne({ qid: route.to.qid });
+      if (opera && opera.name) route.to.label = opera.name;
     }
 
     const directions = await directionsFromRoute(route, language);

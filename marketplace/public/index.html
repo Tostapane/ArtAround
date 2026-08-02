@@ -148,8 +148,12 @@
 
   <div x-data="appData()" x-init="start()" x-cloak class="min-h-[100dvh]">
 
-    <a href="#contenuto" class="salta">Salta al contenuto</a>
-    <a href="#binario" class="salta" x-show="currentUser">Salta alla navigazione</a>
+    <!-- I due salti servono a scavalcare il binario con la tastiera, e compaiono
+         solo dove il binario c'e': soglia, accesso e registrazione non montano il
+         guscio, quindi li' punterebbero a un elemento display:none e non
+         porterebbero da nessuna parte. -->
+    <a href="#contenuto" class="salta" x-show="guscioMontato()">Salta al contenuto</a>
+    <a href="#binario" class="salta" x-show="guscioMontato()">Salta alla navigazione</a>
 
     <div class="sr-only" role="status" aria-live="polite" x-text="announcement"></div>
 
@@ -276,7 +280,7 @@
       </div>
     </section>
 
-    <div x-show="currentUser && !['soglia','accedi','registrati'].includes(view)" class="lg:flex">
+    <div x-show="guscioMontato()" class="lg:flex">
 
       <!-- Barra compatta (solo telefono) -->
       <header class="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-structure px-4 py-3 text-on-structure lg:hidden">
@@ -336,9 +340,9 @@
             <template x-if="currentUserRole === 'autore'">
               <li class="contents">
                 <template x-for="v in [
-                    {id:'lavori',  ico:'#ico-lavori',  raw:'Contenuti'},
-                    {id:'nuovo',   ico:'#ico-opere',   raw:'Descrizione'},
-                    {id:'componi', ico:'#ico-componi', raw:'Visita'},
+                    {id:'lavori',  ico:'#ico-lavori',  raw:'I miei contenuti'},
+                    {id:'nuovo',   ico:'#ico-opere',   raw:'Crea descrizione'},
+                    {id:'componi', ico:'#ico-componi', raw:'Crea visita'},
                     {id:'vendite', ico:'#ico-vendite', raw:'Vendite'}
                   ]" :key="v.id">
                   <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
@@ -1007,13 +1011,15 @@
           </section>
 
           <!-- ---------- EDITOR DESCRIZIONE ---------- -->
-          <section x-show="view === 'nuovo'" class="max-w-2xl">
+          <section x-show="view === 'nuovo'" class="max-w-5xl">
             <h1 class="font-display text-title-1" x-text="editingId ? 'Modifica la descrizione' : 'Nuova descrizione'"></h1>
             <p class="mt-1 text-small text-muted">
               I metadati sono il prodotto: lunghezza, linguaggio, autore e licenza accompagnano il testo ovunque vada.
             </p>
 
-            <form @submit.prevent="saveItem()" class="mt-8 flex flex-col gap-8">
+            <div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+
+            <form @submit.prevent="saveItem()" class="flex flex-col gap-8">
               <div>
                 <label for="ed-opera" class="etichetta">Opera</label>
                 <select id="ed-opera" x-model="draft.selectedArtworkUri" :disabled="!!editingId" class="campo">
@@ -1091,6 +1097,35 @@
                 <button type="submit" class="btn-primario" x-text="editingId ? 'Salva le modifiche' : 'Pubblica'"></button>
               </div>
             </form>
+
+            <!-- L'OPERA, sotto gli occhi mentre si scrive. Da lg in su resta
+                 appiccicata in alto, perche' serve proprio quando si e' arrivati
+                 al testo, cioe' quando la scelta e' gia' fuori schermo. Sotto
+                 lg no: fra questa e la barra di salvataggio, che e' appiccicata
+                 in basso, su un telefono non resterebbe schermo per scrivere. -->
+            <aside class="order-first lg:order-none">
+              <div class="lastra p-4 lg:sticky lg:top-6 lg:z-10" x-data="{ rotta: false }">
+                <template x-if="draftArtwork()">
+                  <div>
+                    <div class="mat max-h-40 lg:max-h-none">
+                      <img x-show="artworkImage(draftArtwork()) && !rotta" :src="artworkImage(draftArtwork())"
+                        @error="rotta = true" :alt="'Immagine dell\'opera: ' + (draftArtwork().name || '')">
+                      <span x-show="!artworkImage(draftArtwork()) || rotta" class="mat-vuoto"
+                        x-text="draftArtwork().name"></span>
+                    </div>
+                    <p class="mt-3 font-medium" x-text="draftArtwork().name"></p>
+                    <template x-for="f in draftArtworkFacts()" :key="f">
+                      <p class="text-caption text-muted" x-text="f"></p>
+                    </template>
+                  </div>
+                </template>
+                <p x-show="!draftArtwork()" class="text-small text-muted">
+                  Scegli un'opera e la vedi qui mentre scrivi.
+                </p>
+              </div>
+            </aside>
+
+            </div>
           </section>
 
           <!-- ---------- VISITA SU MISURA ---------- -->
@@ -1409,10 +1444,17 @@
               </div>
             </div>
 
-            <!-- Barra di salvataggio, comune ai tre passi -->
+            <!-- Barra di salvataggio, comune ai tre passi. Si pubblica solo
+                 dall'ultimo passo: prima si arriva comunque alle impostazioni. -->
             <div class="barra-salva mt-8">
               <p class="text-small" :class="visitIssues().length ? 'text-muted' : 'text-sage'" role="status" x-text="visitStatus()"></p>
-              <button type="button" @click="saveVisit()" class="btn-primario" x-text="publishLabel()"></button>
+              <template x-if="nextVisitStep()">
+                <button type="button" @click="visitStep = nextVisitStep()" class="btn-primario"
+                  x-text="nextVisitStepLabel()"></button>
+              </template>
+              <template x-if="!nextVisitStep()">
+                <button type="button" @click="saveVisit()" class="btn-primario" x-text="publishLabel()"></button>
+              </template>
             </div>
           </section>
 

@@ -29,5 +29,77 @@ la sezione riprendi ha senso?
 
 e se avesse piu' piani?
 
+e se ci fossero piu' bagni o x?
+
+indicazioni per arrivare a una opera? 
+
 1) when the user logs in is supposed to choose one of the museums, right now its inside the last museum he used
 2) i tried the second museum and once i ended the visit i did not re enter the home, i was in the landing page
+
+"dove sono?" non mi sembra molto intuitivo per scannerizzare il qr code.
+perche alcune opere sono cerchi e altre quadrati? nella legenda dice che dovrebbero essere cerchi.
+"Per vivere questa visita servono anche i contenuti che la compongono". Non so se "vivere" sia un typo oppure vuoi rendere la cosa poetica :).
+
+
+creare contenuti di singole opere (autore o visitatore?) 000
+
+AUTORE
+- Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere? 000
+- Nella pagina iniziale e anche i quella dove si inseriscono le credenziali 
+c'è un tasto invisibile "salta al contenuto" che non sembra fare nulla. 
+anche a me tempo fa l'AI aveva messo una cosa simile ma comunque al momento non funziona 
+(non mi immagino comunque la sua utilità).
+- Al momento si può creare un item avente una determinata difficoltà e durata. 
+A quanto ho capito dalle specs, dovrebbero potere esistere item aventi stesso tono ma 
+diverse durate (slide 22 delle specs).
+- Le specs dicono: "Gli item possono riferirsi sia agli oggetti della visita, 
+sia a contenuti associati (movimenti culturali, stili, artisti, eventi storici, ecc.)". 
+Ora la creazione di un item è limitata alle opere esistenti, 
+ma non posso creare una descrizione che riguardi un genere tipo "manierismo <3" perché non è un opera. 
+Mi sembra una cosa orrenda rendere possibile cose del genere anche perché si può chiedere all'IA però è chiesto dalle specs.
+Sarebbe quindi da creare un meccanismo di associazione tra item (tipo che la descrizione di sto quadro è collegata alla descrizione del manierismo, perché sono correlati) (?)
+Tra gli attributi di un opera andrebbe aggiunto anche un attributo tipo "stile" (slide 26) in modo da associare un opera a un item che descrive magari il genere (sto abbozzando idee).
+-  La struttura base del navigator fornisce "selezione ed esecuzione di una visita" (slide 27). Al momento le visite possono essere selezionate/avviate solo dal marketplace.
+- Da autore non riesco a sbloccare alcune visite, alla pressione di "sblocca tutto" mi dice "visitatore non trovato", è un bug o una feature? Nella visita in questione sono io stesso l'autore (autore1).
+
+VISITATORE
+
+--- Compro una visita che risulta gratis, ci clicco sopra e mi chiede di pagare per sbloccare gli item mancanti. 
+Potrebbe essere un bug dato dal fatto che erano visite vecchie create da me (?).
+--- Sblocco una visita a pagamento (e.g. 2,50), entro e mi chiede di sbloccare gli item mancanti a 
+essa appartenenti (14 euro). Dopo averla comprata devo ricomprarla.
+--- Anche nelle visite gratis, che a loro volta contengono solo opere gratis, 
+dopo averle sbloccate dalla vetrina, se ci clicco su mi si richiede di sbloccare tutti gli item in essa contenute.
+-- Una volta iniziata la visita, vorrei potere cliccare un bottone che mi apre descrizione della prima opera 
+(o indicazione logistica) in elenco, usare lo stesso bottone (estremamente/fastidiosamente visibile in primissimo 
+piano a prova di disabile) per andare alla successiva ecc... Ora mi sembra di capire che siano selezionabili 
+solo cliccando sullo specifico pallino.
+-- Se ci sono delle indicazioni all'inizio della visita prima di ogni opera, come fa l'utente a visualizzarle 
+e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo potrebbe essere la soluzione.
+- Posso cambiare la mia posizione corrente usando il teletrasporto, c'è anche qualche altro modo? 
+  Vengo spostato automaticamente in funzione del gps mentre mi muovo? Se si, in caso di gps non attivo, 
+la mia posizione corrente dovrebbe essere spostata all'opera in questione ogni volta che passo alla successiva 
+mediante il bottone che si usa per andare all'opera successiva?
+- Come facciamo a verificare che l'aggiornamento continuo della posizione dell'utente sia funzionante? 
+Abbiamo modo di provare la cosa?
+Il bottone "apri la scheda/riduci", non mi convince tanto, potrebbe anche non esistere e mostrare il contenuto 
+direttamente per intero. Credo sarebbe più carino se venisse mostrato dall'alto al basso: lingua dei contenuti, 
+foto e descrizione opera, barra con i tasti per parlare e passare all'opera successiva, sezione "chiedi/orientati".
+-- Non riesco a chiedere le cose a voce, mi dice sempre che non ha capito. 
+(Si il mio microfono è attivo e ho abilitato i permessi).
+- "Non ho capito prova a ripetere" rimane li anche quando passo a opera successiva. 
+Se ti capita una volta te lo porti appresso per tutta la visita.
+- Sarebbe carino mostrare qualcosa per fare capire all'utente se mentre parla il microfono sta effettivamente 
+funzionando (tipo le linee di whatsapp mentre fai i vocali).
+-- La cam risulta attiva sempre dopo avere dato i permessi, non solo mentre viene effettivamente usata 
+(e.g. durante scan qr). Vincenzo non ci dormirebbe la notte.
+- Da dove viene preso il genere dell'opera mostrato accanto al nome dell'autore (e.g. impressionismo)?
+ Non mi sembra una delle cose che aggiungi durante la creazione dell'item. 
+Dovremmo renderlo cliccabile in modo da aprire quel nuovo tipo di item che descrive la corrente artistica?
+Non ho capito bene che criterio segue la navigazione con tab quando si naviga nella mappa. Sarebbe possibile inserire un criterio tipo che li seleziona da opera 1 in ordine crescente?
+- Bagni emergenze e servizi non sono cliccabili. Forse non serve ma sarebbe carino se quando 
+ci clicchi su ti aprisse le indicazioni per raggiungerle (possibilmente anche con un pulsante che te le legge, come per le opere in modo che sia salvatore friendly).
+La barra di ricerca della vetrina (penso anche le altre) fa uno strano effetto quando la uso per scrivere.
+Dovremmo testare una visita guidata con quiz.
+
+PS. mi turbano ancora le opere un po rotonde e un po quadrate.
