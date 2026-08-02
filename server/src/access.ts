@@ -1,23 +1,23 @@
 /**
- * Chi puo' leggere il TESTO di una descrizione.
+ * Il TESTO di una descrizione: chi lo riceve e chi no.
  *
  * Il marketplace vende contenuti, quindi il testo di una descrizione a pagamento
  * non puo' viaggiare verso chi non l'ha comprata: gli elenchi ne mandavano il
  * documento intero, e bastava guardare la risposta per leggere quel che era in
- * vendita. Qui sta la regola, una sola, perche' le tre rotte che servono testi
- * (`GET /items`, `GET /visits/:id/items`, `GET /artworks/:qid/preview`) non
- * possano rispondere in tre modi diversi alla stessa domanda.
+ * vendita. Qui c'e' l'applicazione della regola alle tre rotte che servono testi
+ * (`GET /items`, `GET /visits/:id/items`, `GET /artworks/:qid/preview`), che
+ * cosi' non possono rispondere in tre modi diversi alla stessa domanda.
  *
- * Si legge un testo se il contenuto e' GRATUITO, se lo si e' SCRITTO, o se lo si
- * e' COMPRATO. Il resto del documento (tono, durata, autore, prezzo) resta
- * pubblico: e' quel che serve per decidere se comprare, ed e' il catalogo.
+ * **La regola in se' sta in `shared/access.ts`**, perche' la applica anche il
+ * marketplace e vale solo se le due sponde ne usano una sola. Qui restano le
+ * due cose che sono del server: dove si va a vedere che cosa uno ha comprato, e
+ * come si toglie un testo da un documento lasciandone il resto.
  *
- * ⚠️ Questo e' un controllo di AUTORIZZAZIONE, non di autenticazione: il nome
- * utente arriva dalla richiesta e nessuno verifica che sia davvero suo (le
- * slide danno le password in chiaro e chiamano il login «parte marginale»).
- * Quindi difende dal vedere per sbaglio, non da chi si spaccia per un altro.
+ * Il resto del documento (tono, durata, autore, prezzo) resta pubblico: e' quel
+ * che serve per decidere se comprare, ed e' il catalogo.
  */
 import { UserModel } from "./models/user";
+import { isReadable as regolaDiLettura } from "../../shared/access";
 
 export async function purchasedBy(username: string): Promise<Set<string>> {
   const owned = new Set<string>();
@@ -35,10 +35,7 @@ export function isReadable(
   owned: Set<string>,
 ): boolean {
   if (!item) return false;
-  const price = Number(item.price) || 0;
-  if (price === 0) return true;
-  if (username && item.author === username) return true;
-  return owned.has(item["@id"]);
+  return regolaDiLettura(item, username, owned.has(item["@id"]));
 }
 
 /**

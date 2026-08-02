@@ -1,5 +1,156 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-02, come si comincia una visita
+
+«Vorrei un bottone che mi apre la descrizione della prima opera»: non c'era, e non era solo un
+bottone mancante. Dettaglio in `state.md` §5.3-bis.
+
+- La scheda esiste solo da `v-if="currentArtwork"`, quindi **appena entrati non c'e' nessun
+  comando**: l'unica strada era toccare un disco sulla pianta.
+- Le note d'apertura si mostravano da sole con un bottone **«Continua»** che non continuava:
+  `target: -1` chiudeva il riquadro e lasciava la visita ferma. Ora apre la prima tappa.
+- Con nessuna tappa aperta compare un comando solo, largo quanto lo schermo, dove poi sta la
+  scheda: *Inizia dalla prima tappa* / *Riapri la tappa*. Il secondo chiude anche «da mobile se
+  chiudo la card non riesco a riaprirla».
+- Da tappa aperta in poi non serviva niente: la scheda a riposo tiene gia' avanti/indietro.
+
+**Verificato in browser** a 1400 e a 390 px, 6 controlli piu' gli scatti guardati: la porta
+c'e' senza toccare la pianta, «Continua» entra nella tappa 1, si avanza alla 2, e chiudendo la
+scheda compare *Riapri la tappa*. Zero errori in console. Rieseguite le tre tornate del
+navigator (piani 13/13, tappa seguita 4/4, annunci 5/5). Visita usa e getta rimossa.
+
+---
+
+## ⏸ Ripresa — 2026-08-02, il server rifiuta, il client suggerisce
+
+Scansione del client per capire cosa gli restasse di logica non sua. Dettaglio in `state.md`
+§3.1-sexies. Il risultato grosso e' un difetto vero:
+
+⚠️ **Il prezzo negativo coniava denaro.** Nessuno rifiutava `prezzo: -99` su un item: dentro
+una visita porta il totale sotto zero e `wallet = credito − totale` **aggiunge**. Comprando,
+il portafoglio andava da **€ 100 a € 199**. Ora `POST /items` e `POST /visits` rifiutano prezzo
+negativo, testo vuoto e visita senza tappe.
+
+- **Il client fa la precheck, il server decide.** Restano nel client le domande di pura forma
+  (campo vuoto, nessuna tappa), che alimentano «Manca ancora: …» mentre si scrive; sono usciti
+  il prezzo e il possesso, che richiedono di sapere cose che sa solo il server.
+- **`WORDS_PER_MINUTE` in `shared/constants.ts`**: le 100 parole al minuto erano scritte in
+  `llm.ts` e in `state.ts`, ed e' lo stesso cambio durata↔lunghezza visto dai due lati.
+
+⚠️ **Trappola in cui sono ricascato**, ed e' gia' scritta qui sotto: `.barra-salva` esiste
+anche nell'editor delle descrizioni, che sta prima nel documento ed e' solo `x-show`-nascosto.
+Va presa quella con `offsetParent !== null`, o la prova legge la barra sbagliata.
+
+⚠️ **E una nuova**: TypeScript non segnala il codice irraggiungibile. Tre controlli inseriti
+per sbaglio DOPO un `return`, dentro la guardia del titolo, compilavano benissimo e non
+scattavano mai. Se ne e' accorta solo la prova contro il server: `tsc` verde non vuol dire che
+la riga venga eseguita.
+
+**Verificato**: i quattro rifiuti e il caso valido contro il server vivo; 15 controlli in
+browser (compositore, editor, binario, e la barra «Manca ancora» che dice ancora forma ma non
+piu' prezzo), zero errori in console. Dati usa e getta rimossi: 750 item, 27 visite, i due
+visitatori a €100.
+
+---
+
+## ⏸ Ripresa — 2026-08-02, la regola di lettura in `shared/`
+
+Chiude la fragilita' segnalata: la regola «si legge se e' gratuito, tuo o comprato» era scritta
+**cinque volte** (`server/access.ts`, il controllo delle guidate in `routes/visits.ts`, e nel
+marketplace `availableNow`, `allowedInGuided` e una copia in linea in `editorLibrary`) ed era
+gia' andata fuori sincrono — da li' veniva il difetto del gratuito da comprare. Dettaglio in
+`state.md` §3.1-quinquies.
+
+- **`shared/access.ts`** (nuovo): `isReadable(contenuto, utente, posseduto)`. Il possesso lo
+  risolve il chiamante — `Set` sul server, array sul client — cosi' qui c'e' la regola e li'
+  la ricerca. `server/src/access.ts` e il marketplace la chiamano tutti e due.
+- **Due predicati, non uno**: `canRead()` (posso leggerlo) e `inLibrary()` (me lo sono preso).
+  Non si fondono: con la regola sbagliata o si chiede di comprare il gratuito, o la Libreria
+  diventa tutto il catalogo. `owns()` e' stato rinominato `inLibrary()` perche' sembrava la
+  domanda piu' forte ed era la piu' stretta — **9 binding Alpine rinominati**, che sono
+  stringhe e nessun compilatore le guarda: riprovare in browser dopo averli toccati.
+- **Trovato distinguendole**: nella pagina di un'opera «Leggi» era legato a `inLibrary`, quindi
+  una descrizione **gratuita** stava dietro «Ottieni» mentre il server ne mandava gia' il testo.
+  Ora «Leggi» segue `canRead` e «Tieni in libreria» e' un'azione a parte.
+- **I soldi li conta solo il server** (`server/src/pricing.ts`). Via da `state.ts`
+  `purchaseCost`, `missingCost`, `missingItems` e il totale «atteso» col suo 409: le visite
+  arrivano da `GET /visits?user=` con dentro `mancanti`, `costoMancanti`, `totale`, e il client
+  li scrive. Stessa funzione per mostrare e per addebitare.
+  ⚠️ Il conto invecchia con l'acquisto: `performPurchase` rilegge le visite. E le tappe di
+  tutte le visite si prendono con **una** query — non una per visita.
+
+**Verificato in browser**, 25 controlli in tre tornate, zero errori in console: la vetrina, la
+pagina della visita, la pagina dell'opera (gratuite che si leggono subito e a pagamento che si
+sbloccano), l'acquisto unico €100 → €86,50, la Libreria che **non** e' diventata il catalogo,
+piu' le due tornate precedenti rieseguite intere per le regressioni del rinominamento. Sulle
+API: `atteso` sbagliato → 409, `atteso` giusto → acquisto. Dati usa e getta rimossi (750 item,
+27 visite, i due visitatori a €100).
+
+---
+
+## ⏸ Ripresa — 2026-08-02, comprare una visita compra le sue tappe
+
+Il terzo caso del collega — visita a € 2,50 con dentro € 14 di descrizioni, comprata la
+visita te ne chiedeva altri 14 — non era un errore di conto ma il modello: due acquisti
+distinti, mai dichiarati. **Ora l'acquisto e' uno** (`state.md` §3.1-quater).
+
+- `POST /users/:username/buy` su una visita prende anche le sue tappe **a pagamento e non
+  ancora tue**, ognuna al suo prezzo: ogni autore incassa la sua adozione, e una visita da
+  due euro non regala quattordici euro di contenuti altrui.
+- Il conto si dice **prima**: `Sblocca visita e contenuti (€ 16.50)` sul bottone, scomposto
+  nella conferma. La conferma compare anche su una visita **gratis** con tappe a pagamento —
+  prima quel caso passava dal ramo "e' gratis, prendila e basta" e avrebbe pagato in silenzio.
+- **Transazione unica**: prima il client comprava in un ciclo, una richiesta per tappa, e a
+  credito insufficiente si restava pagati e incompleti. Vale anche per «Sblocca i contenuti
+  mancanti», che era rimasto un ciclo: **non si compra a rate**, credito corto vuol dire
+  acquisto non fatto.
+- ⚠️ **«Completare» non e' «comprare»**, e il codice non deve dirlo: la visita ce l'hai gia',
+  quel che compri sono le descrizioni che le mancano. Le due strade usano la stessa richiesta
+  soltanto perche' quella prende sempre e solo quel che non hai — la visita, gia' tua, non
+  entra nel conto.
+
+**Verificato ricostruendo il caso e poi smontandolo** (database ricontrollato: 750 item, 27
+visite, `visitatore1` e `visitatore2` di nuovo a €100). 5 controlli in browser, zero errori in
+console: bottone a € 16,50, conferma che scompone 2,50 + 14,00, acquisto unico €100 → €83,50,
+e poi solo «Inizia la visita». Piu' quattro prove sulle API: le tre descrizioni di `autore2`
+risultano ognuna 1 adozione e il suo ricavo (5, 6, 3) e la visita di `autore1` 1 adozione e
+€ 2,50; ricomprare non muove il portafoglio; chi possiede gia' una tappa da € 6 paga € 10,50 e
+non € 16,50; con € 5 di credito la richiesta viene rifiutata **senza prendere niente**.
+
+---
+
+## ⏸ Ripresa — 2026-08-02, «Sblocca tutto» → «Visitatore non trovato»
+
+Segnalazione del collega: da autore, sulla **sua** visita, lo sblocco falliva dicendo
+«Visitatore non trovato». **E' un difetto, anzi due.** Causa e ragionamento in `state.md`
+§3.1-ter; qui quel che serve per proseguire.
+
+1. `missingItems()` misurava con `owns()` («ce l'ho in libreria») invece che con
+   `availableNow()` («gratuito, mio, o comprato»), che e' la regola del server in `access.ts`.
+   Il marketplace chiedeva di comprare quel che il server regala: **lo sblocco costava €0,00**.
+2. Un autore **non puo' comprare** — il portafoglio sta solo sul visitatore — ma i tre bottoni
+   di sblocco delle *visite* non erano riservati ai visitatori come lo era gia' quello delle
+   descrizioni. Ora passano da `canBuy()`, e l'autore legge il motivo invece di sbattere sul
+   404. Il 404 stesso, se il nome esiste con un altro ruolo, ora lo dice.
+
+⚠️ **Nel database non esiste nessun contenuto a pagamento** (0 su 750): e' il motivo per cui
+il primo difetto si vedeva ovunque, ed e' anche il motivo per cui il paywall non lo esercita
+mai nessuno. Per provare il percorso a pagamento bisogna **fabbricarsi** un item con un
+prezzo — vale la pena seminarne qualcuno per la dimostrazione, altrimenti meta' del
+marketplace (prezzi, credito, adozioni, ricavo) non ha dati che la mettano alla prova.
+
+**Verificato riproducendo davvero**, con dati usa e getta poi **rimossi** (database
+ricontrollato: 750 item, 27 visite, `visitatore1` di nuovo a €100 con la sua sola descrizione).
+Prima della correzione: visita gratis di autore1, tutta di descrizioni gratis →
+«Sblocca 2 contenuti mancanti (€ 0.00)» → «Sblocca tutto» → **«Visitatore non trovato»**.
+Dopo: 10 controlli verdi in chromium, zero errori in console — l'autore sulla sua visita gratis
+la avvia e basta; sulla sua visita con dentro una descrizione a pagamento altrui non gli si
+offre nessuno sblocco e l'avviso dice perche'; il visitatore la prende in libreria, vede
+«Sblocca 1 contenuti mancanti (€ 3.00)», compra (€100 → €97) e parte; e una visita gratis del
+catalogo non chiede piu' di sbloccare niente.
+
+---
+
 ## ⏸ Ripresa — 2026-08-02, cinque asperita' del marketplace
 
 Cinque voci di `missing.txt`, tutte nel marketplace. Il ragionamento sta in `state.md`

@@ -1,41 +1,36 @@
-c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico (non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
+MANCANTI
+- se non sicuro, deve blurrare le immagini
+
+DA DISCUTERE
+- c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico (non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
 (hai detto facilmente risolvibile con prompt ma rimane irrisolto).
+- In attesa di potere creare anche quiz con AI.
+- fare in modo di avere un tasto home anche nel navigator
+- far selezionare una lingua?
+- ci sono grandi problemi di sicurezza
+- ci deve essere un tasto termina visita  
+- i filtri mostra contenuti mentre crei una visita sono abbastanza dubbiosi
+- la sezione riprendi ha senso?
+- indicazioni per arrivare a una opera?
+- il tasto per andare avanti c'e' ed e' unico, si trova quando apri la scheda
+DA TESTARE
+- testare interazioni con movimento, logistica e indicazioni 
+- testare il nuovo sistema di audio (ora compatibile per iphone)
+- Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tipo filtrarle per periodi (vendite effettuate in mese x anno y)
+- E se avesse piu' piani?
+- E se ci fossero piu' bagni o x?
 
-testare interazioni con movimento, logistica e indicazioni 
-
-testare il nuovo sistema di audio (ora compatibile per iphone)
-
-un visitatore può creare una visita mediante la schermata attuale ma anche attraverso una schermata di "creazione automatica" in cui il visitatore inserisce durata della visita (in minuti), il livello (esperto/principiante/adolescente), una chat con l'AI in cui il visitatore inserisce il twist (e.g. voglio vedere quadri verdi). Per fare ciò usa le funzioni che si trovano in ./server/src/services/llm.ts.
-In attesa di potere creare anche quiz con AI.
-
-Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tipo filtrarle per periodi (vendite effettuate in mese x anno y)
-
-fare in modo di avere un tasto home anche nel navigator
-
-far selezionare una lingua?
-
-ci sono grandi problemi di sicurezza
-
-se non sicuro, deve blurrare le immagini
-
+PROBLEMI
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra
 
-ci deve essere un tasto termina visita  
 
-i filtri mostra contenuti mentre crei una visita sono abbastanza dubbiosi
-
-la sezione riprendi ha senso?
-
-e se avesse piu' piani?
-
-e se ci fossero piu' bagni o x?
-
-indicazioni per arrivare a una opera? 
-
+domande 
 1) when the user logs in is supposed to choose one of the museums, right now its inside the last museum he used
 2) i tried the second museum and once i ended the visit i did not re enter the home, i was in the landing page
 
+
+ANDREA
 "dove sono?" non mi sembra molto intuitivo per scannerizzare il qr code.
 perche alcune opere sono cerchi e altre quadrati? nella legenda dice che dovrebbero essere cerchi.
 "Per vivere questa visita servono anche i contenuti che la compongono". Non so se "vivere" sia un typo oppure vuoi rendere la cosa poetica :).
@@ -45,13 +40,9 @@ creare contenuti di singole opere (autore o visitatore?) 000
 
 AUTORE
 - Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere? 000
-- Nella pagina iniziale e anche i quella dove si inseriscono le credenziali 
-c'è un tasto invisibile "salta al contenuto" che non sembra fare nulla. 
-anche a me tempo fa l'AI aveva messo una cosa simile ma comunque al momento non funziona 
-(non mi immagino comunque la sua utilità).
 - Al momento si può creare un item avente una determinata difficoltà e durata. 
 A quanto ho capito dalle specs, dovrebbero potere esistere item aventi stesso tono ma 
-diverse durate (slide 22 delle specs).
+diverse durate (slide 22 delle specs). 000
 - Le specs dicono: "Gli item possono riferirsi sia agli oggetti della visita, 
 sia a contenuti associati (movimenti culturali, stili, artisti, eventi storici, ecc.)". 
 Ora la creazione di un item è limitata alle opere esistenti, 
@@ -59,21 +50,12 @@ ma non posso creare una descrizione che riguardi un genere tipo "manierismo <3" 
 Mi sembra una cosa orrenda rendere possibile cose del genere anche perché si può chiedere all'IA però è chiesto dalle specs.
 Sarebbe quindi da creare un meccanismo di associazione tra item (tipo che la descrizione di sto quadro è collegata alla descrizione del manierismo, perché sono correlati) (?)
 Tra gli attributi di un opera andrebbe aggiunto anche un attributo tipo "stile" (slide 26) in modo da associare un opera a un item che descrive magari il genere (sto abbozzando idee).
--  La struttura base del navigator fornisce "selezione ed esecuzione di una visita" (slide 27). Al momento le visite possono essere selezionate/avviate solo dal marketplace.
+-  La struttura base del navigator fornisce "selezione ed esecuzione di una visita" (slide 27). 
+Al momento le visite possono essere selezionate/avviate solo dal marketplace. 000
 - Da autore non riesco a sbloccare alcune visite, alla pressione di "sblocca tutto" mi dice "visitatore non trovato", è un bug o una feature? Nella visita in questione sono io stesso l'autore (autore1).
 
 VISITATORE
 
---- Compro una visita che risulta gratis, ci clicco sopra e mi chiede di pagare per sbloccare gli item mancanti. 
-Potrebbe essere un bug dato dal fatto che erano visite vecchie create da me (?).
---- Sblocco una visita a pagamento (e.g. 2,50), entro e mi chiede di sbloccare gli item mancanti a 
-essa appartenenti (14 euro). Dopo averla comprata devo ricomprarla.
---- Anche nelle visite gratis, che a loro volta contengono solo opere gratis, 
-dopo averle sbloccate dalla vetrina, se ci clicco su mi si richiede di sbloccare tutti gli item in essa contenute.
--- Una volta iniziata la visita, vorrei potere cliccare un bottone che mi apre descrizione della prima opera 
-(o indicazione logistica) in elenco, usare lo stesso bottone (estremamente/fastidiosamente visibile in primissimo 
-piano a prova di disabile) per andare alla successiva ecc... Ora mi sembra di capire che siano selezionabili 
-solo cliccando sullo specifico pallino.
 -- Se ci sono delle indicazioni all'inizio della visita prima di ogni opera, come fa l'utente a visualizzarle 
 e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo potrebbe essere la soluzione.
 - Posso cambiare la mia posizione corrente usando il teletrasporto, c'è anche qualche altro modo? 

@@ -18,11 +18,13 @@
 import { Router } from "express";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
+import { isReadable } from "../../../shared/access";
 import { UserModel } from "../models/user";
 import { ArtworkModel } from "../models/artwork";
 import { planVisit } from "../services/llm";
 import { resolveOrGenerateItem } from "../dbActions";
 import { purchasedBy, readableItems } from "../access";
+import { conto } from "../pricing";
 
 const router = Router();
 
@@ -33,8 +35,12 @@ const MAX_CUSTOM_ARTWORKS = 30;
  * Recupera la lista di tutte le visite disponibili nel marketplace (quella ufficiali).
  */
 /**
- * GET /api/visits[?museum=Qxxx]
+ * GET /api/visits[?museum=Qxxx][&user=nome]
  * Ritorna: le visite del museo indicato, o tutte se il parametro manca.
+ * Con `user`, ogni visita porta anche il suo conto per QUELLA persona —
+ * `mancanti`, `costoMancanti`, `totale` — cosi' il client scrive un numero che
+ * gli e' stato dato invece di rifarne uno suo. Le tappe di tutte le visite si
+ * leggono con una query sola: una per visita crescerebbe col catalogo.
  */
 router.get("/", async (req, res) => {
   try {
@@ -43,7 +49,27 @@ router.get("/", async (req, res) => {
       ? { ofMuseum: `http://www.wikidata.org/entity/${museum}` }
       : {};
     const visits = await VisitModel.find(filter);
-    res.json(visits);
+
+    const username = String(req.query.user || "");
+    const owned = await purchasedBy(username);
+    const ids = new Set<string>();
+    for (const v of visits) {
+      for (const id of v.itemListElement || []) ids.add(id);
+    }
+    const tappe = await ItemModel.find({ "@id": { $in: Array.from(ids) } });
+    const byId = new Map<string, any>();
+    for (const t of tappe) byId.set(t["@id"], t);
+
+    const out = visits.map((v: any) => {
+      const c = conto(v, username, owned, byId);
+      return {
+        ...v.toObject(),
+        mancanti: c.mancanti,
+        costoMancanti: c.costoMancanti,
+        totale: c.totale,
+      };
+    });
+    res.json(out);
   } catch (error: any) {
     console.error(error);
     res.status(500).json({ error: error.message || "Errore nel caricamento delle visite" });
@@ -216,6 +242,13 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "La visita deve avere un titolo." });
     }
 
+    let prezzoDichiarato = payload.prezzo;
+    if (prezzoDichiarato === undefined) prezzoDichiarato = payload.price;
+    if (Number(prezzoDichiarato) < 0)
+      return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
+    if (itemIds.length === 0)
+      return res.status(400).json({ error: "La visita deve avere almeno una tappa." });
+
     // --- Visita GUIDATA (con parola chiave) ---
     const accessKey: string | undefined =
       typeof payload.accessKey === "string" && payload.accessKey.trim() !== ""
@@ -234,10 +267,10 @@ router.post("/", async (req, res) => {
 
       const authorAccount = await UserModel.findOne({ username: author });
       const owned = new Set(authorAccount?.collezione || []);
+      // Che cosa puo' entrare in una visita guidata e' la stessa domanda di che
+      // cosa puoi leggere: la regola sta in `shared/access.ts`, non riscritta qui.
       for (const it of items as any[]) {
-        const isFree = !it.price || Number(it.price) === 0;
-        const isOwn = it.author === author || owned.has(it["@id"]);
-        if (!isFree && !isOwn) {
+        if (!isReadable(it, author, owned.has(it["@id"]))) {
           return res.status(400).json({
             error:
               "Una visita guidata può contenere solo item gratuiti o posseduti da te. " +

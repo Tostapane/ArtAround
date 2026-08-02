@@ -136,6 +136,15 @@ export interface Visit {
   author?: string;
   accessKey?: string;
   quiz?: QuizQuestion[];
+  /*
+   * Il conto per CHI l'ha chiesta, che `GET /visits?user=` aggiunge alla
+   * risposta: quante tappe gli mancano, quanto costano, e quanto pagherebbe in
+   * tutto adesso. Non stanno nel documento su Mongo e cambiano da persona a
+   * persona — sono qui perche' sono forma dello scambio, come il resto.
+   */
+  mancanti?: number;
+  costoMancanti?: number;
+  totale?: number;
 }
 
 /** Un item unito all'opera che descrive: la giunzione avviene sul server. */

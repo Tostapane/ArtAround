@@ -51,7 +51,9 @@ import {
   educationalLevelHints,
   formatDuration,
   secPerArt,
+  WORDS_PER_MINUTE,
 } from "../../../shared/constants.js";
+import { isReadable } from "../../../shared/access.js";
 import { ArtAPI } from "./api.js";
 
 
@@ -453,7 +455,7 @@ export class AppState {
     this.availableArtworks = arts.sort((a, b) =>
       (a.name || "").localeCompare(b.name || ""),
     );
-    this.visits = await ArtAPI.fetchVisite(qid);
+    this.visits = await ArtAPI.fetchVisite(qid, this.currentUser);
     this.marketItems = this.withArtwork(await ArtAPI.fetchItemsMetadata(qid));
     this.artworksWithText = [];
 
@@ -701,7 +703,7 @@ export class AppState {
     return educationalLevels.filter((l) => present.has(l));
   }
 
-  owns(item: Content | null): boolean {
+  inLibrary(item: Content | null): boolean {
     if (!item) return false;
     if (this.currentUserRole === "autore" && item.author === this.currentUser)
       return true;
@@ -714,15 +716,41 @@ export class AppState {
     return this.userCollection.includes(item["@id"]);
   }
 
+  /**
+   * Il portafoglio esiste solo sul visitatore: autore e curatore non comprano, e
+   * offrirglielo li mandava contro un 404 che parlava di un visitatore.
+   */
+  canBuy(): boolean {
+    return this.currentUserRole === "visitatore";
+  }
+
+  /** Perche' una visita che si possiede non si puo' ancora percorrere. */
+  missingItemsNote(): string {
+    const v = this.currentVisit();
+    if (!v) return "";
+    const quante = this.mancantiDi(v);
+    if (quante === 0) return "";
+    if (this.canBuy()) {
+      return "Per vivere questa visita servono anche i contenuti che la compongono.";
+    }
+    return (
+      `Contiene ${quante} descrizioni a pagamento di altri autori. Si comprano ` +
+      `da un profilo visitatore: il portafoglio sta li', non sul profilo autore.`
+    );
+  }
+
   private visibleInMarket(c: any): boolean {
     if (!c || !c.accessKey) return true;
     return c.author === this.currentUser;
   }
 
   async buy(item: Content) {
-    if (!this.currentUser || this.owns(item)) return;
+    if (!this.currentUser || this.inLibrary(item)) return;
     if ((item as any).accessKey) return;
-    if (!item.price || item.price === 0) {
+    // Si chiede conferma quando c'e' da pagare, e a dirlo e' il conto vero: una
+    // visita gratis puo' contenere tappe a pagamento, e prenderla in silenzio
+    // svuoterebbe il portafoglio senza che nessuno l'abbia detto.
+    if (this.costoDi(item) === 0) {
       await this.performPurchase(item);
       return;
     }
@@ -733,7 +761,7 @@ export class AppState {
   private async performPurchase(item: Content) {
     if (!this.currentUser) return;
     try {
-      const u = await ArtAPI.buy(this.currentUser, item["@id"], item.price || 0);
+      const u = await ArtAPI.buy(this.currentUser, item["@id"]);
       this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
       this.userCollection = u.collezione;
       // Il testo di quest'opera puo' essere gia' stato chiesto quando ancora non
@@ -744,6 +772,9 @@ export class AppState {
         const i = this.artworksWithText.indexOf(qid);
         if (i >= 0) this.artworksWithText.splice(i, 1);
       }
+      // I conti delle visite sono del server e ora sono vecchi di un acquisto:
+      // si rileggono invece di aggiustarli qui, che sarebbe rifare quel conto.
+      await this.reloadVisits();
       const nome = this.contentName(item) || "Contenuto";
       this.showToast(`"${nome}" è ora nella tua libreria.`);
     } catch (e) {
@@ -751,33 +782,40 @@ export class AppState {
     }
   }
 
-  missingItems(visit: any): any[] {
-    if (!visit || visit["@type"] !== "ItemList") return [];
-    const missing: any[] = [];
-    for (const id of visit.itemListElement || []) {
-      const it = this.findItem(id);
-      if (!it) {
-        missing.push({ "@id": id, price: 0, sconosciuto: true });
-        continue;
-      }
-      if (!this.owns(it)) missing.push(it);
-    }
-    return missing;
+  /**
+   * Quanto costa prendere questo contenuto adesso. Non lo calcola il client: per
+   * una visita il numero arriva dal server (`totale`, che tiene conto di quel
+   * che gia' possiedi), per una descrizione e' il suo prezzo e basta.
+   */
+  costoDi(content: any): number {
+    if (!content) return 0;
+    if (typeof content.totale === "number") return content.totale;
+    return Number(content.price) || 0;
   }
 
-  missingCost(visit: any): number {
-    return this.missingItems(visit).reduce(
-      (s: number, it: any) => s + (it.price || 0),
-      0,
-    );
+  /** Quante tappe mancano, secondo il server. Zero se il conto non e' arrivato. */
+  mancantiDi(content: any): number {
+    if (!content || typeof content.mancanti !== "number") return 0;
+    return content.mancanti;
+  }
+
+  async reloadVisits() {
+    const qid = this.selectedMuseum ? this.selectedMuseum.qid : "";
+    if (!qid) return;
+    this.visits = await ArtAPI.fetchVisite(qid, this.currentUser);
+  }
+
+  /** L'etichetta dello sblocco nella striscia Riprendi. */
+  unlockVisitLabel(v: any): string {
+    return `Sblocca (€ ${(Number(v.costoMancanti) || 0).toFixed(2)})`;
   }
 
   visitUsable(visit: any): boolean {
-    return this.owns(visit) && this.missingItems(visit).length === 0;
+    return this.inLibrary(visit) && this.mancantiDi(visit) === 0;
   }
 
   openCompleteVisit(visit: any) {
-    if (!this.currentUser || this.missingItems(visit).length === 0) return;
+    if (!this.currentUser || this.mancantiDi(visit) === 0) return;
     this.visitToComplete = visit;
     this.confirmOpen = true;
   }
@@ -821,14 +859,30 @@ export class AppState {
       return `"${this.visitToDelete.name}" sparirà dal marketplace e dalle librerie di chi l'ha adottata. L'operazione non è reversibile.`;
     }
     if (this.visitToComplete) {
-      const missing = this.missingItems(this.visitToComplete);
-      const cost = this.missingCost(this.visitToComplete);
-      return `Per usare questa visita servono ${missing.length} contenuti che non hai ancora. Sbloccarli tutti costa € ${cost.toFixed(2)}.`;
+      const v = this.visitToComplete;
+      return `Per usare questa visita servono ${this.mancantiDi(v)} contenuti che non hai ancora. Sbloccarli tutti costa € ${(v.costoMancanti || 0).toFixed(2)}.`;
     }
     const item = this.itemToBuy;
     if (!item) return "";
     const nome = this.contentName(item) || "questo contenuto";
-    return `"${nome}" resterà nella tua libreria. Costa € ${(item.price || 0).toFixed(2)}, il tuo credito è € ${this.wallet.toFixed(2)}.`;
+    const totale = this.costoDi(item);
+    const credito = this.wallet.toFixed(2);
+
+    // Comprando una visita si comprano anche le sue tappe a pagamento: il conto
+    // va scomposto, altrimenti il totale sembra il prezzo sbagliato della visita.
+    const mancanti = this.mancantiDi(item as any);
+    if (mancanti > 0) {
+      const curatela = (Number((item as any).price) || 0).toFixed(2);
+      const contenuti = (Number((item as any).costoMancanti) || 0).toFixed(2);
+      const quante =
+        mancanti === 1 ? "1 descrizione" : `${mancanti} descrizioni`;
+      return (
+        `"${nome}" costa € ${curatela}, e comprende ${quante} a pagamento che ` +
+        `non hai ancora (€ ${contenuti}): in tutto € ${totale.toFixed(2)}, e la ` +
+        `visita e' subito percorribile. Il tuo credito è € ${credito}.`
+      );
+    }
+    return `"${nome}" resterà nella tua libreria. Costa € ${totale.toFixed(2)}, il tuo credito è € ${credito}.`;
   }
 
   confirmVerb(): string {
@@ -893,17 +947,20 @@ export class AppState {
       return;
     }
 
+    // Completare NON e' ricomprare la visita: la visita ce l'hai gia'. Quel che
+    // si compra sono le descrizioni che le mancano, tutte insieme e per un
+    // prezzo solo. Passa di qui perche' la richiesta prende sempre e soltanto
+    // quel che NON hai: la visita, essendo gia' tua, non entra nel conto.
+    // Il ciclo di prima — una richiesta per tappa — spezzava invece l'acquisto:
+    // col credito buono per le prime due si restava pagati e incompleti.
     if (this.visitToComplete) {
       const visit = this.visitToComplete;
       this.cancelConfirm();
       if (!this.currentUser) return;
       try {
-        for (const it of this.missingItems(visit)) {
-          if (it.sconosciuto) continue;
-          const u = await ArtAPI.buy(this.currentUser, it["@id"], it.price || 0);
-          this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
-          this.userCollection = u.collezione;
-        }
+        const u = await ArtAPI.buy(this.currentUser, visit["@id"]);
+        this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
+        this.userCollection = u.collezione;
         this.showToast("Contenuti sbloccati: la visita è pronta.");
       } catch (e) {
         this.showToast((e as Error).message, "error");
@@ -913,7 +970,7 @@ export class AppState {
 
     const item = this.itemToBuy;
     this.cancelConfirm();
-    if (!item || !this.currentUser || this.owns(item)) return;
+    if (!item || !this.currentUser || this.inLibrary(item)) return;
     await this.performPurchase(item);
   }
 
@@ -925,7 +982,7 @@ export class AppState {
     try {
       this.overview = await ArtAPI.fetchOverview(qid);
       this.curatedItems = await ArtAPI.fetchCuratedItems(qid);
-      this.visits = await ArtAPI.fetchVisite(qid);
+      this.visits = await ArtAPI.fetchVisite(qid, this.currentUser);
     } catch (e) {
       this.showToast((e as Error).message, "error");
     }
@@ -1094,15 +1151,19 @@ export class AppState {
   visitPurchaseLabel(): string {
     const v = this.currentVisit();
     if (!v) return "";
-    if (!v.price || Number(v.price) === 0) return "Aggiungi alla libreria";
-    return "Sblocca la visita";
+    const costo = this.costoDi(v);
+    if (costo === 0) return "Aggiungi alla libreria";
+    if (this.mancantiDi(v) > 0) {
+      return `Sblocca visita e contenuti (€ ${costo.toFixed(2)})`;
+    }
+    return `Sblocca la visita (€ ${costo.toFixed(2)})`;
   }
 
   unlockMissingLabel(): string {
     const v = this.currentVisit();
     if (!v) return "";
-    const quanti = this.missingItems(v).length;
-    const costo = this.missingCost(v).toFixed(2);
+    const quanti = this.mancantiDi(v);
+    const costo = (Number(v.costoMancanti) || 0).toFixed(2);
     return `Sblocca ${quanti} contenuti mancanti (€ ${costo})`;
   }
 
@@ -1442,7 +1503,7 @@ export class AppState {
     const base = [...this.visits].filter(
       (v) =>
         this.belongsToMuseum(v) &&
-        this.owns(v) &&
+        this.inLibrary(v) &&
         this.visibleInMarket(v) &&
         this.matchesSearch(v, this.librarySearch),
     );
@@ -1452,7 +1513,7 @@ export class AppState {
   myItemGroups(): { artwork: any; items: any[] }[] {
     const posseduti = this.visibleItems().filter(
       (i: any) =>
-        this.owns(i) && this.matchesSearch(i, this.librarySearch),
+        this.inLibrary(i) && this.matchesSearch(i, this.librarySearch),
     );
     return this.groupByArtwork(posseduti);
   }
@@ -1680,7 +1741,7 @@ export class AppState {
   readingEstimate(): string {
     const parole = this.draft.testo.trim().split(/\s+/).filter(Boolean).length;
     if (parole === 0) return "";
-    const secondi = Math.round((parole / 100) * 60); 
+    const secondi = Math.round((parole / WORDS_PER_MINUTE) * 60);
     const dichiarata = Number(this.draft.durata) || 0;
     let giudizio = "";
     if (dichiarata > 0) {
@@ -1698,7 +1759,6 @@ export class AppState {
     if (!this.draft.tono) issues.push("il tono");
     if (!(Number(this.draft.durata) > 0)) issues.push("la durata");
     if (this.draft.testo.trim() === "") issues.push("il testo");
-    if (Number(this.draft.price) < 0) issues.push("un prezzo non negativo");
     return issues;
   }
 
@@ -1825,31 +1885,29 @@ export class AppState {
     }
   }
 
-  availableNow(item: any): boolean {
-    return this.owns(item) || !item.price || item.price === 0;
-  }
-
-  allowedInGuided(item: any): boolean {
+  /**
+   * Si puo' LEGGERE (regola in `shared/access.ts`), che non e' `inLibrary()`:
+   * una descrizione gratuita si legge senza averla presa.
+   */
+  canRead(item: any): boolean {
     if (!item) return false;
-    return !item.price || item.price === 0 || this.owns(item);
+    const id = item["@id"];
+    return isReadable(item, this.currentUser || "", this.userCollection.includes(id));
   }
 
   editorLibrary(): { artwork: any; items: any[] }[] {
     let base = this.visibleItems();
     if (this.currentUserRole === "autore") {
-      base = base.filter(
-        (i: any) =>
-          i.author === this.currentUser || !i.price || Number(i.price) === 0,
-      );
+      base = base.filter((i: any) => this.canRead(i));
     }
     if (this.draft.guidata) {
-      base = base.filter((op) => this.allowedInGuided(op));
+      base = base.filter((op) => this.canRead(op));
     }
     if (this.editorFilter !== "tutti") {
       base = base.filter((i) =>
         this.editorFilter === "disponibili"
-          ? this.availableNow(i)
-          : !this.availableNow(i),
+          ? this.canRead(i)
+          : !this.canRead(i),
       );
     }
     const groups = this.groupByArtwork(base);
@@ -1958,19 +2016,9 @@ export class AppState {
     const issues: string[] = [];
     if (!this.draft.titolo.trim()) issues.push("il titolo");
     if (this.stopCount() === 0) issues.push("almeno una tappa");
-    if (this.currentUserRole === "autore" && Number(this.draft.price) < 0)
-      issues.push("un prezzo non negativo");
     const guidata = this.currentUserRole === "autore" && this.draft.guidata;
     if (guidata) {
       if (!this.draft.accessKey.trim()) issues.push("la parola chiave");
-      const notAllowed = this.draft.tappe.filter(
-        (t) =>
-          t.tipo === "item" && !this.allowedInGuided(this.findItem(t.value)),
-      );
-      if (notAllowed.length > 0)
-        issues.push(
-          `${notAllowed.length} contenuti a pagamento non tuoi da rimuovere`,
-        );
       for (const q of this.draft.quiz) {
         if (
           !q.question.trim() ||

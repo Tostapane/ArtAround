@@ -514,6 +514,156 @@ Tre cose da sapere prima di rimetterci le mani:
 - **Dopo un acquisto l'opera esce dalla cache dei testi** (`artworksWithText`): il testo poteva
   essere già stato chiesto quando ancora non si aveva diritto a leggerlo, ed era arrivato vuoto.
 
+### 3.1-ter «Sblocca tutto» → «Visitatore non trovato» *(2026-08-02)*
+
+Segnalato da un autore sulla **propria** visita, gratis e fatta di descrizioni gratis.
+Riprodotto e sono **due difetti distinti**, incastrati uno nell'altro.
+
+**Il client non sapeva che il gratuito non si compra.** `missingItems()` chiedeva `owns()`, che
+vuol dire «ce l'ho in libreria»; il server, in `access.ts`, dice un'altra cosa — si legge un
+testo se e' **gratuito**, se lo si e' scritto o se lo si e' comprato. Quindi il marketplace
+chiedeva di comprare quel che il server regala gia', e lo diceva da se': lo sblocco costava
+**€ 0,00**. Ora `missingItems()` usa `availableNow()`, che quella regola ce l'aveva gia'
+scritta dentro. Il conto non e' un dettaglio del caso segnalato: **nel database non esiste
+nemmeno un contenuto a pagamento** (0 su 750), quindi ogni visita di chiunque risultava
+interamente da sbloccare. Chiude anche le due righe vicine di `missing.txt` — la visita gratis
+che chiedeva di pagare, e quella che lo richiedeva ancora dopo averla sbloccata.
+
+**Un autore non puo' comprare, ed e' voluto.** L'identita' e' la coppia `(username, role)` e il
+portafoglio esiste solo sul visitatore, percio' `POST /users/:name/buy` cerca un account con
+ruolo `visitatore` e a un autore risponde 404. Il pulsante di sblocco delle *descrizioni* era
+gia' riservato ai visitatori; quello delle *visite* — in vetrina, nella striscia Riprendi e
+nella pagina della visita — no, e mandava l'autore contro quel muro. Ora tutti e tre passano
+da `canBuy()`, e all'autore, al posto del vicolo cieco, si dice il fatto: quelle descrizioni si
+comprano da un profilo visitatore. Anche il 404 non descrive piu' la query: se il nome esiste
+con un altro ruolo, la risposta lo dice.
+
+Resta vero, e va saputo, che **una visita d'autore che contiene descrizioni a pagamento altrui
+il suo stesso autore non puo' percorrerla**: non e' un difetto, e' il modello dei ruoli. Puo'
+pubblicarla e venderla — a pagare le tappe e' chi la compra.
+
+### 3.1-quater Comprare una visita compra le sue tappe *(2026-08-02)*
+
+Restava il terzo caso del collega, che la correzione qui sopra non toccava: una visita a
+**€ 2,50** con dentro **€ 14** di descrizioni. La compravi, entravi, e ti si chiedevano altri
+14 euro — «dopo averla comprata devo ricomprarla». Non era un difetto di conto: era il modello.
+La visita e la descrizione erano due acquisti distinti, e il prodotto non lo diceva mai.
+
+**Ora l'acquisto e' uno.** `POST /users/:username/buy` su una visita prende anche le tappe a
+pagamento che non hai: una visita e' un percorso fra descrizioni e senza quelle non si
+percorre, quindi pagarla e poi ripagarne il contenuto e' comprare due volte la stessa cosa.
+Il conto e' la somma dei prezzi veri — curatela piu' ogni tappa al suo prezzo — quindi **ogni
+autore incassa la sua adozione** e non si apre nessuna scappatoia: una visita da due euro non
+regala quattordici euro di altrui. Non si paga quel che non si deve: le descrizioni gratuite,
+le proprie e quelle gia' comprate restano fuori dal conto.
+
+Due proprieta' che la vecchia forma non aveva:
+
+- **E' una transazione sola.** Prima il client comprava in un ciclo, una richiesta per tappa:
+  a credito insufficiente si finiva a meta', pagati e ancora incompleti. Ora o si prende tutto
+  o non si muove niente — verificato con credito € 5 su un totale di € 16,50: rifiuto, e la
+  collezione resta vuota.
+- **Il totale si dice prima.** Il bottone porta il conto vero (`Sblocca visita e contenuti
+  (€ 16.50)`) e la conferma lo scompone, perche' il prezzo della sola visita direbbe meno del
+  vero. Per lo stesso motivo la conferma compare anche su una visita **gratuita** che contenga
+  tappe a pagamento: prenderla in silenzio svuoterebbe il portafoglio senza averlo detto.
+
+**«Completare» non e' «comprare», e non vanno confusi.** La visita ce l'hai gia': quel che si
+compra sono le descrizioni che le mancano. Le due strade passano per la stessa richiesta solo
+perche' quella richiesta prende **sempre e soltanto quel che non hai** — la visita, essendo
+gia' tua, non entra nel conto e non si ripaga. Serve ancora a chi possedeva la visita da prima
+di questa regola, o a cui e' stata aggiunta una tappa dopo l'acquisto. Verificato: possedendo
+la visita e mancando € 11 di descrizioni, il conto e' € 11 e la visita non viene riaddebitata.
+
+**Non si compra a rate.** Credito insufficiente vuol dire acquisto non fatto, non acquisto a
+meta': con € 5 su € 11 la richiesta viene rifiutata e la collezione resta intatta. Vale su
+tutte e due le strade, e prima non era cosi' — il completamento era un ciclo di una richiesta
+per tappa, quindi col credito buono per le prime due si restava pagati e incompleti.
+
+### 3.1-quinquies Una regola sola, e due concetti che restano due *(2026-08-02)*
+
+La regola di lettura era scritta **cinque volte**: `server/access.ts`, il controllo delle visite
+guidate in `routes/visits.ts`, e nel marketplace `availableNow()`, `allowedInGuided()` (la
+stessa cosa con gli operandi scambiati) e una copia **in linea** dentro `editorLibrary()`.
+Cinque copie non restano d'accordo, e infatti non lo erano: da li' veniva il difetto per cui si
+chiedeva di comprare il gratuito.
+
+Che cosa puo' entrare in una **visita guidata** e' la stessa domanda travestita — «e' gratuito,
+mio, o comprato?» — e ora e' la stessa riga: la parola chiave non puo' regalare contenuti
+altrui perche' non puo' contenere quel che tu stesso non potresti leggere.
+
+Ora la regola sta in **`shared/access.ts`** — `isReadable(contenuto, utente, posseduto)` —
+accanto ai tipi e per lo stesso motivo: e' un accordo fra client e server, e un accordo scritto
+in due posti si rompe da solo senza che niente lo segnali. Il **possesso** resta di chi chiama
+(un `Set` per richiesta sul server, un array gia' in memoria sul client): qui c'e' la regola,
+li' la ricerca.
+
+**Quel che NON si e' unito, e perche'.** Restano due predicati, ma ora il nome dice quale e':
+
+| | cosa chiede | dove decide |
+| --- | --- | --- |
+| `canRead(c)` | posso **leggerlo**? gratuito, mio, o comprato | tappe mancanti, testo di una descrizione, libreria del compositore |
+| `inLibrary(c)` | me lo sono **preso**? mio, o nella collezione | la Libreria, la striscia Riprendi, «Tieni in libreria» |
+
+Fonderli in uno solo non si puo', e la prova e' in tutti e due i versi: con la regola di
+`inLibrary` si chiede di comprare il gratuito (era il difetto); con quella di `canRead` la
+Libreria diventa l'intero catalogo gratuito e «Tieni» non esiste piu'. Sono due domande
+diverse su due cose diverse — leggere e possedere — e il difetto non era averle entrambe, era
+non distinguerle nel nome: `owns()` sembrava la piu' forte ed era la piu' stretta.
+
+**Distinguerle ha subito trovato un altro punto sbagliato.** Nella pagina di un'opera il tasto
+«Leggi» era legato a `inLibrary`, quindi una descrizione **gratuita** stava nascosta dietro
+«Ottieni» — mentre il server il suo testo lo mandava comunque. Ora si legge quel che si puo'
+leggere, e «Tieni in libreria» e' un'azione a parte: e' l'altra domanda.
+
+**I soldi li conta solo il server** (`server/src/pricing.ts`, `conto()`). Il client non ha piu'
+`purchaseCost`, `missingCost` ne' `missingItems`: `GET /visits?user=` allega a ogni visita
+`mancanti`, `costoMancanti` e `totale` — calcolati per QUELLA persona — e il client li scrive e
+basta. La stessa funzione la usa `POST /buy` per addebitare, quindi la cifra mostrata e la
+cifra addebitata non sono d'accordo per fortuna: sono la stessa riga. Provato: la stessa visita
+vale € 13,50, € 8,50 o € 6,00 a seconda di che tappe uno ha gia'.
+
+Ne e' sparito anche il rattoppo: il client non manda piu' un totale «atteso» e il server non ha
+piu' il 409 che lo confrontava col proprio. Quel controllo serviva solo a sorvegliare
+un'aritmetica che il client non deve fare.
+
+⚠️ Il conto sta nella risposta, quindi **dopo un acquisto e' vecchio di un acquisto**:
+`performPurchase` rilegge le visite invece di aggiustare i numeri in locale, che vorrebbe dire
+rifare qui il conto che si e' appena tolto. Le tappe di tutte le visite si leggono con **una**
+query, non una per visita: e' l'N+1 gia' pagato una volta nel resoconto vendite (§1.1-bis).
+
+### 3.1-sexies Chi rifiuta e chi suggerisce *(2026-08-02)*
+
+Tre regole vivevano **solo nel client**, e il server accettava quel che il client si limitava a
+sconsigliare. Provato contro il server vivo, non dedotto:
+
+| passava | ora |
+| --- | --- |
+| `POST /items` con `prezzo: -99` e testo vuoto | 400, due volte |
+| `POST /visits` con `prezzo: -5` | 400 |
+| `POST /visits` con `percorso: []` | 400 |
+
+⚠️ **Il prezzo negativo coniava denaro.** `conto()` somma i prezzi delle tappe: una descrizione
+a −99 dentro una visita porta il totale sotto zero, il controllo del credito passa da solo e
+`wallet = credito − totale` **aggiunge**. Misurato: comprando quella visita il portafoglio
+passava da **€ 100 a € 199**. Non e' un problema di sicurezza — e' che nessuno rifiutava un
+numero assurdo.
+
+**La divisione, adesso.** Il client fa una *precheck* e il server **decide**:
+
+- restano nel client le domande di pura forma — campo vuoto, nessuna tappa, quiz incompleto —
+  che si rispondono senza sapere niente e alimentano la barra «Manca ancora: …» mentre si
+  scrive. Fossero sul server sarebbero un giro di rete a ogni tasto;
+- sono usciti dal client il **prezzo** (il campo ha gia' `min="0"`, e a rifiutare e' il server)
+  e il **possesso** delle tappe di una visita guidata, che richiede di sapere chi ha comprato
+  cosa — il client lo indovinava da un catalogo che puo' essere vecchio. Il server lo sapeva
+  gia' e lo verificava gia'.
+
+**`WORDS_PER_MINUTE` sta in `shared/constants.ts`.** Le 100 parole al minuto erano scritte due
+volte: il server ci dimensiona la descrizione da generare, il marketplace ci giudica se il testo
+scritto sta nella durata dichiarata. Sono lo stesso cambio fra durata e lunghezza visto dai due
+lati; separate, si sarebbero messe d'accordo su «60 secondi di lettura» in due modi diversi.
+
 ### 3.2 The four LLM uses (slide 31) — all present
 
 1. **Create items for undescribed objects / missing level or length** —
@@ -1017,6 +1167,26 @@ ones do. Below a rule, the **su misura** block with example chips.
   Verified against the real map before shipping: 2 m from a work with the compass on it, 93%;
   midway between two, no winner; a compass with a 300 m fix stays at 15%, i.e. **a compass
   alone never manufactures confidence**.
+
+### 5.3-bis Come si comincia una visita *(2026-08-02)*
+
+Segnalato: «una volta iniziata la visita vorrei un bottone che mi apre la descrizione della
+prima opera». Aperta la visita **non c'era nessun comando**: la scheda esiste solo da quando
+una tappa e' aperta (`v-if="currentArtwork"`), e l'unico modo di aprirne una era scoprire che i
+dischi sulla pianta si toccano. Chi non guarda la pianta restava fermo davanti a una visita
+gia' cominciata.
+
+Peggio: le note d'apertura comparivano da sole in un riquadro il cui bottone diceva
+**«Continua»**, e continuare non portava da nessuna parte — `target: -1` chiudeva il riquadro e
+basta. Ora «Continua» continua: apre la prima tappa navigabile.
+
+E quando non c'e' nessuna tappa aperta compare, largo quanto lo schermo e **dove poi comparira'
+la scheda**, un solo comando: *Inizia dalla prima tappa*, o *Riapri la tappa* se la scheda era
+stata chiusa. Quest'ultimo chiude anche l'altra segnalazione, «da mobile se chiudo la card non
+riesco a riaprirla». Nella visita guidata non compare: li' la tappa la decide il docente.
+
+Da tappa aperta in poi non serviva aggiungere niente: la scheda **a riposo** e' alta 6,5rem e
+tiene gia' numero, titolo, ascolto e avanti/indietro sempre in vista.
 
 ### 5.4 `GuidedGate`
 

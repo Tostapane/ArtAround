@@ -256,6 +256,28 @@ const currentLocationId = computed(() => {
   return "";
 });
 
+/**
+ * La porta d'ingresso alla visita, quando non c'e' nessuna tappa aperta: senza,
+ * l'unico modo di cominciare era scoprire che i dischi sulla pianta si toccano.
+ * Serve anche a rientrare dopo aver chiuso la scheda. Nella visita guidata non
+ * compare: li' a decidere la tappa e' il docente.
+ */
+const azioneTappa = computed(() => {
+  if (guidedStudent.value) return null;
+  if (currentArtwork.value) return null;
+  if (navigableStops.value.length === 0) return null;
+  if (lastVisitIndex.value >= 0) {
+    return { label: "Riapri la tappa", index: lastVisitIndex.value };
+  }
+  return { label: "Inizia dalla prima tappa", index: stepIndex(-1, 1) };
+});
+
+function apriTappaCorrente() {
+  const azione = azioneTappa.value;
+  if (!azione || azione.index < 0) return;
+  selectIndex(azione.index);
+}
+
 // --- Navigazione -----------------------------------------------------------
 function goToIndex(i: number) {
   transition.value = null;
@@ -304,7 +326,14 @@ function closeTransition() {
   const t = transition.value;
   transition.value = null;
   if (!t) return;
-  if (t.target >= 0) goToIndex(t.target);
+  if (t.target >= 0) {
+    goToIndex(t.target);
+    return;
+  }
+  // Note d'apertura: "Continua" continua: porta alla prima tappa. Prima chiudeva
+  // il riquadro e basta, e la visita restava ferma senza niente di aperto.
+  const primo = stepIndex(-1, 1);
+  if (primo >= 0) goToIndex(primo);
 }
 
 /**
@@ -547,6 +576,21 @@ onUnmounted(() => {
         @teleport-point="teletrasportaSuPunto"
         @teleport-stop="teletrasportaSuTappa"
       />
+
+      <!-- PORTA D'INGRESSO: sta dove poi comparira' la scheda, cioe' dove si
+           guarda per sapere che si fa adesso. -->
+      <div
+        v-if="azioneTappa"
+        class="shrink-0 border-t border-line bg-surface p-3"
+      >
+        <button
+          type="button"
+          class="btn-primario w-full justify-center text-title-3"
+          @click="apriTappaCorrente"
+        >
+          {{ azioneTappa.label }}
+        </button>
+      </div>
     </div>
 
     <Scheda

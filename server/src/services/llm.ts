@@ -14,7 +14,7 @@
  * sono testo mostrato e possono cambiare senza rompere il protocollo.
  */
 import { GoogleGenAI, Type } from "@google/genai";
-import { options, educationalLevels, secPerArt } from "../../../shared/constants";
+import { options, educationalLevels, secPerArt , WORDS_PER_MINUTE } from "../../../shared/constants";
 import { RouteIR } from "./wayfinding";
 import { conTentativi } from "./retry";
 
@@ -24,7 +24,7 @@ const MODEL = "gemini-3.1-flash-lite";
 const MODEL_LIGHT = "gemini-3.1-flash-lite";
 
 function wordsForDuration(duration: number): number {
-  const words = Math.round((duration * 100) / 60);
+  const words = Math.round((duration * WORDS_PER_MINUTE) / 60);
   if (words < 5) return 5;
   return words;
 }

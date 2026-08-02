@@ -137,6 +137,15 @@ router.post("/", async (req, res) => {
     const payload = req.body;
 
     if (payload.tipo === "Item") {
+      // Il prezzo e il testo li controlla il SERVER, che e' l'unico posto in cui
+      // il controllo vale: un prezzo negativo non e' uno sconto, e' credito
+      // regalato a chi compra la visita che lo contiene.
+      if (Number(payload.prezzo) < 0)
+        return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
+      const testo = payload.descrizioni?.[0]?.testo;
+      if (typeof testo !== "string" || testo.trim() === "")
+        return res.status(400).json({ error: "La descrizione non puo' essere vuota." });
+
       const artwork = await ArtworkModel.findOne({
         $or: [
           { "@id": payload.id_oper_universale },

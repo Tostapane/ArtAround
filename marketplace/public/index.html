@@ -575,11 +575,14 @@
                             <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
                           </a>
                         </template>
-                        <template x-if="!visitUsable(v) && owns(v)">
+                        <template x-if="!visitUsable(v) && inLibrary(v)">
                           <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario">Completa</a>
                         </template>
-                        <template x-if="!owns(v)">
+                        <template x-if="!inLibrary(v) && canBuy()">
                           <button type="button" @click="buy(v)" class="btn-primario" :aria-label="'Sblocca ' + v.name">Sblocca</button>
+                        </template>
+                        <template x-if="!inLibrary(v) && !canBuy()">
+                          <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario">Apri</a>
                         </template>
                       </div>
                     </div>
@@ -665,7 +668,11 @@
                         </div>
 
                         <div class="mt-4 flex flex-wrap items-center gap-2">
-                          <template x-if="owns(it)">
+                          <!-- Si legge quel che si PUO' leggere (canRead), non quel che
+                               si e' preso (inLibrary): una descrizione gratuita il server
+                               la manda comunque, e nasconderla dietro "Ottieni" era
+                               chiedere di prendere per avere quel che si aveva gia'. -->
+                          <template x-if="canRead(it)">
                             <button type="button" @click="toggleItem(it['@id'])" class="btn-secondario"
                               :aria-expanded="openItems.includes(it['@id'])"
                               :aria-label="toggleDescriptionLabel(it)">
@@ -673,10 +680,18 @@
                               <svg class="h-4 w-4" aria-hidden="true"><use :href="openItems.includes(it['@id']) ? '#ico-su' : '#ico-giu'" /></svg>
                             </button>
                           </template>
-                          <template x-if="!owns(it) && currentUserRole === 'visitatore'">
+                          <template x-if="!canRead(it) && canBuy()">
                             <button type="button" @click="buy(it)" class="btn-primario"
                               :aria-label="'Sblocca la descrizione ' + it.educationalLevel + ' di ' + currentArtwork().name">
-                              <span x-text="(!it.price || it.price === 0) ? 'Ottieni' : 'Sblocca'"></span>
+                              Sblocca
+                            </button>
+                          </template>
+                          <!-- Tenerla e' un'altra cosa dal leggerla: la libreria e' quel
+                               che ti sei preso, e ci si arriva anche da gratis. -->
+                          <template x-if="canRead(it) && !inLibrary(it) && canBuy()">
+                            <button type="button" @click="buy(it)" class="btn-secondario"
+                              :aria-label="'Tieni in libreria la descrizione ' + it.educationalLevel + ' di ' + currentArtwork().name">
+                              Tieni in libreria
                             </button>
                           </template>
                           <template x-if="currentUserRole === 'autore' && it.author === currentUser">
@@ -684,7 +699,7 @@
                               <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> Modifica
                             </button>
                           </template>
-                          <span x-show="owns(it)" class="inline-flex items-center gap-1 text-caption text-sage">
+                          <span x-show="inLibrary(it)" class="inline-flex items-center gap-1 text-caption text-sage">
                             <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-check" /></svg> Nella tua libreria
                           </span>
                         </div>
@@ -735,11 +750,11 @@
                       <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia la visita
                     </a>
                   </template>
-                  <template x-if="!owns(currentVisit()) && currentUserRole === 'visitatore'">
+                  <template x-if="!inLibrary(currentVisit()) && currentUserRole === 'visitatore'">
                     <button type="button" @click="buy(currentVisit())" class="btn-primario text-title-3"
                       x-text="visitPurchaseLabel()"></button>
                   </template>
-                  <template x-if="owns(currentVisit()) && !visitUsable(currentVisit())">
+                  <template x-if="inLibrary(currentVisit()) && !visitUsable(currentVisit()) && canBuy()">
                     <button type="button" @click="openCompleteVisit(currentVisit())" class="btn-primario"
                       x-text="unlockMissingLabel()"></button>
                   </template>
@@ -760,10 +775,10 @@
                   </template>
                 </div>
 
-                <p x-show="owns(currentVisit()) && !visitUsable(currentVisit())"
+                <p x-show="inLibrary(currentVisit()) && !visitUsable(currentVisit())"
                   class="avviso mt-4" role="status">
                   <svg class="h-5 w-5 shrink-0" aria-hidden="true"><use href="#ico-attenzione" /></svg>
-                  Per vivere questa visita servono anche i contenuti che la compongono.
+                  <span x-text="missingItemsNote()"></span>
                 </p>
 
                 <template x-if="visitUsable(currentVisit())">
@@ -879,16 +894,19 @@
                     <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
                     <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                     <p x-show="!visitUsable(v)" class="mt-1 text-caption text-muted"
-                      x-text="'Contiene ' + missingItems(v).length + ' contenuti da sbloccare'"></p>
+                      x-text="'Contiene ' + mancantiDi(v) + ' contenuti da sbloccare'"></p>
                   </div>
                   <template x-if="visitUsable(v)">
                     <a :href="navigatorUrl(v)" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
                       <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
                     </a>
                   </template>
-                  <template x-if="!visitUsable(v)">
+                  <template x-if="!visitUsable(v) && canBuy()">
                     <button type="button" @click="openCompleteVisit(v)" class="btn-secondario shrink-0"
-                      x-text="'Sblocca (€ ' + missingCost(v).toFixed(2) + ')'"></button>
+                      x-text="unlockVisitLabel(v)"></button>
+                  </template>
+                  <template x-if="!visitUsable(v) && !canBuy()">
+                    <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario shrink-0">Apri</a>
                   </template>
                 </li>
               </template>

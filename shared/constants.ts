@@ -159,3 +159,13 @@ export function formatDuration(totalSeconds: number): string {
   if (minutes < 1) return "meno di 1 min";
   return `${minutes} min`;
 }
+
+/**
+ * Quante parole si leggono in un minuto. E' il cambio fra una DURATA e una
+ * LUNGHEZZA di testo, e lo usano le due sponde per la stessa cosa vista dai due
+ * lati: il server per decidere quanto lunga generare una descrizione di N
+ * secondi, il marketplace per dire a chi scrive se il suo testo sta nella durata
+ * che ha dichiarato. Scritto due volte, i due si sarebbero messi d'accordo su
+ * "60 secondi di lettura" in silenzio e in due modi diversi.
+ */
+export const WORDS_PER_MINUTE = 100;

@@ -68,11 +68,11 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async buy(username: string, itemId: string, price: number): Promise<UserDTO> {
+  async buy(username: string, itemId: string): Promise<UserDTO> {
     const response = await fetch(`/api/users/${encodeURIComponent(username)}/buy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId, price }),
+      body: JSON.stringify({ itemId }),
     });
     if (!response.ok)
       throw new Error(await readError(response, "Non è stato possibile completare l'acquisto"));
@@ -118,8 +118,12 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async fetchVisite(museumQid?: string): Promise<Visit[]> {
-    const q = museumQid ? `?museum=${encodeURIComponent(museumQid)}` : '';
+  /** Con `user` ogni visita torna col suo conto: quanto costerebbe a lui. */
+  async fetchVisite(museumQid?: string, user?: string | null): Promise<Visit[]> {
+    const parti: string[] = [];
+    if (museumQid) parti.push(`museum=${encodeURIComponent(museumQid)}`);
+    if (user) parti.push(`user=${encodeURIComponent(user)}`);
+    const q = parti.length ? `?${parti.join('&')}` : '';
     const response = await fetch(`/api/visits${q}`);
     if (!response.ok) throw new Error('Errore caricamento visite');
     return response.json();

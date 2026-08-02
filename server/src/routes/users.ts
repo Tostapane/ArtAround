@@ -15,6 +15,7 @@ import { Router } from "express";
 import { randomUUID } from "crypto";
 import { UserModel } from "../models/user";
 import { ItemModel } from "../models/item";
+import { conto } from "../pricing";
 import { VisitModel } from "../models/visit";
 
 const router = Router();
@@ -165,22 +166,53 @@ router.post("/redeem", async (req, res) => {
  * POST /api/users/:username/buy  { itemId }
  * Ritorna: l'account aggiornato (portafoglio e collezione). 400 se il credito
  * non basta; il prezzo lo legge il server dal contenuto, mai dal client.
+ *
+ * COMPRARE UNA VISITA COMPRA LE SUE TAPPE: senza le descrizioni non e'
+ * percorribile, quindi pagarla e poi vedersi chiedere altri soldi per il suo
+ * contenuto e' comprarla due volte. Il conto lo fa `pricing.ts`, che e' lo
+ * stesso che `GET /visits` usa per dirlo in anticipo.
+ *
+ * NON SI COMPRA A RATE: se il credito non basta per il totale non si prende
+ * niente. Mezza visita non e' una visita.
  */
 router.post("/:username/buy", async (req, res) => {
   try {
     const { username } = req.params;
     const { itemId } = req.body;
     const user = await UserModel.findOne({ username, role: "visitatore" });
-    if (!user) return res.status(404).json({ error: "Visitatore non trovato" });
-
-    if (user.collezione.includes(itemId)) return res.json(sanitize(user)); 
+    if (!user) {
+      // Lo stesso nome puo' esistere con un altro ruolo, ed e' un ALTRO account:
+      // il portafoglio sta solo sul visitatore. Dire "visitatore non trovato" a
+      // chi e' entrato come autore descrive la query, non quel che gli succede.
+      const altro = await UserModel.findOne({ username });
+      if (altro) {
+        return res.status(404).json({
+          error: `Il profilo "${username}" con cui sei entrato e' un ${altro.role}: i contenuti si comprano da un profilo visitatore, che e' l'unico ad avere un portafoglio.`,
+        });
+      }
+      return res.status(404).json({ error: "Visitatore non trovato" });
+    }
 
     const content: any =
       (await ItemModel.findOne({ "@id": itemId })) ||
       (await VisitModel.findOne({ "@id": itemId }));
-    const cost = content
-      ? Number(content.price) || 0
-      : Number(req.body.price) || 0;
+
+    const owned = new Set<string>(user.collezione || []);
+    let itemsById = new Map<string, any>();
+    if (content && Array.isArray(content.itemListElement)) {
+      const tappe = await ItemModel.find({
+        "@id": { $in: content.itemListElement },
+      });
+      for (const t of tappe) itemsById.set(t["@id"], t);
+    }
+
+    const { daPrendere, totale: cost } = conto(
+      content || { "@id": itemId, price: 0 },
+      username,
+      owned,
+      itemsById,
+    );
+    if (daPrendere.length === 0) return res.json(sanitize(user));
 
     let credit = 0;
     if (typeof user.wallet === "number") credit = user.wallet;
@@ -191,7 +223,7 @@ router.post("/:username/buy", async (req, res) => {
       });
 
     user.wallet = credit - cost;
-    user.collezione.push(itemId);
+    for (const id of daPrendere) user.collezione.push(id);
     await user.save();
 
     res.json(sanitize(user));
