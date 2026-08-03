@@ -5,10 +5,11 @@
  * volta e pochi stati, quindi dei `ref` esportati bastano.
  *
  * Cose da sapere:
- * - `matchedContent` arriva gia' unito dal server (GET /visits/:id/items con
- *   `about` espanso): nessuna giunzione fra item e opere lato client. Le visite
- *   su misura e quelle guidate lo iniettano direttamente con `setCustomVisit`,
- *   e `contentVisitId` impedisce a `loadVisitContent` di sovrascriverlo.
+ * - `matchedContent` sono le TAPPE, costruite da `buildStops` in un punto solo:
+ *   l'opera arriva gia' dentro l'item dal server (`about` espanso), e qui si
+ *   aggiunge l'ancora, cioe' dove si sta quando la tappa non e' un'opera. Le
+ *   visite su misura e quelle guidate passano dalla stessa funzione, e
+ *   `contentVisitId` impedisce a `loadVisitContent` di sovrascriverle.
  * - `stageView` ricorda se si guardava la mappa o l'elenco: sono due modi PARI
  *   di navigare la stessa visita, non un contenuto e la sua barra laterale.
  * - `includeOptional` spento fa saltare le tappe opzionali ad avanti/indietro,
@@ -23,8 +24,8 @@
  */
 
 import { ref } from "vue";
-import type { Artwork, Visit, Museum, Match } from "../../shared/types";
-import { languages, type Language } from "../../shared/constants";
+import type { Artwork, Item, Visit, Museum, Match } from "../../shared/types";
+import { languages, kindById, type Language } from "../../shared/constants";
 import { getMuseum, getMuseumArtworks, getVisitItems } from "./api";
 import { mediaOrigin } from "./config";
 
@@ -155,6 +156,76 @@ export function openingNotes(): string[] {
 }
 
 // ============================================================================
+//                        Le tappe: soggetto e ancora
+// ============================================================================
+
+/**
+ * Da item a tappe: l'opera (che il server manda dentro `about`, e che non c'e'
+ * per uno stile o un periodo) e l'ANCORA, cioe' dove si sta mentre si ascolta —
+ * la prossima opera del percorso, o quella prima se dopo non ce ne sono.
+ * Senza ancora la tappa non avrebbe posizione e la pianta resterebbe indietro.
+ */
+export function buildStops(items: Item[]): Match[] {
+  const stops: Match[] = [];
+  for (const it of items) {
+    let artwork: Artwork | null = null;
+    if (it.about && typeof it.about === "object") artwork = it.about as Artwork;
+    stops.push({ item: it, artwork, anchor: artwork });
+  }
+
+  for (let i = 0; i < stops.length; i++) {
+    const stop = stops[i];
+    if (!stop || stop.anchor) continue;
+    for (let j = i + 1; j < stops.length; j++) {
+      const dopo = stops[j];
+      if (dopo && dopo.artwork) {
+        stop.anchor = dopo.artwork;
+        break;
+      }
+    }
+    if (stop.anchor) continue;
+    for (let j = i - 1; j >= 0; j--) {
+      const prima = stops[j];
+      if (prima && prima.artwork) {
+        stop.anchor = prima.artwork;
+        break;
+      }
+    }
+  }
+  return stops;
+}
+
+/** Come si chiama il soggetto di una tappa. */
+export function stopName(stop: Match): string {
+  if (stop.artwork) return stop.artwork.name;
+  if (stop.item.subject) return stop.item.subject;
+  return "Contenuto";
+}
+
+/** La riga sotto il nome: l'autore dell'opera, oppure che genere di soggetto e'. */
+export function stopSubtitle(stop: Match): string {
+  if (stop.artwork) return stop.artwork.author.name;
+  const genere = kindById(stop.item.kind);
+  if (genere) return genere.name;
+  return "";
+}
+
+/** L'immagine della tappa: quella dell'item vince, perche' l'ha scelta l'autore. */
+export function stopImage(stop: Match): string {
+  const proprie = [stop.item.imagePath];
+  if (stop.artwork) {
+    proprie.push(stop.artwork.imagePath);
+    proprie.push(stop.artwork.imageUri);
+  }
+  for (const src of proprie) {
+    if (!src) continue;
+    if (src.startsWith("http")) return src;
+    return mediaOrigin() + src;
+  }
+  return "";
+}
+
+// ============================================================================
 //                          Caricamento e pulizia
 // ============================================================================
 
@@ -182,9 +253,7 @@ export async function loadVisitContent(visitId: string) {
   matchedContent.value = [];
   try {
     const items = await getVisitItems(visitId, user.value);
-    matchedContent.value = items
-      .filter((it) => it.about && typeof it.about === "object")
-      .map((it) => ({ artwork: it.about as Artwork, item: it }));
+    matchedContent.value = buildStops(items);
     contentVisitId = visitId;
   } catch (err) {
     console.error("Errore durante il caricamento del contenuto della visita", err);

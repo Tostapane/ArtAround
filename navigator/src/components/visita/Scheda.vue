@@ -34,8 +34,7 @@ import Pannello from "./Pannello.vue";
 import Comando from "./Comando.vue";
 import { useTTS } from "./useTTS";
 import { labelForCommand, languages } from "../../../../shared/constants";
-import { mediaOrigin } from "@/config";
-import { language, setLanguage } from "@/state";
+import { language, setLanguage, stopImage, stopName } from "@/state";
 import type { Match } from "../../../../shared/types";
 
 const props = defineProps<{
@@ -85,11 +84,14 @@ watch(
 
 const imgSrc = computed(() => {
   if (!props.content) return "";
+  return stopImage(props.content);
+});
+
+/** Lo stile, che ce l'ha solo un'opera: sotto al nome sta accanto all'autore. */
+const stile = computed(() => {
+  if (!props.content) return "";
   const a = props.content.artwork;
-  if (a.imagePath) {
-    return a.imagePath.startsWith("http") ? a.imagePath : mediaOrigin() + a.imagePath;
-  }
-  if (a.imageUri) return a.imageUri;
+  if (a && a.style && a.style.name) return a.style.name;
   return "";
 });
 
@@ -141,7 +143,7 @@ function cambiaLingua(codice: string) {
           >
             <img
               :src="imgSrc"
-              :alt="'Immagine dell\'opera: ' + content.artwork.name"
+              :alt="'Immagine di ' + stopName(content)"
               @error="imgBroken = true"
             />
           </div>
@@ -162,9 +164,7 @@ function cambiaLingua(codice: string) {
 
             <p class="mt-1 text-small text-muted">
               {{ fields[1] }}
-              <span v-if="content.artwork.style && content.artwork.style.name">
-                · {{ content.artwork.style.name }}
-              </span>
+              <span v-if="stile">· {{ stile }}</span>
             </p>
 
             <p v-if="!inVisit" class="pastiglia pastiglia-ardesia mt-3">Non fa parte di questa visita</p>

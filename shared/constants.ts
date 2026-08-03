@@ -34,6 +34,40 @@ export const educationalLevelHints: Record<string, string> = {
 /** Durate di una singola descrizione usate da seed e pianificatore, in secondi. */
 export const secPerArt = [15, 60];
 
+// ============================================================================
+//                            Di cosa parla un item
+// ============================================================================
+
+/**
+ * I generi di soggetto: e' l'elenco della slide 21 ("movimenti culturali, stili,
+ * artisti, eventi storici"). `opera` e' l'unico che il codice confronta, perche'
+ * e' l'unico che sta in una sala; aggiungerne uno qui non chiede un ramo nuovo
+ * da nessuna parte.
+ */
+export interface ItemKind {
+  id: string;
+  /** Risposta alla domanda "di che cosa parli?", nell'editor. */
+  label: string;
+  /** Il genere da solo, sulla pastiglia di un contenuto. */
+  name: string;
+}
+
+export const itemKinds: ItemKind[] = [
+  { id: "opera", label: "Un'opera del museo", name: "Opera" },
+  { id: "stile", label: "Uno stile", name: "Stile" },
+  { id: "movimento", label: "Un movimento culturale", name: "Movimento" },
+  { id: "artista", label: "Un artista", name: "Artista" },
+  { id: "periodo", label: "Un periodo storico", name: "Periodo" },
+  { id: "evento", label: "Un evento storico", name: "Evento" },
+];
+
+export function kindById(id: string): ItemKind | null {
+  for (const k of itemKinds) {
+    if (k.id === id) return k;
+  }
+  return null;
+}
+
 export const licenses = [
   "Tutti i diritti riservati",
   "CC BY 4.0",

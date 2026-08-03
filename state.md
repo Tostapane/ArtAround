@@ -323,12 +323,19 @@ corregge lì, in quel passaggio**, invece di lasciarlo passare.
 - **Artwork** — `@id` (Wikidata URI), `qid`, `name`, `imageUri` (remote), `imagePath`
   (downloaded, server-relative), `author{name,qid}`, `style{name,qid}`, `ofMuseum` (URI),
   `locationId` (the SVG node id), `lastUpdated`. Model adds `@context`/`@type`.
-- **Item** (= `CreativeWork`) — `@id` = `QID-autore-tono-durata`, `about` (Artwork `@id`
-  string in the DB, **populated object** when served to clients), `text`, `timeRequired`
-  (bare seconds as a string, e.g. `"15"`), `educationalLevel` (the "tono"), `author`,
-  `license`, `price?`, `visibility?` (`"pubblico"` default | `"privato"`).
-  Uniqueness is per **(artwork, author, tono)** — enforced client-side (used tones disabled)
+- **Item** (= `CreativeWork`) — `@id` = `QID-autore-tono-durata`, `kind`, `about?` (Artwork
+  `@id` string in the DB, **populated object** when served to clients), `subject?`,
+  `imagePath?`, `ofMuseum`, `text`, `timeRequired` (bare seconds as a string, e.g. `"15"`),
+  `educationalLevel` (the "tono"), `author`, `license`, `price?`, `visibility?`
+  (`"pubblico"` default | `"privato"`).
+  Uniqueness is per **(soggetto, author, tono)** — enforced client-side (used tones disabled)
   and server-side (**409**).
+  **`kind` says what the item is about** (§3.1-septies) and is the only field of it the code
+  ever compares: `kind === "opera"` ⇒ `about` is set and there is no `subject`; any other kind
+  ⇒ `subject` (a name written by the author) and `imagePath` are set and `about` is absent.
+  `ofMuseum` is on the item itself, not reached through the artwork: a subject that is not an
+  artwork would have no museum otherwise, and the catalogue filter is one query instead of two.
+  ⚠️ `isItem()` therefore distinguishes an item from a visit by **`kind`**, not by `about`.
 - **Visit** (= `ItemList`) — `@id`, `name`, `level`, `duration` (**total** seconds),
   `price?`, `license?`, `ofMuseum`, `itemListElement` (Item `@id`[]), `optionalItems?`
   (subset), `logistics`, `author?`, `accessKey?`, `quiz?`.
@@ -362,6 +369,11 @@ The four slide-mandated metadata are covered: **lunghezza** (`timeRequired`), **
 - `educationalLevelHints` — one line per tone, shown to the author choosing: the choice is
   made on the consequence, not on the label.
 - `secPerArt = [15, 60]` — seed durations and planner enum.
+- `itemKinds` — the six things a content can be **about**: `opera · stile · movimento ·
+  artista · periodo · evento`, which is slide 21's own list ("gli item possono riferirsi sia
+  agli oggetti della visita, sia a contenuti associati: movimenti culturali, stili, artisti,
+  eventi storici"). Each carries two texts because they are read in two places: `label` is the
+  answer to the editor's "di che cosa parli?", `name` is the kind shown alone on a pill.
 - `licenses[5]`, `SOURCE_LANG = "it"`, `languages[13]` (name + translate/tts/stt codes,
   only fully-supported languages).
 - `options: CommandOption[]` — the **controlled vocabulary**, single source for the
@@ -454,10 +466,12 @@ diverse prima di essere fissata: tutte e tre passano AA senza ritocchi.
 | `DELETE /visits/:id` | delete + `$pull` from every `collezione` | marketplace |
 | `GET /items` | all **public** items, texts included, `about` populated | **nobody since 2026-07-31** — kept deliberately (§3.1-bis) |
 | `GET /items/metadata` | the same items **without `text`** and with `about` as a bare id | marketplace, at museum load (§3.1-bis) |
+| `GET /items/:id/text` | the text of **one** description, same reading rule as the rest | marketplace, opening a content that has no artwork (§3.1-septies) |
+| `POST /items/image` | multipart upload of an item's own image; the **server** names the file | marketplace editor (§3.1-septies) |
 | `GET /items/author/:name` | an author's items (incl. private) | marketplace |
-| `POST /items` | create (marketplace `tipo:"Item"` or Schema.org form) or **edit** (`editId`: only text+price mutate) | marketplace editor |
+| `POST /items` | create (`tipo:"Item"` + `genere`) or **edit** (`editId`: only text+price mutate); enforces the kind invariant | marketplace editor |
 | `POST /items/batch` | items by id list | **nobody** (§8.1) |
-| `GET /museums` · `GET /museums/:qid` · `GET /museums/:qid/config` · `/artworks` · `/visits` · `/qrcodes` | museum listing, DB doc, **config-file doc**, artworks, visits, printable QR sheet | marketplace / navigator / curator |
+| `GET /museums` · `GET /museums/:qid` · `GET /museums/:qid/config` · `/artworks` · `/visits` · `/topics` · `/qrcodes` | museum listing, DB doc, **config-file doc**, artworks, visits, **the styles and authors its own artworks name**, printable QR sheet | marketplace / navigator / curator |
 | `POST /users/register` · `/login` · `/:username/buy` · `GET /:username/sales` | role-scoped auth, server-side budget check, adoption/revenue report | marketplace |
 | `POST /llm/newInfo` | `{previous, userReq, language}` → answer generated **directly in `language`** | navigator |
 | `POST /speech` (multipart) · `POST /speech/tts` | STT → `mapRequest` → controlled command; TTS → MP3 | navigator |
@@ -632,6 +646,55 @@ un'aritmetica che il client non deve fare.
 rifare qui il conto che si e' appena tolto. Le tappe di tutte le visite si leggono con **una**
 query, non una per visita: e' l'N+1 gia' pagato una volta nel resoconto vendite (§1.1-bis).
 
+### 3.1-septies Un contenuto non parla solo di opere *(2026-08-03)*
+
+La slide 21 dice che un item puo' riferirsi «sia agli oggetti della visita, sia a contenuti
+associati (movimenti culturali, stili, artisti, eventi storici)». Fino a qui `Item.about` era
+obbligatorio ed era l'`@id` di un'opera: si poteva descrivere solo cio' che stava appeso a un
+muro. Ora l'item porta un **genere** (`kind`, da `itemKinds`) e da quello dipende tutto:
+`opera` ⇒ c'e' `about`; qualunque altro ⇒ c'e' `subject`, il nome scritto dall'autore.
+
+**Perche' non c'e' una collezione dei soggetti.** Uno stile non esiste in questo sistema se
+non c'e' un contenuto che ne parla: una tabella di soggetti avrebbe righe create per essere
+puntate una volta sola, e nessuno saprebbe quando cancellarle. Il soggetto e' quindi l'item
+stesso, e due autori che scrivono di "Manierismo" finiscono sulla stessa pagina perche' il
+raggruppamento del catalogo usa `genere:nome` come chiave dove usava l'`@id` dell'opera.
+
+**Da dove escono i nomi.** `GET /museums/:qid/topics` restituisce gli stili e gli autori che
+le opere di quel museo gia' dichiarano — una `find` sulle sue opere, niente di memorizzato e
+niente da mantenere. Nell'editor sono un `datalist`, cioe' un suggerimento: scritto uguale a
+come lo chiamano le opere, il contenuto e la pastiglia dello stile sulla pagina dell'opera si
+ritrovano; scritto a mano ("Firenze nel Quattrocento") il contenuto sta per conto suo, che e'
+giusto per un soggetto che nessun'altra cosa nomina.
+
+**L'immagine e' obbligatoria** quando il soggetto non e' un'opera: non c'e' nessun quadro da
+cui ripiegare, e senza immagine la tessera resta vuota in tutte e due le app. La carica
+l'autore (`POST /items/image`, multipart), il **server** le da' il nome — un nome scelto dal
+client e' una risalita di percorso e la sovrascrittura dell'immagine di qualcun altro nella
+stessa riga — e la cancellazione dell'item la toglie dal disco.
+⚠️ Un'immagine caricata e poi abbandonata senza pubblicare resta li': il caricamento e la
+pubblicazione sono due richieste, e la seconda puo' non arrivare mai.
+
+**Il museo e' passato sull'item.** `filtroPubblico()` faceva due query — le opere del museo,
+poi gli item che le descrivono — e per un contenuto senza opera non ci sarebbe arrivato: ora
+e' `{ofMuseum}` e basta. `testers.ts generi` ha riempito i due campi nuovi sui 751 item che
+c'erano gia'; il seed li scrive da se'.
+
+**Nel navigator la tappa prende un'ANCORA** (§5.3-quinquies): un contenuto su uno stile non
+ha un posto sulla pianta, ma chi lo ascolta ce l'ha.
+
+⚠️ **Trappola gia' pagata una volta:** `isItem()` distingueva un item da una visita con
+`"about" in c`. Reso opzionale `about`, ogni contenuto non-opera avrebbe smesso di essere un
+item **in tutt'e due le app insieme**, sparendo dagli elenchi senza un errore da nessuna
+parte. La guardia guarda `kind`, che c'e' sempre e che una visita non ha.
+
+**Verificato in chromium** (14 controlli nel marketplace, 11 nel navigator, zero errori in
+console): pubblicazione di un contenuto di genere "movimento" con immagine caricata davvero,
+rifiuto del file che immagine non e' (400), la barra «Manca ancora» che chiede soggetto e
+immagine, la pagina del soggetto col suo testo caricato dalla rotta nuova, la pastiglia dello
+stile che porta ai contenuti che ne parlano, e nel navigator la visita del British che si apre
+su due tappe non-opera. Dati usa e getta rimossi.
+
 ### 3.1-sexies Chi rifiuta e chi suggerisce *(2026-08-02)*
 
 Tre regole vivevano **solo nel client**, e il server accettava quel che il client si limitava a
@@ -760,6 +823,18 @@ npx ts-node src/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
 npx ts-node src/seed.ts tutti           tutti i musei configurati
 npx ts-node src/seed.ts speciali        le due visite dimostrative
 ```
+
+**Da 2026-08-03 semina anche due soggetti che opere non sono** — lo stile e l'autore piu'
+ricorrenti nel catalogo di quel museo, presi dalle sue stesse opere (quindi un museo di arte
+contemporanea non si ritrova il Rinascimento), con l'immagine di un'opera che li porta e con
+il testo generato per ogni tono e durata: 16 chiamate all'LLM per museo. Senza almeno uno nel
+database, quella meta' della slide 21 non si puo' mostrare.
+
+⚠️ **Restano nel catalogo e basta: le visite seminate contengono solo opere.** In che punto di
+quale percorso abbia senso un contenuto sullo stile e' una scelta di curatela, e le visite del
+seed sono un'enumerazione meccanica ("tutte le opere di questo museo a tono X"). A metterceli
+e' chi compone la visita, nel compositore del marketplace — che e' anche l'unico posto che sa
+*dove*.
 
 Two properties decide the shape of the file, and both were forced by the fourth museum:
 
@@ -1276,6 +1351,32 @@ sono controlli da tastiera con `aria-label` e `<title>`, la toilette risponde «
 indicazioni dettagliate arrivano dall'LLM passando per il grafo, e a teletrasporto armato il
 tocco su un servizio sposta il segnalino senza aprire niente.
 
+### 5.3-quinquies L'ancora: dove si sta mentre si parla d'altro *(2026-08-03)*
+
+Da quando una tappa puo' essere un contenuto su uno stile o su un periodo (§3.1-septies), una
+tappa puo' non avere un posto sulla pianta. La persona che la ascolta ce l'ha, pero': **ogni
+tappa porta un'ancora**, che e' la sua opera quando ne descrive una e altrimenti **la prossima
+opera del percorso** (ripiego: quella prima; nessuna, se la visita e' fatta solo di soggetti).
+Un contenuto sul Rinascimento messo davanti alle sale del Rinascimento ti porta cosi' davanti
+al primo quadro mentre lo ascolti, che e' il modo in cui una guida vera lo racconterebbe.
+
+Le tappe si costruiscono in **un punto solo** — `buildStops()` in `state.ts`, usata dalle tre
+strade che le producono (visita di catalogo, su misura, guidata) — e da li' in poi il resto
+del navigator legge `anchor` senza sapere che esistono due casi:
+
+- `Stage` disegna i dischi sull'ancora, e la tappa non-opera **cade nel raggruppamento che
+  esisteva gia'** per le due descrizioni di uno stesso oggetto: un disco solo, con i numeri di
+  tutte le tappe che vi si fermano ("Tappe 1, 2, 3");
+- `currentLocationId` e il teletrasporto seguono l'ancora, quindi il segnalino non resta
+  indietro;
+- le indicazioni di *Orientati* partono dall'ancora: un movimento culturale non ha una sala da
+  cui calcolare un cammino.
+
+`Match` e' diventato `{item, artwork: Artwork | null, anchor: Artwork | null}` — `vue-tsc` ha
+indicato tutti e diciotto i punti che davano per scontata l'opera, che e' il motivo per cui
+questa meta' del lavoro e' stata piu' breve di quella del marketplace, dove i binding di Alpine
+non li guarda nessun compilatore.
+
 ### 5.4 `GuidedGate`
 
 Four phases. **`attesa`** is a full-bleed stage with the access key at `text-display` — it
@@ -1298,6 +1399,14 @@ can report a *planned* close instead of a 410. It shows the student's mark, and 
 **Torna alla home** beside "Scegli un'altra visita".
 
 ### 5.5 Cross-cutting
+
+`useSTT` also exports **`levels`**, a rolling window of the RMS of the samples it is already
+collecting (added 2026-08-03): while recording, `Comando` draws it as a scrolling trace inside
+the button, in place of the microphone icon, so a mute or denied device no longer looks
+identical to a working one until the server answers. The label shortens to "Invia" for that
+stretch — the button shares its row with the navigation arrows and gets ~150 px on a phone.
+Verified in Chromium with `--use-fake-device-for-media-stream`: 16 bars, heights moving
+between 2 px and the 20 px ceiling, cleared on stop.
 
 `useTTS` (server-side synthesis, request-id guarded), `useTranslation` (lives in `Visita` so
 `Leggi` reuses the translated text), `useAnnouncer`, `useSTT`, `useTheme` — the last one

@@ -42,6 +42,8 @@ import { useTranslation } from "@/composables/useTranslation";
 import { useAnnouncer } from "@/composables/useAnnouncer";
 import { getArtworkPreview } from "@/api";
 import {
+  stopName,
+  stopSubtitle,
   includeOptional,
   isOptionalItem,
   loadVisitContent,
@@ -211,9 +213,9 @@ function selectIndex(i: number) {
   lastVisitIndex.value = i;
   const pos = currentPosition.value;
   if (pos > 0) {
-    announce(`Tappa ${pos} di ${navigableStops.value.length}: ${match.artwork.name}`);
+    announce(`Tappa ${pos} di ${navigableStops.value.length}: ${stopName(match)}`);
   } else {
-    announce(match.artwork.name);
+    announce(stopName(match));
   }
 }
 
@@ -227,10 +229,14 @@ function onStageSelect(i: number) {
 }
 
 const currentLocationId = computed(() => {
-  if (currentArtwork.value) return currentArtwork.value.artwork.locationId;
+  if (currentArtwork.value) {
+    const ancora = currentArtwork.value.anchor;
+    if (ancora) return ancora.locationId;
+    return "";
+  }
   if (guidedStudent.value) {
     const match = matchedContent.value[guidedCurrentStep.value];
-    if (match) return match.artwork.locationId;
+    if (match && match.anchor) return match.anchor.locationId;
   }
   return "";
 });
@@ -359,14 +365,19 @@ function teletrasportaSuPunto(x: number, y: number) {
 function teletrasportaSuTappa(i: number) {
   const match = matchedContent.value[i];
   if (!match) return;
-  const nodo = nodeOf(match.artwork.qid);
+  const ancora = match.anchor;
+  if (!ancora) {
+    announce("Non so dove si trovi questa tappa sulla pianta");
+    return;
+  }
+  const nodo = nodeOf(ancora.qid);
   if (!nodo) {
     announce("Non so dove si trovi quest'opera sulla pianta");
     return;
   }
   reanchor(nodo.x, nodo.y);
   teletrasportoArmato.value = false;
-  announce(`Sei accanto a ${match.artwork.name}`);
+  announce(`Sei accanto a ${ancora.name}`);
 }
 
 function onKeyTeletrasporto(e: KeyboardEvent) {
@@ -385,7 +396,7 @@ async function goToArtwork(qid: string) {
   const nodo = nodeOf(qid);
   if (nodo) reanchor(nodo.x, nodo.y);
 
-  const i = matchedContent.value.findIndex((m) => m.artwork.qid === qid);
+  const i = matchedContent.value.findIndex((m) => m.artwork && m.artwork.qid === qid);
   if (i >= 0) {
     apriTappa(i);
     return;
@@ -399,8 +410,13 @@ async function goToArtwork(qid: string) {
       const sec = parseInt(first.item.timeRequired, 10);
       if (!isNaN(sec)) duration = sec;
     }
-    currentArtwork.value = await getArtworkPreview(qid, level, duration);
-    announce(`${currentArtwork.value.artwork.name}, non fa parte di questa visita`);
+    const anteprima = await getArtworkPreview(qid, level, duration);
+    currentArtwork.value = {
+      item: anteprima.item,
+      artwork: anteprima.artwork,
+      anchor: anteprima.artwork,
+    };
+    announce(`${anteprima.artwork.name}, non fa parte di questa visita`);
   } catch (err) {
     console.error("Impossibile caricare l'opera", err);
     announce("Opera non trovata");
@@ -451,7 +467,7 @@ function actionHandler(option: string) {
   openRequest.value = option;
   openTarget.value = "";
   const art = riferimento.value;
-  studentAsk(option, art ? art.artwork.name : "");
+  studentAsk(option, art ? stopName(art) : "");
 }
 
 function chiediServizio(servizio: { target: string; label: string }) {
@@ -468,7 +484,7 @@ function chiudiRisposta() {
 const translatedFields = useTranslation(() => {
   const art = currentArtwork.value;
   if (!art) return [];
-  return [art.artwork.name, art.artwork.author.name, art.item.text];
+  return [stopName(art), stopSubtitle(art), art.item.text];
 });
 
 watch(currentArtwork, () => {

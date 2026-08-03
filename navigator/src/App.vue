@@ -28,12 +28,20 @@ import { onMounted, ref, computed } from "vue";
 import Biglietteria from "./components/selection/Biglietteria.vue";
 import Visita from "./components/visita/Visita.vue";
 import GuidedGate from "./components/GuidedGate.vue";
-import { loadMuseum, setCustomVisit, setVisit, visit, user, handoff } from "./state";
+import {
+  buildStops,
+  loadMuseum,
+  setCustomVisit,
+  setVisit,
+  visit,
+  user,
+  handoff,
+} from "./state";
 import { getVisit, createCustomVisit } from "./api";
 import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
 import { useAnnouncer } from "./composables/useAnnouncer";
-import type { Visit, Match } from "../../shared/types";
+import type { Visit, Artwork, Item } from "../../shared/types";
 
 const { message, announce } = useAnnouncer();
 
@@ -129,8 +137,14 @@ function onStart(v: Visit) {
   announce(`Visita avviata: ${v.name}`);
 }
 
-function onCustomStart(payload: { visit: Visit; content: Match[] }) {
-  setCustomVisit(payload.visit, payload.content);
+function onCustomStart(payload: {
+  visit: Visit;
+  content: { artwork: Artwork; item: Item }[];
+}) {
+  // La visita su misura arriva a coppie (i suoi item non stanno nel database):
+  // si rimette l'opera dentro l'item, che e' la forma da cui parte `buildStops`.
+  const items = payload.content.map((c) => ({ ...c.item, about: c.artwork }));
+  setCustomVisit(payload.visit, buildStops(items));
   choice.value = payload.visit["@id"];
   started.value = true;
   announce(`Visita avviata: ${payload.visit.name}`);

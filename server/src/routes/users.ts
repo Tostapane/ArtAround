@@ -256,11 +256,15 @@ router.get("/:username/sales", async (req, res) => {
     const rows: any[] = [];
     for (const it of items) {
       const about: any = it.about;
+      // Il nome della riga e' quello del soggetto: l'opera dove c'e', altrimenti
+      // il nome che l'autore ha scritto.
+      let nome = it.subject || "Contenuto";
+      if (about && typeof about === "object") nome = about.name;
       rows.push({
         id: it["@id"],
         type: "Item",
-        name: about && typeof about === "object" ? about.name : "Opera",
-        ofMuseum: about && typeof about === "object" ? about.ofMuseum : undefined,
+        name: nome,
+        ofMuseum: it.ofMuseum,
         educationalLevel: it.educationalLevel,
         price: it.price || 0,
         license: it.license || "—",

@@ -1,18 +1,20 @@
 MANCANTI
 - se non sicuro, deve blurrare le immagini
+- PS. mi turbano ancora le opere un po rotonde e un po quadrate.
+- c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico 
+(non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
+- aggiungere sessione e tasto torna alla home, tasto home navigator
+- far selezionare una lingua?
+- la sezione riprendi ha senso
+- indicazioni per arrivare a una opera?
+- modifica la freccia in navigtor con "cambia visita"
+- Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere?
+- Al momento si può creare un item avente una determinata difficoltà e durata. 
+A quanto ho capito dalle specs, dovrebbero potere esistere item aventi stesso tono ma 
+diverse durate (slide 22 delle specs)
 
 DA DISCUTERE
-- c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico (non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
-(hai detto facilmente risolvibile con prompt ma rimane irrisolto).
-- In attesa di potere creare anche quiz con AI.
-- fare in modo di avere un tasto home anche nel navigator
-- far selezionare una lingua?
-- ci sono grandi problemi di sicurezza
-- ci deve essere un tasto termina visita  
-- i filtri mostra contenuti mentre crei una visita sono abbastanza dubbiosi
-- la sezione riprendi ha senso?
-- indicazioni per arrivare a una opera?
-- il tasto per andare avanti c'e' ed e' unico, si trova quando apri la scheda
+
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
 - testare il nuovo sistema di audio (ora compatibile per iphone)
@@ -20,69 +22,21 @@ DA TESTARE
 - E se avesse piu' piani?
 - E se ci fossero piu' bagni o x?
 - dimensioni della scheda always on da mobile
-
+- Dovremmo testare una visita guidata con quiz
+- Se ci sono delle indicazioni all'inizio della visita prima di ogni opera, come fa l'utente a visualizzarle 
+e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo potrebbe essere la soluzione.
+- La cam risulta attiva sempre dopo avere dato i permessi, non solo mentre viene effettivamente usata 
+(e.g. durante scan qr). Vincenzo non ci dormirebbe la notte.
+- preview di una opera non inclusa nella visita
 PROBLEMI
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra
-
+la barra di ricerca con gli item e visite ha i bordi strani se cerchi
 
 domande 
 1) when the user logs in is supposed to choose one of the museums, right now its inside the last museum he used
 2) i tried the second museum and once i ended the visit i did not re enter the home, i was in the landing page
 
 
-ANDREA
-"dove sono?" non mi sembra molto intuitivo per scannerizzare il qr code.
-perche alcune opere sono cerchi e altre quadrati? nella legenda dice che dovrebbero essere cerchi.
-"Per vivere questa visita servono anche i contenuti che la compongono". Non so se "vivere" sia un typo oppure vuoi rendere la cosa poetica :).
 
 
-creare contenuti di singole opere (autore o visitatore?) 000
-
-AUTORE
-- Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere? 000
-- Al momento si può creare un item avente una determinata difficoltà e durata. 
-A quanto ho capito dalle specs, dovrebbero potere esistere item aventi stesso tono ma 
-diverse durate (slide 22 delle specs). 000
-- Le specs dicono: "Gli item possono riferirsi sia agli oggetti della visita, 
-sia a contenuti associati (movimenti culturali, stili, artisti, eventi storici, ecc.)". 
-Ora la creazione di un item è limitata alle opere esistenti, 
-ma non posso creare una descrizione che riguardi un genere tipo "manierismo <3" perché non è un opera. 
-Mi sembra una cosa orrenda rendere possibile cose del genere anche perché si può chiedere all'IA però è chiesto dalle specs.
-Sarebbe quindi da creare un meccanismo di associazione tra item (tipo che la descrizione di sto quadro è collegata alla descrizione del manierismo, perché sono correlati) (?)
-Tra gli attributi di un opera andrebbe aggiunto anche un attributo tipo "stile" (slide 26) in modo da associare un opera a un item che descrive magari il genere (sto abbozzando idee).
--  La struttura base del navigator fornisce "selezione ed esecuzione di una visita" (slide 27). 
-Al momento le visite possono essere selezionate/avviate solo dal marketplace. 000
-- Da autore non riesco a sbloccare alcune visite, alla pressione di "sblocca tutto" mi dice "visitatore non trovato", è un bug o una feature? Nella visita in questione sono io stesso l'autore (autore1).
-
-VISITATORE
-
--- Se ci sono delle indicazioni all'inizio della visita prima di ogni opera, come fa l'utente a visualizzarle 
-e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo potrebbe essere la soluzione.
-- Posso cambiare la mia posizione corrente usando il teletrasporto, c'è anche qualche altro modo? 
-  Vengo spostato automaticamente in funzione del gps mentre mi muovo? Se si, in caso di gps non attivo, 
-la mia posizione corrente dovrebbe essere spostata all'opera in questione ogni volta che passo alla successiva 
-mediante il bottone che si usa per andare all'opera successiva?
-- Come facciamo a verificare che l'aggiornamento continuo della posizione dell'utente sia funzionante? 
-Abbiamo modo di provare la cosa?
-Il bottone "apri la scheda/riduci", non mi convince tanto, potrebbe anche non esistere e mostrare il contenuto 
-direttamente per intero. Credo sarebbe più carino se venisse mostrato dall'alto al basso: lingua dei contenuti, 
-foto e descrizione opera, barra con i tasti per parlare e passare all'opera successiva, sezione "chiedi/orientati".
--- Non riesco a chiedere le cose a voce, mi dice sempre che non ha capito. 
-(Si il mio microfono è attivo e ho abilitato i permessi).
-- "Non ho capito prova a ripetere" rimane li anche quando passo a opera successiva. 
-Se ti capita una volta te lo porti appresso per tutta la visita.
-- Sarebbe carino mostrare qualcosa per fare capire all'utente se mentre parla il microfono sta effettivamente 
-funzionando (tipo le linee di whatsapp mentre fai i vocali).
--- La cam risulta attiva sempre dopo avere dato i permessi, non solo mentre viene effettivamente usata 
-(e.g. durante scan qr). Vincenzo non ci dormirebbe la notte.
-- Da dove viene preso il genere dell'opera mostrato accanto al nome dell'autore (e.g. impressionismo)?
- Non mi sembra una delle cose che aggiungi durante la creazione dell'item. 
-Dovremmo renderlo cliccabile in modo da aprire quel nuovo tipo di item che descrive la corrente artistica?
-Non ho capito bene che criterio segue la navigazione con tab quando si naviga nella mappa. Sarebbe possibile inserire un criterio tipo che li seleziona da opera 1 in ordine crescente?
-- Bagni emergenze e servizi non sono cliccabili. Forse non serve ma sarebbe carino se quando 
-ci clicchi su ti aprisse le indicazioni per raggiungerle (possibilmente anche con un pulsante che te le legge, come per le opere in modo che sia salvatore friendly).
-La barra di ricerca della vetrina (penso anche le altre) fa uno strano effetto quando la uso per scrivere.
-Dovremmo testare una visita guidata con quiz.
-
-PS. mi turbano ancora le opere un po rotonde e un po quadrate.

@@ -159,6 +159,37 @@ export const ArtAPI = {
     return response.json();
   },
 
+  /** Il testo di UNA descrizione: chi non parla di un'opera non sta negli elenchi per opera. */
+  async fetchItemText(
+    id: string,
+    user?: string,
+  ): Promise<{ text: string; locked: boolean }> {
+    const params = new URLSearchParams();
+    if (user) params.set('user', user);
+    const q = params.toString() ? `?${params.toString()}` : '';
+    const response = await fetch(`/api/items/${encodeURIComponent(id)}/text${q}`);
+    if (!response.ok) throw new Error('Errore caricamento del testo');
+    return response.json();
+  },
+
+  /** Carica l'immagine di un contenuto e ritorna l'indirizzo con cui mostrarla. */
+  async uploadItemImage(file: File): Promise<string> {
+    const form = new FormData();
+    form.append('immagine', file);
+    const response = await fetch('/api/items/image', { method: 'POST', body: form });
+    if (!response.ok)
+      throw new Error(await readError(response, "Errore nel caricamento dell'immagine"));
+    const data = await response.json();
+    return data.path;
+  },
+
+  /** I soggetti che il catalogo del museo gia' nomina: stili e autori. */
+  async fetchMuseumTopics(qid: string): Promise<{ name: string; kind: string }[]> {
+    const response = await fetch(`/api/museums/${encodeURIComponent(qid)}/topics`);
+    if (!response.ok) throw new Error('Errore caricamento dei soggetti');
+    return response.json();
+  },
+
   async fetchMyItems(authorName: string): Promise<Item[]> {
     const response = await fetch(`/api/items/author/${encodeURIComponent(authorName)}`);
     if (!response.ok) throw new Error('Errore caricamento dei tuoi contenuti');

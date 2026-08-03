@@ -29,9 +29,13 @@ function wordsForDuration(duration: number): number {
   return words;
 }
 
-export async function createTwistedDescription(
-  name: string,
-  author: string,
+/**
+ * La richiesta di una descrizione. Cambia solo la riga che dice CHE COSA
+ * descrivere: un'opera con il suo autore, oppure un soggetto che opera non e'.
+ */
+async function descrizione(
+  cosa: string,
+  etichetta: string,
   level: string,
   duration: number,
   twist: string,
@@ -41,7 +45,7 @@ export async function createTwistedDescription(
     let twistLine = "";
     if (twist && twist.trim() !== "") {
       twistLine = `Dai particolare risalto a: ${twist.trim()}.
-                    Mantieni comunque una descrizione completa e corretta dell'opera.`;
+                    Mantieni comunque una descrizione completa e corretta.`;
     }
     const request = `
                     Sei uno scrittore di guide per musei,
@@ -50,13 +54,12 @@ export async function createTwistedDescription(
                     Scrivi SOLO in plain text.
                     Esaudisci ESATTAMENTE la richiesta rispettando la difficolta'
                     e il limite di parole fornito.
-                    Descrivi l'opera ${name}
-                    realizzata da ${author}.
+                    Descrivi ${cosa}.
                     L'utente e' di livello ${level},
                     produci una spiegazione in circa ${wordNo} parole.
                     ${twistLine}
                     NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
-    const response = await conTentativi(`descrizione di "${name}"`, () =>
+    const response = await conTentativi(`descrizione di "${etichetta}"`, () =>
       ai.models.generateContent({
         model: MODEL_LIGHT,
         contents: request,
@@ -68,6 +71,16 @@ export async function createTwistedDescription(
   }
 }
 
+export async function createTwistedDescription(
+  name: string,
+  author: string,
+  level: string,
+  duration: number,
+  twist: string,
+) {
+  return descrizione(`l'opera ${name} realizzata da ${author}`, name, level, duration, twist);
+}
+
 export async function createDescription(
   name: string,
   author: string,
@@ -75,6 +88,17 @@ export async function createDescription(
   duration: number,
 ) {
   return createTwistedDescription(name, author, level, duration, "");
+}
+
+/** Un soggetto che non e' un'opera: il genere entra nella richiesta perche'
+ *  "Caravaggio" come artista o come periodo darebbe due testi diversi. */
+export async function createSubjectDescription(
+  subject: string,
+  kindName: string,
+  level: string,
+  duration: number,
+) {
+  return descrizione(`${kindName.toLowerCase()}: ${subject}`, subject, level, duration, "");
 }
 
 export interface PlannedArtwork {

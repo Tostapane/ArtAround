@@ -13,8 +13,8 @@
  * cui un guasto diventa invisibile.
  */
 import { ref } from "vue";
-import type { Artwork, Match, Visit } from "../../shared/types";
-import { loadMuseum, setCustomVisit, clearVisit } from "./state";
+import type { Visit } from "../../shared/types";
+import { buildStops, loadMuseum, setCustomVisit, clearVisit } from "./state";
 import {
   getVisit,
   createGuidedSession,
@@ -140,14 +140,8 @@ async function ensureContent(visitId: string) {
   if (contentLoaded) return;
   const v: Visit = await getVisit(visitId);
   const items = await getGuidedItems(guidedSessionId.value, guidedUser.value);
-  const content: Match[] = [];
-  for (const it of items) {
-    if (it.about && typeof it.about === "object") {
-      content.push({ artwork: it.about as Artwork, item: it });
-    }
-  }
   if (v.ofMuseum) await loadMuseum(qidFromUri(v.ofMuseum));
-  setCustomVisit(v, content);
+  setCustomVisit(v, buildStops(items));
   guidedVisitName.value = v.name;
   contentLoaded = true;
 }

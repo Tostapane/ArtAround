@@ -85,7 +85,9 @@ function partenza(): string {
       return verdetto.candidati[0].qid;
     }
   }
-  return props.about.artwork.qid;
+  // Si parte dall'ANCORA: uno stile non ha un posto sulla pianta, chi lo ascolta si'.
+  if (props.about.anchor) return props.about.anchor.qid;
+  return "";
 }
 
 async function ask() {

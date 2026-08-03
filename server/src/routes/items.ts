@@ -12,10 +12,14 @@
  * del peso di un catalogo, e in un museo da centoquattro opere sono ottocento
  * descrizioni: la prima rotta manda 1,1 MB, la seconda 300 KB. Chi apre una
  * descrizione la chiede a `GET /artworks/:qid/items`.
- * In creazione un autore puo' pubblicare UN solo item per coppia (opera, tono): i
- * duplicati vengono rifiutati invece di sovrascrivere in silenzio. In modifica
- * cambiano solo testo e prezzo — opera, tono, durata, licenza e visibilita'
- * formano l'identita' o i diritti di chi l'ha gia' adottato.
+ * IL SOGGETTO non e' per forza un'opera (slide 21): lo dice `genere`. Un'opera si
+ * cerca nel database e porta con se' museo e immagine; ogni altro soggetto arriva
+ * come nome scritto dall'autore e deve portarsi l'immagine.
+ *
+ * In creazione si pubblica UN solo item per coppia (soggetto, tono): i duplicati
+ * vengono rifiutati invece di sovrascrivere in silenzio. In modifica cambiano solo
+ * testo e prezzo — il resto e' identita' o diritti di chi l'ha gia' adottato — e
+ * per questo si sbriga PRIMA di risolvere il soggetto, che li' non serve.
  *
  * L'ELIMINAZIONE e' a cascata: un item citato da una visita non puo' sparire da
  * solo, perche' lascerebbe una tappa che non si risolve — e una tappa
@@ -24,30 +28,30 @@
  * collezione. `GET /:id/impact` serve a dichiararlo PRIMA di chiedere conferma.
  */
 import { Router } from "express";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
 import { ItemModel } from "../models/item";
 import { ArtworkModel } from "../models/artwork";
-import { purchasedBy, readableItems } from "../access";
+import { purchasedBy, readableItems, isReadable } from "../access";
 import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
+import { kindById } from "../../../shared/constants";
 
 const router = Router();
 
 /**
  * Quali item sono "quelli pubblici di questo museo": niente privati, e — se il
- * museo e' indicato — solo quelli che descrivono una sua opera. Il filtro passa
- * dalle opere perche' e' l'opera a sapere a che museo appartiene.
+ * museo e' indicato — quelli del suo catalogo.
  *
  * Sta in un posto solo perche' le due rotte che elencano il catalogo devono
  * elencare le STESSE cose: se un giorno cambia chi e' pubblico, non possono
  * cambiare a meta'.
  */
-async function filtroPubblico(museum: string): Promise<Record<string, unknown>> {
+function filtroPubblico(museum: string): Record<string, unknown> {
   const filter: Record<string, unknown> = { visibility: { $ne: "privato" } };
-  if (!museum) return filter;
-  const arts = await ArtworkModel.find({
-    ofMuseum: `http://www.wikidata.org/entity/${museum}`,
-  }).select("@id");
-  filter.about = { $in: arts.map((a) => a["@id"]) };
+  if (museum) filter.ofMuseum = `http://www.wikidata.org/entity/${museum}`;
   return filter;
 }
 
@@ -56,12 +60,11 @@ async function filtroPubblico(museum: string): Promise<Record<string, unknown>> 
 /**
  * GET /api/items[?museum=Qxxx]
  * Ritorna: gli item PUBBLICI del museo indicato (o tutti senza parametro), con
- * l'opera (`about`) popolata. Il filtro passa dalle opere, perche' e' l'opera a
- * sapere a che museo appartiene.
+ * l'opera (`about`) popolata dove c'e'.
  */
 router.get("/", async (req, res) => {
   try {
-    const filter = await filtroPubblico(String(req.query.museum || ""));
+    const filter = filtroPubblico(String(req.query.museum || ""));
     const items = await ItemModel.find(filter).populate({
       path: "about",
       model: "Artwork",
@@ -95,7 +98,7 @@ router.get("/", async (req, res) => {
  */
 router.get("/metadata", async (req, res) => {
   try {
-    const filter = await filtroPubblico(String(req.query.museum || ""));
+    const filter = filtroPubblico(String(req.query.museum || ""));
     const items = await ItemModel.find(filter).select("-text");
     res.json(items);
   } catch (error: any) {
@@ -125,102 +128,203 @@ router.get("/author/:authorName", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/items/:id/text[?user=nome]
+ * Ritorna: { text, locked } — il testo di UNA descrizione. `/artworks/:qid/items`
+ * li porta un'opera per volta, e un contenuto su uno stile non ne ha nessuna.
+ */
+router.get("/:id/text", async (req, res) => {
+  try {
+    const id = decodeURIComponent(req.params.id);
+    const item = await ItemModel.findOne({ "@id": id });
+    if (!item) return res.status(404).json({ error: "Contenuto non trovato" });
+    if (item.visibility === "privato" && item.author !== String(req.query.user || ""))
+      return res.status(403).json({ error: "Contenuto privato" });
+
+    const user = String(req.query.user || "");
+    const owned = await purchasedBy(user);
+    if (!isReadable(item, user, owned)) return res.json({ text: "", locked: true });
+    res.json({ text: item.text || "", locked: false });
+  } catch (error: any) {
+    console.error("[BACKEND ERROR] testo item:", error);
+    res.status(500).json({ error: "Errore nel recupero del testo" });
+  }
+});
+
+// --- Immagine propria dell'item ---------------------------------------------
+
+const ITEM_IMAGE_DIR = path.join(__dirname, "../../public/images/items/");
+const ITEM_IMAGE_URL = "/images/items/";
+
+/** Elenco chiuso: il nome del file lo scrive il server, estensione compresa. */
+const FORMATI: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+};
+
+const uploadImmagine = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 },
+});
+
+/**
+ * POST /api/items/image (multipart, campo `immagine`)
+ * Ritorna: { path } — da rimandare in `immagine` quando si pubblica il contenuto.
+ */
+router.post("/image", uploadImmagine.single("immagine"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Nessuna immagine ricevuta." });
+    const estensione = FORMATI[req.file.mimetype];
+    if (!estensione)
+      return res.status(400).json({ error: "Formato non supportato: usa JPG, PNG o WebP." });
+
+    if (!fs.existsSync(ITEM_IMAGE_DIR)) fs.mkdirSync(ITEM_IMAGE_DIR, { recursive: true });
+    const nome = `${randomUUID()}${estensione}`;
+    fs.writeFileSync(path.join(ITEM_IMAGE_DIR, nome), req.file.buffer);
+
+    res.status(201).json({ path: `${ITEM_IMAGE_URL}${nome}` });
+  } catch (error: any) {
+    console.error("[BACKEND ERROR] caricamento immagine item:", error);
+    res.status(500).json({ error: "Errore nel caricamento dell'immagine" });
+  }
+});
+
+/**
+ * Toglie dal disco l'immagine di un item eliminato. Il nome si riduce al
+ * basename: senza quel taglio un `imagePath` scritto a mano indicherebbe
+ * qualunque file.
+ */
+function rimuoviImmagine(imagePath: string | undefined) {
+  if (!imagePath) return;
+  if (!imagePath.startsWith(ITEM_IMAGE_URL)) return;
+  const file = path.join(ITEM_IMAGE_DIR, path.basename(imagePath));
+  if (fs.existsSync(file)) fs.unlinkSync(file);
+}
+
 // --- Scrittura --------------------------------------------------------------
+
+/** La parte di `@id` che identifica un soggetto scritto a mano. */
+function slug(text: string): string {
+  const pulito = text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (pulito === "") return "soggetto";
+  return pulito;
+}
 
 /**
  * POST /api/items
  * Ritorna: 201 alla pubblicazione, 200 alla modifica (`editId`), 409 se esiste
- * gia' un item di quell'autore con la stessa coppia (opera, tono).
+ * gia' un item di quell'autore con la stessa coppia (soggetto, tono).
  */
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
+    if (payload.tipo !== "Item")
+      return res.status(400).json({ error: "Contenuto non riconosciuto." });
 
-    if (payload.tipo === "Item") {
-      // Il prezzo e il testo li controlla il SERVER, che e' l'unico posto in cui
-      // il controllo vale: un prezzo negativo non e' uno sconto, e' credito
-      // regalato a chi compra la visita che lo contiene.
-      if (Number(payload.prezzo) < 0)
-        return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
-      const testo = payload.descrizioni?.[0]?.testo;
-      if (typeof testo !== "string" || testo.trim() === "")
-        return res.status(400).json({ error: "La descrizione non puo' essere vuota." });
+    // Il prezzo e il testo li controlla il SERVER, che e' l'unico posto in cui
+    // il controllo vale: un prezzo negativo non e' uno sconto, e' credito
+    // regalato a chi compra la visita che lo contiene.
+    if (Number(payload.prezzo) < 0)
+      return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
+    const testo = payload.descrizioni?.[0]?.testo;
+    if (typeof testo !== "string" || testo.trim() === "")
+      return res.status(400).json({ error: "La descrizione non puo' essere vuota." });
 
+    // --- MODIFICA di un item esistente (editId = il suo @id) ---
+    if (payload.editId) {
+      const esistente = await ItemModel.findOne({ "@id": payload.editId });
+      if (!esistente)
+        return res.status(404).json({ error: "Item da modificare non trovato." });
+      if (esistente.author !== payload.autore)
+        return res.status(403).json({ error: "Puoi modificare solo i tuoi item." });
+      const desc = payload.descrizioni?.[0] || {};
+      esistente.text = desc.testo ?? esistente.text;
+      esistente.price =
+        esistente.visibility === "privato" ? 0 : Number(payload.prezzo) || 0;
+      await esistente.save();
+      return res.status(200).send({ message: "Item aggiornato con successo" });
+    }
+
+    // --- Il soggetto: un'opera del museo, oppure qualcos'altro ---
+    const genere = String(payload.genere || "");
+    if (!kindById(genere))
+      return res.status(400).json({ error: "Genere del contenuto non riconosciuto." });
+
+    let about = "";
+    let subject = "";
+    let ofMuseum = "";
+    let idSoggetto = "";
+    let doppione: Record<string, unknown> = {};
+    const immagine = String(payload.immagine || "");
+
+    if (genere === "opera") {
       const artwork = await ArtworkModel.findOne({
         $or: [
           { "@id": payload.id_oper_universale },
           { qid: payload.id_oper_universale },
-          { wikiDataUri: payload.id_oper_universale },
         ],
       });
       if (!artwork)
         return res.status(400).json({ error: "Artwork non trovato nel database." });
-
-      const privatoFlag =
-        payload.privato === true || payload.visibility === "privato";
-
-      // --- MODIFICA di un item esistente (editId = il suo @id) ---
-      if (payload.editId) {
-        const esistente = await ItemModel.findOne({ "@id": payload.editId });
-        if (!esistente)
-          return res.status(404).json({ error: "Item da modificare non trovato." });
-        if (esistente.author !== payload.autore)
-          return res
-            .status(403)
-            .json({ error: "Puoi modificare solo i tuoi item." });
-        const desc = payload.descrizioni?.[0] || {};
-        esistente.text = desc.testo ?? esistente.text;
-        esistente.price =
-          esistente.visibility === "privato" ? 0 : Number(payload.prezzo) || 0;
-        await esistente.save();
+      about = artwork["@id"];
+      ofMuseum = artwork.ofMuseum;
+      idSoggetto = artwork.qid;
+      doppione = { about };
+    } else {
+      subject = String(payload.soggetto || "").trim();
+      if (subject === "")
+        return res.status(400).json({ error: "Manca il nome del soggetto." });
+      // Senza opera non c'e' nessuna immagine da cui ripiegare.
+      if (immagine === "")
         return res
-          .status(200)
-          .send({ message: "Item aggiornato con successo" });
-      }
+          .status(400)
+          .json({ error: "Un contenuto che non parla di un'opera deve avere un'immagine." });
+      const museo = String(payload.museo || "");
+      if (museo === "")
+        return res.status(400).json({ error: "Manca il museo del contenuto." });
+      ofMuseum = `http://www.wikidata.org/entity/${museo}`;
+      idSoggetto = `${museo}-${slug(subject)}`;
+      doppione = { kind: genere, subject, ofMuseum };
+    }
 
-      for (const desc of payload.descrizioni) {
-        const esistente = await ItemModel.findOne({
-          about: artwork["@id"],
-          author: payload.autore,
-          educationalLevel: desc.tono,
-        });
-        if (esistente) {
-          return res.status(409).json({
-            error: `Hai già pubblicato una descrizione di tono "${desc.tono}" per quest'opera.`,
-          });
-        }
-      }
-
-      const privato = payload.privato === true || payload.visibility === "privato";
-
-      for (const desc of payload.descrizioni) {
-        const itemId = `${artwork.qid}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
-        await ItemModel.create({
-          "@id": itemId,
-          about: artwork["@id"],
-          timeRequired: desc.lunghezza,
-          educationalLevel: desc.tono,
-          author: payload.autore,
-          price: privato ? 0 : payload.prezzo,
-          license: payload.licenza || "Tutti i diritti riservati",
-          text: desc.testo,
-          visibility: privato ? "privato" : "pubblico",
+    for (const desc of payload.descrizioni) {
+      const esistente = await ItemModel.findOne({
+        ...doppione,
+        author: payload.autore,
+        educationalLevel: desc.tono,
+      });
+      if (esistente) {
+        return res.status(409).json({
+          error: `Hai già pubblicato una descrizione di tono "${desc.tono}" su questo soggetto.`,
         });
       }
     }
-    else if (payload["@type"] === "CreativeWork") {
-      let artworkIdString =
-        typeof payload.about === "object"
-          ? payload.about["@id"]
-          : payload.about;
-      const artwork = await ArtworkModel.findOne({
-        $or: [{ wikiDataUri: artworkIdString }, { "@id": artworkIdString }],
-      });
-      if (!artwork)
-        return res.status(400).json({ error: "Artwork non trovato." });
 
-      payload.about = artwork["@id"];
-      await ItemModel.create(payload);
+    const privato = payload.privato === true || payload.visibility === "privato";
+
+    for (const desc of payload.descrizioni) {
+      const itemId = `${idSoggetto}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
+      await ItemModel.create({
+        "@id": itemId,
+        kind: genere,
+        about: about || undefined,
+        subject: subject || undefined,
+        imagePath: immagine || undefined,
+        ofMuseum,
+        timeRequired: desc.lunghezza,
+        educationalLevel: desc.tono,
+        author: payload.autore,
+        price: privato ? 0 : payload.prezzo,
+        license: payload.licenza || "Tutti i diritti riservati",
+        text: desc.testo,
+        visibility: privato ? "privato" : "pubblico",
+      });
     }
 
     res.status(201).send({ message: "Contenuto pubblicato con successo" });
@@ -291,6 +395,7 @@ router.delete("/:id", async (req, res) => {
     if (impact.visitIds.length > 0)
       await VisitModel.deleteMany({ "@id": { $in: impact.visitIds } });
     await ItemModel.deleteOne({ "@id": id });
+    rimuoviImmagine(item.imagePath);
     await UserModel.updateMany(
       {},
       { $pull: { collezione: { $in: [id, ...impact.visitIds] } } },

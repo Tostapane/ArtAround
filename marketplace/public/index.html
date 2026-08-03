@@ -594,7 +594,7 @@
             <!-- ---------- LE OPERE, con le loro descrizioni ---------- -->
             <section x-show="shownArtworks().length > 0" class="mt-10" aria-labelledby="vetrina-opere">
               <h2 id="vetrina-opere" x-show="marketType === 'tutti'"
-                class="font-display text-title-2">Opere</h2>
+                class="font-display text-title-2">Opere e soggetti</h2>
               <div class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 <template x-for="g in shownArtworks()" :key="g.artwork['@id']">
                   <article class="lastra flex flex-col overflow-hidden" x-data="{ rotta: false }">
@@ -638,13 +638,25 @@
                     <span x-show="!artworkImage(currentArtwork()) || rotta" class="mat-vuoto" x-text="currentArtwork().name"></span>
                   </div>
                   <dl class="mt-5 flex flex-col gap-2 text-small">
-                    <div class="flex gap-2">
-                      <dt class="text-muted">Autore</dt>
-                      <dd x-text="currentArtwork().author ? currentArtwork().author.name : '—'"></dd>
+                    <div class="flex gap-2" x-show="currentArtwork().kind">
+                      <dt class="text-muted">Genere</dt>
+                      <dd x-text="kindName(currentArtwork().kind)"></dd>
                     </div>
-                    <div class="flex gap-2">
+                    <!-- Autore e stile portano ai contenuti che ne parlano, se
+                         qualcuno ne ha scritti: sono soggetti anche loro. -->
+                    <div class="flex gap-2" x-show="!currentArtwork().kind">
+                      <dt class="text-muted">Autore</dt>
+                      <dd>
+                        <a x-show="linkAutore()" :href="linkAutore()" class="link-scuro" x-text="nomeAutore()"></a>
+                        <span x-show="!linkAutore()" x-text="nomeAutore() || '—'"></span>
+                      </dd>
+                    </div>
+                    <div class="flex gap-2" x-show="!currentArtwork().kind">
                       <dt class="text-muted">Stile</dt>
-                      <dd x-text="currentArtwork().style ? currentArtwork().style.name : '—'"></dd>
+                      <dd>
+                        <a x-show="linkStile()" :href="linkStile()" class="link-scuro" x-text="nomeStile()"></a>
+                        <span x-show="!linkStile()" x-text="nomeStile() || '—'"></span>
+                      </dd>
                     </div>
                   </dl>
                 </div>
@@ -1039,6 +1051,20 @@
 
             <form @submit.prevent="saveItem()" class="flex flex-col gap-8">
               <div>
+                <label for="ed-genere" class="etichetta">Di che cosa parli?</label>
+                <select id="ed-genere" x-model="draft.genere" :disabled="!!editingId" class="campo">
+                  <template x-for="k in itemKinds" :key="k.id">
+                    <option :value="k.id" x-text="k.label"></option>
+                  </template>
+                </select>
+                <p class="mt-1 text-caption text-muted">
+                  Un contenuto puo' descrivere un'opera oppure cio' che le sta intorno:
+                  uno stile, un movimento, un artista, un periodo.
+                </p>
+              </div>
+
+              <!-- L'OPERA, oppure il soggetto scritto: sono la stessa domanda -->
+              <div x-show="draft.genere === 'opera'">
                 <label for="ed-opera" class="etichetta">Opera</label>
                 <select id="ed-opera" x-model="draft.selectedArtworkUri" :disabled="!!editingId" class="campo">
                   <option value="">Scegli un'opera…</option>
@@ -1048,9 +1074,36 @@
                 </select>
               </div>
 
+              <div x-show="draft.genere !== 'opera'" class="flex flex-col gap-4">
+                <div>
+                  <label for="ed-soggetto" class="etichetta">Soggetto</label>
+                  <input id="ed-soggetto" type="text" class="campo" x-model="draft.soggetto"
+                    :disabled="!!editingId" list="ed-soggetti" placeholder="Manierismo, Caravaggio, Quattrocento…">
+                  <datalist id="ed-soggetti">
+                    <template x-for="n in topicSuggestions()" :key="n">
+                      <option :value="n"></option>
+                    </template>
+                  </datalist>
+                  <p class="mt-1 text-caption text-muted" x-show="topicSuggestions().length">
+                    I nomi suggeriti sono quelli che le opere di questo museo usano gia':
+                    scriverlo uguale collega il contenuto alle opere che lo nominano.
+                  </p>
+                </div>
+
+                <div>
+                  <label for="ed-immagine" class="etichetta">Immagine</label>
+                  <input id="ed-immagine" type="file" accept="image/jpeg,image/png,image/webp"
+                    class="campo" @change="caricaImmagine($event)">
+                  <p class="mt-1 text-caption text-muted">
+                    Un soggetto che non e' un'opera non ha nessuna immagine da cui ripiegare:
+                    questa e' la sua. JPG, PNG o WebP, fino a 4 MB.
+                  </p>
+                </div>
+              </div>
+
               <fieldset>
                 <legend class="etichetta">Tono</legend>
-                <p class="mt-1 text-caption text-muted">Puoi pubblicare una descrizione per tono, per ogni opera.</p>
+                <p class="mt-1 text-caption text-muted">Puoi pubblicare una descrizione per tono, per ogni soggetto.</p>
                 <div class="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tono della descrizione">
                   <template x-for="t in tones" :key="t">
                     <label class="scelta" :class="[
@@ -1123,22 +1176,22 @@
                  in basso, su un telefono non resterebbe schermo per scrivere. -->
             <aside class="order-first lg:order-none">
               <div class="lastra p-4 lg:sticky lg:top-6 lg:z-10" x-data="{ rotta: false }">
-                <template x-if="draftArtwork()">
+                <template x-if="draftSubject()">
                   <div>
                     <div class="mat max-h-40 lg:max-h-none">
-                      <img x-show="artworkImage(draftArtwork()) && !rotta" :src="artworkImage(draftArtwork())"
-                        @error="rotta = true" :alt="'Immagine dell\'opera: ' + (draftArtwork().name || '')">
-                      <span x-show="!artworkImage(draftArtwork()) || rotta" class="mat-vuoto"
-                        x-text="draftArtwork().name"></span>
+                      <img x-show="artworkImage(draftSubject()) && !rotta" :src="artworkImage(draftSubject())"
+                        @error="rotta = true" :alt="'Immagine di ' + (draftSubject().name || '')">
+                      <span x-show="!artworkImage(draftSubject()) || rotta" class="mat-vuoto"
+                        x-text="draftSubject().name || 'Senza immagine'"></span>
                     </div>
-                    <p class="mt-3 font-medium" x-text="draftArtwork().name"></p>
-                    <template x-for="f in draftArtworkFacts()" :key="f">
+                    <p class="mt-3 font-medium" x-text="draftSubject().name"></p>
+                    <template x-for="f in draftSubjectFacts()" :key="f">
                       <p class="text-caption text-muted" x-text="f"></p>
                     </template>
                   </div>
                 </template>
-                <p x-show="!draftArtwork()" class="text-small text-muted">
-                  Scegli un'opera e la vedi qui mentre scrivi.
+                <p x-show="!draftSubject()" class="text-small text-muted">
+                  Scegli il soggetto e lo vedi qui mentre scrivi.
                 </p>
               </div>
             </aside>

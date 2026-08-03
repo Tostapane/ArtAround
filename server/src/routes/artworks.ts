@@ -116,7 +116,9 @@ router.get("/:qid/preview", async (req, res) => {
       { "@id": generatedId },
       {
         "@id": generatedId,
+        kind: "opera",
         about: artwork["@id"],
+        ofMuseum: artwork.ofMuseum,
         text,
         timeRequired: String(usedDuration),
         educationalLevel: usedLevel,

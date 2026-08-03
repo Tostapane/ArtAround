@@ -10,6 +10,7 @@
  *   npx ts-node src/testers.ts toni
  *   npx ts-node src/testers.ts nomi
  *   npx ts-node src/testers.ts logistica
+ *   npx ts-node src/testers.ts generi
  *   npx ts-node src/testers.ts tutto
  */
 
@@ -196,16 +197,59 @@ export async function requiredAccounts() {
   }
 }
 
+/**
+ * Riallinea gli item scritti quando un contenuto poteva parlare solo di un'opera:
+ * `kind` e' "opera" e il museo si legge dall'opera che descrivono. Senza, non
+ * appartengono a nessun catalogo e spariscono dal marketplace senza un errore.
+ */
+async function migrateKinds() {
+  const artworks = await ArtworkModel.find().select("@id ofMuseum");
+  const museoDi = new Map<string, string>();
+  for (const a of artworks) museoDi.set(a["@id"], a.ofMuseum);
+
+  const items = await ItemModel.find();
+  let generi = 0;
+  let musei = 0;
+  let orfani = 0;
+
+  for (const it of items) {
+    let cambiato = false;
+    if (!it.kind) {
+      it.kind = "opera";
+      generi++;
+      cambiato = true;
+    }
+    if (!it.ofMuseum) {
+      const museo = it.about ? museoDi.get(it.about) : undefined;
+      if (!museo) {
+        orfani++;
+      } else {
+        it.ofMuseum = museo;
+        musei++;
+        cambiato = true;
+      }
+    }
+    if (cambiato) await it.save();
+  }
+
+  console.log(
+    `Generi: ${generi} item marcati "opera", ${musei} col museo scritto, ` +
+      `${orfani} senza opera riconoscibile (lasciati fuori dal catalogo).`,
+  );
+}
+
 const COMMANDS: Record<string, () => Promise<void>> = {
   stato,
   toni: migrateTones,
   nomi: renameVisits,
   logistica: migrateLogistics,
+  generi: migrateKinds,
   account: requiredAccounts,
   async tutto() {
     await migrateTones();
     await renameVisits();
     await migrateLogistics();
+    await migrateKinds();
     await requiredAccounts();
     await stato();
   },

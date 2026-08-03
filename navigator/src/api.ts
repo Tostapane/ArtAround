@@ -8,7 +8,7 @@
  * distingue "la sessione non c'e' piu'" da un errore di rete, perche' le due cose
  * vogliono reazioni diverse.
  */
-import type { Artwork, Item, Match, Museum, Visit } from "../../shared/types";
+import type { Artwork, Item, Museum, Visit } from "../../shared/types";
 import { apiBase } from "./config";
 
 const base = () => apiBase();
@@ -31,7 +31,7 @@ export async function getArtworkPreview(
   qid: string,
   level: string,
   duration: number,
-): Promise<Match> {
+): Promise<{ artwork: Artwork; item: Item }> {
   const params = new URLSearchParams();
   if (level) params.set("level", level);
   if (duration) params.set("duration", String(duration));
@@ -47,7 +47,7 @@ export async function getArtworkPreview(
 export async function createCustomVisit(
   museumQid: string,
   request: string,
-): Promise<{ visit: Visit; content: Match[] }> {
+): Promise<{ visit: Visit; content: { artwork: Artwork; item: Item }[] }> {
   const res = await fetch(`${base()}/visits/custom`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

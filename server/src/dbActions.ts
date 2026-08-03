@@ -84,7 +84,9 @@ export async function resolveOrGenerateItem(
   }
   return {
     "@id": id,
+    kind: "opera",
     about: artwork["@id"],
+    ofMuseum: artwork.ofMuseum,
     text,
     timeRequired: `${durationSec}`,
     educationalLevel: level,

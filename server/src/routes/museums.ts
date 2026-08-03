@@ -28,11 +28,6 @@ function museumUri(qid: string): string {
   return `http://www.wikidata.org/entity/${qid}`;
 }
 
-async function artworkIdsOf(qid: string): Promise<string[]> {
-  const artworks = await ArtworkModel.find({ ofMuseum: museumUri(qid) });
-  return artworks.map((a) => a["@id"]);
-}
-
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -86,6 +81,47 @@ router.get("/:qid/artworks", async (req, res) => {
     res.json(artworks);
   } catch (err: any) {
     res.status(500).json({ error: "Errore nel caricamento delle opere specifiche del museo" });
+  }
+});
+
+/**
+ * GET /api/museums/:qid/topics
+ * Ritorna: [{name, kind}] — i soggetti che il catalogo del museo GIA' nomina,
+ * cioe' gli stili e gli autori delle sue opere.
+ *
+ * Non c'e' niente di memorizzato: uno stile esiste finche' un'opera lo dichiara.
+ * Suggeriscono un nome a chi scrive un contenuto che non parla di un'opera —
+ * scritto uguale, quel contenuto e la pastiglia dello stile si ritrovano.
+ */
+router.get("/:qid/topics", async (req, res) => {
+  try {
+    const { qid } = req.params;
+    const artworks = await ArtworkModel.find({
+      ofMuseum: `http://www.wikidata.org/entity/${qid}`,
+    }).select("author.name style.name");
+
+    const visti = new Set<string>();
+    const topics: { name: string; kind: string }[] = [];
+    for (const a of artworks) {
+      const coppie = [
+        { name: a.style?.name, kind: "stile" },
+        { name: a.author?.name, kind: "artista" },
+      ];
+      for (const c of coppie) {
+        // "Unknown" e gli indirizzi di nodo anonimo (`.well-known/genid/…`)
+        // sono buchi di Wikidata, non nomi.
+        if (!c.name || c.name === "Unknown" || c.name.startsWith("http")) continue;
+        const chiave = `${c.kind}:${c.name}`;
+        if (visti.has(chiave)) continue;
+        visti.add(chiave);
+        topics.push({ name: c.name, kind: c.kind });
+      }
+    }
+
+    topics.sort((a, b) => a.name.localeCompare(b.name));
+    res.json(topics);
+  } catch (err: any) {
+    res.status(500).json({ error: "Errore nel caricamento dei soggetti del museo" });
   }
 });
 
@@ -196,9 +232,7 @@ router.get("/:qid/overview", async (req, res) => {
   try {
     const { qid } = req.params;
     const artworks = await ArtworkModel.find({ ofMuseum: museumUri(qid) });
-    const artworkIds = artworks.map((a) => a["@id"]);
-
-    const items = await ItemModel.find({ about: { $in: artworkIds } });
+    const items = await ItemModel.find({ ofMuseum: museumUri(qid) });
     const visits = await VisitModel.find({ ofMuseum: museumUri(qid) });
 
     const descritte = new Set<string>();
@@ -207,10 +241,13 @@ router.get("/:qid/overview", async (req, res) => {
 
     let privati = 0;
     for (const it of items) {
+      if (it.visibility === "privato") privati++;
+      // La copertura misura le OPERE descritte: un contenuto su uno stile
+      // direbbe che un'opera in piu' e' stata descritta.
+      if (!it.about) continue;
       descritte.add(it.about);
       const perTono = opereConTono.get(it.educationalLevel);
       if (perTono) perTono.add(it.about);
-      if (it.visibility === "privato") privati++;
     }
 
     const senzaDescrizione = [];
@@ -261,8 +298,9 @@ router.get("/:qid/overview", async (req, res) => {
  */
 router.get("/:qid/items", async (req, res) => {
   try {
-    const artworkIds = await artworkIdsOf(req.params.qid);
-    const items = await ItemModel.find({ about: { $in: artworkIds } }).populate({
+    const items = await ItemModel.find({
+      ofMuseum: museumUri(req.params.qid),
+    }).populate({
       path: "about",
       model: "Artwork",
       foreignField: "@id",

@@ -51,6 +51,8 @@ import {
   educationalLevelHints,
   formatDuration,
   secPerArt,
+  itemKinds,
+  kindById,
   WORDS_PER_MINUTE,
 } from "../../../shared/constants.js";
 import { isReadable } from "../../../shared/access.js";
@@ -129,9 +131,25 @@ export interface SaleRow {
   ricavo: number;
 }
 
-/** Un'opera con le descrizioni che le appartengono, come le raggruppa il catalogo. */
+/**
+ * Il soggetto di un gruppo del catalogo. Uno stile o un periodo non sono un
+ * documento del database: portano solo quel che l'item ne dice. `kind` ce l'hanno
+ * loro e nessun altro, quindi e' anche il modo di distinguerli da un'opera.
+ */
+export interface Soggetto {
+  "@id": string;
+  qid: string;
+  name: string;
+  imagePath?: string;
+  imageUri?: string;
+  kind?: string;
+  author?: { name: string; qid: string };
+  style?: { name: string; qid: string };
+}
+
+/** Un soggetto con le descrizioni che gli appartengono, come le raggruppa il catalogo. */
 export interface ArtworkGroup {
-  artwork: Artwork;
+  artwork: Soggetto;
   items: Item[];
 }
 
@@ -458,6 +476,7 @@ export class AppState {
     this.visits = await ArtAPI.fetchVisite(qid, this.currentUser);
     this.marketItems = this.withArtwork(await ArtAPI.fetchItemsMetadata(qid));
     this.artworksWithText = [];
+    this.museumTopics = await ArtAPI.fetchMuseumTopics(qid);
 
     if (this.currentUser && this.currentUserRole === "autore") {
       this.myItems = await ArtAPI.fetchMyItems(this.currentUser);
@@ -596,14 +615,7 @@ export class AppState {
   private belongsToMuseum(c: Catalogabile): boolean {
     const museo = this.museumEntityId();
     if (!museo) return false;
-    let ofMuseum: string | undefined;
-    if (isItem(c)) {
-      const art = c.about;
-      if (typeof art === "object" && art) ofMuseum = art.ofMuseum;
-    } else {
-      ofMuseum = c.ofMuseum;
-    }
-    return ofMuseum === museo;
+    return c.ofMuseum === museo;
   }
 
   async selectMuseum(m: Museum) {
@@ -638,7 +650,8 @@ export class AppState {
     if (isVisit(c)) return c.name || "";
     if (isArtwork(c)) return c.name || "";
     const art = c.about;
-    return (typeof art === "object" && art ? art.name : "") || "";
+    if (typeof art === "object" && art) return art.name || "";
+    return c.subject || "";
   }
 
   private normalizeSearch(s: string): string {
@@ -731,7 +744,7 @@ export class AppState {
     const quante = this.mancantiDi(v);
     if (quante === 0) return "";
     if (this.canBuy()) {
-      return "Per vivere questa visita servono anche i contenuti che la compongono.";
+      return "Per usare questa visita servono anche i contenuti che la compongono.";
     }
     return (
       `Contiene ${quante} descrizioni a pagamento di altri autori. Si comprano ` +
@@ -1303,9 +1316,33 @@ export class AppState {
     });
   }
 
-  private artworkIdOf(c: any): string {
-    const art = c ? c.about : null;
-    return (art && typeof art === "object" ? art["@id"] : art) || "?";
+  /**
+   * Chi e' il soggetto di questo contenuto, per raggrupparlo e per indirizzarlo.
+   * Un'opera ha un `@id`; un soggetto scritto a mano si identifica con genere e
+   * nome, cosi' due autori che scrivono di "Manierismo" finiscono sulla stessa
+   * pagina.
+   */
+  soggettoIdOf(c: any): string {
+    if (!c) return "?";
+    const art = c.about;
+    if (art && typeof art === "object") return art["@id"];
+    if (typeof art === "string" && art) return art;
+    if (c.subject) return `${c.kind}:${c.subject}`;
+    return "?";
+  }
+
+  /** Il soggetto come lo mostra una tessera: l'opera, o l'item che ne parla. */
+  private soggettoDi(c: any): any {
+    const art = c.about;
+    if (art && typeof art === "object") return art;
+    const id = this.soggettoIdOf(c);
+    return {
+      "@id": id,
+      qid: id,
+      name: c.subject || id,
+      imagePath: c.imagePath || "",
+      kind: c.kind || "",
+    };
   }
 
   private visibleItems(): Item[] {
@@ -1325,14 +1362,9 @@ export class AppState {
     const groups = new Map<string, ArtworkGroup>();
     for (const c of lista) {
       if (c["@type"] !== "CreativeWork") continue;
-      const id = this.artworkIdOf(c);
+      const id = this.soggettoIdOf(c);
       if (!groups.has(id)) {
-        const art = c.about;
-        groups.set(id, {
-          artwork:
-            art && typeof art === "object" ? art : { "@id": id, name: id },
-          items: [],
-        });
+        groups.set(id, { artwork: this.soggettoDi(c), items: [] });
       }
       groups.get(id)!.items.push(c);
     }
@@ -1360,12 +1392,18 @@ export class AppState {
 
   marketSummary(): string {
     const v = this.shownVisits().length;
-    const o = this.shownArtworks().length;
+    const gruppi = this.shownArtworks();
+    // "15 opere" conterebbe anche i soggetti che opere non sono.
+    const soggetti = gruppi.filter((g) => g.artwork.kind).length;
+    const opere = gruppi.length - soggetti;
     const pezzi: string[] = [];
     if (this.marketType !== "opere")
       pezzi.push(`${v} ${v === 1 ? "visita" : "visite"}`);
-    if (this.marketType !== "visite")
-      pezzi.push(`${o} ${o === 1 ? "opera" : "opere"}`);
+    if (this.marketType !== "visite") {
+      pezzi.push(`${opere} ${opere === 1 ? "opera" : "opere"}`);
+      if (soggetti > 0)
+        pezzi.push(`${soggetti} ${soggetti === 1 ? "soggetto" : "soggetti"}`);
+    }
     return pezzi.join(" · ");
   }
 
@@ -1397,27 +1435,112 @@ export class AppState {
     return `${n} ${n === 1 ? "descrizione" : "descrizioni"} · ${priceLabel}`;
   }
 
-  currentArtwork(): Artwork | null {
+  /**
+   * Il soggetto della pagina aperta: un'opera del catalogo, oppure ricostruito
+   * dai contenuti che ne parlano — se nessuno ne parla piu', la pagina non c'e'.
+   */
+  currentArtwork(): Soggetto | null {
     if (this.view !== "opera" || !this.param) return null;
     const p = this.param;
-    return (
-      this.availableArtworks.find(
-        (a: any) => a.qid === p || a["@id"] === p,
-      ) || null
+    const opera = this.availableArtworks.find(
+      (a: any) => a.qid === p || a["@id"] === p,
     );
+    if (opera) return opera;
+    for (const i of this.visibleItems()) {
+      if (this.soggettoIdOf(i) === p) return this.soggettoDi(i);
+    }
+    return null;
   }
 
   artworkItems(): Item[] {
     const art = this.currentArtwork();
     if (!art) return [];
     const items = this.visibleItems().filter(
-      (i: any) => this.artworkIdOf(i) === art["@id"],
+      (i: any) => this.soggettoIdOf(i) === art["@id"],
     );
     return items.sort(
       (a: any, b: any) =>
         educationalLevels.indexOf(a.educationalLevel) -
         educationalLevels.indexOf(b.educationalLevel),
     );
+  }
+
+  /**
+   * I generi di contenuto e i soggetti che il museo gia' nomina (stili e autori
+   * delle sue opere). I secondi sono suggerimenti, non un elenco chiuso: scritto
+   * come lo scrivono le opere, il contenuto si ritrova dalla pagina dell'opera.
+   */
+  itemKinds = itemKinds;
+  museumTopics: { name: string; kind: string }[] = [];
+
+  /** I suggerimenti del genere scelto. Un periodo o un evento non ne hanno. */
+  topicSuggestions(): string[] {
+    const genere = this.draft.genere;
+    const nomi: string[] = [];
+    for (const t of this.museumTopics) {
+      if (t.kind === genere) nomi.push(t.name);
+    }
+    return nomi;
+  }
+
+  /** Il file non si legge qui: lo nomina il server, che risponde con l'indirizzo. */
+  async caricaImmagine(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    try {
+      this.draft.immagine = await ArtAPI.uploadItemImage(file);
+      this.showToast("Immagine caricata.");
+    } catch (e) {
+      this.showToast((e as Error).message, "error");
+    } finally {
+      input.value = "";
+    }
+  }
+
+  /**
+   * Dove portano lo stile e l'autore di un'opera. Vuoto se nessuno ne ha scritto:
+   * un collegamento a una pagina vuota e' peggio di nessun collegamento.
+   */
+  soggettoLink(nome: string, genere: string): string {
+    if (!nome || nome === "Unknown") return "";
+    const chiave = `${genere}:${nome}`;
+    for (const i of this.visibleItems()) {
+      if (this.soggettoIdOf(i) === chiave) return `#/opera/${encodeURIComponent(chiave)}`;
+    }
+    return "";
+  }
+
+  /** Come si chiama un genere quando lo si mostra da solo. */
+  kindName(id: string): string {
+    const genere = kindById(id);
+    if (genere) return genere.name;
+    return "";
+  }
+
+  /* Quattro metodi corti invece di quattro espressioni nel markup: i binding di
+   * Alpine sono stringhe che nessun compilatore controlla. */
+  nomeAutore(): string {
+    const a: any = this.currentArtwork();
+    if (!a || !a.author || !a.author.name) return "";
+    // Dove l'entita' non ha un'etichetta, Wikidata lascia l'indirizzo di un nodo
+    // anonimo: stampato com'e' sembra il nome dell'autore.
+    if (a.author.name.startsWith("http")) return "";
+    return a.author.name;
+  }
+
+  nomeStile(): string {
+    const a: any = this.currentArtwork();
+    if (a && a.style && a.style.name) return a.style.name;
+    return "";
+  }
+
+  linkAutore(): string {
+    return this.soggettoLink(this.nomeAutore(), "artista");
+  }
+
+  linkStile(): string {
+    return this.soggettoLink(this.nomeStile(), "stile");
   }
 
   openItems: string[] = [];
@@ -1431,8 +1554,23 @@ export class AppState {
     // L'opera si ricava dalla descrizione, non dalla schermata aperta: cosi'
     // il testo arriva da qualunque punto lo si apra.
     const item = this.findItem(id);
-    const art = item && isItem(item) ? item.about : null;
-    if (art && typeof art === "object") await this.caricaTesti(art.qid);
+    if (!item || !isItem(item)) return;
+    const art = item.about;
+    if (art && typeof art === "object") {
+      await this.caricaTesti(art.qid);
+      return;
+    }
+    // Chi non parla di un'opera non sta in nessun elenco per opera.
+    if ("text" in item) return;
+    try {
+      const risposta = await ArtAPI.fetchItemText(
+        item["@id"],
+        this.currentUser || undefined,
+      );
+      (item as Item).text = risposta.text;
+    } catch (e) {
+      this.showToast((e as Error).message, "error");
+    }
   }
 
   /**
@@ -1543,11 +1681,20 @@ export class AppState {
   }
 
   /**
-   * L'opera che si sta descrivendo, per tenerla sotto gli occhi mentre si
-   * scrive: il testo parla di un quadro, e sceglierlo da un menu a tendina lo
-   * riduceva a un titolo. `null` finche' non se n'e' scelta una.
+   * Il soggetto che si sta descrivendo, per tenerlo sotto gli occhi mentre si
+   * scrive: sceglierlo da un menu a tendina lo riduceva a un titolo. Per un'opera
+   * e' l'opera del catalogo, per il resto la bozza stessa — nome e immagine
+   * caricata — perche' li' il soggetto non esiste altrove.
    */
-  draftArtwork(): any {
+  draftSubject(): any {
+    if (this.draft.genere !== "opera") {
+      if (!this.draft.soggetto && !this.draft.immagine) return null;
+      return {
+        name: this.draft.soggetto,
+        imagePath: this.draft.immagine,
+        kind: this.draft.genere,
+      };
+    }
     if (!this.draft.selectedArtworkUri) return null;
     const trovata = this.availableArtworks.find(
       (a: any) => a["@id"] === this.draft.selectedArtworkUri,
@@ -1557,13 +1704,17 @@ export class AppState {
   }
 
   /**
-   * Autore e stile dell'opera che si sta descrivendo, saltando quel che il
-   * catalogo non sa: Wikidata lascia scritto "Unknown", e stamparlo fa sembrare
-   * rotta una scheda che invece e' solo incompleta.
+   * Le righe sotto il nome: autore e stile per un'opera, il genere per il resto.
+   * Si salta quel che il catalogo non sa — Wikidata lascia scritto "Unknown", e
+   * stamparlo fa sembrare rotta una scheda che e' solo incompleta.
    */
-  draftArtworkFacts(): string[] {
-    const opera = this.draftArtwork();
+  draftSubjectFacts(): string[] {
+    const opera = this.draftSubject();
     if (!opera) return [];
+    if (this.draft.genere !== "opera") {
+      const genere = kindById(this.draft.genere);
+      return genere ? [genere.name] : [];
+    }
     const fatti: string[] = [];
     if (opera.author && opera.author.name && opera.author.name !== "Unknown") {
       fatti.push(opera.author.name);
@@ -1684,7 +1835,10 @@ export class AppState {
     return {
       price: 0,
       license: licenses[0],
+      genere: "opera",
       selectedArtworkUri: "",
+      soggetto: "",
+      immagine: "",
       tono: "",
       durata: "60",
       testo: "",
@@ -1716,8 +1870,11 @@ export class AppState {
       return;
     this.editingId = item["@id"];
     this.draft = this.emptyDraft();
+    this.draft.genere = item.kind;
     this.draft.selectedArtworkUri =
       (typeof item.about === "object" ? item.about["@id"] : item.about) || "";
+    this.draft.soggetto = item.subject || "";
+    this.draft.immagine = item.imagePath || "";
     this.draft.tono = item.educationalLevel || "";
     this.draft.durata = String(item.timeRequired || "");
     this.draft.testo = item.text || "";
@@ -1728,14 +1885,21 @@ export class AppState {
   }
 
   toneAlreadyUsed(tono: string): boolean {
-    const art = this.draft.selectedArtworkUri;
-    if (!art) return false;
+    const chiave = this.draftSubjectKey();
+    if (!chiave) return false;
     return this.myItems.some(
       (i: any) =>
-        (typeof i.about === "object" ? i.about["@id"] : i.about) === art &&
+        this.soggettoIdOf(i) === chiave &&
         i.educationalLevel === tono &&
         i["@id"] !== this.editingId,
     );
+  }
+
+  /** Come si chiama il soggetto della bozza nel raggruppamento del catalogo. */
+  private draftSubjectKey(): string {
+    if (this.draft.genere === "opera") return this.draft.selectedArtworkUri || "";
+    if (!this.draft.soggetto.trim()) return "";
+    return `${this.draft.genere}:${this.draft.soggetto.trim()}`;
   }
 
   readingEstimate(): string {
@@ -1755,7 +1919,14 @@ export class AppState {
 
   itemIssues(): string[] {
     const issues: string[] = [];
-    if (!this.draft.selectedArtworkUri) issues.push("l'opera");
+    if (this.draft.genere === "opera") {
+      if (!this.draft.selectedArtworkUri) issues.push("l'opera");
+    } else {
+      if (this.draft.soggetto.trim() === "") issues.push("il soggetto");
+      // Un soggetto che non e' un'opera non ha nessuna immagine da cui
+      // ripiegare: senza, la sua tessera resta vuota in tutte e due le app.
+      if (!this.draft.immagine) issues.push("l'immagine");
+    }
     if (!this.draft.tono) issues.push("il tono");
     if (!(Number(this.draft.durata) > 0)) issues.push("la durata");
     if (this.draft.testo.trim() === "") issues.push("il testo");
@@ -1775,7 +1946,11 @@ export class AppState {
     const payload = {
       tipo: "Item",
       editId: this.editingId || undefined,
+      genere: this.draft.genere,
       id_oper_universale: this.draft.selectedArtworkUri,
+      soggetto: this.draft.soggetto.trim(),
+      immagine: this.draft.immagine,
+      museo: this.selectedMuseum ? this.selectedMuseum.qid : "",
       autore: this.currentUser!,
       prezzo: this.draft.privato ? 0 : this.draft.price,
       privato: !!this.draft.privato,

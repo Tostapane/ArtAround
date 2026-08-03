@@ -47,6 +47,14 @@
  * contesto sicuro, quindi aprendo la navigator su `http://<ip-lan>:5173` il
  * microfono non c'e' comunque — e' lo stesso limite documentato per la
  * fotocamera, ed e' il motivo per cui il codice si puo' anche digitare.
+ *
+ * `levels` e' la traccia che il pulsante disegna mentre si registra: senza,
+ * un microfono che non sente nulla e uno che funziona hanno lo stesso aspetto,
+ * e l'errore si scopre solo alla risposta del server. E' il volume dei campioni
+ * che stiamo gia' raccogliendo, non una seconda lettura del microfono. Il
+ * callback arriva una volta per buffer, cioe' una decina di volte al secondo:
+ * troppo poco perche' la scia scorra, quindi ogni buffer viene misurato a
+ * pezzi: `WINDOWS` valori nuovi per callback invece di uno.
  */
 import { ref } from "vue";
 import { STT_SAMPLE_RATE } from "../../../../shared/constants";
@@ -60,8 +68,14 @@ declare global {
 export const isRecording = ref(false);
 export const finalBlob = ref<Blob | null>(null);
 export const errorMsg = ref<string | null>(null);
+export const levels = ref<number[]>([]);
 
 const BUFFER_SIZE = 4096;
+const BARS = 16;
+const WINDOWS = 2;
+// La voce a distanza di braccio sta intorno a 0.1: senza scala le barre
+// resterebbero schiacciate sul fondo anche parlando forte.
+const SCALE = 6;
 
 let stream: MediaStream | null = null;
 let context: AudioContext | null = null;
@@ -77,6 +91,7 @@ let inputRate = 0;
 export const startRecording = async () => {
   errorMsg.value = null;
   chunks = [];
+  levels.value = Array.from({ length: BARS }, () => 0);
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !AudioContextClass) {
@@ -99,7 +114,9 @@ export const startRecording = async () => {
     mute.gain.value = 0;
 
     processor.onaudioprocess = (event) => {
-      chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+      const input = event.inputBuffer.getChannelData(0);
+      chunks.push(new Float32Array(input));
+      levels.value = levels.value.slice(WINDOWS).concat(loudness(input));
     };
 
     source.connect(processor);
@@ -146,6 +163,28 @@ function release() {
   stream = null;
   context = null;
   chunks = [];
+  levels.value = [];
+}
+
+// --- Volume della voce -------------------------------------------------------
+
+function loudness(input: Float32Array): number[] {
+  const out: number[] = [];
+  const width = Math.floor(input.length / WINDOWS);
+
+  for (let i = 0; i < WINDOWS; i++) {
+    const part = input.subarray(i * width, (i + 1) * width);
+
+    let sum = 0;
+    for (const sample of part) {
+      sum += sample * sample;
+    }
+
+    let value = Math.sqrt(sum / width) * SCALE;
+    if (value > 1) value = 1;
+    out.push(value);
+  }
+  return out;
 }
 
 // ============================================================================

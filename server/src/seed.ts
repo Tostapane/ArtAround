@@ -24,6 +24,11 @@
  *
  * Le immagini si scaricano subito dopo l'opera, non in una passata finale: cosi'
  * un'interruzione lascia opere complete, non opere senza volto.
+ *
+ * Oltre alle opere semina due soggetti che opere non sono — lo stile e l'autore
+ * piu' ricorrenti in QUEL museo — perche' la slide 21 chiede contenuti anche su
+ * stili e artisti, e senza nemmeno uno non si possono mostrare. Restano nel
+ * catalogo: in quale visita e in quale punto vadano non lo decide il seed.
  */
 import { MONGO_URI } from "./env";
 import mongoose from "mongoose";
@@ -38,7 +43,8 @@ import {
   populateMuseum,
   locationsFromMap,
 } from "./manager";
-import { educationalLevels, secPerArt } from "../../shared/constants";
+import { educationalLevels, secPerArt, kindById } from "../../shared/constants";
+import { createSubjectDescription } from "./services/llm";
 import { LogisticNote } from "../../shared/types";
 import { loadMuseumConfigs, findMuseumConfig, MuseumConfig } from "./data/museumConfigs";
 import { costruisciQuiz } from "./data/quiz";
@@ -152,6 +158,7 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
     if (nuoviQui === 0) console.log(`${etichetta} gia' completa.`);
   }
 
+  await seedMuseumTopics(config, force);
   await seedMuseumVisits(config);
   console.log(
     `=== ${config.name}: ${generati} item generati, ${saltati} gia' presenti, ` +
@@ -159,9 +166,115 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
   );
 }
 
+// ============================================================================
+//                        Soggetti che non sono opere
+// ============================================================================
+
+/** Il valore piu' ricorrente e un'opera che lo porta: serve il nome e una faccia. */
+function piuRicorrente(
+  artworks: any[],
+  leggi: (a: any) => { name?: string; qid?: string } | undefined,
+): { name: string; qid: string; artwork: any } | null {
+  const conteggi = new Map<string, number>();
+  const esempi = new Map<string, any>();
+
+  for (const a of artworks) {
+    const valore = leggi(a);
+    // "Unknown" e gli indirizzi di nodo anonimo sono buchi di Wikidata, non nomi.
+    if (!valore || !valore.name) continue;
+    if (valore.name === "Unknown" || valore.name.startsWith("http")) continue;
+    const gia = conteggi.get(valore.name);
+    if (gia) {
+      conteggi.set(valore.name, gia + 1);
+    } else {
+      conteggi.set(valore.name, 1);
+      esempi.set(valore.name, { artwork: a, qid: valore.qid || "" });
+    }
+  }
+
+  let vincitore = "";
+  let massimo = 0;
+  conteggi.forEach((quante, nome) => {
+    if (quante > massimo) {
+      massimo = quante;
+      vincitore = nome;
+    }
+  });
+  if (vincitore === "") return null;
+
+  const esempio = esempi.get(vincitore);
+  return { name: vincitore, qid: esempio.qid, artwork: esempio.artwork };
+}
+
+/**
+ * I contenuti che NON parlano di un'opera. Quali soggetti lo decide il catalogo
+ * — lo stile e l'autore che vi ricorrono di piu' — e non un elenco scritto qui,
+ * cosi' un museo di arte contemporanea non semina il Rinascimento. L'immagine e'
+ * quella di un'opera che porta quel valore: e' la piu' vicina che il museo abbia.
+ */
+async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
+  const uri = museumUri(config.qid);
+  const artworks = await ArtworkModel.find({ ofMuseum: uri });
+  if (artworks.length === 0) return;
+
+  const soggetti = [
+    { kind: "stile", scelto: piuRicorrente(artworks, (a) => a.style) },
+    { kind: "artista", scelto: piuRicorrente(artworks, (a) => a.author) },
+  ];
+
+  for (const s of soggetti) {
+    if (!s.scelto) {
+      console.log(`[${config.qid}] nessun ${s.kind} nel catalogo: soggetto saltato.`);
+      continue;
+    }
+    const nome = s.scelto.name;
+    const immagine = s.scelto.artwork.imagePath || s.scelto.artwork.imageUri || "";
+    const genere = kindById(s.kind);
+    if (!genere) continue;
+
+    for (const level of educationalLevels) {
+      for (const duration of secPerArt) {
+        // Uno per genere, quindi il genere basta a identificarlo: cambiando lo
+        // stile piu' ricorrente il documento si aggiorna invece di sdoppiarsi.
+        const id = `${config.qid}-${s.kind}-sistema-${level}-${duration}`;
+        const gia = await ItemModel.findOne({ "@id": id });
+        if (gia && !force) continue;
+
+        const text = await createSubjectDescription(nome, genere.name, level, duration);
+        if (!text || text.trim() === "") {
+          console.warn(`[${config.qid}] soggetto "${nome}" (${level}/${duration}s) NON creato.`);
+          continue;
+        }
+        await ItemModel.findOneAndUpdate(
+          { "@id": id },
+          {
+            "@id": id,
+            kind: s.kind,
+            subject: nome,
+            imagePath: immagine,
+            ofMuseum: uri,
+            text,
+            timeRequired: `${duration}`,
+            educationalLevel: level,
+            author: "sistema",
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        );
+        console.log(`[${config.qid}] soggetto ${s.kind} "${nome}" ${level}/${duration}s.`);
+        await delay(PAUSA_LLM_MS);
+      }
+    }
+  }
+}
+
 /**
  * Una visita per ogni combinazione di tono e durata, con dentro tutte le opere
  * del museo per cui quell'item esiste davvero.
+ *
+ * Ci stanno solo OPERE: dove metterci un contenuto su uno stile e' una scelta di
+ * curatela, e questa e' un'enumerazione meccanica del catalogo. I soggetti
+ * seminati restano nel catalogo, e a metterli in un percorso — e nel punto in cui
+ * hanno senso — e' chi la visita la compone.
  */
 async function seedMuseumVisits(config: MuseumConfig) {
   const uri = museumUri(config.qid);

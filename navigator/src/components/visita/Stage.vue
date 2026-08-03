@@ -14,6 +14,22 @@
  * i servizi lo sono: un'opera toccata si apre, un servizio toccato dice come ci
  * si arriva.
  *
+ * I dischi si disegnano sull'ANCORA della tappa: una che parla di uno stile
+ * prende il posto dell'opera che la segue, e finisce nel raggruppamento che gia'
+ * esisteva per due descrizioni dello stesso oggetto — un disco, due numeri.
+ *
+ * ORDINE DEL FUOCO. Ogni nodo viene RIATTACCATO al suo gruppo mentre lo si
+ * prepara, e il ciclo scorre le tappe in ordine di visita: non e' una riga
+ * inutile, e' l'unico modo per cui tabulazione e lettura seguano 1, 2, 3 invece
+ * dell'ordine in cui il curatore ha disegnato i dischi. Il fuoco e' ordine del
+ * DOM — un `tabindex` positivo non riordina la mappa, si mette davanti a tutta
+ * la pagina — e le tecnologie assistive in lettura leggono il DOM, non il
+ * `tabindex`, quindi il DOM e' anche l'unico punto dove aggiustarlo una volta
+ * sola. Riattaccare al PROPRIO gruppo e non all'<svg> e' obbligatorio: un nodo
+ * portato fuori dal suo `data-floor` perde il piano. Ne segue il limite:
+ * l'ordine e' quello della visita dentro ogni piano, e i piani si susseguono
+ * come stanno nel disegno.
+ *
  * Nota tecnica: getBBox non sa dire nulla su un SVG nascosto, percio' i numeri
  * vengono ricalcolati quando si torna sulla mappa.
  *
@@ -50,6 +66,8 @@ import {
   visit,
   stageView,
   setStageView,
+  stopName,
+  stopSubtitle,
 } from "@/state";
 import { bussola, stima } from "@/localization";
 import { useAnnouncer } from "@/composables/useAnnouncer";
@@ -268,7 +286,7 @@ function prepareMap() {
   // ascoltatori sullo stesso disco.
   const perNodo = new Map<string, number[]>();
   matchedContent.value.forEach((match, index) => {
-    const luogo = match.artwork.locationId;
+    const luogo = match.anchor ? match.anchor.locationId : "";
     if (!luogo) return;
     const gia = perNodo.get(luogo);
     if (gia) gia.push(index);
@@ -279,12 +297,15 @@ function prepareMap() {
     const index = indices[0];
     if (index === undefined) return;
     const match = matchedContent.value[index];
-    if (!match) return;
-    const art = match.artwork;
+    if (!match || !match.anchor) return;
+    const art = match.anchor;
     const element = root.querySelector(
       `#${CSS.escape(luogo)}`,
     ) as SVGGraphicsElement | null;
     if (!element) return;
+
+    const gruppo = element.parentNode;
+    if (gruppo) gruppo.appendChild(element);
 
     element.setAttribute("tabindex", "0");
     element.setAttribute("role", "button");
@@ -545,11 +566,11 @@ const optionalCount = computed(() => {
               {{ String(stopNumber(i)).padStart(2, "0") }}
             </span>
             <span class="min-w-0 flex-1">
-              <span class="block truncate font-medium">{{ match.artwork.name }}</span>
+              <span class="block truncate font-medium">{{ stopName(match) }}</span>
               <!-- Il tono distingue due tappe sulla stessa opera, che altrimenti
                    sarebbero due righe identiche. -->
               <span class="block truncate text-small text-muted">
-                {{ match.artwork.author.name }}
+                {{ stopSubtitle(match) }}
                 <span v-if="match.item.educationalLevel">
                   · {{ match.item.educationalLevel }}
                 </span>

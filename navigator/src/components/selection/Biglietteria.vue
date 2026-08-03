@@ -26,11 +26,11 @@ import { museum, user } from "@/state";
 import { museumTitle, mediaOrigin } from "@/config";
 import { useTheme } from "@/composables/useTheme";
 import { formatDuration } from "../../../../shared/constants";
-import type { Visit, Match } from "../../../../shared/types";
+import type { Visit, Artwork, Item } from "../../../../shared/types";
 
 const emit = defineEmits<{
   start: [visit: Visit];
-  customStart: [payload: { visit: Visit; content: Match[] }];
+  customStart: [payload: { visit: Visit; content: { artwork: Artwork; item: Item }[] }];
 }>();
 
 const visits = ref<Visit[]>([]);

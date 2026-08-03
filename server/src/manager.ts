@@ -118,7 +118,9 @@ export async function populateItem(
 
   await insertItem({
     "@id": id,
-    about: artwork["@id"], 
+    kind: "opera",
+    about: artwork["@id"],
+    ofMuseum: artwork.ofMuseum,
     timeRequired: duration.toString(),
     educationalLevel: level,
     author: itemAuthor,

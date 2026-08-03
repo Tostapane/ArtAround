@@ -1,5 +1,64 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-03, un contenuto puo' parlare di uno stile
+
+La richiesta piu' grossa di `missing.txt`, e l'ultima riga di specifica scoperta: la slide 21
+vuole item «sia sugli oggetti della visita, sia su contenuti associati (movimenti culturali,
+stili, artisti, eventi storici)», e finora `Item.about` era obbligatorio e puntava a un'opera.
+Ragionamento in `state.md` §3.1-septies (dati) e §5.3-quinquies (navigator).
+
+- **Un campo, non una tabella.** L'item porta `kind`, e da quello dipende tutto: `opera` ⇒
+  c'e' `about`; qualunque altro genere ⇒ c'e' `subject` (il nome scritto dall'autore) e
+  `imagePath`. ⚠️ **Niente collezione dei soggetti**: uno stile non esiste finche' non c'e' un
+  contenuto che ne parla, e una tabella di soggetti avrebbe righe che nessuno sa quando
+  cancellare. Il raggruppamento del catalogo usa `genere:nome` dove usava l'`@id` dell'opera.
+- **I nomi li da' il museo**, non un elenco nel codice: `GET /museums/:qid/topics` restituisce
+  stili e autori che le sue opere gia' dichiarano, e l'editor li mette in un `datalist`.
+  Scritto uguale, il contenuto si ritrova dalla pastiglia dello stile sulla pagina dell'opera —
+  che ora e' un collegamento, ma **solo se qualcuno ne ha scritto**: un link a una pagina vuota
+  e' peggio di nessun link.
+- **L'immagine e' dell'item** quando il soggetto non e' un'opera, ed e' obbligatoria: non c'e'
+  nessun quadro da cui ripiegare. La nomina il **server** (`POST /items/image`) e la
+  cancellazione dell'item la toglie dal disco. ⚠️ Un'immagine caricata e mai pubblicata resta
+  li': sono due richieste, e la seconda puo' non arrivare.
+- **L'ANCORA** e' la parte da spiegare a voce: una tappa che non e' un'opera prende la
+  posizione della **prossima opera** del percorso. Cosi' un contenuto sul Rinascimento messo
+  davanti a quelle sale ti porta davanti al primo quadro mentre lo ascolti. Sulla pianta non
+  serve nessun ramo nuovo: la tappa cade nel raggruppamento che gia' esisteva per due
+  descrizioni dello stesso oggetto, e il disco porta "Tappe 1, 2".
+- ⚠️ **Il seed i soggetti li crea ma non li mette in nessuna visita.** Ci aveva provato — in
+  testa a ogni visita di catalogo — ed era una scelta di curatela presa da un'enumerazione
+  meccanica: quale stile apra quale percorso non lo sa il seed. Le visite seminate contengono
+  solo opere; per la dimostrazione dell'ancora si compone una visita nel marketplace mettendo
+  il contenuto sullo stile dove ha senso.
+- ⚠️ **La trappola:** `isItem()` distingueva item e visita con `"about" in c`. Reso opzionale
+  `about`, ogni contenuto non-opera sarebbe sparito dagli elenchi delle due app insieme, senza
+  errori. Ora guarda `kind`.
+
+**Il database non e' stato riseminato**: `npx ts-node src/testers.ts generi` ha riempito `kind`
+e `ofMuseum` sui **751 item** che c'erano (0 orfani), e `npx ts-node src/seed.ts Q6373` ha
+aggiunto i due soggetti del British — *scultura ellenistica* e *Alfred Sisley*, 16 item — e
+rifatto le sue 8 visite di catalogo, che ora si aprono con quelle due tappe. Gli altri tre
+musei hanno solo la migrazione: per avere i loro soggetti serve `seed.ts <qid>` (16 chiamate
+LLM per museo, ~2 minuti).
+
+**Verificato pilotando chromium**, non dedotto: 14 controlli sul marketplace (l'editor che
+cambia forma col genere, il caricamento vero di un'immagine, il rifiuto di un file che
+immagine non e', «Manca ancora: il soggetto, l'immagine», la pubblicazione, la pagina del
+soggetto, il testo che arriva dalla rotta nuova, la pastiglia dello stile) e 11 sul navigator
+(la visita che si apre su due tappe non-opera, il segnalino sull'opera successiva, il disco con
+tre numeri, l'elenco che dice nome e genere). Zero errori in console, scatti guardati davvero,
+dati usa e getta rimossi. `marketplace/dist` ricostruito.
+
+**Trovato provando, ed e' vecchio quanto il seed:** l'autore di un'opera del British e'
+`http://www.wikidata.org/.well-known/genid/…` — Wikidata risponde con l'indirizzo di un nodo
+anonimo dove l'entita' non ha etichetta, e quella stringa finiva stampata come nome
+dell'autore. Ora i suggerimenti la saltano e la pagina dell'opera mostra "—", ma **il valore
+e' ancora nel database** e il navigator lo mostrerebbe: la correzione vera sta in
+`manager.populateArtwork`, alla prossima risemina.
+
+---
+
 ## ⏸ Ripresa — 2026-08-02, la scheda non si apre piu' perche' non si chiude mai
 
 Quattro richieste in fila; questa e' la prima. Dettaglio in `state.md` §5.3-ter.

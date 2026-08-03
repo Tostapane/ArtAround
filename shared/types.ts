@@ -16,6 +16,10 @@
  *   nemmeno quando cambia il tono.
  * - Item.timeRequired sono secondi nudi in forma di stringa ("15"), non una
  *   durata ISO.
+ * - Un item non parla per forza di un'opera (slide 21: anche stili, movimenti,
+ *   artisti, periodi). Lo dice `kind`: con "opera" c'e' `about`, altrimenti c'e'
+ *   `subject` — il nome scritto dall'autore — con la sua `imagePath`, perche'
+ *   non c'e' nessuna opera da cui prenderla.
  * - Visit.duration e' la durata TOTALE in secondi, non quella per opera.
  * - Visit.accessKey, se presente, marca la visita come guidata: gratuita, fuori
  *   dal catalogo, accessibile solo digitando la parola chiave.
@@ -92,7 +96,16 @@ export interface Museum {
 
 export interface Item {
   "@id": string;
-  about: string | Artwork;
+  /** Di che cosa parla: uno degli `itemKinds`. */
+  kind: string;
+  /** L'opera descritta: c'e' SOLO se `kind` e' "opera". */
+  about?: string | Artwork;
+  /** Il nome del soggetto: c'e' solo se NON e' un'opera. */
+  subject?: string;
+  /** Immagine propria dell'item; vince su quella dell'opera dove c'e' l'una e l'altra. */
+  imagePath?: string;
+  /** Il museo nel cui catalogo sta. */
+  ofMuseum: string;
   text: string;
   timeRequired: string;
   educationalLevel: string;
@@ -147,10 +160,15 @@ export interface Visit {
   totale?: number;
 }
 
-/** Un item unito all'opera che descrive: la giunzione avviene sul server. */
+/**
+ * Una TAPPA della visita. `anchor` e' l'opera davanti a cui si sta mentre la si
+ * ascolta: un contenuto su uno stile non ha un posto sulla pianta, ma chi lo
+ * ascolta ce l'ha, ed e' la prossima opera del percorso.
+ */
 export interface Match {
-  artwork: Artwork;
   item: Item;
+  artwork: Artwork | null;
+  anchor: Artwork | null;
 }
 
 /** Unione usata dal marketplace, dove item e visite stanno negli stessi elenchi. */
@@ -160,19 +178,27 @@ export type Content = Item | Visit;
  * Le guardie di tipo con cui si stabilisce che cosa si ha in mano.
  *
  * `Content` e' un'unione: un campo che esiste solo su una delle due meta'
- * (`level`, `itemListElement`, `about`) non si puo' leggere senza prima stabilire
+ * (`level`, `itemListElement`, `kind`) non si puo' leggere senza prima stabilire
  * quale delle due si ha in mano. Le guardie fanno quello.
  *
  * Si distinguono per un campo OBBLIGATORIO di ciascuna e non per `@type`: `@type`
  * non fa parte di questi tipi, esiste solo come default dello schema Mongoose, e
  * un documento inserito per altra via ne sarebbe privo.
+ *
+ * ⚠️ Il campo obbligatorio dell'item e' `kind`, non `about`: cercare `about`
+ * farebbe sparire dagli elenchi ogni contenuto che non parla di un'opera.
  */
 export function isVisit(c: Content | Artwork): c is Visit {
   return "itemListElement" in c;
 }
 
 export function isItem(c: Content | Artwork): c is Item {
-  return "about" in c;
+  return "kind" in c;
+}
+
+/** L'UNICA domanda che il codice pone sul genere: gli altri si mostrano e basta. */
+export function isAboutArtwork(i: Item): boolean {
+  return i.kind === "opera";
 }
 
 export function isArtwork(c: Content | Artwork): c is Artwork {

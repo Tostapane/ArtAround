@@ -83,7 +83,7 @@ function hintId(id: string): string {
     <p class="mt-3 text-caption text-muted">
       {{
         tab === "chiedi"
-          ? "Domande su quest'opera."
+          ? "Domande su questo contenuto."
           : "Domande sull'edificio: dove si trovano le cose."
       }}
     </p>

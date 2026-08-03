@@ -19,6 +19,16 @@
  * solo a sapere quando quel tentativo e' passato di moda. Senza, un "Non ho
  * capito" preso una volta resta scritto sotto al microfono per tutto il resto
  * del percorso, e sembra il commento all'opera che si sta guardando.
+ *
+ * Mentre si registra, al posto dell'icona il pulsante disegna il volume che il
+ * microfono sta sentendo (`levels` di `useSTT`): e' l'unico segno che distingue
+ * "ti sto ascoltando" da un permesso concesso a un dispositivo muto, e sta nel
+ * pulsante perche' e' li' che si guarda mentre si parla. Per lo screen reader e'
+ * `aria-hidden`: una traccia che cambia dieci volte al secondo non si legge, e
+ * l'avvio della registrazione e' gia' annunciato. Mentre la traccia e' visibile
+ * l'etichetta si accorcia a "Invia": il pulsante divide la riga con le frecce di
+ * navigazione, e su un telefono da 360px gli restano centocinquanta punti — la
+ * traccia e una frase intera insieme non ci stanno.
  */
 import { ref, watch, onUnmounted, computed } from "vue";
 import { sendAudioToBackend } from "@/api";
@@ -26,6 +36,7 @@ import {
   isRecording,
   finalBlob,
   errorMsg,
+  levels,
   startRecording,
   stopRecording,
 } from "./useSTT";
@@ -60,7 +71,7 @@ const stato = computed(() => {
 });
 
 const label = computed(() => {
-  if (stato.value === "registrando") return "Interrompi e invia";
+  if (stato.value === "registrando") return "Invia";
   if (stato.value === "elaborando") return "Sto capendo…";
   return "Parla";
 });
@@ -114,11 +125,19 @@ onUnmounted(() => {
       :disabled="processing"
       @click="press"
     >
+      <!-- LIVELLO DEL MICROFONO -->
       <span
         v-if="isRecording"
-        class="h-2.5 w-2.5 shrink-0 rounded-full bg-current"
+        class="flex h-5 shrink-0 items-center gap-px"
         aria-hidden="true"
-      ></span>
+      >
+        <span
+          v-for="(livello, i) in levels"
+          :key="i"
+          class="w-0.5 rounded-full bg-current transition-[height] duration-75"
+          :style="{ height: `${2 + livello * 18}px` }"
+        ></span>
+      </span>
       <svg
         v-else
         class="h-5 w-5 shrink-0"
