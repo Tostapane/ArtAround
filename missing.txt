@@ -27,7 +27,8 @@ e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo po
 - preview di una opera non inclusa nella visita
 - c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico 
 (non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
-
+- se non sicuro, deve blurrare le immagini
+  - stress test delle sessioni
 PROBLEMI
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra

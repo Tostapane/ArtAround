@@ -56,7 +56,13 @@ import {
   WORDS_PER_MINUTE,
 } from "../../../shared/constants.js";
 import { isReadable } from "../../../shared/access.js";
-import { ArtAPI } from "./api.js";
+import {
+  ArtAPI,
+  clearToken,
+  hasToken,
+  onSessionExpired,
+  setToken,
+} from "./api.js";
 
 
 /*
@@ -154,6 +160,12 @@ export interface ArtworkGroup {
 }
 
 export type View =
+  // Prima che `start()` abbia risposto non si sa ancora che schermata sia: c'e'
+  // un biglietto in sessionStorage da spendere, e finche' non si sa niente si
+  // disegna niente. Senza, la soglia compariva per un istante a ogni
+  // ricaricamento e poi saltava alla home — cioe' la pagina diceva "non sei
+  // entrato" a chi era entrato.
+  | "avvio"
   | "soglia"
   | "accedi"
   | "registrati"
@@ -173,7 +185,7 @@ export type View =
 
 export class AppState {
   // --- Rotta corrente -------------------------------------------------------
-  view: View = "soglia";
+  view: View = "avvio";
   param: string = ""; 
 
   currentUser: string | null = null;
@@ -201,11 +213,6 @@ export class AppState {
 
   editorSearch: string = "";
   editorFilter: "tutti" | "disponibili" | "da_acquistare" = "tutti";
-
-  // Biglietto di rientro dal navigator: sta in memoria e basta, come il resto
-  // della sessione, e non finisce mai in un QR — una credenziale stampata resta
-  // valida quanto la carta su cui sta.
-  handoff: string = "";
 
   // --- Visita su misura -----------------------------------------------------
   customRequest: string = "";
@@ -360,6 +367,7 @@ export class AppState {
 
   viewLabel(): string {
     const labels: Record<View, string> = {
+      avvio: "ArtAround",
       soglia: "ArtAround",
       accedi: "Accedi",
       registrati: "Crea un profilo",
@@ -394,38 +402,36 @@ export class AppState {
 
   async start() {
     window.addEventListener("hashchange", () => this.applyRoute());
+    onSessionExpired(() => this.sessionLost());
     try {
       const cfg = await ArtAPI.fetchConfig();
       this.navigatorOrigin = cfg.navigatorOrigin || "";
     } catch {
       this.navigatorOrigin = "";
     }
-    await this.redeemHandoff();
+    await this.resumeSession();
     this.applyRoute();
   }
 
   /**
-   * Il biglietto si spende e sparisce dall'indirizzo: un ricaricamento non prova
-   * a spenderlo una seconda volta e la barra degli indirizzi non resta con una
-   * credenziale dentro.
+   * Il biglietto sopravvive al ricaricamento e all'andata e ritorno verso il
+   * navigator — stessa scheda, stessa origine — mentre il resto dello stato no.
+   * Portafoglio e collezione NON si ricordano: si rileggono, perche' fra un
+   * caricamento e l'altro puo' esserci stato un acquisto.
    */
-  private async redeemHandoff() {
-    const ticket = new URLSearchParams(window.location.search).get("handoff");
-    if (!ticket) return;
-    window.history.replaceState(
-      {},
-      "",
-      window.location.pathname + window.location.hash,
-    );
+  private async resumeSession() {
+    if (!hasToken()) return;
     try {
-      const u = await ArtAPI.redeemHandoff(ticket);
-      await this.enterAs(u);
+      await this.enterAs(await ArtAPI.fetchMe());
     } catch {
-      this.showToast(
-        "Il collegamento non vale piu': entra con le tue credenziali.",
-        "error",
-      );
+      clearToken();
     }
+  }
+
+  /** La sessione non vale piu': si torna alla soglia dicendolo. */
+  private sessionLost() {
+    this.resetToThreshold();
+    this.showToast("La sessione è scaduta: entra di nuovo.", "error");
   }
 
   /**
@@ -472,7 +478,7 @@ export class AppState {
     // Arrivano nell'ordine di percorrenza dichiarato sulla mappa (`data-flow`):
     // riordinarle per nome vorrebbe dire comporre visite a zig zag.
     this.availableArtworks = await ArtAPI.fetchArtworks(qid);
-    this.visits = await ArtAPI.fetchVisite(qid, this.currentUser);
+    this.visits = await ArtAPI.fetchVisite(qid);
     this.marketItems = this.withArtwork(await ArtAPI.fetchItemsMetadata(qid));
     this.artworksWithText = [];
     this.museumTopics = await ArtAPI.fetchMuseumTopics(qid);
@@ -541,13 +547,13 @@ export class AppState {
     role: UserRole;
     wallet?: number;
     collezione: string[];
-    handoff?: string;
+    token?: string;
   }) {
+    if (u.token) setToken(u.token);
     this.currentUser = u.username;
     this.currentUserRole = u.role;
     this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
     this.userCollection = u.collezione || [];
-    this.handoff = u.handoff || "";
     this.loginForm = { username: "", password: "" };
     await this.initApp();
   }
@@ -572,7 +578,19 @@ export class AppState {
     }
   }
 
-  logout() {
+  /** Uscire: la sessione si chiude anche sul server, non solo qui. */
+  async logout() {
+    await ArtAPI.logout();
+    clearToken();
+    this.resetToThreshold();
+  }
+
+  /**
+   * Lo stato di chi non e' entrato. Separato da `logout` perche' ci si arriva
+   * anche senza averlo chiesto: quando il server dice che la sessione e' scaduta
+   * non c'e' piu' niente da chiudere, e richiamarlo direbbe una bugia.
+   */
+  private resetToThreshold() {
     this.currentUser = null;
     this.currentUserRole = null;
     this.wallet = 0;
@@ -589,7 +607,6 @@ export class AppState {
     this.guidedSession = null;
     this.passkeyInput = "";
     this.customRequest = "";
-    this.handoff = "";
     this.marketSearch = "";
     this.librarySearch = "";
     this.worksSearch = "";
@@ -773,7 +790,7 @@ export class AppState {
   private async performPurchase(item: Content) {
     if (!this.currentUser) return;
     try {
-      const u = await ArtAPI.buy(this.currentUser, item["@id"]);
+      const u = await ArtAPI.buy(item["@id"]);
       this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
       this.userCollection = u.collezione;
       // Il testo di quest'opera puo' essere gia' stato chiesto quando ancora non
@@ -814,7 +831,7 @@ export class AppState {
   async reloadVisits() {
     const qid = this.selectedMuseum ? this.selectedMuseum.qid : "";
     if (!qid) return;
-    this.visits = await ArtAPI.fetchVisite(qid, this.currentUser);
+    this.visits = await ArtAPI.fetchVisite(qid);
   }
 
   /** L'etichetta dello sblocco nella striscia Riprendi. */
@@ -970,7 +987,7 @@ export class AppState {
       this.cancelConfirm();
       if (!this.currentUser) return;
       try {
-        const u = await ArtAPI.buy(this.currentUser, visit["@id"]);
+        const u = await ArtAPI.buy(visit["@id"]);
         this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
         this.userCollection = u.collezione;
         this.showToast("Contenuti sbloccati: la visita è pronta.");
@@ -994,7 +1011,7 @@ export class AppState {
     try {
       this.overview = await ArtAPI.fetchOverview(qid);
       this.curatedItems = await ArtAPI.fetchCuratedItems(qid);
-      this.visits = await ArtAPI.fetchVisite(qid, this.currentUser);
+      this.visits = await ArtAPI.fetchVisite(qid);
     } catch (e) {
       this.showToast((e as Error).message, "error");
     }
@@ -1562,10 +1579,7 @@ export class AppState {
     // Chi non parla di un'opera non sta in nessun elenco per opera.
     if ("text" in item) return;
     try {
-      const risposta = await ArtAPI.fetchItemText(
-        item["@id"],
-        this.currentUser || undefined,
-      );
+      const risposta = await ArtAPI.fetchItemText(item["@id"]);
       (item as Item).text = risposta.text;
     } catch (e) {
       this.showToast((e as Error).message, "error");
@@ -1584,10 +1598,7 @@ export class AppState {
   private async caricaTesti(artworkQid: string) {
     if (!artworkQid || this.artworksWithText.includes(artworkQid)) return;
     try {
-      const pieni = await ArtAPI.fetchArtworkItems(
-        artworkQid,
-        this.currentUser || undefined,
-      );
+      const pieni = await ArtAPI.fetchArtworkItems(artworkQid);
       const testi = new Map<string, string>();
       for (const it of pieni) testi.set(it["@id"], it.text || "");
       for (const it of this.marketItems) {
@@ -1734,23 +1745,39 @@ export class AppState {
     return `${window.location.protocol}//${window.location.hostname}:5173`;
   }
 
-  /** Senza biglietto: e' questa che finisce nel QR, cioe' su carta. */
-  private navigatorUrlBase(v: any): string {
+  /**
+   * L'indirizzo di una visita nel navigator, e non dice chi sei: e' anche quello
+   * che finisce nel QR, cioe' su carta, e una credenziale stampata vale quanto
+   * la carta su cui sta. Chi lo inquadra da un altro telefono entra da li'.
+   */
+  navigatorUrl(v: any): string {
     if (!v) return "#";
     const uri: string = v.ofMuseum || "";
     const museumQid = uri.split("/").pop() || "";
     return (
       `${this.navigatorBase()}/` +
       `?museum=${encodeURIComponent(museumQid)}` +
-      `&visit=${encodeURIComponent(v["@id"])}` +
-      `&user=${encodeURIComponent(this.currentUser || "")}`
+      `&visit=${encodeURIComponent(v["@id"])}`
     );
   }
 
-  navigatorUrl(v: any): string {
-    const base = this.navigatorUrlBase(v);
-    if (base === "#" || !this.handoff) return base;
-    return `${base}&handoff=${encodeURIComponent(this.handoff)}`;
+  /**
+   * Aprire il navigator e' un ATTO, non un collegamento. Il biglietto si conia
+   * per il viaggio che si sta per fare e vale dieci minuti, quindi non puo'
+   * stare in un `href` scritto quando la pagina si e' disegnata; e vale una
+   * volta sola, quindi uno per accesso lascerebbe a piedi il secondo viaggio.
+   * E' l'unico modo che il navigator ha di sapere chi e' entrato: sta su
+   * un'altra origine e questa memoria non la vede.
+   */
+  async openNavigator(url: string) {
+    if (!url || url === "#") return;
+    try {
+      const ticket = await ArtAPI.newHandoff();
+      const separatore = url.includes("?") ? "&" : "?";
+      window.location.href = `${url}${separatore}handoff=${encodeURIComponent(ticket)}`;
+    } catch (e) {
+      this.showToast((e as Error).message, "error");
+    }
   }
 
   // --- Visita su misura -----------------------------------------------------
@@ -1770,9 +1797,7 @@ export class AppState {
     return (
       `${this.navigatorBase()}/` +
       `?museum=${encodeURIComponent(this.selectedMuseum!.qid)}` +
-      `&custom=${encodeURIComponent(this.customRequest.trim())}` +
-      `&user=${encodeURIComponent(this.currentUser || "")}` +
-      (this.handoff ? `&handoff=${encodeURIComponent(this.handoff)}` : "")
+      `&custom=${encodeURIComponent(this.customRequest.trim())}`
     );
   }
 
@@ -1780,25 +1805,19 @@ export class AppState {
     if (!this.guidedSession) return "#";
     return (
       `${this.navigatorBase()}/` +
-      `?guidedSession=${encodeURIComponent(this.guidedSession.id)}` +
-      `&role=studente&user=${encodeURIComponent(this.currentUser || "")}`
+      `?guidedSession=${encodeURIComponent(this.guidedSession.id)}&role=studente`
     );
   }
 
   startGuidedUrl(visit: any): string {
     return (
       `${this.navigatorBase()}/` +
-      `?guidedVisit=${encodeURIComponent(visit["@id"])}` +
-      `&role=docente&user=${encodeURIComponent(this.currentUser || "")}`
+      `?guidedVisit=${encodeURIComponent(visit["@id"])}&role=docente`
     );
   }
 
   visitQrUrl(v: any): string {
-    return `/api/qr?text=${encodeURIComponent(this.navigatorUrlBase(v))}`;
-  }
-
-  sampleUrl(): string {
-    return `${this.navigatorBase()}/?demo=1`;
+    return `/api/qr?text=${encodeURIComponent(this.navigatorUrl(v))}`;
   }
 
   qrSheetUrl(): string {
@@ -1816,7 +1835,6 @@ export class AppState {
     try {
       const s = await ArtAPI.joinGuidedSession(
         key,
-        this.currentUser,
         this.museumEntityId() || undefined,
       );
       this.guidedSession = {
@@ -1950,7 +1968,6 @@ export class AppState {
       soggetto: this.draft.soggetto.trim(),
       immagine: this.draft.immagine,
       museo: this.selectedMuseum ? this.selectedMuseum.qid : "",
-      autore: this.currentUser!,
       prezzo: this.draft.privato ? 0 : this.draft.price,
       privato: !!this.draft.privato,
       licenza: this.draft.license,
@@ -2279,7 +2296,6 @@ export class AppState {
       tipo: "Visita",
       id: this.editingId || `tour-${Date.now()}`,
       titolo: this.draft.titolo,
-      autore: this.currentUser!,
       accessKey: guidata ? this.draft.accessKey.trim() : undefined,
       quiz: quizPayload,
       prezzo:
@@ -2321,7 +2337,7 @@ export class AppState {
   async loadSales() {
     if (!this.currentUser) return;
     try {
-      this.sales = await ArtAPI.fetchSales(this.currentUser);
+      this.sales = await ArtAPI.fetchSales();
     } catch (e) {
       console.error(e);
       this.sales = [];

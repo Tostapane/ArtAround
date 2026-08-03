@@ -16,6 +16,7 @@
  * `/custom` genera una visita dai vincoli espressi a parole e non salva nulla.
  */
 import { Router } from "express";
+import { sessionUser } from "../session";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
 import { isReadable } from "../../../shared/access";
@@ -52,7 +53,7 @@ router.get("/", async (req, res) => {
       : {};
     const visits = await VisitModel.find(filter);
 
-    const username = String(req.query.user || "");
+    const username = sessionUser(req).username;
     const owned = await purchasedBy(username);
     const ids = new Set<string>();
     for (const v of visits) {
@@ -113,7 +114,7 @@ router.get("/:id/items", async (req, res) => {
 
     const byId = new Map(items.map((it: any) => [it["@id"], it]));
     const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
-    const user = String(req.query.user || "");
+    const user = sessionUser(req).username;
     const owned = await purchasedBy(user);
     res.json(readableItems(ordered, user, owned));
   } catch (err: any) {
@@ -247,7 +248,7 @@ router.post("/", async (req, res) => {
     );
 
     const visitId = payload.id || payload["@id"];
-    const author = payload.autore || payload.author;
+    const author = sessionUser(req).username;
     const name = payload.titolo || payload.name;
     if (typeof name !== "string" || name.trim() === "") {
       return res.status(400).json({ error: "La visita deve avere un titolo." });

@@ -19,8 +19,6 @@
  *   alla tappa che seguono. Il navigator non le leggeva affatto: erano scritte,
  *   salvate, mostrate nel marketplace e invisibili alla persona per cui erano
  *   state scritte (slide 21).
- * - `user` e' vuoto in modalita' esempio: senza utente si vedono solo le visite
- *   gratuite.
  */
 
 import { ref } from "vue";
@@ -37,10 +35,6 @@ export const visit = ref<Visit>();
 export const museum = ref<Museum>();
 export const map = ref<string>("");
 export const matchedContent = ref<Match[]>([]);
-export const user = ref<string>("");
-
-/** Biglietto di rientro al marketplace: arriva nell'indirizzo e vale una volta. */
-export const handoff = ref<string>("");
 
 /**
  * Tutte le opere del museo, non solo le tappe: la localizzazione sceglie fra i
@@ -252,7 +246,7 @@ export async function loadVisitContent(visitId: string) {
   if (contentVisitId === visitId) return;
   matchedContent.value = [];
   try {
-    const items = await getVisitItems(visitId, user.value);
+    const items = await getVisitItems(visitId);
     matchedContent.value = buildStops(items);
     contentVisitId = visitId;
   } catch (err) {

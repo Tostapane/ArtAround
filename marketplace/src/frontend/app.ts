@@ -209,30 +209,19 @@ export function swarm() {
      */
     async loadShapes(this: any) {
       try {
-        const [config, artworks] = await Promise.all([
-          fetch("/api/config")
-            .then((r) => (r.ok ? r.json() : {}))
-            .catch(() => ({}) as any),
-          fetch("/api/artworks").then((r) => (r.ok ? r.json() : [])),
-        ]);
-        const catalogue = (Array.isArray(artworks) ? artworks : []).filter(
-          (a: any) => a.imagePath,
-        );
-        const wanted = Array.isArray(config.thresholdArtworks)
-          ? config.thresholdArtworks
-          : [];
-
-        // Il curatore sceglie quali opere e in che ordine (data/soglia.json sul
-        // server): il retino rende bene una figura grande con un forte stacco di
-        // luce, e male una scena affollata di mezzi toni, e questo non si calcola.
-        // Qui dentro non c'e' nessun qid: se la lista manca si ripiega sulle
-        // prime del catalogo, e la soglia funziona lo stesso.
-        const chosen: any[] = [];
-        for (const qid of wanted) {
-          const found = catalogue.find((a: any) => a.qid === qid);
-          if (found) chosen.push(found);
-        }
-        const figures = chosen.length > 0 ? chosen : catalogue.slice(0, 6);
+        // La soglia e' la schermata di chi NON e' entrato, quindi non puo'
+        // chiedere il catalogo, che ora vuole una sessione. Le opere arrivano
+        // gia' scelte e gia' con l'immagine da `/api/config`, che e' aperta: il
+        // curatore decide quali e in che ordine (data/soglia.json sul server),
+        // perche' il retino rende bene una figura grande con un forte stacco di
+        // luce e male una scena affollata di mezzi toni, e questo non si calcola.
+        // Qui dentro non c'e' nessun qid.
+        const config = await fetch("/api/config")
+          .then((r) => (r.ok ? r.json() : {}))
+          .catch(() => ({}) as any);
+        const figures = (
+          Array.isArray(config.thresholdArtworks) ? config.thresholdArtworks : []
+        ).filter((a: any) => a && a.imagePath);
 
         for (const artwork of figures) {
           const shape = await this.shapeFromImage(artwork.imagePath);

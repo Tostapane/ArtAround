@@ -4,6 +4,18 @@
  * Nessun indirizzo scritto a mano: la base arriva dal file di configurazione del
  * curatore, o si ricava dall'host da cui e' stata aperta la pagina.
  *
+ * CHI CHIEDE NON STA NELL'INDIRIZZO: nessuna funzione qui sotto ha un parametro
+ * `user` o `username`. Lo dice il biglietto che `call` attacca a ogni richiesta,
+ * e il server lo traduce nell'account — quindi non c'e' nessun punto in cui
+ * dimenticarsene, e nessun nome che si possa riscrivere a mano.
+ *
+ * IL BIGLIETTO ARRIVA DAL MARKETPLACE, una volta sola, nell'indirizzo con cui
+ * questa pagina si apre: le due applicazioni stanno su origini diverse e questa
+ * non vede la memoria dell'altra. Si spende subito in cambio di una sessione
+ * propria, che sta in `sessionStorage` — chiusa la scheda non resta niente.
+ * Aprire il navigator da solo non porta da nessuna parte, ed e' voluto: si entra
+ * dal marketplace.
+ *
  * Le rotte delle visite guidate usano l'interrogazione periodica; `GuidedEndedError`
  * distingue "la sessione non c'e' piu'" da un errore di rete, perche' le due cose
  * vogliono reazioni diverse.
@@ -13,16 +25,42 @@ import { apiBase } from "./config";
 
 const base = () => apiBase();
 
+// --- Il biglietto -------------------------------------------------------------
+
+const TOKEN_KEY = "artaround-sessione";
+let token = sessionStorage.getItem(TOKEN_KEY) || "";
+
+export function hasSession(): boolean {
+  return token !== "";
+}
+
+/** Spende il biglietto ricevuto dal marketplace e tiene la sessione che ne esce. */
+export async function redeemHandoff(handoff: string): Promise<void> {
+  const res = await fetch(`${base()}/users/redeem`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ handoff }),
+  });
+  if (!res.ok) throw new Error("Il collegamento non vale piu'.");
+  const data = await res.json();
+  token = data.token || "";
+  sessionStorage.setItem(TOKEN_KEY, token);
+}
+
+async function call(url: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers || {});
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return fetch(url, { ...init, headers });
+}
+
 export async function getVisit(id: string): Promise<Visit> {
-  const res = await fetch(`${base()}/visits/${encodeURIComponent(id)}`);
+  const res = await call(`${base()}/visits/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`Failed to fetch visit: ${res.statusText}`);
   return res.json();
 }
 
-export async function getVisitItems(id: string, user?: string): Promise<Item[]> {
-  let url = `${base()}/visits/${encodeURIComponent(id)}/items`;
-  if (user) url += `?user=${encodeURIComponent(user)}`;
-  const res = await fetch(url);
+export async function getVisitItems(id: string): Promise<Item[]> {
+  const res = await call(`${base()}/visits/${encodeURIComponent(id)}/items`);
   if (!res.ok) throw new Error(`Failed to fetch visit items: ${res.statusText}`);
   return res.json();
 }
@@ -38,7 +76,7 @@ export async function getArtworkPreview(
   let url = `${base()}/artworks/${encodeURIComponent(qid)}/preview`;
   const query = params.toString();
   if (query) url += `?${query}`;
-  const res = await fetch(url);
+  const res = await call(url);
   if (!res.ok)
     throw new Error(`Failed to fetch artwork preview: ${res.statusText}`);
   return res.json();
@@ -48,7 +86,7 @@ export async function createCustomVisit(
   museumQid: string,
   request: string,
 ): Promise<{ visit: Visit; content: { artwork: Artwork; item: Item }[] }> {
-  const res = await fetch(`${base()}/visits/custom`, {
+  const res = await call(`${base()}/visits/custom`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ museumQid, request }),
@@ -59,18 +97,14 @@ export async function createCustomVisit(
 }
 
 /**
- * Visite di un museo, filtrate per CHI STA GUARDANDO.
- * Senza `user` il server restituisce solo le visite gratuite (modalita' esempio);
- * con `user` aggiunge quelle che quella persona possiede. Le visite guidate non
- * compaiono mai: ci si entra con la parola chiave, non scegliendole da un elenco.
+ * Visite di un museo, filtrate per CHI STA GUARDANDO: le gratuite piu' quelle
+ * che questa persona possiede. Le visite guidate non compaiono mai — ci si entra
+ * con la parola chiave, non scegliendole da un elenco.
  */
-export async function getVisitsByMuseum(
-  qid: string,
-  user?: string,
-): Promise<Visit[]> {
-  let url = `${base()}/museums/${encodeURIComponent(qid)}/visits`;
-  if (user) url += `?user=${encodeURIComponent(user)}`;
-  const res = await fetch(url);
+export async function getVisitsByMuseum(qid: string): Promise<Visit[]> {
+  const res = await call(
+    `${base()}/museums/${encodeURIComponent(qid)}/visits`,
+  );
   if (!res.ok)
     throw new Error(`Failed to fetch museum visits: ${res.statusText}`);
   return res.json();
@@ -82,7 +116,7 @@ export async function getVisitsByMuseum(
  * e la pianta non sa niente della visita in corso.
  */
 export async function getMuseumArtworks(qid: string): Promise<Artwork[]> {
-  const res = await fetch(
+  const res = await call(
     `${base()}/museums/${encodeURIComponent(qid)}/artworks`,
   );
   if (!res.ok)
@@ -91,7 +125,7 @@ export async function getMuseumArtworks(qid: string): Promise<Artwork[]> {
 }
 
 export async function getMuseum(qid: string): Promise<Museum> {
-  const res = await fetch(`${base()}/museums/${encodeURIComponent(qid)}/config`);
+  const res = await call(`${base()}/museums/${encodeURIComponent(qid)}/config`);
   if (!res.ok)
     throw new Error(`Failed to fetch the desired museum: ${res.statusText}`);
   return res.json();
@@ -102,7 +136,7 @@ export async function getInfo(
   userReq: string,
   language: string,
 ): Promise<string> {
-  const res = await fetch(`${base()}/llm/newInfo`, {
+  const res = await call(`${base()}/llm/newInfo`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ previous, userReq, language }),
@@ -119,7 +153,7 @@ export async function getDirections(
   language: string,
   detailed = false,
 ): Promise<string> {
-  const res = await fetch(`${base()}/wayfinding`, {
+  const res = await call(`${base()}/wayfinding`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ museumQid, from, target, language, detailed }),
@@ -136,7 +170,7 @@ export async function sendAudioToBackend(
   const formData = new FormData();
   formData.append("audioFile", audioBlob, "recording.wav");
   formData.append("lang", lang);
-  const res = await fetch(`${base()}/speech`, {
+  const res = await call(`${base()}/speech`, {
     method: "POST",
     body: formData,
   });
@@ -148,7 +182,7 @@ export async function getSpeechAudio(
   text: string,
   lang: string,
 ): Promise<Blob> {
-  const res = await fetch(`${base()}/speech/tts`, {
+  const res = await call(`${base()}/speech/tts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, lang }),
@@ -161,7 +195,7 @@ export async function translateTexts(
   texts: string[],
   target: string,
 ): Promise<string[]> {
-  const res = await fetch(`${base()}/translate`, {
+  const res = await call(`${base()}/translate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ texts, target }),
@@ -189,97 +223,65 @@ async function readGuidedError(res: Response): Promise<string> {
   return `Errore ${res.status}`;
 }
 
-export async function createGuidedSession(
-  visitId: string,
-  teacher: string,
-): Promise<any> {
-  const res = await fetch(gsBase(), {
+export async function createGuidedSession(visitId: string): Promise<any> {
+  const res = await call(gsBase(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ visitId, teacher }),
+    body: JSON.stringify({ visitId }),
   });
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
 }
 
 export async function getGuidedTeacherView(id: string): Promise<any> {
-  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}`);
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}`);
   if (res.status === 404) throw new GuidedEndedError();
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
 }
 
-export async function getGuidedStudentState(
-  id: string,
-  username: string,
-): Promise<any> {
-  const res = await fetch(
-    `${gsBase()}/${encodeURIComponent(id)}/state?username=${encodeURIComponent(username)}`,
-  );
+export async function getGuidedStudentState(id: string): Promise<any> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/state`);
   if (res.status === 410) throw new GuidedEndedError();
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
 }
 
-export async function getGuidedItems(
-  id: string,
-  username: string,
-): Promise<Item[]> {
-  const res = await fetch(
-    `${gsBase()}/${encodeURIComponent(id)}/items?username=${encodeURIComponent(username)}`,
-  );
+export async function getGuidedItems(id: string): Promise<Item[]> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/items`);
   if (res.status === 410) throw new GuidedEndedError();
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
 }
 
-export async function postGuidedStart(
-  id: string,
-  teacher: string,
-): Promise<any> {
-  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/start`, {
+export async function postGuidedStart(id: string): Promise<any> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/start`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacher }),
   });
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
 }
 
-export async function postGuidedStep(
-  id: string,
-  teacher: string,
-  index: number,
-): Promise<any> {
-  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/step`, {
+export async function postGuidedStep(id: string, index: number): Promise<any> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/step`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacher, index }),
+    body: JSON.stringify({ index }),
   });
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
 }
 
-export async function postGuidedEnd(
-  id: string,
-  teacher: string,
-): Promise<void> {
-  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/end`, {
+export async function postGuidedEnd(id: string): Promise<void> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/end`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacher }),
   });
   if (!res.ok) throw new Error(await readGuidedError(res));
 }
 
-export async function postGuidedLeave(
-  id: string,
-  username: string,
-): Promise<void> {
-  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/leave`, {
+export async function postGuidedLeave(id: string): Promise<void> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/leave`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username }),
   });
   if (!res.ok) throw new Error(await readGuidedError(res));
 }
@@ -290,13 +292,12 @@ export async function postGuidedLeave(
  */
 export async function postGuidedQuizStart(
   id: string,
-  teacher: string,
   durationSec: number,
 ): Promise<any> {
-  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/quiz/start`, {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/quiz/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacher, durationSec }),
+    body: JSON.stringify({ durationSec }),
   });
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
@@ -304,26 +305,20 @@ export async function postGuidedQuizStart(
 
 export async function postGuidedQuizAnswer(
   id: string,
-  username: string,
   answers: number[],
 ): Promise<{ score: number; total: number; giaConsegnato: boolean }> {
-  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/quiz/answer`, {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/quiz/answer`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, answers }),
+    body: JSON.stringify({ answers }),
   });
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
 }
 
-export async function postGuidedQuizEnd(
-  id: string,
-  teacher: string,
-): Promise<any> {
-  const res = await fetch(`${gsBase()}/${encodeURIComponent(id)}/quiz/end`, {
+export async function postGuidedQuizEnd(id: string): Promise<any> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/quiz/end`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacher }),
   });
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
@@ -331,15 +326,14 @@ export async function postGuidedQuizEnd(
 
 export async function postGuidedAsk(
   id: string,
-  username: string,
   question: string,
   artwork: string,
 ): Promise<void> {
   try {
-    await fetch(`${gsBase()}/${encodeURIComponent(id)}/ask`, {
+    await call(`${gsBase()}/${encodeURIComponent(id)}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, question, artwork }),
+      body: JSON.stringify({ question, artwork }),
     });
   } catch {
   }

@@ -38,7 +38,6 @@ type Stato = "attesa" | "attiva" | "quiz" | "terminata";
 export const guidedActive = ref(false);
 export const guidedRole = ref<Role>("");
 export const guidedSessionId = ref("");
-export const guidedUser = ref("");
 export const guidedVisitName = ref("");
 export const guidedAccessKey = ref("");
 export const guidedStato = ref<Stato>("attesa");
@@ -139,7 +138,7 @@ function applyStato(stato: Stato) {
 async function ensureContent(visitId: string) {
   if (contentLoaded) return;
   const v: Visit = await getVisit(visitId);
-  const items = await getGuidedItems(guidedSessionId.value, guidedUser.value);
+  const items = await getGuidedItems(guidedSessionId.value);
   if (v.ofMuseum) await loadMuseum(qidFromUri(v.ofMuseum));
   setCustomVisit(v, buildStops(items));
   guidedVisitName.value = v.name;
@@ -164,7 +163,7 @@ async function pollOnce() {
       applyTeacherView(await getGuidedTeacherView(guidedSessionId.value));
     } else {
       applyStudentState(
-        await getGuidedStudentState(guidedSessionId.value, guidedUser.value),
+        await getGuidedStudentState(guidedSessionId.value),
       );
     }
   } catch (err) {
@@ -190,23 +189,21 @@ function endLocally(prevista = true) {
 }
 
 // --- Ingresso DOCENTE: crea/riusa la sessione e avvia il polling della sala ---
-export async function startAsTeacher(visitId: string, user: string) {
+export async function startAsTeacher(visitId: string) {
   guidedActive.value = true;
   guidedRole.value = "docente";
-  guidedUser.value = user;
-  const view = await createGuidedSession(visitId, user);
+  const view = await createGuidedSession(visitId);
   applyTeacherView(view);
   await ensureContent(visitId);
   startPolling();
 }
 
 // --- Ingresso STUDENTE: si aggancia alla sessione gia' raggiunta (marketplace) ---
-export async function attachAsStudent(sessionId: string, user: string) {
+export async function attachAsStudent(sessionId: string) {
   guidedActive.value = true;
   guidedRole.value = "studente";
   guidedSessionId.value = sessionId;
-  guidedUser.value = user;
-  const st = await getGuidedStudentState(sessionId, user);
+  const st = await getGuidedStudentState(sessionId);
   applyStudentState(st);
   await ensureContent(st.visitId);
   startPolling();
@@ -215,19 +212,19 @@ export async function attachAsStudent(sessionId: string, user: string) {
 // --- Azioni DOCENTE ---
 export async function teacherStart() {
   applyTeacherView(
-    await postGuidedStart(guidedSessionId.value, guidedUser.value),
+    await postGuidedStart(guidedSessionId.value),
   );
 }
 
 export async function teacherGoToStep(index: number) {
   applyTeacherView(
-    await postGuidedStep(guidedSessionId.value, guidedUser.value, index),
+    await postGuidedStep(guidedSessionId.value, index),
   );
 }
 
 export async function teacherEnd() {
   try {
-    await postGuidedEnd(guidedSessionId.value, guidedUser.value);
+    await postGuidedEnd(guidedSessionId.value);
   } finally {
     endLocally();
   }
@@ -237,7 +234,6 @@ export async function teacherStartQuiz(durationSec: number) {
   applyTeacherView(
     await postGuidedQuizStart(
       guidedSessionId.value,
-      guidedUser.value,
       durationSec,
     ),
   );
@@ -245,7 +241,7 @@ export async function teacherStartQuiz(durationSec: number) {
 
 export async function teacherEndQuiz() {
   applyTeacherView(
-    await postGuidedQuizEnd(guidedSessionId.value, guidedUser.value),
+    await postGuidedQuizEnd(guidedSessionId.value),
   );
 }
 
@@ -253,7 +249,6 @@ export async function teacherEndQuiz() {
 export async function studentSubmitQuiz(answers: number[]) {
   const esito = await postGuidedQuizAnswer(
     guidedSessionId.value,
-    guidedUser.value,
     answers,
   );
   guidedQuizPunteggio.value = esito.score;
@@ -264,7 +259,7 @@ export async function studentSubmitQuiz(answers: number[]) {
 
 export async function studentLeave() {
   try {
-    await postGuidedLeave(guidedSessionId.value, guidedUser.value);
+    await postGuidedLeave(guidedSessionId.value);
   } finally {
     endLocally();
   }
@@ -274,7 +269,7 @@ export function studentAsk(question: string, artwork: string) {
   if (!guidedActive.value) return;
   if (guidedRole.value !== "studente") return;
   if (guidedStato.value !== "attiva") return;
-  postGuidedAsk(guidedSessionId.value, guidedUser.value, question, artwork);
+  postGuidedAsk(guidedSessionId.value, question, artwork);
 }
 
 export function resetGuided() {
@@ -282,7 +277,6 @@ export function resetGuided() {
   guidedActive.value = false;
   guidedRole.value = "";
   guidedSessionId.value = "";
-  guidedUser.value = "";
   guidedVisitName.value = "";
   guidedAccessKey.value = "";
   guidedStato.value = "attesa";

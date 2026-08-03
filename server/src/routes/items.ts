@@ -28,6 +28,7 @@
  * collezione. `GET /:id/impact` serve a dichiararlo PRIMA di chiedere conferma.
  */
 import { Router } from "express";
+import { sessionUser } from "../session";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -72,7 +73,7 @@ router.get("/", async (req, res) => {
       localField: "about",
       justOne: true,
     });
-    const user = String(req.query.user || "");
+    const user = sessionUser(req).username;
     const owned = await purchasedBy(user);
     res.json(readableItems(items, user, owned));
   } catch (error: any) {
@@ -138,10 +139,10 @@ router.get("/:id/text", async (req, res) => {
     const id = decodeURIComponent(req.params.id);
     const item = await ItemModel.findOne({ "@id": id });
     if (!item) return res.status(404).json({ error: "Contenuto non trovato" });
-    if (item.visibility === "privato" && item.author !== String(req.query.user || ""))
+    const user = sessionUser(req).username;
+    if (item.visibility === "privato" && item.author !== user)
       return res.status(403).json({ error: "Contenuto privato" });
 
-    const user = String(req.query.user || "");
     const owned = await purchasedBy(user);
     if (!isReadable(item, user, owned)) return res.json({ text: "", locked: true });
     res.json({ text: item.text || "", locked: false });
@@ -224,6 +225,7 @@ function slug(text: string): string {
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
+    const author = sessionUser(req).username;
     if (payload.tipo !== "Item")
       return res.status(400).json({ error: "Contenuto non riconosciuto." });
 
@@ -241,7 +243,7 @@ router.post("/", async (req, res) => {
       const esistente = await ItemModel.findOne({ "@id": payload.editId });
       if (!esistente)
         return res.status(404).json({ error: "Item da modificare non trovato." });
-      if (esistente.author !== payload.autore)
+      if (esistente.author !== author)
         return res.status(403).json({ error: "Puoi modificare solo i tuoi item." });
       const desc = payload.descrizioni?.[0] || {};
       esistente.text = desc.testo ?? esistente.text;
@@ -296,7 +298,7 @@ router.post("/", async (req, res) => {
     for (const desc of payload.descrizioni) {
       const esistente = await ItemModel.findOne({
         ...doppione,
-        author: payload.autore,
+        author,
         educationalLevel: desc.tono,
       });
       if (esistente) {
@@ -309,7 +311,7 @@ router.post("/", async (req, res) => {
     const privato = payload.privato === true || payload.visibility === "privato";
 
     for (const desc of payload.descrizioni) {
-      const itemId = `${idSoggetto}-${payload.autore}-${desc.tono}-${desc.lunghezza}`;
+      const itemId = `${idSoggetto}-${author}-${desc.tono}-${desc.lunghezza}`;
       await ItemModel.create({
         "@id": itemId,
         kind: genere,
@@ -319,7 +321,7 @@ router.post("/", async (req, res) => {
         ofMuseum,
         timeRequired: desc.lunghezza,
         educationalLevel: desc.tono,
-        author: payload.autore,
+        author,
         price: privato ? 0 : payload.prezzo,
         license: payload.licenza || "Tutti i diritti riservati",
         text: desc.testo,

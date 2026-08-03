@@ -88,38 +88,82 @@ Twelve items of feedback, seven of them defects found by using the thing:
 | the seeded guided visit had **no quiz**, so slide 33's "test sensato di competenza" was unmet by a fresh seed | `server/src/data/quiz.ts` builds one **from the visit's own artworks** — author, style, "which of these is by X", distractors drawn from the same museum, `Unknown` filtered out. No hand-written question, so it holds for any museum |
 | "Il banco" | "Home" (route `#/home`), plus the soglia and the login lost the university strapline, the dead theme toggle and the profile line |
 
-### Il biglietto di rientro *(2026-07-31)*
+### Le sessioni: chi chiede lo dice un biglietto, non l'indirizzo *(2026-08-03)*
 
-Tornando dal navigator la pagina si ricarica su **un'altra origine**, quindi il marketplace
-non sa piu' chi sei e mostrava la soglia. I canali per attraversare sono due soli — la
-memoria del browser (che e' la persistenza rifiutata) e l'indirizzo — e nessun formato di
-token ne crea un terzo: **JWT non c'entra**, e qui non servirebbe comunque (verifica senza
-stato non serve a un processo solo, non si revoca senza una lista lato server, e
-`jsonwebtoken` non si installa perche' `server/node_modules` e' di root).
+Fino a qui l'identita' viaggiava nell'indirizzo: `?user=visitatore1` su ogni lettura, il nome
+nel percorso di `POST /users/:username/buy`, `autore` nel corpo di `POST /items`. Nessuno
+verificava che quel nome fosse il tuo, quindi **riscriverlo bastava**: leggere i testi a
+pagamento di un altro, spendere il suo portafoglio, pubblicare a suo nome (e vederselo
+comparire nel suo resoconto vendite), guidare la classe di un altro docente. Sulle rotte della
+visita guidata il controllo era `if (req.body.teacher && req.body.teacher !== s.teacher)`:
+**non mandare niente lo superava**.
 
-Quello che attraversa e' un **biglietto monouso**: `crypto.randomUUID()` coniato **dentro
-`POST /login`**, che e' l'unico punto in cui la password viene verificata — un endpoint che
-lo conia per un nome qualsiasi sarebbe falsificabile come il nome stesso. Sta in una `Map`
-in memoria con le sale guidate, vale 6 ore, e si cancella **prima** di guardare se e'
-scaduto. Il marketplace lo tiene in memoria (mai in `localStorage`), lo mette sui
-collegamenti dello stesso dispositivo e **mai nel QR** — una credenziale stampata vale
-quanto la carta su cui sta. Al rientro lo spende e lo toglie dall'indirizzo, cosi' un
-ricaricamento non lo rigioca.
+Adesso l'identita' e' un **biglietto opaco** coniato in `POST /users/login` e `register`, che
+sono i due soli punti in cui una password viene verificata, e viaggia nell'intestazione
+`Authorization: Bearer …`. Le rotte leggono `sessionUser(req)`: non esiste piu' un posto in
+cui un nome arrivi dal client.
 
-Cosi' la soglia resta raggiungibile aprendo `/` a mani nude, che era la proprieta' la cui
-perdita aveva fatto togliere la persistenza.
+| | |
+| --- | --- |
+| `models/session.ts` | `{token, username, role, expiresAt}` in Mongo, indice TTL |
+| `session.ts` | `resolveSession` (montata su tutto `/api`, non rifiuta) · `requireSession` (rifiuta) · `sessionUser` |
+| dove sta nel client | `sessionStorage`, in tutt'e due le applicazioni |
 
-**One change was made and then removed at the user's instruction: marketplace session
-persistence.** "Torna alla home" at the end of a visit crosses an origin, so it is a page
-load and the marketplace showed the soglia instead of the visitor's home; restoring the
-session from `localStorage` fixed that and broke something worse — **the soglia became
-unreachable**, since every load of `/` resumed the last account. The gated version (resume
-only for an address that requires being logged in) was not wanted either: *"i do not want
-any session restorage"*. `state.ts`, `marketplace/src/frontend/api.ts` and
-`server/src/routes/users.ts` are back to their previous behaviour, the last two byte-identical
-to HEAD. **Do not re-add it.** The end-of-visit button still points at the marketplace home
-and lands on the soglia when logged out, which is the normal behaviour for a logged-out
-visitor.
+**Perche' in Mongo e non in una `Map`.** Il processo riparte a ogni modifica del codice
+(`ts-node`), e in memoria ogni riavvio avrebbe obbligato tutti a rientrare. Costa un modello e
+una lettura indicizzata per richiesta; le sale guidate restano in memoria, perche' quelle
+muoiono col processo per scelta dichiarata.
+
+**Perche' non JWT.** Il suo unico vantaggio e' verificare senza stato condiviso, che serve con
+piu' server o con un servizio d'autenticazione separato: qui c'e' un processo solo, quindi non
+compra niente. In cambio non si revoca (uscire potrebbe solo dimenticarlo da questa parte) e la
+scadenza, essendo dentro la firma, si prolunga solo riemettendo il biglietto a ogni risposta.
+Il guadagno vero sarebbe una query in meno — ma quasi ogni rotta legge comunque il documento
+dell'utente, per `collezione` e `wallet`, quindi sono due query invece di una, non una invece
+di zero.
+
+**Perche' non un cookie, e non e' il motivo che sembra.** Le porte NON fanno parte del "sito"
+ai fini di `SameSite`, quindi `:5173` e `:8000` sullo stesso host sono lo stesso sito e un
+cookie ci passerebbe benissimo. Non si usa per un'altra ragione: un cookie di sessione e' di
+**tutto il browser e per tutta la sua vita**, mentre `sessionStorage` e' di **una scheda**.
+Volevamo la seconda: riaprire l'applicazione mostra di nuovo la soglia, che e' la proprieta'
+la cui perdita aveva fatto togliere la persistenza la prima volta.
+
+**Il ritorno dal navigator non ha piu' bisogno di niente.** Il vecchio biglietto di rientro
+esisteva perche' il marketplace, ricaricandosi, non sapeva piu' chi fossi; ora la sua sessione
+e' rimasta nella scheda. Attraversa quindi **un viaggio solo**, all'andata, e attraversa un
+biglietto **da dieci minuti** che `POST /users/redeem` cancella spendendolo — non la sessione
+lunga, che in un indirizzo finirebbe nella cronologia e nei registri. Se ne conia uno per ogni
+viaggio (`POST /users/handoff`), perche' vale una volta sola: coniarne uno per accesso, com'era
+prima, lasciava a piedi il **secondo** viaggio, ed era un difetto vero.
+
+⚠️ **Aprire il navigator da solo non porta piu' da nessuna parte**, e lo dice invece di
+rompersi: senza biglietto non ha sessione, e ogni rotta ne pretende una. Si entra dal
+marketplace. Per lo stesso motivo e' sparita la porta anonima della soglia («Guarda com'e'
+fatta una visita»): senza account il navigator non ha con che parlare.
+
+⚠️ **Quattro rotte restano aperte, e non per dimenticanza**: `/api/config` e
+`/api/users/{login,register,redeem}` vengono prima di avere un account; `/api/qr` sta dentro un
+`<img>` e `/api/museums/:qid/qrcodes` si apre come pagina, quindi a chiederle e' il browser e
+non il nostro codice — **a una navigazione non si puo' attaccare un'intestazione**. Non ci si
+perde niente: un QR e' un indirizzo, e quel foglio nasce per essere appeso al muro. Nessun
+testo a pagamento passa di li'.
+
+⚠️ **Resta vero che il QR non porta identita'**, ed e' ora l'unico modo che ha di comportarsi:
+chi lo inquadra da un altro telefono entra dal marketplace con le sue credenziali.
+
+⚠️ **La soglia prende le sue figure da `/api/config`**, non dal catalogo: e' la schermata di
+chi non e' entrato. Ci passano sei `{qid, imagePath}` e nessun testo, e la pagina ne esce piu'
+leggera — prima scaricava 143 opere per usarne sei.
+
+⚠️ **`view` parte da `"avvio"`, che non e' nessuna schermata.** Finche' `start()` non ha speso
+il biglietto non si sa se si e' dentro o fuori, e partire da `"soglia"` faceva lampeggiare la
+porta d'ingresso a ogni ricaricamento per poi saltare alla home: la pagina diceva "non sei
+entrato" a chi era entrato.
+
+Verificato contro il server vivo e pilotando chromium — 26 controlli sulle rotte, 14 sui
+difetti che questo chiude, 11 sulle visite guidate, 47 in browser, zero errori in console; il
+dettaglio sta in `left.md`.
 
 The six defects `strict` surfaced on the server, for the record: `req.file` used without
 its own guard; a transcript that could be `undefined` passed to `mapRequest`; `user.wallet`
@@ -501,10 +545,14 @@ diverse prima di essere fissata: tutte e tre passano AA senza ritocchi.
 
 ### 3.1 Route inventory (all under `/api`)
 
+> **Tutte pretendono una sessione**, tranne `/config`, `/users/{login,register,redeem}`,
+> `/health`, `/qr` e `/museums/:qid/qrcodes` — le ultime due perche' a chiederle e' il browser
+> e non il nostro codice. Chi chiede lo dice `Authorization: Bearer …`, mai un parametro.
+
 | Endpoint | Purpose | Consumed by |
 | --- | --- | --- |
 | `GET /artworks` | all artworks | marketplace editor |
-| `GET /artworks/:qid/items?user=` | the **texts** of one artwork's public descriptions, gated by `access.ts` | marketplace, on expanding a description (§3.1-bis) |
+| `GET /artworks/:qid/items` | the **texts** of one artwork's public descriptions, gated by `access.ts` | marketplace, on expanding a description (§3.1-bis) |
 | `GET /artworks/:qid/preview?level&duration` | `Match` for an artwork **outside** the current visit; falls back level+duration → level → any; **generates and persists** an LLM item if none exists | navigator QR scan |
 | `GET /visits` · `GET /visits/:id` · `GET /visits/:id/items` | listing, deep-link, ordered items with `about` populated | marketplace / navigator |
 | `POST /visits` | upsert by `@id`; computes `duration`, extracts `optionalItems` and `logistics` from `percorso`; validates guided-visit **key uniqueness (409)** and the **anti-loophole rule (400)**; validates the quiz | marketplace editor |
@@ -518,7 +566,8 @@ diverse prima di essere fissata: tutte e tre passano AA senza ritocchi.
 | `POST /items` | create (`tipo:"Item"` + `genere`) or **edit** (`editId`: only text+price mutate); enforces the kind invariant | marketplace editor |
 | `POST /items/batch` | items by id list | **nobody** (§8.1) |
 | `GET /museums` · `GET /museums/:qid` · `GET /museums/:qid/config` · `/artworks` · `/visits` · `/topics` · `/qrcodes` | museum listing, DB doc, **config-file doc**, artworks, visits, **the styles and authors its own artworks name**, printable QR sheet | marketplace / navigator / curator |
-| `POST /users/register` · `/login` · `/:username/buy` · `GET /:username/sales` | role-scoped auth, server-side budget check, adoption/revenue report | marketplace |
+| `POST /users/register` · `/login` · `/logout` · `/handoff` · `/redeem` · `GET /me` | apertura e chiusura della sessione, biglietto per il navigator, account di chi chiede | marketplace, navigator |
+| `POST /users/buy` · `GET /users/sales` | acquisto (credito controllato dal server) e resoconto adozioni/ricavo. **Chi sia lo dice la sessione**: il nome stava nel percorso, e riscriverlo spendeva il portafoglio di un altro | marketplace |
 | `POST /llm/newInfo` | `{previous, userReq, language}` → answer generated **directly in `language`** | navigator |
 | `POST /speech` (multipart) · `POST /speech/tts` | STT → `mapRequest` → controlled command; TTS → MP3 | navigator |
 | `POST /translate` | `{texts[], target}`, in-memory cache keyed `target+text` | navigator |
@@ -549,7 +598,7 @@ Quindi il catalogo si è diviso in due, per come lo si guarda e non per come lo 
 | | cosa porta | quando |
 | --- | --- | --- |
 | `GET /items/metadata?museum=` | tono, durata, autore, licenza, prezzo — i **metadati** della slide 21. Niente `text`, e `about` come id nudo | all'ingresso nel museo |
-| `GET /artworks/:qid/items?user=` | i **testi** delle descrizioni di UNA opera | quando qualcuno ne apre una |
+| `GET /artworks/:qid/items` | i **testi** delle descrizioni di UNA opera | quando qualcuno ne apre una |
 
 Misurato sul server vivo, sul Louvre: **138 KB → 36 KB** all'accesso, più **6 KB** per opera
 aperta. Proiettato sugli Uffizi: **1,1 MB → 285 KB**. Il pareggio sarebbe dopo 183 opere aperte,
@@ -609,7 +658,7 @@ Restava il terzo caso del collega, che la correzione qui sopra non toccava: una 
 14 euro — «dopo averla comprata devo ricomprarla». Non era un difetto di conto: era il modello.
 La visita e la descrizione erano due acquisti distinti, e il prodotto non lo diceva mai.
 
-**Ora l'acquisto e' uno.** `POST /users/:username/buy` su una visita prende anche le tappe a
+**Ora l'acquisto e' uno.** `POST /users/buy` su una visita prende anche le tappe a
 pagamento che non hai: una visita e' un percorso fra descrizioni e senza quelle non si
 percorre, quindi pagarla e poi ripagarne il contenuto e' comprare due volte la stessa cosa.
 Il conto e' la somma dei prezzi veri — curatela piu' ogni tappa al suo prezzo — quindi **ogni
@@ -677,7 +726,7 @@ non distinguerle nel nome: `owns()` sembrava la piu' forte ed era la piu' strett
 leggere, e «Tieni in libreria» e' un'azione a parte: e' l'altra domanda.
 
 **I soldi li conta solo il server** (`server/src/pricing.ts`, `conto()`). Il client non ha piu'
-`purchaseCost`, `missingCost` ne' `missingItems`: `GET /visits?user=` allega a ogni visita
+`purchaseCost`, `missingCost` ne' `missingItems`: `GET /visits` allega a ogni visita
 `mancanti`, `costoMancanti` e `totale` — calcolati per QUELLA persona — e il client li scrive e
 basta. La stessa funzione la usa `POST /buy` per addebitare, quindi la cifra mostrata e la
 cifra addebitata non sono d'accordo per fortuna: sono la stessa riga. Provato: la stessa visita
@@ -1231,8 +1280,8 @@ DB and cannot be handed across origins. It takes ~6 s, so the opening screen say
 
 An **elenco** of visits (name, `N tappe · N min · livello`), with livello and durata demoted
 to filters that can no longer produce a dead end. The visit list is **ownership-aware**
-(`GET /museums/:qid/visits?user=`): guided visits never appear, and without a user only free
-ones do. Below a rule, the **su misura** block with example chips.
+(`GET /museums/:qid/visits`, sulla sessione): guided visits never appear, and the paid ones
+only if owned. Below a rule, the **su misura** block with example chips.
 
 ### 5.3 The visit runtime
 

@@ -53,7 +53,6 @@ import {
   matchedContent,
   setStageView,
   visit,
-  handoff,
   posizioneAttiva,
   setPosizioneAttiva,
 } from "@/state";
@@ -119,7 +118,7 @@ const transition = ref<{ notes: string[]; target: number } | null>(null);
 const fine = ref<{ notes: string[] } | null>(null);
 
 function tornaAllaHome() {
-  window.location.href = marketplaceHome(handoff.value);
+  window.location.href = marketplaceHome();
 }
 
 /**

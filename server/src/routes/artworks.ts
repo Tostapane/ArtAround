@@ -12,6 +12,7 @@
  * legge tutti.
  */
 import { Router } from "express";
+import { sessionUser } from "../session";
 import { ArtworkModel } from "../models/artwork";
 import { MuseumModel } from "../models/museum";
 import { sortByFlow } from "../services/svgGraph";
@@ -56,7 +57,7 @@ router.get("/:qid/items", async (req, res) => {
       about: artwork["@id"],
       visibility: { $ne: "privato" },
     });
-    const user = String(req.query.user || "");
+    const user = sessionUser(req).username;
     const owned = await purchasedBy(user);
     res.json(readableItems(items, user, owned));
   } catch (error: any) {
@@ -92,7 +93,7 @@ router.get("/:qid/preview", async (req, res) => {
     }
 
     if (item) {
-      const user = String(req.query.user || "");
+      const user = sessionUser(req).username;
       const owned = await purchasedBy(user);
       if (!isReadable(item, user, owned)) {
         return res.json({ artwork, item: withoutText(item) });

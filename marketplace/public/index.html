@@ -176,10 +176,6 @@
           </p>
           <div class="mt-10 flex flex-col gap-3 sm:flex-row">
             <button type="button" @click="goTo('accedi')" class="btn-primario text-title-3">Entra</button>
-            <a :href="sampleUrl()" class="btn-fantasma-chiaro text-title-3">
-              Guarda com'è fatta una visita
-              <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-esterno" /></svg>
-            </a>
           </div>
         </div>
 
@@ -471,9 +467,9 @@
                 Sei in sala d'attesa per <strong x-text="guidedSession?.visitName"></strong>.
                 Apri l'app da museo e aspetta che il docente dia il via.
               </p>
-              <a :href="waitingRoomUrl()" class="btn-primario shrink-0">
+              <button type="button" @click="openNavigator(waitingRoomUrl())" class="btn-primario shrink-0">
                 Vai alla sala d'attesa <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-esterno" /></svg>
-              </a>
+              </button>
             </div>
 
             <template x-if="myVisits().length > 0">
@@ -487,9 +483,9 @@
                         <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                       </div>
                       <template x-if="visitUsable(v)">
-                        <a :href="navigatorUrl(v)" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
+                        <button type="button" @click="openNavigator(navigatorUrl(v))" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
                           <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
-                        </a>
+                        </button>
                       </template>
                       <template x-if="!visitUsable(v)">
                         <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario shrink-0">Completa</a>
@@ -571,9 +567,9 @@
                       <div class="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
                         <span class="valore font-display text-title-3" x-text="readablePrice(v.price)"></span>
                         <template x-if="visitUsable(v)">
-                          <a :href="navigatorUrl(v)" class="btn-primario" :aria-label="'Inizia la visita ' + v.name">
+                          <button type="button" @click="openNavigator(navigatorUrl(v))" class="btn-primario" :aria-label="'Inizia la visita ' + v.name">
                             <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
-                          </a>
+                          </button>
                         </template>
                         <template x-if="!visitUsable(v) && inLibrary(v)">
                           <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario">Completa</a>
@@ -758,9 +754,9 @@
 
                 <div class="mt-6 flex flex-wrap gap-3">
                   <template x-if="visitUsable(currentVisit())">
-                    <a :href="navigatorUrl(currentVisit())" class="btn-primario text-title-3">
+                    <button type="button" @click="openNavigator(navigatorUrl(currentVisit()))" class="btn-primario text-title-3">
                       <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia la visita
-                    </a>
+                    </button>
                   </template>
                   <template x-if="!inLibrary(currentVisit()) && currentUserRole === 'visitatore'">
                     <button type="button" @click="buy(currentVisit())" class="btn-primario text-title-3"
@@ -781,9 +777,9 @@
                     </span>
                   </template>
                   <template x-if="currentVisit().accessKey && currentVisit().author === currentUser">
-                    <a :href="startGuidedUrl(currentVisit())" class="btn-primario">
+                    <button type="button" @click="openNavigator(startGuidedUrl(currentVisit()))" class="btn-primario">
                       <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Apri la sala d'attesa
-                    </a>
+                    </button>
                   </template>
                 </div>
 
@@ -804,9 +800,9 @@
                         Inquadra il codice con la fotocamera: la visita si apre nell'app da museo.
                         Tienila aperta mentre cammini.
                       </p>
-                      <a :href="navigatorUrl(currentVisit())" class="link mt-2 inline-block text-small">
+                      <button type="button" @click="openNavigator(navigatorUrl(currentVisit()))" class="link mt-2 inline-block text-small">
                         Oppure aprila qui
-                      </a>
+                      </button>
                     </div>
                   </div>
                 </template>
@@ -909,9 +905,9 @@
                       x-text="'Contiene ' + mancantiDi(v) + ' contenuti da sbloccare'"></p>
                   </div>
                   <template x-if="visitUsable(v)">
-                    <a :href="navigatorUrl(v)" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
+                    <button type="button" @click="openNavigator(navigatorUrl(v))" class="btn-primario shrink-0" :aria-label="'Inizia la visita ' + v.name">
                       <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Inizia
-                    </a>
+                    </button>
                   </template>
                   <template x-if="!visitUsable(v) && canBuy()">
                     <button type="button" @click="openCompleteVisit(v)" class="btn-secondario shrink-0"
@@ -996,9 +992,9 @@
                       </div>
                       <div class="flex shrink-0 gap-2">
                         <template x-if="v.accessKey">
-                          <a :href="startGuidedUrl(v)" class="btn-primario" :aria-label="'Apri la sala d\'attesa di ' + v.name">
+                          <button type="button" @click="openNavigator(startGuidedUrl(v))" class="btn-primario" :aria-label="'Apri la sala d\'attesa di ' + v.name">
                             <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> Sala d'attesa
-                          </a>
+                          </button>
                         </template>
                         <button type="button" @click="editVisit(v)" class="btn-secondario">
                           <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> Modifica
@@ -1228,11 +1224,11 @@
                 <span x-show="!customRequest.trim()">Scrivi una frase: bastano poche parole.</span>
                 <span x-show="customRequest.trim()">Pronta. Si apre nell'app da museo.</span>
               </p>
-              <a :href="customVisitUrl()" class="btn-iride"
-                :class="customReady() ? '' : 'pointer-events-none opacity-50'"
-                :aria-disabled="customReady() ? false : true">
+              <button type="button" @click="openNavigator(customVisitUrl())" class="btn-iride"
+                :disabled="!customReady()"
+                :class="customReady() ? '' : 'opacity-50'">
                 Componi e inizia <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-esterno" /></svg>
-              </a>
+              </button>
             </div>
 
             <p class="mt-6 text-small text-muted">

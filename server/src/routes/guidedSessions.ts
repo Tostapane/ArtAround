@@ -30,6 +30,7 @@
  *   mai questa macchina.
  */
 import { Router } from "express";
+import { sessionUser } from "../session";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
 
@@ -176,9 +177,10 @@ function studentView(s: Session, username?: string) {
 
 router.post("/", async (req, res) => {
   try {
-    const { visitId, teacher } = req.body;
-    if (!visitId || !teacher)
-      return res.status(400).json({ error: "visitId e teacher richiesti" });
+    const { visitId } = req.body;
+    const teacher = sessionUser(req).username;
+    if (!visitId)
+      return res.status(400).json({ error: "visitId richiesto" });
 
     const visit = await VisitModel.findOne({ "@id": visitId });
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
@@ -242,9 +244,10 @@ router.post("/", async (req, res) => {
 });
 
 router.post("/join", async (req, res) => {
-  const { accessKey, username, museum } = req.body;
-  if (!accessKey || !username)
-    return res.status(400).json({ error: "accessKey e username richiesti" });
+  const { accessKey, museum } = req.body;
+  const username = sessionUser(req).username;
+  if (!accessKey)
+    return res.status(400).json({ error: "accessKey richiesta" });
 
   const key = String(accessKey).trim();
   const id = byAccessKey.get(key);
@@ -274,16 +277,17 @@ router.post("/join", async (req, res) => {
 router.post("/:id/leave", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
-  s.partecipanti.delete(req.body.username);
+  s.partecipanti.delete(sessionUser(req).username);
   res.json({ ok: true });
 });
 
 router.post("/:id/ask", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
-  const { username, question, artwork } = req.body;
-  if (!username || !question)
-    return res.status(400).json({ error: "username e question richiesti" });
+  const { question, artwork } = req.body;
+  const username = sessionUser(req).username;
+  if (!question)
+    return res.status(400).json({ error: "question richiesta" });
   if (username !== s.teacher && !s.partecipanti.has(username))
     return res.status(403).json({ error: "Non partecipi a questa visita guidata" });
   s.pendingQuestions.push({
@@ -298,7 +302,7 @@ router.post("/:id/ask", (req, res) => {
 router.post("/:id/start", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
-  if (req.body.teacher && req.body.teacher !== s.teacher)
+  if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può avviare" });
   s.stato = "attiva";
   s.currentStep = 0;
@@ -309,7 +313,7 @@ router.post("/:id/start", (req, res) => {
 router.post("/:id/step", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
-  if (req.body.teacher && req.body.teacher !== s.teacher)
+  if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può avanzare" });
   const index = Number(req.body.index);
   if (!Number.isInteger(index) || index < 0)
@@ -323,7 +327,7 @@ router.post("/:id/step", (req, res) => {
 router.post("/:id/quiz/start", async (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
-  if (req.body.teacher && req.body.teacher !== s.teacher)
+  if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può avviare il quiz" });
 
   const visit = await VisitModel.findOne({ "@id": s.visitId });
@@ -354,8 +358,8 @@ router.post("/:id/quiz/answer", (req, res) => {
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
   if (s.stato !== "quiz" || !s.quizQuestions)
     return res.status(409).json({ error: "Il quiz non è in corso" });
-  const { username } = req.body;
-  if (!username || !s.partecipanti.has(username))
+  const username = sessionUser(req).username;
+  if (!s.partecipanti.has(username))
     return res.status(403).json({ error: "Non partecipi a questa visita guidata" });
   if (quizClosedNow(s))
     return res.status(409).json({ error: "Tempo scaduto: quiz chiuso" });
@@ -376,7 +380,7 @@ router.post("/:id/quiz/answer", (req, res) => {
 router.post("/:id/quiz/end", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
-  if (req.body.teacher && req.body.teacher !== s.teacher)
+  if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può terminare il quiz" });
   s.quizClosed = true;
   res.json(teacherView(s));
@@ -394,7 +398,7 @@ const CODA_CHIUSURA_MS = 30000;
 router.post("/:id/end", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.json({ ok: true });
-  if (req.body.teacher && req.body.teacher !== s.teacher)
+  if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può terminare" });
   s.stato = "terminata";
   byAccessKey.delete(s.accessKey);
@@ -414,8 +418,8 @@ router.get("/:id/state", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s)
     return res.status(410).json({ error: "Visita guidata terminata", stato: "terminata" });
-  const username = String(req.query.username || "");
-  if (username) markPresent(s, username);
+  const username = sessionUser(req).username;
+  markPresent(s, username);
   dropAbsent(s);
   res.json(studentView(s, username));
 });
@@ -425,7 +429,7 @@ router.get("/:id/items", async (req, res) => {
     const s = sessions.get(req.params.id);
     if (!s)
       return res.status(410).json({ error: "Visita guidata terminata" });
-    const username = String(req.query.username || "");
+    const username = sessionUser(req).username;
     const allowed = username === s.teacher || s.partecipanti.has(username);
     if (!allowed)
       return res.status(403).json({ error: "Non partecipi a questa visita guidata" });

@@ -9,6 +9,14 @@
  * richiesta di una visita su misura da comporre (`custom=`), oppure accesso
  * normale alla biglietteria.
  *
+ * SI ENTRA DAL MARKETPLACE. La prima cosa dopo la configurazione e' spendere il
+ * biglietto che arriva nell'indirizzo: da li' esce la sessione con cui si parla
+ * col server, e senza sessione qui non funziona niente, perche' ogni rotta la
+ * pretende. Il biglietto si toglie subito dall'indirizzo — vale una volta sola,
+ * quindi un ricaricamento non lo rigioca e la barra non resta con dentro una
+ * credenziale. Aprire questa pagina da sola non porta da nessuna parte, ed e'
+ * voluto: e' il marketplace il posto in cui si entra.
+ *
  * `custom=` porta la FRASE, non la visita: una visita su misura non e' scritta
  * nel database e le due applicazioni stanno su due origini, quindi non c'e' modo
  * di passarsela. La compone qui chi la suonera', una volta sola — generarla nel
@@ -34,10 +42,13 @@ import {
   setCustomVisit,
   setVisit,
   visit,
-  user,
-  handoff,
 } from "./state";
-import { getVisit, createCustomVisit } from "./api";
+import {
+  getVisit,
+  createCustomVisit,
+  redeemHandoff,
+  hasSession,
+} from "./api";
 import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
 import { useAnnouncer } from "./composables/useAnnouncer";
@@ -60,8 +71,27 @@ onMounted(async () => {
   await loadConfig();
 
   const params = new URLSearchParams(window.location.search);
-  user.value = params.get("user") || "";
-  handoff.value = params.get("handoff") || "";
+  const ticket = params.get("handoff") || "";
+  if (ticket) {
+    params.delete("handoff");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (query ? `?${query}` : ""),
+    );
+    try {
+      await redeemHandoff(ticket);
+    } catch (err) {
+      console.error("Biglietto non valido", err);
+    }
+  }
+  if (!hasSession()) {
+    erroreAvvio.value =
+      "Apri l'app da museo dal marketplace: è lì che si entra col proprio profilo.";
+    pronto.value = true;
+    return;
+  }
 
   const role = params.get("role");
   const guidedSessionParam = params.get("guidedSession");
@@ -69,7 +99,7 @@ onMounted(async () => {
 
   if (role === "studente" && guidedSessionParam) {
     try {
-      await attachAsStudent(guidedSessionParam, user.value);
+      await attachAsStudent(guidedSessionParam);
       pronto.value = true;
       return;
     } catch (err) {
@@ -80,7 +110,7 @@ onMounted(async () => {
   }
   if (role === "docente" && guidedVisitParam) {
     try {
-      await startAsTeacher(guidedVisitParam, user.value);
+      await startAsTeacher(guidedVisitParam);
       pronto.value = true;
       return;
     } catch (err) {

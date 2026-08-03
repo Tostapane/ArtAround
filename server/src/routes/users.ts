@@ -1,6 +1,12 @@
 /**
  * Rotte degli account.
  *
+ * E' qui che nasce la sessione, perche' `login` e `register` sono i due soli
+ * punti in cui una password viene verificata: coniarla altrove vorrebbe dire
+ * fabbricare un'identita' per un nome qualsiasi, che e' esattamente il difetto
+ * che aveva `?user=`. Da qui in poi chi chiede lo dice l'intestazione
+ * `Authorization`, mai il percorso — vedi `session.ts`.
+ *
  * Il ruolo non si chiede a chi entra: lo deduce il server dalle credenziali, e lo
  * domanda solo nel caso raro in cui le stesse credenziali valgano per piu' profili.
  * In registrazione invece il ruolo fa parte dell'identita' e va dichiarato: lo
@@ -12,7 +18,14 @@
  * vendite, perche' account autore e visitatore sono separati.
  */
 import { Router } from "express";
-import { randomUUID } from "crypto";
+import {
+  createSession,
+  destroySession,
+  endSession,
+  requireSession,
+  sessionUser,
+  TICKET_TTL_MS,
+} from "../session";
 import { UserModel } from "../models/user";
 import { ItemModel } from "../models/item";
 import { conto } from "../pricing";
@@ -29,33 +42,9 @@ function sanitize(u: any) {
   };
 }
 
-/*
-  BIGLIETTO DI RIENTRO. Il navigator sta su un'altra origine, quindi tornando al
-  marketplace la pagina si ricarica e nessuno si ricorda chi eravamo; e la
-  sessione non si conserva, per scelta. Cio' che attraversa e' allora un
-  biglietto: si conia QUI DENTRO, al login, che e' l'unico punto in cui la
-  password viene davvero verificata — coniarlo altrove vorrebbe dire fabbricarlo
-  per un nome qualsiasi. Vale una volta sola e poche ore, sta in memoria e muore
-  col processo, come le sale guidate.
-*/
-const HANDOFF_TTL_MS = 6 * 60 * 60 * 1000;
-const handoffs = new Map<
-  string,
-  { username: string; role: string; expires: number }
->();
-
-function issueHandoff(u: any): string {
-  const ticket = randomUUID();
-  handoffs.set(ticket, {
-    username: u.username,
-    role: u.role,
-    expires: Date.now() + HANDOFF_TTL_MS,
-  });
-  return ticket;
-}
-
-function withHandoff(u: any) {
-  return { ...sanitize(u), handoff: issueHandoff(u) };
+/** L'account piu' la stringa con cui d'ora in poi dira' di essere lui. */
+async function withSession(u: any) {
+  return { ...sanitize(u), token: await createSession(u) };
 }
 
 function isValidRole(role: any): boolean {
@@ -66,7 +55,8 @@ function isValidRole(role: any): boolean {
 
 /**
  * POST /api/users/register  { username, password, role }
- * Ritorna: l'account creato senza password. 409 se la coppia esiste gia'.
+ * Ritorna: l'account creato senza password, piu' il `token` di sessione. 409 se
+ * la coppia esiste gia'.
  */
 router.post("/register", async (req, res) => {
   try {
@@ -86,7 +76,7 @@ router.post("/register", async (req, res) => {
       role,
       ...(role === "visitatore" ? { wallet: 100 } : {}),
     });
-    res.status(201).json(sanitize(user));
+    res.status(201).json(await withSession(user));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore in registrazione" });
   }
@@ -94,8 +84,9 @@ router.post("/register", async (req, res) => {
 
 /**
  * POST /api/users/login  { username, password, role? }
- * Ritorna: l'account senza password; 300 { scelta, ruoli } se le stesse
- * credenziali valgono per piu' profili e il ruolo non e' stato dichiarato.
+ * Ritorna: l'account senza password piu' il `token` di sessione; 300
+ * { scelta, ruoli } se le stesse credenziali valgono per piu' profili e il ruolo
+ * non e' stato dichiarato.
  */
 router.post("/login", async (req, res) => {
   try {
@@ -111,7 +102,7 @@ router.post("/login", async (req, res) => {
         return res.status(401).json({
           error: "Credenziali non valide. Controlla username e password.",
         });
-      return res.json(withHandoff(user));
+      return res.json(await withSession(user));
     }
 
     const candidates = (await UserModel.find({ username, password })).filter(
@@ -121,7 +112,8 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({
         error: "Credenziali non valide. Controlla username e password.",
       });
-    if (candidates.length === 1) return res.json(withHandoff(candidates[0]));
+    if (candidates.length === 1)
+      return res.json(await withSession(candidates[0]));
 
     res.status(300).json({
       scelta: true,
@@ -133,39 +125,80 @@ router.post("/login", async (req, res) => {
 });
 
 /**
+ * GET /api/users/me
+ * Ritorna: l'account di chi ha la sessione. Serve al ricaricamento della pagina:
+ * il biglietto sopravvive nella memoria della scheda, il resto no, e portafoglio
+ * e collezione vanno riletti com'e' adesso e non com'erano all'accesso.
+ */
+router.get("/me", requireSession, async (req, res) => {
+  const who = sessionUser(req);
+  const user = await UserModel.findOne({
+    username: who.username,
+    role: who.role,
+  });
+  if (!user) return res.status(404).json({ error: "Account non trovato" });
+  res.json(sanitize(user));
+});
+
+/**
+ * POST /api/users/handoff
+ * Ritorna: { handoff }, da mettere nel collegamento al navigator.
+ * Se ne conia uno per ogni viaggio, non uno per accesso: un biglietto vale una
+ * volta sola, e uno per accesso lascerebbe senza il secondo viaggio.
+ */
+router.post("/handoff", requireSession, async (req, res) => {
+  try {
+    const who = sessionUser(req);
+    res.json({ handoff: await createSession(who, TICKET_TTL_MS) });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Errore nel biglietto" });
+  }
+});
+
+/**
  * POST /api/users/redeem  { handoff }
- * Ritorna: l'account senza password. Il biglietto vale UNA volta sola: si
- * cancella prima ancora di guardare se e' scaduto, cosi' non resta in giro.
+ * Ritorna: l'account senza password piu' il `token` con cui il navigator parlera'
+ * da qui in avanti. Spendere il biglietto lo cancella, quindi un ricaricamento
+ * non lo rigioca.
  */
 router.post("/redeem", async (req, res) => {
   try {
-    const ticket = String(req.body.handoff || "");
-    const entry = handoffs.get(ticket);
-    if (!entry)
+    const who = await destroySession(String(req.body.handoff || ""));
+    if (!who)
       return res
         .status(404)
         .json({ error: "Biglietto non valido o gia' usato." });
-    handoffs.delete(ticket);
-    if (Date.now() > entry.expires)
-      return res.status(410).json({ error: "Biglietto scaduto." });
 
     const user = await UserModel.findOne({
-      username: entry.username,
-      role: entry.role,
+      username: who.username,
+      role: who.role,
     });
     if (!user) return res.status(404).json({ error: "Account non trovato" });
-    res.json(sanitize(user));
+    res.json(await withSession(user));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nel rientro" });
   }
 });
 
+/**
+ * POST /api/users/logout
+ * Chiude la sessione di chi chiama. Idempotente: senza biglietto non c'e' niente
+ * da chiudere, e la risposta e' la stessa.
+ */
+router.post("/logout", async (req, res) => {
+  await endSession(req);
+  res.json({ ok: true });
+});
+
 // --- Acquisto e resoconto vendite -------------------------------------------
 
 /**
- * POST /api/users/:username/buy  { itemId }
+ * POST /api/users/buy  { itemId }
  * Ritorna: l'account aggiornato (portafoglio e collezione). 400 se il credito
  * non basta; il prezzo lo legge il server dal contenuto, mai dal client.
+ *
+ * A comprare e' chi ha la sessione, non un nome nell'indirizzo: quando il nome
+ * stava nel percorso, scriverne un altro spendeva il portafoglio di un altro.
  *
  * COMPRARE UNA VISITA COMPRA LE SUE TAPPE: senza le descrizioni non e'
  * percorribile, quindi pagarla e poi vedersi chiedere altri soldi per il suo
@@ -175,23 +208,22 @@ router.post("/redeem", async (req, res) => {
  * NON SI COMPRA A RATE: se il credito non basta per il totale non si prende
  * niente. Mezza visita non e' una visita.
  */
-router.post("/:username/buy", async (req, res) => {
+router.post("/buy", requireSession, async (req, res) => {
   try {
-    const { username } = req.params;
+    const who = sessionUser(req);
+    const username = who.username;
     const { itemId } = req.body;
+
+    // Il portafoglio sta solo sul visitatore, e lo stesso nome puo' esistere con
+    // un altro ruolo come account distinto. La sessione dice gia' quale dei due
+    // e', quindi non serve chiederlo al database per poterlo dire.
+    if (who.role !== "visitatore")
+      return res.status(403).json({
+        error: `Il profilo con cui sei entrato e' un ${who.role}: i contenuti si comprano da un profilo visitatore, che e' l'unico ad avere un portafoglio.`,
+      });
+
     const user = await UserModel.findOne({ username, role: "visitatore" });
-    if (!user) {
-      // Lo stesso nome puo' esistere con un altro ruolo, ed e' un ALTRO account:
-      // il portafoglio sta solo sul visitatore. Dire "visitatore non trovato" a
-      // chi e' entrato come autore descrive la query, non quel che gli succede.
-      const altro = await UserModel.findOne({ username });
-      if (altro) {
-        return res.status(404).json({
-          error: `Il profilo "${username}" con cui sei entrato e' un ${altro.role}: i contenuti si comprano da un profilo visitatore, che e' l'unico ad avere un portafoglio.`,
-        });
-      }
-      return res.status(404).json({ error: "Visitatore non trovato" });
-    }
+    if (!user) return res.status(404).json({ error: "Visitatore non trovato" });
 
     const content: any =
       (await ItemModel.findOne({ "@id": itemId })) ||
@@ -233,16 +265,16 @@ router.post("/:username/buy", async (req, res) => {
 });
 
 /**
- * GET /api/users/:username/sales
- * Ritorna: una riga per contenuto pubblicato, con adozioni e ricavo.
+ * GET /api/users/sales
+ * Ritorna: una riga per contenuto pubblicato da chi chiede, con adozioni e ricavo.
  *
  * Le adozioni si contano con UNA query e un conteggio in memoria. Una query per
  * riga sarebbe piu' breve da scrivere ma il numero di richieste crescerebbe col
  * catalogo dell'autore, e ognuna sarebbe a sua volta una scansione di `users`.
  */
-router.get("/:username/sales", async (req, res) => {
+router.get("/sales", requireSession, async (req, res) => {
   try {
-    const { username } = req.params;
+    const username = sessionUser(req).username;
 
     const items = await ItemModel.find({ author: username }).populate({
       path: "about",

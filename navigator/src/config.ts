@@ -54,11 +54,14 @@ export function mediaOrigin(): string {
  * La home del marketplace: lo stesso server che espone le API serve anche il
  * marketplace, quindi non c'e' un secondo indirizzo da configurare. E' li' che
  * si torna a fine visita.
+ *
+ * Non porta nessun biglietto, e non gli serve: si torna nella stessa scheda da
+ * cui si e' partiti, dove la sessione del marketplace e' rimasta in
+ * `sessionStorage`. Era il viaggio di ritorno a chiedere un biglietto quando di
+ * sessione non ce n'era nessuna.
  */
-export function marketplaceHome(handoff?: string): string {
-  const base = `${mediaOrigin()}/`;
-  if (handoff) return `${base}?handoff=${encodeURIComponent(handoff)}#/home`;
-  return `${base}#/home`;
+export function marketplaceHome(): string {
+  return `${mediaOrigin()}/#/home`;
 }
 
 export function museumQid(): string {

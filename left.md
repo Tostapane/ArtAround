@@ -1,5 +1,78 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-03, le sessioni
+
+L'identita' non sta piu' nell'indirizzo. Ragionamento e alternative scartate in `state.md`
+§"Le sessioni"; qui quel che serve per proseguire.
+
+- **Un biglietto opaco** coniato in `login`/`register` (i due soli punti dove una password si
+  verifica), mandato in `Authorization: Bearer …`, risolto da `resolveSession` montata su tutto
+  `/api`. Le rotte leggono `sessionUser(req)`. **Nessun `?user=` e nessun `username` in un
+  percorso o in un corpo**: `POST /users/:username/buy` e' diventata `POST /users/buy`,
+  `GET /:username/sales` e' `GET /sales`.
+- **La sessione sta in Mongo** (`models/session.ts`, indice TTL su `expiresAt`) e non in una
+  `Map`: `ts-node` riparte a ogni modifica, e in memoria ogni riavvio butterebbe fuori tutti.
+- **Nel client sta in `sessionStorage`**, in tutt'e due le applicazioni: sopravvive al
+  ricaricamento e al viaggio verso il navigator, muore chiudendo la scheda. E' il motivo per cui
+  la soglia resta raggiungibile riaprendo l'applicazione — la proprieta' la cui perdita aveva
+  fatto togliere la persistenza la prima volta.
+- ⚠️ **Si entra dal marketplace.** Il navigator aperto da solo non ha sessione e lo dice invece
+  di rompersi. Per lo stesso motivo e' sparita la porta anonima della soglia.
+- ⚠️ **Un biglietto per ogni viaggio**, non per accesso: vale una volta sola, quindi
+  `openNavigator()` ne chiede uno fresco al momento del tocco. I collegamenti al navigator sono
+  percio' diventati `<button @click>` — erano `<a :href>`, e un indirizzo si scrive quando la
+  pagina si disegna, cioe' troppo presto.
+
+**Difetti veri che questo chiude** (riprodotti prima, non dedotti): chiunque poteva spendere il
+portafoglio di un altro (`POST /users/:username/buy` prendeva il nome dal percorso), pubblicare
+a nome di un altro e vederselo comparire nel suo resoconto vendite, leggere i testi a pagamento
+altrui cambiando `?user=`, e **guidare la classe di un altro docente** — quel controllo era
+`if (req.body.teacher && req.body.teacher !== s.teacher)`, che **non mandando niente si
+superava**.
+
+**Codice tolto perche' rimasto senza usi:** `state.user` e `state.handoff` nel navigator,
+`guidedUser` in `guided.ts`, il campo `handoff` e `redeemHandoff()` nel marketplace,
+`navigatorUrlBase()` (era diventata identica a `navigatorUrl`), `sampleUrl()` e la porta
+anonima, `autore: this.currentUser` nei due payload (il server lo ignora: lo decide la
+sessione), la vecchia `Map` in memoria dei biglietti.
+
+⚠️ **`/api/config` porta anche le opere della soglia con la loro immagine**, ed e' voluto: e' la
+schermata di chi non e' entrato, quindi non puo' chiedere il catalogo.
+
+⚠️ **Quattro rotte restano aperte** e vanno lasciate tali: `/api/config`,
+`/api/users/{login,register,redeem}`, `/api/qr` e `/api/museums/:qid/qrcodes`. Le ultime due
+perche' a chiederle e' il **browser** (`<img>` e navigazione di pagina) e a quelle non si puo'
+attaccare un'intestazione. Nessun testo a pagamento passa di li'.
+
+**Verificato**: 26 controlli sulle rotte (tutto chiuso senza biglietto, le quattro aperte
+aperte, biglietto inventato/senza `Bearer`/speso → 401), 14 sui difetti qui sopra, 11 sulle visite
+guidate, **47 in browser via CDP** su marketplace e navigator — accesso, ricaricamento che non
+butta fuori, andata e ritorno fra le due origini con la sessione che regge, autore, curatore,
+sessione scaduta che riporta alla soglia. Zero errori in console, scatti guardati davvero. Tre
+type-check verdi, `marketplace/dist` ricostruito. **Dati usa e getta rimossi**: database
+riportato alla fotografia iniziale (items 1177, visits 36, users 12, sessions 0, i due
+visitatori a €100).
+
+### Due regressioni segnalate subito dopo, e corrette
+
+1. **La soglia non componeva piu' le figure.** `loadShapes()` chiedeva `/api/artworks` per
+   pescarne sei — ma la soglia e' la schermata di chi NON e' entrato, e il catalogo ora vuole
+   una sessione: rispondeva 401, l'elenco arrivava vuoto e lo sciame restava senza forme.
+   Ora le opere della soglia arrivano gia' risolte in `{qid, imagePath}` da **`/api/config`**,
+   che e' aperta. Ne esce anche piu' leggera di prima: scaricava 143 opere per usarne sei.
+2. **Un lampo di soglia a ogni ricaricamento**, poi il salto alla home. `view` partiva da
+   `"soglia"`, ma prima che `start()` abbia speso il biglietto **non si sa** che schermata sia:
+   la pagina diceva "non sei entrato" a chi era entrato. Ora la partenza e' `"avvio"`, che non
+   corrisponde a nessuna schermata — finche' non si sa, non si disegna. Verificato campionando
+   `view` ogni 40 ms durante il ricaricamento: `soglia` non compare mai.
+
+⚠️ **Trappole della prova, non del codice.** `Alpine.$data(el)` — `el.__x.$data` e' Alpine 2 e
+qui lancia. E andare da `/` a `/#/vetrina` e' un cambio di hash, **non un ricaricamento**: il
+modulo non si rivaluta, quindi una prova che manomette `sessionStorage` e poi "naviga" non prova
+niente. Ci vuole `location.reload()`.
+
+---
+
 ## ⏸ Ripresa — 2026-08-03, un contenuto puo' parlare di uno stile
 
 La richiesta piu' grossa di `missing.txt`, e l'ultima riga di specifica scoperta: la slide 21
@@ -746,7 +819,7 @@ The user chose these explicitly. They are load-bearing.
 | Tone vocabulary | **The slides' four tones**: `Infantile · Semplice · Medio · Avanzato` (slide 22). `shared/constants.ts` already changed. A DB migration is still owed. |
 | DB helper scripts | Must all live in **one file: `server/src/testers.ts`** (user's instruction, verbatim) |
 | Quiz | ~~Deferred~~ → **built 2026-07-28** (§8). Teleport is still deferred and is now the *only* thing missing for 18-33 |
-| Session persistence | **Never.** Asked for and then removed the same day: *"i do not want any session restorage"*. Opening `/` must always show the soglia (§8) |
+| Session persistence | **Rivista il 2026-08-03**: c'e', ma in `sessionStorage`, quindi riaprire l'applicazione mostra ancora la soglia — che era la proprieta' da difendere. Il rifiuto del 2026-07-31 riguardava `localStorage`, che quella proprieta' la toglieva |
 | Compatibility defects | **Deferred**, parked in `state.md` §10 (voice broken on iOS, QR/blind; the CDN one is closed). Do not chase them |
 
 The user's framing for the whole job: *"start this glorious artistic refactor"* — flow and

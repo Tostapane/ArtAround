@@ -22,7 +22,7 @@
 import { ref, watch, computed } from "vue";
 import LanguageSelector from "./LanguageSelector.vue";
 import { getVisitsByMuseum, createCustomVisit } from "@/api";
-import { museum, user } from "@/state";
+import { museum } from "@/state";
 import { museumTitle, mediaOrigin } from "@/config";
 import { useTheme } from "@/composables/useTheme";
 import { formatDuration } from "../../../../shared/constants";
@@ -45,7 +45,7 @@ watch(
     if (!m) return;
     loading.value = true;
     try {
-      visits.value = await getVisitsByMuseum(m.qid, user.value || undefined);
+      visits.value = await getVisitsByMuseum(m.qid);
     } catch (err) {
       console.error("Impossibile caricare le visite", err);
       visits.value = [];

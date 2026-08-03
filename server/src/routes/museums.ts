@@ -14,6 +14,7 @@
  * catalogo di un museo alla volta, non puo' piu' contare quelli che non ha.
  */
 import { Router } from "express";
+import { requireSession, sessionUser } from "../session";
 import QRCode from "qrcode";
 import { MuseumModel } from "../models/museum";
 import { ArtworkModel } from "../models/artwork";
@@ -41,7 +42,7 @@ function escapeHtml(value: string): string {
  * GET /api/museums: Recupera tutti i musei presenti nel database
  */
 
-router.get("/", async (req, res) => {
+router.get("/", requireSession, async (req, res) => {
   try {
     const museums = await MuseumModel.find({}).lean();
     for (const m of museums as any[]) {
@@ -58,7 +59,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/:qid/config", async (req, res) => {
+router.get("/:qid/config", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const config = findMuseumConfig(qid);
@@ -74,7 +75,7 @@ router.get("/:qid/config", async (req, res) => {
   }
 });
 
-router.get("/:qid/artworks", async (req, res) => {
+router.get("/:qid/artworks", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const museumId = `http://www.wikidata.org/entity/${qid}`;
@@ -95,7 +96,7 @@ router.get("/:qid/artworks", async (req, res) => {
  * Suggeriscono un nome a chi scrive un contenuto che non parla di un'opera —
  * scritto uguale, quel contenuto e la pastiglia dello stile si ritrovano.
  */
-router.get("/:qid/topics", async (req, res) => {
+router.get("/:qid/topics", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const artworks = await ArtworkModel.find({
@@ -127,13 +128,13 @@ router.get("/:qid/topics", async (req, res) => {
   }
 });
 
-router.get("/:qid/visits", async (req, res) => {
+router.get("/:qid/visits", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const museumId = `http://www.wikidata.org/entity/${qid}`;
     const visits = await VisitModel.find({ ofMuseum: museumId });
 
-    const username = String(req.query.user || "");
+    const username = sessionUser(req).username;
     let owned = new Set<string>();
     if (username) {
       const accounts = await UserModel.find({ username });
@@ -156,6 +157,15 @@ router.get("/:qid/visits", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/museums/:qid/qrcodes
+ * Ritorna: il foglio stampabile, una pagina HTML.
+ *
+ * E' l'unica rotta del file senza `requireSession`, e non per dimenticanza: si
+ * apre come pagina, quindi a chiederla e' il browser e non il nostro codice, e a
+ * una navigazione non si puo' attaccare un'intestazione. Non ci si perde niente
+ * — sono indirizzi di opere, e il foglio nasce per essere appeso al muro.
+ */
 router.get("/:qid/qrcodes", async (req, res) => {
   try {
     const { qid } = req.params;
@@ -230,7 +240,7 @@ router.get("/:qid/qrcodes", async (req, res) => {
  * GET /api/museums/:qid/overview
  * Ritorna: { conteggi, copertura, account } del museo indicato.
  */
-router.get("/:qid/overview", async (req, res) => {
+router.get("/:qid/overview", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const artworks = await ArtworkModel.find({ ofMuseum: museumUri(qid) });
@@ -298,7 +308,7 @@ router.get("/:qid/overview", async (req, res) => {
  * Ritorna: TUTTI gli item del museo, privati compresi, con l'opera popolata.
  * E' la differenza con `GET /api/items`, che i privati li nasconde.
  */
-router.get("/:qid/items", async (req, res) => {
+router.get("/:qid/items", requireSession, async (req, res) => {
   try {
     const items = await ItemModel.find({
       ofMuseum: museumUri(req.params.qid),
