@@ -1,17 +1,11 @@
 MANCANTI
 - PS. mi turbano ancora le opere un po rotonde e un po quadrate.
-- aggiungere sessione e tasto torna alla home, tasto home navigator
 - far selezionare una lingua?
-- la sezione riprendi ha senso?
 - indicazioni per arrivare a una opera?
-- modifica la freccia in navigtor con "cambia visita"
-- Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere?
-- Al momento si può creare un item avente una determinata difficoltà e durata. 
-A quanto ho capito dalle specs, dovrebbero potere esistere item aventi stesso tono ma 
-diverse durate (slide 22 delle specs)
 
 DA DISCUTERE
-
+- aggiungere sessione e tasto torna alla home, tasto home navigator
+- Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere?
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
 - testare il nuovo sistema di audio (ora compatibile per iphone)

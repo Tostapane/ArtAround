@@ -16,10 +16,13 @@
  * cerca nel database e porta con se' museo e immagine; ogni altro soggetto arriva
  * come nome scritto dall'autore e deve portarsi l'immagine.
  *
- * In creazione si pubblica UN solo item per coppia (soggetto, tono): i duplicati
- * vengono rifiutati invece di sovrascrivere in silenzio. In modifica cambiano solo
- * testo e prezzo — il resto e' identita' o diritti di chi l'ha gia' adottato — e
- * per questo si sbriga PRIMA di risolvere il soggetto, che li' non serve.
+ * SULLO STESSO SOGGETTO E COLLO STESSO TONO se ne possono scrivere quante se ne
+ * vuole: due letture Infantili della Gioconda sono due letture, non un errore, e
+ * chi compone una visita sceglie quella che gli serve. A distinguerle e' l'`@id`,
+ * che dalla seconda in poi porta un contatore (`freeItemId`). In modifica invece
+ * cambiano solo testo e prezzo — il resto e' identita', o diritti di chi l'ha gia'
+ * adottata — e per questo si sbriga PRIMA di risolvere il soggetto, che li' non
+ * serve.
  *
  * L'ELIMINAZIONE e' a cascata: un item citato da una visita non puo' sparire da
  * solo, perche' lascerebbe una tappa che non si risolve — e una tappa
@@ -130,7 +133,7 @@ router.get("/author/:authorName", async (req, res) => {
 });
 
 /**
- * GET /api/items/:id/text[?user=nome]
+ * GET /api/items/:id/text
  * Ritorna: { text, locked } — il testo di UNA descrizione. `/artworks/:qid/items`
  * li porta un'opera per volta, e un contenuto su uno stile non ne ha nessuna.
  */
@@ -222,6 +225,27 @@ function slug(text: string): string {
  * Ritorna: 201 alla pubblicazione, 200 alla modifica (`editId`), 409 se esiste
  * gia' un item di quell'autore con la stessa coppia (soggetto, tono).
  */
+/**
+ * Un `@id` libero a partire da quello leggibile.
+ *
+ * Lo stesso autore puo' scrivere piu' descrizioni dello stesso tono sulla stessa
+ * opera: sono letture diverse dello stesso quadro, non un errore. L'`@id` pero'
+ * e' unico in indice, e senza questo la seconda morirebbe su una chiave
+ * duplicata. La prima tiene la forma di sempre — cosi' gli id gia' scritti e
+ * quelli del seed restano quelli — e dalla seconda in poi si aggiunge un
+ * contatore. Resta comunque una chiave opaca: nessuno la spacchetta per leggerci
+ * dentro il tono o la durata.
+ */
+async function freeItemId(base: string): Promise<string> {
+  let candidate = base;
+  let n = 1;
+  while (await ItemModel.exists({ "@id": candidate })) {
+    n += 1;
+    candidate = `${base}-${n}`;
+  }
+  return candidate;
+}
+
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
@@ -262,7 +286,6 @@ router.post("/", async (req, res) => {
     let subject = "";
     let ofMuseum = "";
     let idSoggetto = "";
-    let doppione: Record<string, unknown> = {};
     const immagine = String(payload.immagine || "");
 
     if (genere === "opera") {
@@ -277,7 +300,6 @@ router.post("/", async (req, res) => {
       about = artwork["@id"];
       ofMuseum = artwork.ofMuseum;
       idSoggetto = artwork.qid;
-      doppione = { about };
     } else {
       subject = String(payload.soggetto || "").trim();
       if (subject === "")
@@ -292,26 +314,14 @@ router.post("/", async (req, res) => {
         return res.status(400).json({ error: "Manca il museo del contenuto." });
       ofMuseum = `http://www.wikidata.org/entity/${museo}`;
       idSoggetto = `${museo}-${slug(subject)}`;
-      doppione = { kind: genere, subject, ofMuseum };
-    }
-
-    for (const desc of payload.descrizioni) {
-      const esistente = await ItemModel.findOne({
-        ...doppione,
-        author,
-        educationalLevel: desc.tono,
-      });
-      if (esistente) {
-        return res.status(409).json({
-          error: `Hai già pubblicato una descrizione di tono "${desc.tono}" su questo soggetto.`,
-        });
-      }
     }
 
     const privato = payload.privato === true || payload.visibility === "privato";
 
     for (const desc of payload.descrizioni) {
-      const itemId = `${idSoggetto}-${author}-${desc.tono}-${desc.lunghezza}`;
+      const itemId = await freeItemId(
+        `${idSoggetto}-${author}-${desc.tono}-${desc.lunghezza}`,
+      );
       await ItemModel.create({
         "@id": itemId,
         kind: genere,

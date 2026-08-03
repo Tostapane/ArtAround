@@ -1901,17 +1901,6 @@ export class AppState {
     this.goTo("nuovo");
   }
 
-  toneAlreadyUsed(tono: string): boolean {
-    const chiave = this.draftSubjectKey();
-    if (!chiave) return false;
-    return this.myItems.some(
-      (i: any) =>
-        this.soggettoIdOf(i) === chiave &&
-        i.educationalLevel === tono &&
-        i["@id"] !== this.editingId,
-    );
-  }
-
   /** Come si chiama il soggetto della bozza nel raggruppamento del catalogo. */
   private draftSubjectKey(): string {
     if (this.draft.genere === "opera") return this.draft.selectedArtworkUri || "";
@@ -1954,12 +1943,6 @@ export class AppState {
     const issues = this.itemIssues();
     if (issues.length > 0)
       return this.showToast(`Manca ancora: ${issues.join(", ")}.`, "error");
-    if (!this.editingId && this.toneAlreadyUsed(this.draft.tono))
-      return this.showToast(
-        `Hai già una descrizione "${this.draft.tono}" per quest'opera. Modificala invece di crearne un'altra.`,
-        "error",
-      );
-
     const payload = {
       tipo: "Item",
       editId: this.editingId || undefined,
