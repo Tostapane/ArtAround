@@ -21,6 +21,8 @@ import { ItemModel } from "../models/item";
 import { isReadable } from "../../../shared/access";
 import { UserModel } from "../models/user";
 import { ArtworkModel } from "../models/artwork";
+import { MuseumModel } from "../models/museum";
+import { sortByFlow } from "../services/svgGraph";
 import { planVisit } from "../services/llm";
 import { resolveOrGenerateItem } from "../dbActions";
 import { purchasedBy, readableItems } from "../access";
@@ -143,6 +145,15 @@ router.post("/custom", async (req, res) => {
     if (!plan || !Array.isArray(plan.artworks)) {
       return res.status(502).json({ error: "Impossibile generare la visita su misura" });
     }
+
+    /*
+     * L'ordine delle tappe lo decide la mappa, non il modello: al modello si
+     * chiede QUALI opere, e a quello si risponde bene; in che ordine si
+     * attraversa il museo e' scritto sul disegno (`data-flow`) e non si negozia.
+     * Chiederglielo nel prompt vorrebbe dire sperare che obbedisca.
+     */
+    const museo = await MuseumModel.findOne({ qid: museumQid });
+    plan.artworks = sortByFlow(plan.artworks, museo ? museo.mapPath : "");
 
     const byQid = new Map(artworks.map((a) => [a.qid, a]));
     const content: { artwork: unknown; item: unknown }[] = [];

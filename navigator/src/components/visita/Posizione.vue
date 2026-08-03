@@ -17,8 +17,10 @@
  * mai da sola. Quando non vince nessuna opera si mostrano le possibili con la
  * loro immagine e sceglie il visitatore: e' il comportamento che la slide
  * chiede, e insieme l'unico modo di far funzionare la cosa dove una bussola non
- * esiste. Le immagini sono le stesse del catalogo mostrate in piccolo — a chi
- * deve riconoscere un quadro che ha davanti basta la sagoma.
+ * esiste. Le immagini sono quelle del catalogo, piccole e SFOCATE come la slide
+ * chiede ("a bassa risoluzione"): a chi riconosce un quadro che ha davanti basta
+ * la sagoma, e nitide sarebbero l'app che gli mostra l'opera invece di aiutarlo
+ * a dire quale sia.
  *
  * L'INTERRUTTORE in cima decide se l'applicazione tiene conto di dove si e'.
  * Parte spento, e finche' lo e' non si legge nessun sensore, non si chiede
@@ -310,7 +312,7 @@ onUnmounted(() => scanner.stop());
                     :src="immagineOpera(c.qid)"
                     alt=""
                     loading="lazy"
-                    class="h-24 w-full object-cover"
+                    class="h-24 w-full object-cover blur-[3px]"
                   />
                   <span class="block px-3 py-2">
                     <span class="block text-small font-medium">{{ nomeOpera(c.qid) }}</span>

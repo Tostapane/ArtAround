@@ -211,27 +211,27 @@
   <!-- Sale (AREE data-room): otto per braccio, piu' i tre corridoi e i due
        atrii di testa. Nessuna area si sovrappone a un'altra. -->
   <g pointer-events="none">
-    <rect class="sala t-ottone" data-room="Duecento e Giotto" x="955" y="10" width="135" height="195" />
-    <rect class="sala t-verderame" data-room="Trecento Senese" x="820" y="10" width="135" height="195" />
-    <rect class="sala t-notte" data-room="Gotico Internazionale" x="685" y="10" width="135" height="195" />
-    <rect class="sala t-ardesia" data-room="Angelico e Filippo Lippi" x="550" y="10" width="135" height="195" />
-    <rect class="sala t-salvia" data-room="Piero della Francesca" x="415" y="10" width="135" height="195" />
-    <rect class="sala t-ottone" data-room="Pollaiolo e le Virtu" x="280" y="10" width="135" height="195" />
-    <rect class="sala t-verderame" data-room="Botticelli" x="145" y="10" width="135" height="195" />
-    <rect class="sala t-notte" data-room="Leonardo e il Verrocchio" x="10" y="10" width="135" height="195" />
-    <rect class="sala t-notte" data-room="Tribuna" x="10" y="515" width="135" height="195" />
-    <rect class="sala t-verderame" data-room="Fiandre e Germania" x="145" y="515" width="135" height="195" />
-    <rect class="sala t-ottone" data-room="Perugino e Signorelli" x="280" y="515" width="135" height="195" />
-    <rect class="sala t-salvia" data-room="Bellini Giorgione Mantegna" x="415" y="515" width="135" height="195" />
-    <rect class="sala t-ardesia" data-room="Michelangelo e Raffaello" x="550" y="515" width="135" height="195" />
-    <rect class="sala t-notte" data-room="Cinquecento Veneziano" x="685" y="515" width="135" height="195" />
-    <rect class="sala t-verderame" data-room="Manierismo fiorentino" x="820" y="515" width="135" height="195" />
-    <rect class="sala t-ottone" data-room="Caravaggio e il Seicento" x="955" y="515" width="135" height="195" />
-    <rect class="sala sala-atrio" data-room="Corridoio di Ponente" x="10" y="205" width="1080" height="85" />
-    <rect class="sala sala-atrio" data-room="Corridoio sull'Arno" x="10" y="290" width="180" height="140" />
-    <rect class="sala sala-atrio" data-room="Corridoio di Levante" x="10" y="430" width="1080" height="85" />
-    <rect class="sala sala-atrio" data-room="Atrio e Biglietteria" x="1090" y="10" width="140" height="280" />
-    <rect class="sala sala-atrio" data-room="Uscita e Bookshop" x="1090" y="430" width="140" height="280" />
+    <rect class="sala t-ottone" data-room="Duecento e Giotto" data-flow="3" x="955" y="10" width="135" height="195" />
+    <rect class="sala t-verderame" data-room="Trecento Senese" data-flow="4" x="820" y="10" width="135" height="195" />
+    <rect class="sala t-notte" data-room="Gotico Internazionale" data-flow="5" x="685" y="10" width="135" height="195" />
+    <rect class="sala t-ardesia" data-room="Angelico e Filippo Lippi" data-flow="6" x="550" y="10" width="135" height="195" />
+    <rect class="sala t-salvia" data-room="Piero della Francesca" data-flow="7" x="415" y="10" width="135" height="195" />
+    <rect class="sala t-ottone" data-room="Pollaiolo e le Virtu" data-flow="8" x="280" y="10" width="135" height="195" />
+    <rect class="sala t-verderame" data-room="Botticelli" data-flow="9" x="145" y="10" width="135" height="195" />
+    <rect class="sala t-notte" data-room="Leonardo e il Verrocchio" data-flow="10" x="10" y="10" width="135" height="195" />
+    <rect class="sala t-notte" data-room="Tribuna" data-flow="13" x="10" y="515" width="135" height="195" />
+    <rect class="sala t-verderame" data-room="Fiandre e Germania" data-flow="14" x="145" y="515" width="135" height="195" />
+    <rect class="sala t-ottone" data-room="Perugino e Signorelli" data-flow="15" x="280" y="515" width="135" height="195" />
+    <rect class="sala t-salvia" data-room="Bellini Giorgione Mantegna" data-flow="16" x="415" y="515" width="135" height="195" />
+    <rect class="sala t-ardesia" data-room="Michelangelo e Raffaello" data-flow="17" x="550" y="515" width="135" height="195" />
+    <rect class="sala t-notte" data-room="Cinquecento Veneziano" data-flow="18" x="685" y="515" width="135" height="195" />
+    <rect class="sala t-verderame" data-room="Manierismo fiorentino" data-flow="19" x="820" y="515" width="135" height="195" />
+    <rect class="sala t-ottone" data-room="Caravaggio e il Seicento" data-flow="20" x="955" y="515" width="135" height="195" />
+    <rect class="sala sala-atrio" data-room="Corridoio di Ponente" data-flow="2" x="10" y="205" width="1080" height="85" />
+    <rect class="sala sala-atrio" data-room="Corridoio sull'Arno" data-flow="11" x="10" y="290" width="180" height="140" />
+    <rect class="sala sala-atrio" data-room="Corridoio di Levante" data-flow="12" x="10" y="430" width="1080" height="85" />
+    <rect class="sala sala-atrio" data-room="Atrio e Biglietteria" data-flow="1" x="1090" y="10" width="140" height="280" />
+    <rect class="sala sala-atrio" data-room="Uscita e Bookshop" data-flow="21" x="1090" y="430" width="140" height="280" />
   </g>
 
   <!-- Griglia leggera sopra le sale -->

@@ -469,10 +469,9 @@ export class AppState {
     if (!this.selectedMuseum) return;
     const qid = this.selectedMuseum.qid;
 
-    const arts = await ArtAPI.fetchArtworks(qid);
-    this.availableArtworks = arts.sort((a, b) =>
-      (a.name || "").localeCompare(b.name || ""),
-    );
+    // Arrivano nell'ordine di percorrenza dichiarato sulla mappa (`data-flow`):
+    // riordinarle per nome vorrebbe dire comporre visite a zig zag.
+    this.availableArtworks = await ArtAPI.fetchArtworks(qid);
     this.visits = await ArtAPI.fetchVisite(qid, this.currentUser);
     this.marketItems = this.withArtwork(await ArtAPI.fetchItemsMetadata(qid));
     this.artworksWithText = [];
@@ -2070,6 +2069,22 @@ export class AppState {
     return isReadable(item, this.currentUser || "", this.userCollection.includes(id));
   }
 
+  /**
+   * I gruppi nell'ordine in cui si attraversa il museo. Chi compone una visita
+   * scegliendo dall'alto in basso ottiene un percorso che non torna indietro; i
+   * soggetti che una sala non ce l'hanno restano in fondo.
+   */
+  private percorrenza(gruppi: { artwork: any; items: any[] }[]) {
+    const posto = new Map<string, number>();
+    this.availableArtworks.forEach((a: any, i: number) => posto.set(a["@id"], i));
+    const dopo = this.availableArtworks.length;
+    return [...gruppi].sort((a, b) => {
+      const ia = posto.get(a.artwork["@id"]);
+      const ib = posto.get(b.artwork["@id"]);
+      return (ia === undefined ? dopo : ia) - (ib === undefined ? dopo : ib);
+    });
+  }
+
   editorLibrary(): { artwork: any; items: any[] }[] {
     let base = this.visibleItems();
     if (this.currentUserRole === "autore") {
@@ -2085,7 +2100,7 @@ export class AppState {
           : !this.canRead(i),
       );
     }
-    const groups = this.groupByArtwork(base);
+    const groups = this.percorrenza(this.groupByArtwork(base));
     if (!this.editorSearch.trim()) return groups;
     return groups.filter((g) =>
       this.matchesSearch(g.artwork, this.editorSearch),

@@ -190,11 +190,11 @@
        le ali laterali le stanno accanto: l'ordine tiene comunque il punto dentro
        la sala piu' piccola. -->
   <g pointer-events="none">
-    <rect class="sala sala-atrio" data-room="Sala Centrale" x="280" y="220" width="240" height="160" />
-    <rect class="sala t-notte"    data-room="Ala Nord"      x="10"  y="10"  width="780" height="210" />
-    <rect class="sala t-salvia"   data-room="Ala Sud"       x="10"  y="380" width="780" height="210" />
-    <rect class="sala t-ottone"   data-room="Ala Ovest"     x="10"  y="220" width="270" height="160" />
-    <rect class="sala t-verderame" data-room="Ala Est"       x="520" y="220" width="270" height="160" />
+    <rect class="sala sala-atrio" data-room="Sala Centrale" data-flow="2" x="280" y="220" width="240" height="160" />
+    <rect class="sala t-notte"    data-room="Ala Nord" data-flow="4"      x="10"  y="10"  width="780" height="210" />
+    <rect class="sala t-salvia"   data-room="Ala Sud" data-flow="1"       x="10"  y="380" width="780" height="210" />
+    <rect class="sala t-ottone"   data-room="Ala Ovest" data-flow="3"     x="10"  y="220" width="270" height="160" />
+    <rect class="sala t-verderame" data-room="Ala Est" data-flow="5"       x="520" y="220" width="270" height="160" />
   </g>
 
   <!-- Griglia leggera sopra le sale -->

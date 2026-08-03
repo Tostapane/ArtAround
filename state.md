@@ -201,6 +201,8 @@ already draw; `services/svgGraph.ts` parses it into a room graph. The contract:
   toilet|bar|shop|elevator|stairs"` `[+ data-label]` → POI node.
 - `data-obstacle="steps|door|chairs|object"` + `data-desc` → obstacle.
 - `<line data-edge …>` → link between the two rooms containing its endpoints.
+- `data-flow="3"` on a room → **the order in which the curator wants the museum walked**
+  (§1.1-quater). Rooms without it go last, so a map that doesn't declare it behaves as before.
 - `<g data-floor="1" data-floor-label="Primo piano">…</g>` → everything on that floor (§1.1-ter).
 
 Connectivity is **authored only** — no geometric adjacency is inferred — so every walkable
@@ -283,6 +285,50 @@ piani che nessuno ha disegnato — ora il parser lo segnala invece di indovinare
 Il parser inoltre **toglie i commenti prima di scandire**: queste piante si spiegano da sole a
 lungo, e da quando il conto dei `<g>` e' uno stato, un `<g>` nominato dentro un commento
 sposterebbe il piano di tutto quel che segue.
+
+### 1.1-quater L'ordine di percorrenza lo dichiara la mappa *(2026-08-03)*
+
+`missing.txt` chiedeva se il visitatore rischia di fare zig zag quando l'IA compone una visita
+su misura, e la stessa domanda vale per l'autore che ne compone una a mano scegliendo da un
+elenco in ordine di database. Ora l'ordine c'e', e **non si calcola**: sta sul disegno, in
+`data-flow` sulle sale.
+
+La tentazione era dedurlo — BFS dall'ingresso, o un giro goloso sulle distanze fra le opere. Ma
+il giro che un museo consiglia non e' una proprieta' geometrica: che la sala di Botticelli venga
+prima di quella di Leonardo e' una ragione che sulla pianta non si vede, e un algoritmo che la
+indovinasse per caso resterebbe da mantenere. Il curatore quel giro lo conosce gia' — lo stampa
+sui suoi depliant — e scriverlo e' un numero per sala: cinque sul British, ventuno sugli Uffizi.
+
+Il codice e' tre pezzi, nessuno dei quali decide niente:
+
+| | |
+| --- | --- |
+| `flowOrder(mapPath)` | i qid delle opere per `data-flow` della loro sala; dentro una sala, l'ordine del disegno — li' non c'e' niente da percorrere, ci sei gia' |
+| `sortByFlow(items, mapPath)` | applica quell'ordine a qualunque elenco che abbia un `qid`; chi non e' sulla mappa resta in fondo |
+| i tre consumatori | `GET /artworks?museum=`, `GET /museums/:qid/artworks`, e la visita su misura |
+
+⚠️ **Alla visita su misura l'ordine NON si chiede al modello**: `planVisit` sceglie quali opere,
+e `POST /visits/custom` **riordina la sua risposta** con `sortByFlow`. Metterlo nel prompt
+sarebbe sperare che obbedisca, ed e' la stessa divisione che questa rotta gia' dichiara — il
+codice deterministico possiede la correttezza, il modello l'interpretazione (§3.3). Il prezzo,
+da sapere: se il modello avesse scelto un ordine narrativo (cronologico, o "queste tre preparano
+quella"), il riordino spaziale lo cancella.
+
+Nel marketplace la libreria del compositore segue lo stesso ordine, quindi scegliendo dall'alto
+in basso si ottiene un percorso che non torna indietro. E' sparito il `sort` alfabetico che
+`loadCatalogue` faceva sulle opere appena arrivate: buttava via l'ordine che il server aveva
+appena messo.
+
+I quattro percorsi dichiarati oggi, letti dal grafo:
+
+| museo | sale, nell'ordine |
+| --- | --- |
+| British | Ala Sud → Sala Centrale → Ala Ovest → Ala Nord → Ala Est |
+| Louvre | Hall Napoleon → Denon → Galleria Apollo → Sully → Antichita Egizie → Richelieu |
+| Metropolitan | Great Hall → American Wing → Egizia → Dipinti Europei → Greca e Romana → Asiatica → Galleria Superiore |
+| Uffizi | Duecento e Giotto → … → Botticelli → Leonardo → Tribuna → … → Caravaggio e il Seicento |
+
+Ogni sala compare una volta sola, e il Metropolitan cambia piano una volta sola, in fondo.
 
 ### 1.1-bis Concorrenza: dove l'idea regge e dove no
 
@@ -778,7 +824,9 @@ alle domande sull'opera e visite su misura.
    `author: "AI"`. Nothing is written to Mongo, so custom visits can never leak into the
    marketplace or the selector.
 
-Deterministic code owns correctness; the LLM owns interpretation. Same pattern as wayfinding.
+Deterministic code owns correctness; the LLM owns interpretation. Same pattern as wayfinding —
+and since 2026-08-03 the **order** of the chosen artworks is deterministic too: the plan is
+re-sorted by the map's `data-flow` (§1.1-quater), never asked for in the prompt.
 
 **Two entry points since 2026-07-31**: the navigator's `Biglietteria` (§5.2) and the
 marketplace's `sumisura` screen (§4.13-bis), which forwards the sentence rather than the
@@ -1261,6 +1309,10 @@ ones do. Below a rule, the **su misura** block with example chips.
   `σ_θ` 30°. Where there is no compass (every desktop: no magnetometer in the hardware) the
   angular term simply is not in the sum, the probabilities flatten and the picker appears —
   orientation is not dropped, it is *absent*, and the formula already says what that means.
+  The picker's thumbnails are **blurred** (`blur-[3px]`, added 2026-08-03): the slide asks for
+  "un'immagine a bassa risoluzione", and the reason is the product's, not the graphics' — a
+  sharp thumbnail shows you the artwork, a blurred one only helps you say which one you are
+  standing in front of.
   Verified against the real map before shipping: 2 m from a work with the compass on it, 93%;
   midway between two, no winner; a compass with a 300 m fix stays at 15%, i.e. **a compass
   alone never manufactures confidence**.

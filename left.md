@@ -59,6 +59,31 @@ e' ancora nel database** e il navigator lo mostrerebbe: la correzione vera sta i
 
 ---
 
+## ⏸ Ripresa — 2026-08-03, l'ordine di visita lo dichiara la mappa
+
+Chiude la riga di `missing.txt` sullo zig zag. Ragionamento in `state.md` §1.1-quater.
+
+- **`data-flow="3"` sulle sale**, accanto a `data-room` e `data-floor`. Numerate tutte e quattro
+  le piante: 5, 6, 10 e 21 sale. Una mappa che non lo dichiara si comporta come prima.
+- ⚠️ **Non si calcola.** BFS dall'ingresso o giro goloso erano scrivibili, ma il giro che un
+  museo consiglia non e' una proprieta' geometrica — Botticelli prima di Leonardo non si vede
+  sulla pianta. Il curatore lo sa gia', ed e' un numero per sala.
+- ⚠️ **Alla visita su misura l'ordine non si chiede al modello**: si sceglie con `planVisit` e si
+  **riordina la risposta** con `sortByFlow`. Nel prompt sarebbe una speranza, non una garanzia.
+- Nel marketplace e' sparito il `sort` alfabetico in `loadCatalogue`: buttava via l'ordine che il
+  server aveva appena messo. La libreria del compositore ora segue la percorrenza, quindi
+  scegliere dall'alto in basso da' un percorso che non torna indietro.
+
+**Verificato**: i quattro percorsi letti dal grafo (ogni sala una volta sola, il Met cambia piano
+una sola volta in fondo), gli ordini serviti da `GET /artworks?museum=` e `GET
+/museums/:qid/artworks`, tre type-check verdi, `dist` ricostruito, le due suite in browser
+rieseguite — 14 controlli marketplace e 12 navigator, zero errori in console.
+
+⚠️ **Riavviare `node-con` uccide un seed in corso**, che gira come `docker exec` dentro quel
+container. Il seed e' riprendibile e non perde niente, ma va rilanciato.
+
+---
+
 ## ⏸ Ripresa — 2026-08-02, la scheda non si apre piu' perche' non si chiude mai
 
 Quattro richieste in fila; questa e' la prima. Dettaglio in `state.md` §5.3-ter.

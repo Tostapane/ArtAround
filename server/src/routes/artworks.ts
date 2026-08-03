@@ -13,6 +13,8 @@
  */
 import { Router } from "express";
 import { ArtworkModel } from "../models/artwork";
+import { MuseumModel } from "../models/museum";
+import { sortByFlow } from "../services/svgGraph";
 import { ItemModel } from "../models/item";
 import { createDescription } from "../services/llm";
 import { purchasedBy, isReadable, withoutText, readableItems } from "../access";
@@ -30,7 +32,9 @@ router.get("/", async (req, res) => {
       ? { ofMuseum: `http://www.wikidata.org/entity/${museum}` }
       : {};
     const artworks = await ArtworkModel.find(filter);
-    res.json(artworks);
+    if (!museum) return res.json(artworks);
+    const doc = await MuseumModel.findOne({ qid: museum });
+    res.json(sortByFlow(artworks, doc ? doc.mapPath : ""));
   } catch (error: any) {
     res.status(500).json({ error: "Errore nel caricamento delle opere" });
   }

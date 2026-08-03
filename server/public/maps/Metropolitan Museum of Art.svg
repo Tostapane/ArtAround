@@ -200,9 +200,9 @@
     <!-- Sale: la galleria sopra, la loggia sotto, e dentro la loggia il vano
          scale — che sta PRIMA perche' e' contenuto in essa. -->
     <g pointer-events="none">
-      <rect class="sala sala-atrio"  data-room="Scalone Superiore"  x="280" y="-340" width="110" height="80" />
-      <rect class="sala t-ardesia"   data-room="Galleria Superiore" x="10"  y="-650" width="780" height="290" />
-      <rect class="sala t-salvia"    data-room="Loggia"             x="10"  y="-360" width="780" height="290" />
+      <rect class="sala sala-atrio"  data-room="Scalone Superiore" data-flow="8"  x="280" y="-340" width="110" height="80" />
+      <rect class="sala t-ardesia"   data-room="Galleria Superiore" data-flow="10" x="10"  y="-650" width="780" height="290" />
+      <rect class="sala t-salvia"    data-room="Loggia" data-flow="9"             x="10"  y="-360" width="780" height="290" />
     </g>
 
     <rect x="10" y="-650" width="780" height="580" fill="url(#mt-griglia)" pointer-events="none" />
@@ -302,13 +302,13 @@
     <!-- Sale (AREE data-room): griglia 3x2. La Great Hall e' lo snodo centrale in
          basso; ogni altra sala e' una collezione. -->
     <g pointer-events="none">
-      <rect class="sala t-ottone"    data-room="Arte Egizia"         x="10"  y="10"  width="260" height="290" />
-      <rect class="sala t-notte"     data-room="Dipinti Europei"     x="270" y="10"  width="260" height="290" />
-      <rect class="sala t-verderame" data-room="Arte Greca e Romana" x="530" y="10"  width="260" height="290" />
-      <rect class="sala t-ardesia"   data-room="American Wing"       x="10"  y="300" width="260" height="290" />
-      <rect class="sala sala-atrio"  data-room="Scalone"             x="280" y="310" width="110" height="80" />
-      <rect class="sala sala-atrio"  data-room="Great Hall"          x="270" y="300" width="260" height="290" />
-      <rect class="sala t-salvia"    data-room="Arte Asiatica"       x="530" y="300" width="260" height="290" />
+      <rect class="sala t-ottone"    data-room="Arte Egizia" data-flow="3"         x="10"  y="10"  width="260" height="290" />
+      <rect class="sala t-notte"     data-room="Dipinti Europei" data-flow="4"     x="270" y="10"  width="260" height="290" />
+      <rect class="sala t-verderame" data-room="Arte Greca e Romana" data-flow="5" x="530" y="10"  width="260" height="290" />
+      <rect class="sala t-ardesia"   data-room="American Wing" data-flow="2"       x="10"  y="300" width="260" height="290" />
+      <rect class="sala sala-atrio"  data-room="Scalone" data-flow="7"             x="280" y="310" width="110" height="80" />
+      <rect class="sala sala-atrio"  data-room="Great Hall" data-flow="1"          x="270" y="300" width="260" height="290" />
+      <rect class="sala t-salvia"    data-room="Arte Asiatica" data-flow="6"       x="530" y="300" width="260" height="290" />
     </g>
 
     <!-- Griglia leggera sopra le sale -->

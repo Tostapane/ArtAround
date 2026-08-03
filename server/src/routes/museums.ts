@@ -22,6 +22,7 @@ import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
 import { educationalLevels } from "../../../shared/constants";
 import { findMuseumConfig } from "../data/museumConfigs";
+import { sortByFlow } from "../services/svgGraph";
 const router = Router();
 
 function museumUri(qid: string): string {
@@ -78,7 +79,8 @@ router.get("/:qid/artworks", async (req, res) => {
     const { qid } = req.params;
     const museumId = `http://www.wikidata.org/entity/${qid}`;
     const artworks = await ArtworkModel.find({ ofMuseum: museumId });
-    res.json(artworks);
+    const doc = await MuseumModel.findOne({ qid });
+    res.json(sortByFlow(artworks, doc ? doc.mapPath : ""));
   } catch (err: any) {
     res.status(500).json({ error: "Errore nel caricamento delle opere specifiche del museo" });
   }

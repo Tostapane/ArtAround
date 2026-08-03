@@ -183,12 +183,12 @@
        centrale di passaggio, due gallerie in basso. Tutte le ali si aprono sulla
        Hall, che fa da snodo. -->
   <g pointer-events="none">
-    <rect class="sala t-notte"     data-room="Ala Richelieu"    x="10"  y="10"  width="260" height="250" />
-    <rect class="sala t-ottone"    data-room="Antichita Egizie" x="270" y="10"  width="260" height="250" />
-    <rect class="sala t-ardesia"   data-room="Ala Denon"        x="530" y="10"  width="260" height="250" />
-    <rect class="sala sala-atrio"  data-room="Hall Napoleon"    x="10"  y="260" width="780" height="80"  />
-    <rect class="sala t-salvia"    data-room="Ala Sully"        x="10"  y="340" width="390" height="250" />
-    <rect class="sala t-verderame" data-room="Galleria Apollo"  x="400" y="340" width="390" height="250" />
+    <rect class="sala t-notte"     data-room="Ala Richelieu" data-flow="6"    x="10"  y="10"  width="260" height="250" />
+    <rect class="sala t-ottone"    data-room="Antichita Egizie" data-flow="5" x="270" y="10"  width="260" height="250" />
+    <rect class="sala t-ardesia"   data-room="Ala Denon" data-flow="2"        x="530" y="10"  width="260" height="250" />
+    <rect class="sala sala-atrio"  data-room="Hall Napoleon" data-flow="1"    x="10"  y="260" width="780" height="80"  />
+    <rect class="sala t-salvia"    data-room="Ala Sully" data-flow="4"        x="10"  y="340" width="390" height="250" />
+    <rect class="sala t-verderame" data-room="Galleria Apollo" data-flow="3"  x="400" y="340" width="390" height="250" />
   </g>
 
   <!-- Griglia leggera sopra le sale -->

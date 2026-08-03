@@ -21,6 +21,13 @@
  *  - ostacolo     -> data-obstacle="steps|door|chairs|object" + data-desc
  *  - collegamento -> <line data-edge ...> tra due sale: ogni estremo viene
  *                    risolto alla sala che lo CONTIENE (non al nodo piu' vicino).
+ *  - percorso     -> data-flow="3" sulla sala: in che ordine il curatore vuole
+ *                    che si attraversino. E' il giro che il museo consiglia gia'
+ *                    ai suoi visitatori, e non si calcola: la sala di Botticelli
+ *                    prima di quella di Leonardo puo' essere una ragione che sul
+ *                    disegno non si vede. Le sale che non lo dichiarano vanno in
+ *                    fondo, quindi una mappa senza `data-flow` si comporta come
+ *                    prima.
  *  - piano        -> <g data-floor="1" data-floor-label="Primo piano"> ... </g>
  *                    attorno a tutto quel che sta su quel piano. I piani si
  *                    disegnano uno sopra l'altro DENTRO LO STESSO viewBox, come
@@ -89,6 +96,8 @@ export interface GraphRegion {
   neighbors: string[];
   /** Il piano su cui sta la sala. Senza `data-floor` sulla mappa e' 0. */
   floor: number;
+  /** L'ordine di visita che il curatore le ha dato. 0 = non dichiarato. */
+  flow: number;
 }
 
 export interface GraphObstacle {
@@ -116,7 +125,7 @@ export interface MuseumGraph {
   floors: GraphFloor[];
 }
 
-type RegionShape = { floor: number } & (
+type RegionShape = { floor: number; flow: number } & (
   | { kind: "circle"; name: string; cx: number; cy: number; r: number }
   | { kind: "rect"; name: string; x: number; y: number; w: number; h: number }
   | { kind: "polygon"; name: string; pts: { x: number; y: number }[] }
@@ -148,6 +157,54 @@ function parseSvgFile(mapPath: string): MuseumGraph {
     return emptyGraph();
   }
   return parseSvg(svg);
+}
+
+/**
+ * I qid delle opere nell'ordine in cui il curatore vuole che si percorra il
+ * museo: `data-flow` sulle sale, e dentro una sala l'ordine in cui sono disegnate
+ * — li' non c'e' niente da percorrere, ci sei gia'.
+ *
+ * Le sale senza `data-flow` vanno in fondo nell'ordine del disegno, quindi una
+ * mappa che non lo dichiara affatto lascia le opere come stavano.
+ */
+export function flowOrder(mapPath: string): string[] {
+  const graph = getMuseumGraph(mapPath);
+  const flusso = new Map<string, number>();
+  for (const r of graph.regions) flusso.set(r.name, r.flow);
+
+  const opere = graph.nodes.filter((n) => n.kind === "artwork");
+  const posizione = new Map<string, number>();
+  opere.forEach((n, i) => posizione.set(n.qid, i));
+
+  const ordinate = [...opere].sort((a, b) => {
+    // Una sala senza flusso dichiarato viene dopo tutte quelle che ce l'hanno.
+    const fa = flusso.get(a.room) || Number.MAX_SAFE_INTEGER;
+    const fb = flusso.get(b.room) || Number.MAX_SAFE_INTEGER;
+    if (fa !== fb) return fa - fb;
+    return (posizione.get(a.qid) || 0) - (posizione.get(b.qid) || 0);
+  });
+  return ordinate.map((n) => n.qid);
+}
+
+/**
+ * Mette le opere nell'ordine di percorrenza. Chi non e' sulla mappa resta in
+ * fondo: e' un'opera del catalogo che nessuno ha ancora collocato, non un errore.
+ */
+export function sortByFlow<T extends { qid: string }>(
+  items: T[],
+  mapPath: string,
+): T[] {
+  if (!mapPath) return items;
+  const ordine = new Map<string, number>();
+  flowOrder(mapPath).forEach((qid, i) => ordine.set(qid, i));
+  return [...items].sort((a, b) => {
+    const ia = ordine.get(a.qid);
+    const ib = ordine.get(b.qid);
+    if (ia === undefined && ib === undefined) return 0;
+    if (ia === undefined) return 1;
+    if (ib === undefined) return -1;
+    return ia - ib;
+  });
 }
 
 export function parseSvg(svg: string): MuseumGraph {
@@ -344,10 +401,12 @@ function makeRegion(
   floor: number,
 ): RegionShape | null {
   const name = attrs["data-room"];
+  let flow = parseInt(attrs["data-flow"] || "", 10);
+  if (isNaN(flow)) flow = 0;
   if (attrs["points"] !== undefined) {
     const pts = parsePoints(attrs["points"]);
     if (pts.length < 3) return null;
-    return { kind: "polygon", name, pts, floor };
+    return { kind: "polygon", name, pts, floor, flow };
   }
   if (
     attrs["r"] !== undefined &&
@@ -361,6 +420,7 @@ function makeRegion(
       cy: parseFloat(attrs["cy"]),
       r: parseFloat(attrs["r"]),
       floor,
+      flow,
     };
   }
   if (
@@ -377,6 +437,7 @@ function makeRegion(
       w: parseFloat(attrs["width"]),
       h: parseFloat(attrs["height"]),
       floor,
+      flow,
     };
   }
   return null;
@@ -427,7 +488,9 @@ function buildRegions(
   }
 
   const piani = new Map<string, number>();
+  const flussi = new Map<string, number>();
   for (const r of regions) {
+    if (r.flow > 0 && !flussi.has(r.name)) flussi.set(r.name, r.flow);
     const gia = piani.get(r.name);
     if (gia === undefined) {
       piani.set(r.name, r.floor);
@@ -446,6 +509,7 @@ function buildRegions(
       name,
       neighbors: Array.from(set),
       floor: piani.get(name) || 0,
+      flow: flussi.get(name) || 0,
     });
   }
   return result;
