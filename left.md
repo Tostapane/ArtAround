@@ -1,5 +1,177 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-04, l'immagine del meta-item non serve piu'
+
+Chiude la riga di `missing.txt` «l'immagine non dovrebbe essere obbligatoria quando creo un
+meta item». Ragionamento in `state.md` §3.1-septies.
+
+- **La figura da cui ripiegare c'era gia'**: e' l'**ancora** della tappa, l'opera davanti a cui
+  si sta mentre si ascolta parlare di uno stile. `stopImage()` ora ci arriva, e restituisce
+  `{src, name}` invece del solo indirizzo — la didascalia deve dire **il quadro che si vede**,
+  non il soggetto della tappa, o la Primavera verrebbe annunciata come «Rinascimento».
+- Tolti i due controlli che la pretendevano: il 400 in `POST /items` e `l'immagine` in
+  `itemIssues()`. Il **soggetto** resta obbligatorio, il museo pure.
+- ⚠️ **Aperto, ed e' una scelta di prodotto**: a schermo niente dice che quella figura e' il
+  posto in cui ti trovi e non il soggetto. L'`alt` lo dice (quindi con uno screen reader si
+  capisce), una didascalia visibile no. Costa una chiave nuova e un giro di `traduci`.
+
+⚠️ **Difetto vero trovato provando, e NON e' di questo lavoro: i segnaposto non venivano
+sostituiti in italiano.** `Tappa {n} di {m}` con le graffe, e solo nella lingua predefinita —
+in inglese era giusto, che e' il motivo per cui era passato. In italiano il catalogo non
+esiste, quindi ogni chiave e' «mancante» e `missing` ne restituiva la chiave: `vue-i18n` usa
+quel valore **senza compilarlo**. Ora `fallbackFormat: true` in `i18n.ts`. Riguarda una
+ventina di stringhe (progresso, annunci, punteggio del quiz, studenti collegati).
+
+**Verificato pilotando chromium**, non dedotto: la tappa su uno stile senza immagine mostra
+`Q137925932.jpg` — l'opera successiva del percorso — con `alt="Immagine di La route de
+Verrières"`; la tappa 2, opera vera, non e' cambiata; `3 tappe` e `Tappa 1 di 3` in italiano
+prima e dopo la correzione; l'editor del marketplace risponde `[]` a un contenuto su uno stile
+senza immagine e `["il soggetto"]` senza nome. Zero errori in console, scatti guardati.
+Tre type-check verdi, `dist` ricostruito, `stato` a 228/228 su 12 lingue e zero residui.
+**Dati usa e getta rimossi** con la cascata (item + visita), zero residui `ZZ` nel database.
+
+⚠️ Il server va **riavviato** (`docker restart node-con`, ~35s) o si prova la rotta vecchia.
+
+### E la lingua adesso la propone il telefono
+
+Segnalato: «per un cinese sara' difficile scegliere». Vero, e non per l'elenco — i nomi delle
+lingue sono gia' scritti nella lingua stessa (中文, Русский) — ma perche' la **prima** schermata
+la leggi prima di poter scegliere, e partiva sempre in italiano.
+
+- `loadLanguage()`: quella gia' scelta → **quella del telefono** (`navigator.languages`,
+  codice intero e poi radice) → l'italiano. Un telefono `zh-CN` apre tutto in cinese.
+- Il filtro del selettore cerca anche nel **codice**: i nomi sono scritti nella lingua stessa,
+  quindi senza quella tastiera non si possono digitare — `zh`, `ru`, `de` invece si'.
+- **Verificato in chromium** con `--lang` e `Emulation.setLocaleOverride`: `zh-CN` → 选择你的参观路线。
+  e `<html lang="zh-CN">`; `en-GB` → radice `en`; `ja` → giapponese. Zero chiavi nuove.
+
+### Anche i toni, ed e' il secondo punto a chiave calcolata
+
+`Infantile · Semplice · Medio · Avanzato` restavano italiani in mezzo al cinese. Non sono dati:
+stanno in `shared/constants.ts`, quindi sono programma come le etichette del vocabolario
+controllato — e come quelle l'estrattore le raccoglie **a parte**, perche' nel sorgente si legge
+`t(v.level)` e una scansione del testo non vedrebbe mai la chiave. **Catalogo 228 → 232.**
+
+⚠️ **Si traduce quel che si legge, non il valore.** `Medio` resta `Medio` nel database, nel
+confronto del filtro e nella richiesta al server: tradurre il valore vorrebbe dire che un filtro
+scelto in cinese non trova piu' niente. Provato — con la tendina su `进阶版` il valore e' `Medio`
+e le visite passano da 8 a 2.
+
+⚠️ **Il glossario ha dovuto imparare i quattro toni**, e per la ragione gia' pagata una volta:
+`Infantile` senza spiegazione diventa *puerile* o *sciocco*. Ora la voce dice in italiano che
+e' «il tono di chi racconta a un bambino, con parole semplici e affetto; NON puerile». Il
+risultato: `Kid-friendly`, `儿童版`, `子供向け`, `Für Kinder`, `Детский` — nessuno spregiativo.
+Nella stessa passata sono uscite dal glossario e dal prompt le parole inglesi finite dentro la
+prosa italiana (`il catalog dei contenuti`, `per keys ESATTAMENTE`) e dai messaggi di `stato`
+(`orphans`, `stray dal catalog`).
+
+I **nomi delle visite** restano italiani: quelli sono dati.
+
+## ⏸ Ripresa — 2026-08-04, l'interfaccia del navigator nelle 13 lingue
+
+**Tutto il navigator: 228 chiavi, 12 lingue.** Ragionamento in `state.md` §5.6.
+
+- `vue-i18n@11`; `navigator/src/i18n.ts` e' l'istanza, agganciata al `ref` `language` che
+  c'era gia'. Cataloghi in `shared/i18n/`, **uno per lingua e nessuno per l'italiano**: la
+  chiave e' la frase italiana, quindi l'originale sta nel sorgente e non puo' mancare.
+- `server/src/scripts/languages.ts` — `chiavi · residui · traduci [codice] [--tutto] · pota · stato`.
+  `traduci` riempie **solo i buchi**, quindi una traduzione corretta a mano resta, e
+  scrive **a ogni blocco**, quindi interromperlo non butta via il fatto.
+- **Un `t` globale importato**, non `useI18n()`: diciassette file su diciannove hanno
+  stringhe anche nello script, e alcuni sono moduli `.ts` dove `useI18n()` non si puo'
+  chiamare.
+- I **plurali** sono quattro in tutto e sono due chiavi scelte con un `if`
+  (`t("1 tappa")` / `t("{n} tappe")`), non le forme con `|`: il ramo c'era gia'.
+
+**Il giro quando si cambia l'interfaccia** (dettaglio in `shared/i18n/README.md`):
+`t("…")` in italiano → **`residui`** (deve dire nessuna) → **`traduci`** (costa solo le
+chiavi nuove) → **`pota`** (toglie le traduzioni delle frasi cancellate) → **`stato`**.
+⚠️ I due che nessuno ricorda sono `residui` e `pota`, e non sono simmetrici: saltare `pota`
+lascia file piu' grassi, saltare `residui` lascia **una frase italiana in mezzo al cinese** —
+e l'avviso del runtime li' non aiuta, perche' una stringa mai avvolta non risulta «mancante».
+
+⚠️ **`residui` guarda solo i template.** Le stringhe negli script (`announce`, messaggi
+d'errore) non le elenca: distinguerle da chiavi e classi CSS sarebbe indovinare. Sono state
+trovate a mano; la rete di sicurezza sono le altre due — l'avviso del runtime sulle chiavi
+mancanti, e la prova in browser che cerca parole italiane a schermo con la lingua impostata
+su un'altra.
+
+⚠️ **Il glossario si SPIEGA, non si traduce** — difetto vero trovato guardando uno scatto,
+non deducendo. Il glossario diceva `"tappa" = ... (stop / Station / 站点)` e il modello ha
+ricopiato quella resa invece di cercare la parola giusta: **quattro lingue** dicevano la
+fermata dell'autobus — ステーション, 下一站, 정거장, станция. Ora le voci descrivono in italiano
+che cosa la parola significa. Regola: se una voce del glossario contiene una parola straniera,
+il modello la usera'.
+
+⚠️ **Le chiavi si raccolgono a commenti tolti.** `t("Esci")` scritto in un commento
+d'intestazione finiva in catalogo come chiave vera — la stessa trappola dello script di
+rinominazione (`guidelines.md`).
+
+⚠️ **Duecento chiavi in una richiesta sola non tornano.** La risposta sfonda il tetto dei
+token e arriva un JSON troncato, cioe' non valido — e il messaggio era «risposta non JSON»,
+che sembra un guasto del modello e invece e' una richiesta troppo grossa. Ha colpito
+**cinese, giapponese e coreano**, dove i valori pesano in token piu' di quanto sembrino in
+caratteri. Ora si va a blocchi di **40** (`PER_BLOCCO`).
+
+⚠️ **`i18n.ts` non deve importare niente del navigator.** Traducendo `api.ts` si era chiuso
+l'anello i18n → state → api → i18n e l'app partiva bianca («Cannot access 'language' before
+initialization»). Un import circolare **compila**, quindi i type-check erano verdi: l'ha visto
+solo il browser. La lingua ora la spinge `state.ts` con `setLocale`; `i18n` e' una foglia.
+
+⚠️ **Lo spezzatore dei template deve saltare virgolette ed espressioni.** Un `>` dentro un
+attributo (`v-if="n > 0"`, `@action="(a) => …"`) e un `<` dentro un'espressione
+(`{{ n < 0 ? … }}`) tagliavano il tag a meta' e facevano passare per «testo da tradurre»
+pezzi di markup: sette falsi allarmi su otto file.
+
+⚠️ **Il vocabolario controllato ha la chiave nei DATI**, non nel codice: nel sorgente si
+legge `t(o.label)`, quindi l'estrattore le 22 stringhe di `options` le prende da
+`shared/constants.ts` a parte. E' l'unico punto del navigator con una chiave calcolata.
+
+⚠️ **`navigator/node_modules` era di root** e non lo e' piu' (`chown -R` sull'albero).
+Erano di root anche **tre dei quattro JSON dei musei** — cioe' gli *input* della genericita':
+il curatore non poteva modificarli. Ora si'.
+
+---
+
+## ⏸ Ripresa — 2026-08-04, la strada per la prossima tappa
+
+Chiude la riga di `missing.txt` «indicazioni per arrivare a una opera». Ragionamento in
+`state.md` §5.3-sexies.
+
+- **Nessuna rotta nuova sul server.** `POST /wayfinding` accettava gia' un qid come
+  destinazione: nel grafo `GraphNode.id` di un nodo-opera *e'* il qid. Per la ricerca del
+  cammino il bagno e un quadro sono lo stesso caso, quindi non c'e' nessun ramo da aggiungere.
+- **`NEXT_STOP_COMMAND`** in `shared/constants.ts`: l'id sta li' perche' lo confrontano
+  `Visita.vue` (per risolvere il qid) e `Pannello.vue` (per spegnere il bottone). Riscrivere la
+  stringa in tre file e' il modo in cui le due meta' smettono di essere d'accordo.
+- **Si punta all'ANCORA della tappa successiva, non alla sua opera**: una tappa su uno stile non
+  ha un posto sulla pianta, la sua ancora si'. Nessun ramo nuovo — `buildStops()` ce l'ha gia'.
+- ⚠️ **Chiedere la strada non e' andarci.** La tappa aperta non cambia: e' il teletrasporto
+  rovesciato (li' si sposta senza aprire).
+- ⚠️ **Il bottone si spegne all'ultima tappa e per lo studente guidato**, ma la **voce ci arriva
+  lo stesso**: `actionHandler` annuncia «sei all'ultima» invece di non fare niente. Un comando
+  riconosciuto, ripetuto e poi silenzioso e' il difetto gia' pagato in `state.md` §3.2.
+
+**Difetto vero trovato provando, non deducendo:** a inizio visita la tappa di riferimento e'
+*gia'* la prossima, quindi il percorso andava da un punto a se stesso e le indicazioni
+dettagliate dicevano «siete gia' nella sala corretta» a chi stava ancora alla porta. Ora una
+**partenza vuota vuol dire l'ingresso** (`data-poi="entrance"`, che ogni pianta dichiara).
+Un `from` *sconosciuto* resta un errore: sono due cose diverse.
+
+**Verificato**: 22 controlli in chromium su due tornate, zero errori in console, scatti guardati
+a 1400 e 390px. Il controllo che conta e' a meta' visita — la sala mostrata coincide con quella
+che l'API da' per la coppia (3 → 4), e la controprova (3 → 3) ne dava un'altra. Piu' le rotte:
+partenza vuota, partenza inventata, servizi invariati. Tre type-check verdi.
+
+⚠️ **Non provato: lo studente in visita guidata** — nel database non c'e' nessuna visita guidata
+(0 su 36). Serve `npx ts-node src/scripts/seed.ts speciali`.
+
+⚠️ **`ts-node` non ha un watcher**: `npm run start` e' `npx ts-node src/index.ts` e basta, e
+`getMuseumGraph` tiene in cache la pianta. Toccando il server va **riavviato `node-con`**
+(~35s), altrimenti si prova il codice vecchio credendo di provare il nuovo.
+
+---
+
 ## ⏸ Ripresa — 2026-08-03, le sessioni
 
 L'identita' non sta piu' nell'indirizzo. Ragionamento e alternative scartate in `state.md`
@@ -108,8 +280,8 @@ Ragionamento in `state.md` §3.1-septies (dati) e §5.3-quinquies (navigator).
   `about`, ogni contenuto non-opera sarebbe sparito dagli elenchi delle due app insieme, senza
   errori. Ora guarda `kind`.
 
-**Il database non e' stato riseminato**: `npx ts-node src/testers.ts generi` ha riempito `kind`
-e `ofMuseum` sui **751 item** che c'erano (0 orfani), e `npx ts-node src/seed.ts Q6373` ha
+**Il database non e' stato riseminato**: `npx ts-node src/scripts/testers.ts generi` ha riempito `kind`
+e `ofMuseum` sui **751 item** che c'erano (0 orfani), e `npx ts-node src/scripts/seed.ts Q6373` ha
 aggiunto i due soggetti del British — *scultura ellenistica* e *Alfred Sisley*, 16 item — e
 rifatto le sue 8 visite di catalogo, che ora si aprono con quelle due tappe. Gli altri tre
 musei hanno solo la migrazione: per avere i loro soggetti serve `seed.ts <qid>` (16 chiamate
@@ -447,15 +619,15 @@ prodotto). Ne restano **394**, che stanno in una quota giornaliera.
 
 **Da fare, in quest'ordine:**
 
-1. `cd server && npx ts-node src/seed.ts Q51252` — riprende dalle 394 mancanti. Si può
+1. `cd server && npx ts-node src/scripts/seed.ts Q51252` — riprende dalle 394 mancanti. Si può
    interrompere e rilanciare: le opere e gli item già scritti li salta, e lo dice riga per riga.
    **Mai con `--force`**: rigenererebbe tutte le 832 e brucerebbe la quota nelle prime 500.
    Quando la quota finisce conviene fermarlo subito, perché ogni item rimasto spende comunque
    i suoi 3 ritentativi senza produrre niente.
-2. `npx ts-node src/seed.ts speciali` — visita guidata + tappe opzionali (il buco aperto da più
+2. `npx ts-node src/scripts/seed.ts speciali` — visita guidata + tappe opzionali (il buco aperto da più
    tempo, `state.md` §3.5). Le semina sul **primo** museo configurato, che in ordine alfabetico
    è il British Museum.
-3. `npx ts-node src/testers.ts nomi`.
+3. `npx ts-node src/scripts/testers.ts nomi`.
 
 **Che cos'è cambiato nel codice** (dettaglio e motivi in `state.md` §1.1 e §3.5):
 
@@ -817,7 +989,7 @@ The user chose these explicitly. They are load-bearing.
 | --- | --- |
 | Display font | **Bricolage Grotesque**, self-hosted, no CDN |
 | Tone vocabulary | **The slides' four tones**: `Infantile · Semplice · Medio · Avanzato` (slide 22). `shared/constants.ts` already changed. A DB migration is still owed. |
-| DB helper scripts | Must all live in **one file: `server/src/testers.ts`** (user's instruction, verbatim) |
+| DB helper scripts | Must all live in **one file: `server/src/scripts/testers.ts`** (user's instruction, verbatim) |
 | Quiz | ~~Deferred~~ → **built 2026-07-28** (§8). Teleport is still deferred and is now the *only* thing missing for 18-33 |
 | Session persistence | **Rivista il 2026-08-03**: c'e', ma in `sessionStorage`, quindi riaprire l'applicazione mostra ancora la soglia — che era la proprieta' da difendere. Il rifiuto del 2026-07-31 riguardava `localStorage`, che quella proprieta' la toglieva |
 | Compatibility defects | **Deferred**, parked in `state.md` §10 (voice broken on iOS, QR/blind; the CDN one is closed). Do not chase them |
@@ -986,7 +1158,7 @@ never touches it.
 
 ## 4. Then: the remaining prelude items
 
-1. ~~**`server/src/testers.ts`**~~ — **WRITTEN AND RUN** against your live Mongo.
+1. ~~**`server/src/scripts/testers.ts`**~~ — **WRITTEN AND RUN** against your live Mongo.
    `tutto` reported: **130 items + 6 visits** retoned, **9 visits renamed**, **1 visit's
    logistics** given positions. `stato` now shows no vocabulary warnings.
    - `Principiante → Semplice`, `Intermedio → Medio` (1:1 and lossless, so reversible by
@@ -1006,7 +1178,7 @@ never touches it.
    ⚠️ **Three accounts in your DB have no `role` field** (`a`, `b`, `docente`) — leftovers
    from the old "single account" model. They can no longer log in *by design* (see below),
    and I left them alone: deleting accounts is your call. `seedUsers.ts` would remove them.
-   Small CLI, idempotent, `npx ts-node src/testers.ts <comando>`:
+   Small CLI, idempotent, `npx ts-node src/scripts/testers.ts <comando>`:
    - `stato` — report: counts, which tones/levels are actually in the DB vs expected, and it
      *tells you which migration to run*. **Run this first.**
    - `toni` — `Principiante→Semplice`, `Intermedio→Medio`, plus lowercase→capitalised, on

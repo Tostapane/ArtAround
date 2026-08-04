@@ -455,7 +455,7 @@ The four slide-mandated metadata are covered: **lunghezza** (`timeRequired`), **
   tones** (slide 22), now the *single* vocabulary of the system: editor, seed, LLM planner
   enum and every filter. The old `Principiante/Intermedio/Avanzato` split is gone (§9.4 was
   closed by this change). ⚠️ **Existing DB rows still carry the old values until
-  `npx ts-node src/testers.ts toni` is run.**
+  `npx ts-node src/scripts/testers.ts toni` is run.**
 - `educationalLevelHints` — one line per tone, shown to the author choosing: the choice is
   made on the consequence, not on the label.
 - `secPerArt = [15, 60]` — seed durations and planner enum.
@@ -571,7 +571,7 @@ diverse prima di essere fissata: tutte e tre passano AA senza ritocchi.
 | `POST /llm/newInfo` | `{previous, userReq, language}` → answer generated **directly in `language`** | navigator |
 | `POST /speech` (multipart) · `POST /speech/tts` | STT → `mapRequest` → controlled command; TTS → MP3 | navigator |
 | `POST /translate` | `{texts[], target}`, in-memory cache keyed `target+text` | navigator |
-| `POST /wayfinding` | `{museumQid, from, target, language, detailed}` → room name (simple) or LLM-verbalized route (detailed) | navigator |
+| `POST /wayfinding` | `{museumQid, from, target, language, detailed}` → room name (simple) or LLM-verbalized route (detailed). `target` is a POI type, `"obstacles"` **or the qid of an artwork**; an **empty `from` means the entrance** (§5.3-sexies) | navigator |
 | `DELETE /items/:id` · `GET /items/:id/impact` | delete an item **with cascade** (see below); `impact` reports what would go, and writes nothing | marketplace (curatore) |
 | `GET /museums/:qid/overview` · `/items` | counts + coverage; ALL items of the museum incl. private (`GET /items` hides them) | marketplace (curatore) |
 | `/guided-sessions/*` | ephemeral synchronized-visit backbone (§3.4) | navigator + marketplace |
@@ -762,11 +762,20 @@ come lo chiamano le opere, il contenuto e la pastiglia dello stile sulla pagina 
 ritrovano; scritto a mano ("Firenze nel Quattrocento") il contenuto sta per conto suo, che e'
 giusto per un soggetto che nessun'altra cosa nomina.
 
-**L'immagine e' obbligatoria** quando il soggetto non e' un'opera: non c'e' nessun quadro da
-cui ripiegare, e senza immagine la tessera resta vuota in tutte e due le app. La carica
-l'autore (`POST /items/image`, multipart), il **server** le da' il nome — un nome scelto dal
-client e' una risalita di percorso e la sovrascrittura dell'immagine di qualcun altro nella
-stessa riga — e la cancellazione dell'item la toglie dal disco.
+**L'immagine e' FACOLTATIVA**, anche quando il soggetto non e' un'opera. Lo e' diventata il
+2026-08-04: il quadro da cui ripiegare c'e', ed e' l'**ancora** della tappa — l'opera davanti
+a cui si sta mentre si ascolta parlare d'altro (§5.3-quinquies). Chiederla all'autore era
+chiedergli di illustrare un'astrazione: che figura ha il Manierismo? Quella onesta e' la sala
+in cui si trova chi ascolta. Chi ne ha una sua la carica lo stesso e vince sull'ancora, perche'
+l'ha scelta lui.
+La carica l'autore (`POST /items/image`, multipart), il **server** le da' il nome — un nome
+scelto dal client e' una risalita di percorso e la sovrascrittura dell'immagine di qualcun
+altro nella stessa riga — e la cancellazione dell'item la toglie dal disco.
+⚠️ **Resta da decidere se dirlo a schermo.** La scheda mostra il quadro dell'ancora senza
+nessuna didascalia visibile che spieghi perche': l'`alt` nomina l'opera vera — quindi chi
+legge con uno screen reader sa che cosa sta guardando — ma un visitatore vedente puo' leggere
+la figura come il soggetto della tappa. Una didascalia costerebbe una chiave nuova e un giro
+di `traduci`.
 ⚠️ Un'immagine caricata e poi abbandonata senza pubblicare resta li': il caricamento e la
 pubblicazione sono due richieste, e la seconda puo' non arrivare mai.
 
@@ -914,11 +923,11 @@ Notable server-side rules:
 museum at a time**:
 
 ```
-npx ts-node src/seed.ts                 elenca i musei configurati
-npx ts-node src/seed.ts Q51252          semina quel museo
-npx ts-node src/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
-npx ts-node src/seed.ts tutti           tutti i musei configurati
-npx ts-node src/seed.ts speciali        le due visite dimostrative
+npx ts-node src/scripts/seed.ts                 elenca i musei configurati
+npx ts-node src/scripts/seed.ts Q51252          semina quel museo
+npx ts-node src/scripts/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
+npx ts-node src/scripts/seed.ts tutti           tutti i musei configurati
+npx ts-node src/scripts/seed.ts speciali        le due visite dimostrative
 ```
 
 **Da 2026-08-03 semina anche due soggetti che opere non sono** — lo stile e l'autore piu'
@@ -999,8 +1008,8 @@ Le conseguenze non sono cosmetiche:
 - i nomi sono tornati quelli automatici (`Visita Infantile · 15s per opera`): dopo la
   risemina **`testers.ts nomi` non è stato rieseguito**.
 
-Rimedio, dal 2026-07-31 in un comando: **`npx ts-node src/seed.ts speciali`**, piu'
-`npx ts-node src/testers.ts nomi`. Non serve rifare il seed completo (lento: 8 item LLM
+Rimedio, dal 2026-07-31 in un comando: **`npx ts-node src/scripts/seed.ts speciali`**, piu'
+`npx ts-node src/scripts/testers.ts nomi`. Non serve rifare il seed completo (lento: 8 item LLM
 per opera).
 
 ---
@@ -1478,6 +1487,165 @@ indicato tutti e diciotto i punti che davano per scontata l'opera, che e' il mot
 questa meta' del lavoro e' stata piu' breve di quella del marketplace, dove i binding di Alpine
 non li guarda nessun compilatore.
 
+### 5.3-sexies «Dov'è la prossima tappa?» *(2026-08-04)*
+
+`missing.txt` chiedeva le indicazioni per arrivare a un'opera. C'erano per il bagno, il bar,
+lo shop e l'uscita — cioe' per tutto tranne che per il posto dove il visitatore deve
+effettivamente andare.
+
+**Sul server non e' stata aggiunta nessuna rotta**, ed e' la parte da saper raccontare:
+`POST /wayfinding` accettava gia' il qid di un'opera come destinazione, perche' nel grafo
+`GraphNode.id` di un nodo-opera *e'* il suo qid. Una destinazione, per la ricerca del cammino,
+e' un nodo e basta: il bagno e la Gioconda sono lo stesso caso. E' la stessa forma con cui i
+servizi della pianta sono diventati toccabili (§5.3-quater) — la risposta esce nello stesso
+riquadro `Info`, con la stessa lettura ad alta voce e lo stesso passaggio alle indicazioni
+dettagliate.
+
+| | |
+| --- | --- |
+| `NEXT_STOP_COMMAND` in `shared/constants.ts` | l'id del comando, esportato perche' lo confrontano in tre punti |
+| `Visita.nextAnchorQid` | la destinazione: l'**ancora** della tappa successiva |
+| `Pannello.isDisabled(o)` | l'unico comando che si spegne da solo, mentre i suoi vicini restano accesi |
+
+**Si punta all'ANCORA, non all'opera.** Una tappa che parla di uno stile non sta da nessuna
+parte sulla pianta (§5.3-quinquies), ma la sua ancora si': chiedere la strada per un movimento
+culturale porta davanti al quadro da cui lo si racconta. Non c'e' nessun ramo per i due casi,
+perche' `buildStops()` l'ancora ce l'ha gia' messa.
+
+**Chiedere la strada non e' andarci**, ed e' la stessa distinzione del teletrasporto rovesciata:
+li' si sposta senza aprire, qui si risponde senza spostare. La tappa aperta non cambia.
+
+⚠️ **Il comando si spegne in due casi, e sono due frasi diverse.** All'ultima tappa un dopo non
+c'e'; per lo **studente** di una visita guidata il dopo lo decide il docente, e mandarlo avanti
+da solo spezzerebbe la classe. La voce pero' ci arriva lo stesso — il vocabolario controllato
+non sa che un bottone e' spento — quindi il comando riconosciuto, ripetuto e poi silenzioso
+sarebbe il difetto gia' pagato in §3.2: `actionHandler` annuncia «sei all'ultima».
+
+⚠️ **Una partenza vuota vuol dire l'ingresso**, ed e' nato da un difetto trovato provando: a
+inizio visita la tappa di riferimento e' *gia'* la prossima, quindi il percorso andava da un
+punto a se stesso e le indicazioni dettagliate rispondevano «siete gia' nella sala corretta» a
+chi stava ancora alla porta. L'ingresso e' l'unico punto che ogni pianta dichiara comunque
+(`data-poi="entrance"`, e' li' che nasce il sistema di riferimento della localizzazione), quindi
+non serve nessun dato nuovo. Un `from` **sconosciuto** resta invece un errore: confonderlo con
+«non l'ho detto» risponderebbe dall'ingresso a chi ha indicato un punto che non esiste.
+
+⚠️ **Resta un caso non coperto**: se la tappa successiva ha la stessa ancora di quella aperta
+— due descrizioni dello stesso oggetto, che la slide 21 vuole — la risposta semplice e' il nome
+della sala in cui gia' si e'. Non e' falso ed e' poco utile. Oggi non lo esercita nessun dato:
+**nessuna delle 36 visite ha due tappe di fila sulla stessa opera**, quindi il caso si vedra'
+solo con una visita composta a mano.
+
+**Verificato pilotando chromium**, 22 controlli in due tornate, zero errori in console: il
+bottone sotto *Orientati* e non sotto *Chiedi*, l'etichetta, la risposta che e' una sala vera
+della pianta, il passaggio al dettaglio che nomina l'opera e non il qid, il bottone spento
+all'ultima tappa con i vicini accesi, e a 390px. Il controllo che conta e' quello a meta'
+visita: la sala mostrata dall'interfaccia e' **la stessa** che l'API restituisce per la coppia
+(tappa 3 → tappa 4), e la controprova (3 → 3) ne dava un'altra — cioe' il client manda davvero
+la coppia giusta e non la propria posizione due volte. Sulle rotte: partenza vuota, partenza
+inventata, e i servizi invariati.
+
+⚠️ **Non provato: lo studente in visita guidata.** Il ramo esiste ed e' lo stesso booleano che
+gia' spegne «Prossimo», ma nel database non c'e' nessuna visita guidata (§3.5, 0 su 36), quindi
+non e' stato eseguito. Serve `seed.ts speciali`.
+
+### 5.6 L'interfaccia nella lingua del visitatore *(in corso, 2026-08-04)*
+
+I **contenuti** si traducevano gia'; la **scorza** no. C'era un solo punto di traduzione a
+runtime in tutto il navigator — `translatedFields`, tre stringhe per tappa — piu' le risposte
+del modello, che nascono gia' nella lingua scelta. Chi sceglieva 中文 leggeva la descrizione in
+cinese dentro un'applicazione italiana: 273 stringhe di bottoni, annunci ed errori.
+
+**La riga che divide le due strade non e' il gusto, e' se si puo' enumerare prima.**
+
+| | contenuto | interfaccia |
+| --- | --- | --- |
+| che cos'e' | **dati**: 750+ item, cresce quando un autore pubblica | **programma**: sta nel sorgente |
+| enumerabile a priori | no | si' |
+| quindi | tradotto a runtime, per forza | catalogo generato una volta e committato |
+
+**Il modello gira una volta sola**, in `server/src/scripts/languages.ts`, e non in faccia al visitatore.
+Tradurre a runtime darebbe la stessa frase in due modi in due caricamenti, dipenderebbe da una
+quota che si e' gia' esaurita una volta spegnendo i comandi vocali, e non lascerebbe nessun
+file da correggere. L'applicazione **pronuncia** le proprie etichette: una parola che oscilla
+e' peggio di una sbagliata.
+
+**La chiave e' la frase italiana** — `t("Esci")`, non `t("visita.esci")`. Non si battezzano
+trecento chiavi, il codice resta leggibile senza il catalogo accanto, una traduzione mancante
+ricade su una frase vera, e **non esiste un `it.json`**: l'italiano non puo' ne' mancare ne'
+andare fuori sincrono. Il formato dei messaggi (`{nome}`, e le forme separate da `|`) e'
+quello di `vue-i18n` ed e' scritto in `shared/i18n/README.md`, perche' un giorno a leggere
+quei file potrebbe essere il marketplace, che `vue-i18n` non lo puo' usare — e due programmi
+che leggono lo stesso file senza essere stati istruiti allo stesso modo non danno un errore,
+danno una schermata con scritto `no stops | one stop | 3 stops`.
+
+**Un `t` globale e non `useI18n()`**: diciassette file su diciannove hanno stringhe anche nello
+script, e alcuni sono moduli `.ts` dove `useI18n()` non si puo' chiamare — vuole un componente
+vivo.
+
+**I plurali sono quattro in tutto**, e sono due chiavi scelte con un `if` invece di una
+chiave con le forme separate da `|`: il ramo il codice ce l'aveva gia'. Il limite —
+polacco e russo distinguono anche 2–4 da 5+ — e' dichiarato in `shared/i18n/README.md`.
+
+**Stato: tutto il navigator, 228 chiavi in 12 lingue.** Il numero lo dice `stato`, ed e' la
+sola fonte che non invecchia: qui e in `left.md` era gia' stato scritto due volte diverso.
+
+⚠️ **I SEGNAPOSTO NON SI SOSTITUIVANO IN ITALIANO** — cioe' nella lingua predefinita, e solo
+in quella. A schermo si leggeva `Tappa {n} di {m}` con le graffe; in inglese `Stop 1 of 3`,
+giusto. La causa e' esattamente il punto in cui questo disegno e' diverso dagli altri: in
+italiano il catalogo non esiste, quindi ogni chiave risulta «mancante», e il gestore `missing`
+restituiva la chiave — ma quel valore `vue-i18n` lo usa **cosi' com'e'**, saltando il
+compilatore dei messaggi, che e' l'unico posto in cui `{n}` diventa un numero. Ora c'e'
+`fallbackFormat: true`, che e' l'opzione fatta per le chiavi-che-sono-messaggi: la chiave viene
+compilata. Trovato guardando l'`alt` di un'immagine in un browser, non leggendo — provando in
+una lingua tradotta non si vede, ed e' il motivo per cui era passato.
+
+⚠️ **Quel che resta italiano di proposito, e non e' una dimenticanza**: gli **id dei comandi**
+(`"Dove e il bagno?"` in `Info.vue`), che sono i token con cui `mapRequest` confronta la
+trascrizione — tradurli spegnerebbe il riconoscimento vocale; i **prompt** mandati al modello,
+che sono testo per lui e non per il visitatore (la risposta nasce gia' nella lingua scelta); e
+i `console.error`. `residui` li elenca lo stesso perche' **non li puo' distinguere**, e lo
+dichiara invece di fingere.
+
+⚠️ **`i18n.ts` non importa niente del navigator, ed e' una regola.** Traducendo `api.ts` si
+era chiuso un anello — i18n → state → api → i18n — e l'applicazione partiva bianca con
+«Cannot access 'language' before initialization»: al momento in cui `i18n` leggeva
+`language`, `state` era ancora a meta' valutazione. **Un import circolare compila
+benissimo**, quindi i tre type-check erano verdi e solo il browser l'ha visto. Ora la lingua
+la **spinge** `state.ts` chiamando `setLocale`, invece che essere letta da `i18n` con un
+`watch`: nel verso giusto `i18n` e' una foglia e l'anello non si puo' riformare.
+
+⚠️ **Quattro difetti trovati facendolo, non leggendolo.**
+1. Le chiavi si raccolgono a **commenti tolti**: un `t("Esci")` d'esempio in
+   un'intestazione finiva in catalogo come chiave vera (la trappola dello script di
+   rinominazione, `guidelines.md`).
+2. Il **glossario si spiega, non si traduce**: scrivendo `"tappa" = … (stop / Station)` il
+   modello ha ricopiato quella resa, e **quattro lingue** dicevano la fermata dell'autobus —
+   ステーション, 下一站, 정거장, станция. Visto guardando uno scatto in giapponese.
+3. **Duecento chiavi in una richiesta sola non tornano**: la risposta sfonda il tetto dei
+   token e arriva un JSON troncato, cioe' non valido. Ha colpito cinese, giapponese e
+   coreano, dove i valori pesano piu' in token di quanto sembrino in caratteri. Ora si
+   traduce a blocchi di 40 e si scrive **a ogni blocco**, cosi' un'interruzione a meta'
+   lascia tradotto quel che era gia' tornato.
+4. **L'anello di import** qui sopra.
+
+**Quel che resta in italiano perche' e' DATO e non interfaccia**: il nome della visita nella
+barra e i titoli delle opere nell'elenco. Il testo, il titolo e il sottotitolo della tappa
+APERTA si traducono gia' (`translatedFields`); l'elenco e la barra no, ed e' una mancanza che
+questo lavoro non tocca — sta dall'altra parte della riga, quella dei contenuti.
+
+**Cinque comandi, e due si dimenticano sempre.** `residui` trova le frasi mai avvolte in
+`t()`; `pota` toglie dai cataloghi le traduzioni di chiavi che il sorgente non ha piu'. Non
+sono simmetrici: saltare `pota` lascia file piu' grassi, saltare `residui` lascia una frase
+**italiana in mezzo al cinese**, e li' l'avviso del runtime non puo' aiutare — una stringa
+mai avvolta non chiede nessuna traduzione, quindi non risulta mai «mancante». Il giro
+completo sta in `shared/i18n/README.md`.
+
+⚠️ **`residui` guarda solo dove finisce il testo che si VEDE** — nodi dei template, i quattro
+attributi visibili, `announce()`, `riferisci()`, le assegnazioni a `*.value`. Largo com'era
+prima riportava venti risultati tutti deliberati (id dei comandi, prompt, `console.error`) e
+non poteva servire da controllo; stringendolo sono saltate fuori **due stringhe davvero
+dimenticate** che nel rumore non si vedevano.
+
 ### 5.4 `GuidedGate`
 
 Four phases. **`attesa`** is a full-bleed stage with the access key at `text-display` — it
@@ -1756,7 +1924,7 @@ already carries the reminder "debloatare alcune routes".)
   (and `insertArtwork` creates a needless `llm ↔ dbActions` import cycle).
 - `server/src/dbActions.ts` imports `fetchArtwork`, `createDescription` and `downloadImage` —
   all unused (`createTwistedDescription` is the one actually called).
-- `server/src/seed.ts`: `testArtworks` (18 QIDs) and `printStored()` are unreferenced.
+- `server/src/scripts/seed.ts`: `testArtworks` (18 QIDs) and `printStored()` are unreferenced.
 - `marketplace/src/frontend/state.ts`: the `else` branch of `contenutiFiltrati()` builds the
   author's dashboard list, but **authors have no `dashboard` entry in the navbar** — the
   branch is unreachable. `trovaItem`'s `i._id === id` fallback is likewise never exercised

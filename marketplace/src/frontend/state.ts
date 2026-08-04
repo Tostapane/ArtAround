@@ -1929,9 +1929,6 @@ export class AppState {
       if (!this.draft.selectedArtworkUri) issues.push("l'opera");
     } else {
       if (this.draft.soggetto.trim() === "") issues.push("il soggetto");
-      // Un soggetto che non e' un'opera non ha nessuna immagine da cui
-      // ripiegare: senza, la sua tessera resta vuota in tutte e due le app.
-      if (!this.draft.immagine) issues.push("l'immagine");
     }
     if (!this.draft.tono) issues.push("il tono");
     if (!(Number(this.draft.durata) > 0)) issues.push("la durata");

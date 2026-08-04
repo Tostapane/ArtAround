@@ -34,7 +34,8 @@ import Pannello from "./Pannello.vue";
 import Comando from "./Comando.vue";
 import { useTTS } from "./useTTS";
 import { labelForCommand, languages } from "../../../../shared/constants";
-import { language, setLanguage, stopImage, stopName } from "@/state";
+import { language, setLanguage, stopImage } from "@/state";
+import { t } from "@/i18n";
 import type { Match } from "../../../../shared/types";
 
 const props = defineProps<{
@@ -51,8 +52,10 @@ const props = defineProps<{
   guidedStudent: boolean;
   guidedTeacher: boolean;
   richiesta: string;
-  /** Il servizio toccato sulla pianta, se la domanda viene da li'. */
+  /** La destinazione, se la domanda non la porta con se': servizio o opera. */
   target: string;
+  /** Se esiste una tappa successiva verso cui si possa chiedere la strada. */
+  canAskNext: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -65,8 +68,8 @@ const emit = defineEmits<{
 const tts = useTTS();
 
 const nextLabel = computed(() => {
-  if (props.guidedTeacher) return "Porta tutti alla prossima opera";
-  return labelForCommand("Prossimo");
+  if (props.guidedTeacher) return t("Porta tutti alla prossima opera");
+  return t(labelForCommand("Prossimo"));
 });
 
 // --- L'opera -----------------------------------------------------------------
@@ -82,8 +85,8 @@ watch(
   },
 );
 
-const imgSrc = computed(() => {
-  if (!props.content) return "";
+const immagine = computed(() => {
+  if (!props.content) return { src: "", name: "" };
   return stopImage(props.content);
 });
 
@@ -103,7 +106,7 @@ function cambiaLingua(codice: string) {
 
 <template>
   <section
-    aria-label="Scheda dell'opera e comandi"
+    :aria-label="t(`Scheda dell'opera e comandi`)"
     class="flex h-[55dvh] shrink-0 flex-col border-t border-line bg-surface
            lg:h-auto lg:w-[26rem] lg:border-l lg:border-t-0"
     style="padding-bottom: env(safe-area-inset-bottom)"
@@ -114,7 +117,7 @@ function cambiaLingua(codice: string) {
         for="lingua-scheda"
         class="shrink-0 text-caption uppercase tracking-wider text-muted"
       >
-        Lingua dei contenuti
+        {{ t("Lingua dei contenuti") }}
       </label>
       <select
         id="lingua-scheda"
@@ -137,13 +140,13 @@ function cambiaLingua(codice: string) {
              testo. Da `lg` in su c'e' l'altezza per il passe-partout intero. -->
         <div class="flex items-start gap-3 p-4 lg:block lg:p-0">
           <div
-            v-if="imgSrc && !imgBroken"
+            v-if="immagine.src && !imgBroken"
             class="mat h-16 w-16 shrink-0 lg:h-auto lg:max-h-48 lg:w-full lg:rounded-none
                    lg:border-x-0 lg:border-t-0"
           >
             <img
-              :src="imgSrc"
-              :alt="'Immagine di ' + stopName(content)"
+              :src="immagine.src"
+              :alt="t('Immagine di {nome}', { nome: immagine.name })"
               @error="imgBroken = true"
             />
           </div>
@@ -167,8 +170,8 @@ function cambiaLingua(codice: string) {
               <span v-if="stile">· {{ stile }}</span>
             </p>
 
-            <p v-if="!inVisit" class="pastiglia pastiglia-ardesia mt-3">Non fa parte di questa visita</p>
-            <p v-else-if="optional" class="pastiglia pastiglia-ardesia mt-3">Tappa opzionale</p>
+            <p v-if="!inVisit" class="pastiglia pastiglia-ardesia mt-3">{{ t("Non fa parte di questa visita") }}</p>
+            <p v-else-if="optional" class="pastiglia pastiglia-ardesia mt-3">{{ t("Tappa opzionale") }}</p>
           </div>
         </div>
 
@@ -185,8 +188,8 @@ function cambiaLingua(codice: string) {
         >
           {{ azione.label }}
         </button>
-        <p v-else-if="guidedStudent" class="vuoto">La prima tappa la apre il docente.</p>
-        <p v-else class="vuoto">Questa visita non ha tappe.</p>
+        <p v-else-if="guidedStudent" class="vuoto">{{ t("La prima tappa la apre il docente.") }}</p>
+        <p v-else class="vuoto">{{ t("Questa visita non ha tappe.") }}</p>
       </div>
     </div>
 
@@ -202,7 +205,7 @@ function cambiaLingua(codice: string) {
         <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19 8 12l7-7" />
         </svg>
-        <span class="sr-only">{{ labelForCommand("Precedente") }}</span>
+        <span class="sr-only">{{ t(labelForCommand("Precedente")) }}</span>
       </button>
 
       <button
@@ -210,7 +213,7 @@ function cambiaLingua(codice: string) {
         type="button"
         class="icona-tonda shrink-0"
         :disabled="!content"
-        aria-label="Leggi la descrizione ad alta voce"
+        :aria-label="t('Leggi la descrizione ad alta voce')"
         @click="emit('action', 'Leggi')"
       >
         <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -221,7 +224,7 @@ function cambiaLingua(codice: string) {
         v-else
         type="button"
         class="icona-tonda icona-tonda-attiva shrink-0"
-        aria-label="Ferma la lettura"
+        :aria-label="t('Ferma la lettura')"
         @click="emit('action', 'Ferma lettura')"
       >
         <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -244,7 +247,7 @@ function cambiaLingua(codice: string) {
         @click="emit('navigation', 'next')"
       >
         <span class="hidden sm:inline lg:hidden xl:inline">
-          {{ guidedTeacher ? "Tutti avanti" : labelForCommand("Prossimo") }}
+          {{ guidedTeacher ? t("Tutti avanti") : t(labelForCommand("Prossimo")) }}
         </span>
         <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
@@ -255,10 +258,10 @@ function cambiaLingua(codice: string) {
         v-if="canEnd"
         type="button"
         class="btn-pericolo-pieno"
-        aria-label="Termina la visita"
+        :aria-label="t('Termina la visita')"
         @click="emit('navigation', 'next')"
       >
-        <span class="hidden sm:inline lg:hidden xl:inline">Termina visita</span>
+        <span class="hidden sm:inline lg:hidden xl:inline">{{ t("Termina visita") }}</span>
         <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
           <circle cx="12" cy="12" r="9" />
@@ -266,7 +269,7 @@ function cambiaLingua(codice: string) {
       </button>
 
       <p v-if="guidedStudent" class="text-center text-caption text-muted">
-        La tappa la decide il docente
+        {{ t("La tappa la decide il docente") }}
       </p>
     </div>
 
@@ -279,6 +282,7 @@ function cambiaLingua(codice: string) {
         :about="riferimento"
         :richiesta="richiesta"
         :target="target"
+        :can-ask-next="canAskNext"
         @action="(a) => emit('action', a)"
         @close-request="emit('closeRequest')"
       />

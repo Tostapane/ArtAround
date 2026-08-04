@@ -22,6 +22,7 @@
  */
 import type { Artwork, Item, Museum, Visit } from "../../shared/types";
 import { apiBase } from "./config";
+import { t } from "./i18n";
 
 const base = () => apiBase();
 
@@ -41,7 +42,7 @@ export async function redeemHandoff(handoff: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ handoff }),
   });
-  if (!res.ok) throw new Error("Il collegamento non vale piu'.");
+  if (!res.ok) throw new Error(t("Il collegamento non vale più."));
   const data = await res.json();
   token = data.token || "";
   sessionStorage.setItem(TOKEN_KEY, token);
@@ -209,7 +210,7 @@ const gsBase = () => `${apiBase()}/guided-sessions`;
 
 export class GuidedEndedError extends Error {
   constructor() {
-    super("La visita guidata è terminata.");
+    super(t("La visita guidata è terminata."));
     this.name = "GuidedEndedError";
   }
 }

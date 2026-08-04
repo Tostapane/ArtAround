@@ -44,6 +44,7 @@ import {
 import { visit } from "@/state";
 import { marketplaceHome } from "@/config";
 import { useAnnouncer } from "@/composables/useAnnouncer";
+import { t } from "@/i18n";
 
 const { announce } = useAnnouncer();
 
@@ -56,8 +57,8 @@ function togglePanel(p: "studenti" | "domande" | "quiz") {
 }
 
 const panelTitle = computed(() => {
-  if (panel.value === "studenti") return "Studenti collegati";
-  if (panel.value === "domande") return "Domande degli studenti";
+  if (panel.value === "studenti") return t("Studenti collegati");
+  if (panel.value === "domande") return t("Domande degli studenti");
   return "Quiz di fine visita";
 });
 
@@ -71,8 +72,9 @@ function formatTime(at: number): string {
 
 watch(guidedParticipantsCount, (ora, prima) => {
   if (!isTeacher.value || prima === undefined) return;
-  if (ora > prima) announce(`${ora} studenti collegati`);
-  else if (ora < prima) announce(`Uno studente si è disconnesso. Ora sono ${ora}`);
+  if (ora > prima) announce(t("{n} studenti collegati", { n: ora }));
+  else if (ora < prima)
+    announce(t("Uno studente si è disconnesso. Ora sono {n}", { n: ora }));
 });
 
 watch(
@@ -80,14 +82,20 @@ watch(
   (ora, prima) => {
     if (!isTeacher.value || prima === undefined || ora <= prima) return;
     const latest = guidedQuestions.value[ora - 1];
-    if (latest) announce(`${latest.username} ha chiesto: ${latest.question}`);
+    if (latest)
+      announce(
+        t("{nome} ha chiesto: {domanda}", {
+          nome: latest.username,
+          domanda: latest.question,
+        }),
+      );
   },
 );
 
 async function start() {
   try {
     await teacherStart();
-    announce("Visita avviata per tutti");
+    announce(t("Visita avviata per tutti"));
   } catch (err) {
     console.error("Impossibile avviare la visita guidata", err);
   }
@@ -201,7 +209,7 @@ const consegneFatte = computed(() => {
 async function avviaQuiz() {
   try {
     await teacherStartQuiz(quizDurata.value);
-    announce("Quiz avviato");
+    announce(t("Quiz avviato"));
   } catch (err) {
     console.error("Impossibile avviare il quiz", err);
     erroreQuiz.value = (err as Error).message;
@@ -211,7 +219,7 @@ async function avviaQuiz() {
 async function chiudiQuiz() {
   try {
     await teacherEndQuiz();
-    announce("Quiz chiuso");
+    announce(t("Quiz chiuso"));
   } catch (err) {
     console.error("Impossibile chiudere il quiz", err);
   }
@@ -227,7 +235,12 @@ async function consegna() {
   erroreQuiz.value = "";
   try {
     const esito = await studentSubmitQuiz(risposte.value);
-    announce(`Consegnato: ${esito.score} risposte corrette su ${esito.total}`);
+    announce(
+      t("Consegnato: {corrette} risposte corrette su {totale}", {
+        corrette: esito.score,
+        totale: esito.total,
+      }),
+    );
   } catch (err) {
     erroreQuiz.value = (err as Error).message;
   } finally {
@@ -243,7 +256,7 @@ async function consegna() {
            text-on-structure sm:p-10"
   >
     <p class="text-caption uppercase tracking-[0.18em] text-on-structure/70">
-      Visita guidata
+      {{ t("Visita guidata") }}
     </p>
 
     <!-- DOCENTE -->
@@ -252,20 +265,23 @@ async function consegna() {
 
       <div v-if="guidedAccessKey" class="mt-8">
         <p class="text-caption uppercase tracking-wider text-on-structure/70">
-          Parola chiave
+          {{ t("Parola chiave") }}
         </p>
         <p class="mt-2 font-mono text-display font-semibold leading-none">
           {{ guidedAccessKey }}
         </p>
         <p class="mt-3 text-small text-on-structure/80">
-          Gli studenti la digitano dal marketplace per entrare.
+          {{ t("Gli studenti la digitano dal marketplace per entrare.") }}
         </p>
       </div>
 
       <div class="mt-10">
         <p class="tabular text-title-3">
-          {{ guidedParticipantsCount }}
-          {{ guidedParticipantsCount === 1 ? "studente collegato" : "studenti collegati" }}
+          {{
+            guidedParticipantsCount === 1
+              ? t("1 studente collegato")
+              : t("{n} studenti collegati", { n: guidedParticipantsCount })
+          }}
         </p>
         <ul
           v-if="guidedParticipants.length"
@@ -280,7 +296,7 @@ async function consegna() {
           </li>
         </ul>
         <p v-else class="mt-3 text-small text-on-structure/70">
-          In attesa che entrino con la parola chiave…
+          {{ t("In attesa che entrino con la parola chiave…") }}
         </p>
       </div>
     </div>
@@ -289,7 +305,7 @@ async function consegna() {
     <div v-else class="py-8">
       <h1 class="font-display text-title-1 leading-tight">{{ guidedVisitName }}</h1>
       <p class="mt-6 text-title-3 text-on-structure/85">
-        In attesa che il docente dia il via.
+        {{ t("In attesa che il docente dia il via.") }}
       </p>
       <p class="tabular mt-2 text-small text-on-structure/70">
         {{ guidedParticipantsCount }}
@@ -300,14 +316,14 @@ async function consegna() {
     <div class="flex flex-wrap gap-3">
       <template v-if="isTeacher">
         <button type="button" class="btn-primario text-title-3" @click="start">
-          Avvia la visita
+          {{ t("Avvia la visita") }}
         </button>
         <button type="button" class="btn-fantasma-chiaro" @click="end">
-          Annulla
+          {{ t("Annulla") }}
         </button>
       </template>
       <button v-else type="button" class="btn-fantasma-chiaro" @click="studentExit">
-        Esci
+        {{ t("Esci") }}
       </button>
     </div>
   </div>
@@ -318,7 +334,7 @@ async function consegna() {
       class="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-structure px-3 py-2 text-on-structure"
     >
       <span class="mr-auto truncate text-small font-medium">
-        Stai conducendo · {{ guidedVisitName }}
+        {{ t("Stai conducendo · {nome}", { nome: guidedVisitName }) }}
       </span>
       <button
         type="button"
@@ -326,7 +342,7 @@ async function consegna() {
         :aria-pressed="panel === 'studenti'"
         @click="togglePanel('studenti')"
       >
-        Studenti (<span class="tabular">{{ guidedParticipantsCount }}</span>)
+        {{ t("Studenti") }} (<span class="tabular">{{ guidedParticipantsCount }}</span>)
       </button>
       <button
         type="button"
@@ -334,7 +350,7 @@ async function consegna() {
         :aria-pressed="panel === 'domande'"
         @click="togglePanel('domande')"
       >
-        Domande (<span class="tabular">{{ guidedQuestions.length }}</span>)
+        {{ t("Domande") }} (<span class="tabular">{{ guidedQuestions.length }}</span>)
       </button>
       <button
         v-if="guidedHasQuiz"
@@ -343,17 +359,17 @@ async function consegna() {
         :aria-pressed="panel === 'quiz'"
         @click="togglePanel('quiz')"
       >
-        Quiz
+        {{ t("Quiz") }}
       </button>
       <button type="button" class="btn-pericolo-pieno" @click="end">
-        Termina per tutti
+        {{ t("Termina per tutti") }}
       </button>
     </div>
     <p
       v-else
       class="shrink-0 border-b border-line bg-structure px-3 py-2 text-center text-caption text-on-structure"
     >
-      Visita guidata dal docente
+      {{ t("Visita guidata dal docente") }}
     </p>
 
     <Visita
@@ -373,7 +389,7 @@ async function consegna() {
       >
         <div class="flex shrink-0 items-center justify-between gap-3">
           <h2 class="font-display text-title-3">{{ panelTitle }}</h2>
-          <button type="button" class="icona-mini" aria-label="Chiudi" @click="panel = ''">
+          <button type="button" class="icona-mini" :aria-label="t('Chiudi')" @click="panel = ''">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>
@@ -391,24 +407,27 @@ async function consegna() {
               {{ p.username }}
             </li>
           </ul>
-          <p v-else class="vuoto mt-4">Nessuno studente collegato.</p>
+          <p v-else class="vuoto mt-4">{{ t("Nessuno studente collegato.") }}</p>
         </template>
 
         <!-- Avvio del quiz -->
         <template v-else-if="panel === 'quiz'">
           <p class="mt-4 text-small text-muted">
-            Il quiz parte su tutti i dispositivi insieme. Il voto è il numero di
-            risposte corrette, e lo calcola il server.
+            {{
+              t(
+                "Il quiz parte su tutti i dispositivi insieme. Il voto è il numero di risposte corrette, e lo calcola il server.",
+              )
+            }}
           </p>
           <div class="mt-4">
             <label for="quiz-durata" class="text-caption uppercase tracking-wider text-muted">
-              Tempo a disposizione
+              {{ t("Tempo a disposizione") }}
             </label>
             <select id="quiz-durata" v-model.number="quizDurata" class="campo-select mt-2 w-full">
-              <option :value="60">1 minuto</option>
-              <option :value="120">2 minuti</option>
-              <option :value="300">5 minuti</option>
-              <option :value="600">10 minuti</option>
+              <option :value="60">{{ t("1 minuto") }}</option>
+              <option :value="120">{{ t("2 minuti") }}</option>
+              <option :value="300">{{ t("5 minuti") }}</option>
+              <option :value="600">{{ t("10 minuti") }}</option>
             </select>
           </div>
           <p class="tabular mt-4 text-small text-muted">
@@ -421,7 +440,7 @@ async function consegna() {
             class="btn-primario mt-4 w-full justify-center"
             @click="avviaQuiz"
           >
-            Avvia il quiz
+            {{ t("Avvia il quiz") }}
           </button>
         </template>
 
@@ -437,10 +456,10 @@ async function consegna() {
                 <span class="tabular shrink-0 text-caption text-muted">{{ formatTime(q.at) }}</span>
               </div>
               <p class="mt-1">{{ q.question }}</p>
-              <p v-if="q.artwork" class="mt-0.5 text-caption text-muted">su «{{ q.artwork }}»</p>
+              <p v-if="q.artwork" class="mt-0.5 text-caption text-muted">{{ t("su «{nome}»", { nome: q.artwork }) }}</p>
             </li>
           </ul>
-          <p v-else class="vuoto mt-4">Nessuna domanda per ora.</p>
+          <p v-else class="vuoto mt-4">{{ t("Nessuna domanda per ora.") }}</p>
         </template>
       </aside>
     </div>
@@ -455,7 +474,7 @@ async function consegna() {
   >
     <div class="mx-auto max-w-2xl">
       <p class="text-caption uppercase tracking-[0.18em] text-on-structure/70">
-        Quiz · {{ guidedVisitName }}
+        {{ t("Quiz · {nome}", { nome: guidedVisitName }) }}
       </p>
       <h1 class="mt-2 font-display text-title-1">
         {{ quizChiuso ? "Quiz chiuso" : "Quiz in corso" }}
@@ -463,33 +482,33 @@ async function consegna() {
 
       <div class="mt-6 flex flex-wrap gap-6">
         <div>
-          <p class="text-caption uppercase tracking-wider text-on-structure/70">Consegne</p>
+          <p class="text-caption uppercase tracking-wider text-on-structure/70">{{ t("Consegne") }}</p>
           <p class="tabular font-display text-title-1">
             {{ consegneFatte }} / {{ guidedParticipantsCount }}
           </p>
         </div>
         <div v-if="!quizChiuso">
-          <p class="text-caption uppercase tracking-wider text-on-structure/70">Tempo</p>
+          <p class="text-caption uppercase tracking-wider text-on-structure/70">{{ t("Tempo") }}</p>
           <p class="tabular font-display text-title-1">{{ tempoRimasto }}</p>
         </div>
         <div v-if="guidedQuizDocente">
-          <p class="text-caption uppercase tracking-wider text-on-structure/70">Domande</p>
+          <p class="text-caption uppercase tracking-wider text-on-structure/70">{{ t("Domande") }}</p>
           <p class="tabular font-display text-title-1">{{ guidedQuizDocente.total }}</p>
         </div>
       </div>
 
       <table v-if="guidedQuizDocente" class="mt-8 w-full text-left">
-        <caption class="sr-only">Risultati del quiz</caption>
+        <caption class="sr-only">{{ t("Risultati del quiz") }}</caption>
         <thead>
           <tr class="border-b border-on-structure/25">
             <th scope="col" class="py-2 text-caption uppercase tracking-wider text-on-structure/70">
-              Studente
+              {{ t("Studente") }}
             </th>
             <th scope="col" class="py-2 text-caption uppercase tracking-wider text-on-structure/70">
-              Stato
+              {{ t("Stato") }}
             </th>
             <th scope="col" class="py-2 text-right text-caption uppercase tracking-wider text-on-structure/70">
-              Voto
+              {{ t("Voto") }}
             </th>
           </tr>
         </thead>
@@ -501,7 +520,7 @@ async function consegna() {
           >
             <td class="py-2.5 font-medium">{{ r.username }}</td>
             <td class="py-2.5 text-small text-on-structure/75">
-              {{ r.consegnato ? "Consegnato" : "In corso" }}
+              {{ r.consegnato ? t("Consegnato") : t("In corso") }}
             </td>
             <td class="tabular py-2.5 text-right">
               <span v-if="r.consegnato">
@@ -514,7 +533,7 @@ async function consegna() {
       </table>
 
       <p v-if="guidedQuizDocente && !guidedQuizDocente.risultati.length" class="mt-8 text-body text-on-structure/75">
-        Nessuno studente collegato.
+        {{ t("Nessuno studente collegato.") }}
       </p>
 
       <div class="mt-10 flex flex-wrap gap-3">
@@ -524,10 +543,10 @@ async function consegna() {
           class="btn-primario"
           @click="chiudiQuiz"
         >
-          Chiudi il quiz
+          {{ t("Chiudi il quiz") }}
         </button>
         <button type="button" class="btn-pericolo-pieno" @click="end">
-          Termina per tutti
+          {{ t("Termina per tutti") }}
         </button>
       </div>
     </div>
@@ -541,7 +560,7 @@ async function consegna() {
     <div class="mx-auto max-w-xl">
       <div class="flex items-baseline justify-between gap-3">
         <p class="text-caption uppercase tracking-[0.18em] text-on-structure/70">
-          Quiz · {{ guidedVisitName }}
+          {{ t("Quiz · {nome}", { nome: guidedVisitName }) }}
         </p>
         <p v-if="!consegnato && !quizChiuso" class="tabular text-title-3" aria-live="off">
           {{ tempoRimasto }}
@@ -550,7 +569,7 @@ async function consegna() {
 
       <!-- Consegnato: il voto -->
       <div v-if="consegnato" class="py-10 text-center">
-        <h1 class="font-display text-title-1">Consegnato.</h1>
+        <h1 class="font-display text-title-1">{{ t("Consegnato.") }}</h1>
         <p v-if="guidedQuizPunteggio !== null && guidedQuizStudente" class="mt-6">
           <span class="tabular font-display text-display leading-none">
             {{ guidedQuizPunteggio }}
@@ -562,16 +581,16 @@ async function consegna() {
         <p class="mt-4 text-body text-on-structure/80">
           {{
             quizChiuso
-              ? "Il quiz è chiuso. Aspetta il docente."
-              : "Aspetta che il docente chiuda il quiz."
+              ? t("Il quiz è chiuso. Aspetta il docente.")
+              : t("Aspetta che il docente chiuda il quiz.")
           }}
         </p>
       </div>
 
       <div v-else-if="quizChiuso" class="py-10 text-center">
-        <h1 class="font-display text-title-1">Tempo scaduto.</h1>
+        <h1 class="font-display text-title-1">{{ t("Tempo scaduto.") }}</h1>
         <p class="mt-3 text-body text-on-structure/80">
-          Il quiz è chiuso e non è stato consegnato.
+          {{ t("Il quiz è chiuso e non è stato consegnato.") }}
         </p>
       </div>
 
@@ -616,20 +635,20 @@ async function consegna() {
         <p v-if="erroreQuiz" class="avviso mt-4" role="alert">{{ erroreQuiz }}</p>
 
         <p class="mt-6 text-small text-on-structure/70" role="status">
-          <span v-if="!tutteRisposte">Rispondi a tutte le domande per consegnare.</span>
-          <span v-else>Puoi consegnare. Si consegna una volta sola.</span>
+          <span v-if="!tutteRisposte">{{ t("Rispondi a tutte le domande per consegnare.") }}</span>
+          <span v-else>{{ t("Puoi consegnare. Si consegna una volta sola.") }}</span>
         </p>
         <button
           type="submit"
           class="btn-primario mt-3 w-full justify-center text-title-3"
           :disabled="!tutteRisposte || inviando"
         >
-          {{ inviando ? "Invio…" : "Consegna" }}
+          {{ inviando ? t("Invio…") : t("Consegna") }}
         </button>
       </form>
 
       <p v-else class="py-10 text-center text-body text-on-structure/80">
-        Il docente sta preparando il quiz…
+        {{ t("Il docente sta preparando il quiz…") }}
       </p>
     </div>
   </div>
@@ -641,30 +660,30 @@ async function consegna() {
   >
     <div class="max-w-md text-center">
       <h1 class="font-display text-title-1">
-        {{ guidedPlannedEnd ? "La visita è finita." : "La sessione è stata chiusa." }}
+        {{ guidedPlannedEnd ? t("La visita è finita.") : t("La sessione è stata chiusa.") }}
       </h1>
       <p class="mt-3 text-body text-on-structure/85">
         {{
           guidedPlannedEnd
-            ? "Grazie per aver partecipato."
-            : "Il collegamento con la visita si è interrotto. Chiedi al docente di riaprire la sala d'attesa."
+            ? t("Grazie per aver partecipato.")
+            : t("Il collegamento con la visita si è interrotto. Chiedi al docente di riaprire la sala d'attesa.")
         }}
       </p>
       <p
         v-if="guidedQuizPunteggio !== null && guidedQuizStudente"
         class="mt-6 text-body text-on-structure/85"
       >
-        Il tuo voto al quiz:
+        {{ t("Il tuo voto al quiz:") }}
         <span class="tabular font-semibold">
           {{ guidedQuizPunteggio }} / {{ guidedQuizStudente.total }}
         </span>
       </p>
       <div class="mt-8 flex flex-col gap-2">
         <button type="button" class="btn-primario justify-center" @click="backHome">
-          Torna alla home
+          {{ t("Torna alla home") }}
         </button>
         <button type="button" class="btn-fantasma-chiaro justify-center" @click="backToSelection">
-          Scegli un'altra visita
+          {{ t("Scegli un'altra visita") }}
         </button>
       </div>
     </div>

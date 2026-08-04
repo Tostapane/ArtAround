@@ -40,6 +40,7 @@ import { useQRScanner } from "@/composables/useQRScanner";
 import { artworkByQid } from "@/state";
 import { mediaOrigin } from "@/config";
 import { bussola, localizzabile, rank, stima, type Candidato } from "@/localization";
+import { t } from "@/i18n";
 
 const props = defineProps<{ sensorError: string; posizioneAttiva: boolean }>();
 const emit = defineEmits<{
@@ -118,7 +119,7 @@ function trova() {
   const verdetto = rank();
   if (!verdetto || verdetto.candidati.length === 0) {
     esitoVuoto.value =
-      "Non riesco ancora a capire dove sei. Inquadra il QR o scrivi il codice.";
+      t("Non riesco ancora a capire dove sei. Inquadra il QR o scrivi il codice.");
     return;
   }
   const primo = verdetto.candidati[0];
@@ -133,7 +134,7 @@ function submitCode() {
   const qid = extractQid(code.value);
   if (!qid) {
     codeError.value =
-      "Codice non riconosciuto. È scritto sotto il QR, e comincia per Q.";
+      t("Codice non riconosciuto. È scritto sotto il QR, e comincia per Q.");
     return;
   }
   codeError.value = "";
@@ -155,11 +156,11 @@ onUnmounted(() => scanner.stop());
       class="lastra w-full max-w-md p-5 shadow-l2"
     >
       <div class="flex items-start justify-between gap-3">
-        <h2 id="posizione-titolo" class="font-display text-title-2">Dove sono?</h2>
+        <h2 id="posizione-titolo" class="font-display text-title-2">{{ t("Dove sono?") }}</h2>
         <button
           type="button"
           class="icona-mini"
-          aria-label="Chiudi"
+          :aria-label="t('Chiudi')"
           @click="emit('close')"
         >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
@@ -176,14 +177,14 @@ onUnmounted(() => scanner.stop());
           @change="emit('cambiaPosizione', ($event.target as HTMLInputElement).checked)"
         />
         <span class="text-small">
-          <span class="font-medium">Tieni conto di dove sono</span>
+          <span class="font-medium">{{ t("Tieni conto di dove sono") }}</span>
           <span class="block text-caption text-muted">
-            Le indicazioni partono da dove ti trovi, invece che dall'opera aperta.
+            {{ t("Le indicazioni partono da dove ti trovi, invece che dall'opera aperta.") }}
           </span>
         </span>
       </label>
 
-      <div class="segmenti mt-4" role="tablist" aria-label="Come indicare l'opera">
+      <div class="segmenti mt-4" role="tablist" :aria-label="t(`Come indicare l'opera`)">
         <button
           type="button"
           role="tab"
@@ -193,7 +194,7 @@ onUnmounted(() => scanner.stop());
           :class="sheet === 'qr' ? 'segmento-attivo' : ''"
           @click="sheet = 'qr'"
         >
-          Inquadra il QR
+          {{ t("Inquadra il QR") }}
         </button>
         <button
           type="button"
@@ -203,7 +204,7 @@ onUnmounted(() => scanner.stop());
           :class="sheet === 'codice' ? 'segmento-attivo' : ''"
           @click="sheet = 'codice'"
         >
-          Scrivi il codice
+          {{ t("Scrivi il codice") }}
         </button>
         <button
           type="button"
@@ -213,7 +214,7 @@ onUnmounted(() => scanner.stop());
           :class="sheet === 'posizione' ? 'segmento-attivo' : ''"
           @click="sheet = 'posizione'"
         >
-          Trovami
+          {{ t("Trovami") }}
         </button>
         <button
           type="button"
@@ -223,13 +224,12 @@ onUnmounted(() => scanner.stop());
           :class="sheet === 'teletrasporto' ? 'segmento-attivo' : ''"
           @click="sheet = 'teletrasporto'"
         >
-          Teletrasporto
+          {{ t("Teletrasporto") }}
         </button>
       </div>
 
       <p v-if="!cameraAvailable" class="avviso mt-4">
-        La fotocamera funziona solo su indirizzi sicuri (https o localhost).
-        Scrivi il codice stampato sotto il QR.
+        {{ t("La fotocamera funziona solo su indirizzi sicuri (https o localhost). Scrivi il codice stampato sotto il QR.") }}
       </p>
 
       <!-- QR -->
@@ -245,15 +245,15 @@ onUnmounted(() => scanner.stop());
           {{ scanner.error.value }}
         </p>
         <p v-else class="mt-3 text-small text-muted">
-          Inquadra il QR posto accanto all'opera.
+          {{ t("Inquadra il QR posto accanto all'opera.") }}
         </p>
       </div>
 
       <!-- Codice digitato -->
       <form v-show="sheet === 'codice'" class="mt-4" @submit.prevent="submitCode">
-        <label for="codice-opera" class="etichetta">Codice dell'opera</label>
+        <label for="codice-opera" class="etichetta">{{ t("Codice dell'opera") }}</label>
         <p class="mt-1 text-caption text-muted">
-          È stampato sotto il QR, accanto all'opera.
+          {{ t("È stampato sotto il QR, accanto all'opera.") }}
         </p>
         <input
           id="codice-opera"
@@ -270,15 +270,14 @@ onUnmounted(() => scanner.stop());
           {{ codeError }}
         </p>
         <button type="submit" class="btn-primario mt-4 w-full justify-center" :disabled="!code.trim()">
-          Portami qui
+          {{ t("Portami qui") }}
         </button>
       </form>
 
       <!-- Localizzazione automatica -->
       <div v-show="sheet === 'posizione'" class="mt-4">
         <p v-if="!localizzabile" class="avviso">
-          La pianta di questo museo non porta la propria misura, quindi non posso
-          convertire un passo in metri. Inquadra il QR o scrivi il codice.
+          {{ t("La pianta di questo museo non porta la propria misura, quindi non posso convertire un passo in metri. Inquadra il QR o scrivi il codice.") }}
         </p>
         <template v-else>
           <p class="text-small text-muted">
@@ -288,18 +287,17 @@ onUnmounted(() => scanner.stop());
             {{ props.sensorError }}
           </p>
           <p v-else-if="bussola === null" class="mt-3 text-caption text-muted">
-            Senza bussola posso solo dirti quali opere ti sono vicine: la scelta
-            resta a te.
+            {{ t("Senza bussola posso solo dirti quali opere ti sono vicine: la scelta resta a te.") }}
           </p>
 
           <button type="button" class="btn-primario mt-4 w-full justify-center" @click="trova">
-            Trova l'opera che ho davanti
+            {{ t("Trova l'opera che ho davanti") }}
           </button>
 
           <p v-if="esitoVuoto" class="avviso mt-4" role="alert">{{ esitoVuoto }}</p>
 
           <div v-if="candidati.length" class="mt-5">
-            <h3 class="text-small font-medium">Quale hai davanti?</h3>
+            <h3 class="text-small font-medium">{{ t("Quale hai davanti?") }}</h3>
             <ul class="mt-3 grid grid-cols-2 gap-3">
               <li v-for="c in candidati" :key="c.qid">
                 <button
@@ -330,17 +328,14 @@ onUnmounted(() => scanner.stop());
       <!-- Teletrasporto -->
       <div v-show="sheet === 'teletrasporto'" class="mt-4">
         <p class="text-small text-muted">
-          Ti porta dove vuoi sulla pianta senza attraversare il museo: il tocco
-          successivo ti sposta lì, su una tappa o sul pavimento. Non apre nessuna
-          tappa — da lì premi «Trovami».
+          {{ t("Ti porta dove vuoi sulla pianta senza attraversare il museo: il tocco successivo ti sposta lì, su una tappa o sul pavimento. Non apre nessuna tappa — da lì premi «Trovami».") }}
         </p>
 
         <p v-if="!localizzabile" class="avviso mt-4">
-          La pianta di questo museo non porta la propria misura, quindi da un
-          punto qualunque non saprei calcolare niente.
+          {{ t("La pianta di questo museo non porta la propria misura, quindi da un punto qualunque non saprei calcolare niente.") }}
         </p>
         <button v-else type="button" class="btn-primario mt-4 w-full justify-center" @click="emit('arm')">
-          Scegli il punto sulla pianta
+          {{ t("Scegli il punto sulla pianta") }}
         </button>
       </div>
     </div>

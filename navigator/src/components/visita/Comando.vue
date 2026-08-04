@@ -43,6 +43,7 @@ import {
 import { useAnnouncer } from "@/composables/useAnnouncer";
 import { labelForCommand } from "../../../../shared/constants";
 import { language } from "@/state";
+import { t } from "@/i18n";
 
 const props = defineProps<{ tappa: string }>();
 const emit = defineEmits<{ action: [value: string] }>();
@@ -71,9 +72,9 @@ const stato = computed(() => {
 });
 
 const label = computed(() => {
-  if (stato.value === "registrando") return "Invia";
-  if (stato.value === "elaborando") return "Sto capendo…";
-  return "Parla";
+  if (stato.value === "registrando") return t("Invia");
+  if (stato.value === "elaborando") return t("Sto capendo…");
+  return t("Parla");
 });
 
 async function press() {
@@ -84,27 +85,27 @@ async function press() {
   }
   esito.value = "";
   await startRecording();
-  if (isRecording.value) announce("Registrazione avviata. Parla pure.");
+  if (isRecording.value) announce(t("Registrazione avviata. Parla pure."));
 }
 
 watch(finalBlob, async (blob) => {
   if (!blob) return;
   processing.value = true;
   esito.value = "";
-  announce("Sto capendo il comando");
+  announce(t("Sto capendo il comando"));
   try {
     const result = await sendAudioToBackend(blob, language.value.stt);
     const command = result && result.mappedTranscript;
     if (command) {
-      announce(`Comando: ${labelForCommand(command)}`);
+      announce(t("Comando: {nome}", { nome: t(labelForCommand(command)) }));
       emit("action", command);
     } else {
-      riferisci("Non ho capito. Prova a ripetere, oppure usa i pulsanti.");
+      riferisci(t("Non ho capito. Prova a ripetere, oppure usa i pulsanti."));
     }
   } catch {
     // Il server distingue "non ho capito" da "non rispondo": qui si arriva solo
     // nel secondo caso, e ripetere la frase non servirebbe a niente.
-    riferisci("Il comando vocale non è disponibile ora. Usa i pulsanti qui sopra.");
+    riferisci(t("Il comando vocale non è disponibile ora. Usa i pulsanti qui sopra."));
   } finally {
     processing.value = false;
   }

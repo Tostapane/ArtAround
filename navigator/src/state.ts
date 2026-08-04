@@ -26,6 +26,7 @@ import type { Artwork, Item, Visit, Museum, Match } from "../../shared/types";
 import { languages, kindById, type Language } from "../../shared/constants";
 import { getMuseum, getMuseumArtworks, getVisitItems } from "./api";
 import { mediaOrigin } from "./config";
+import { setLocale } from "./i18n";
 
 // ============================================================================
 //                            Visita, museo, mappa
@@ -95,19 +96,62 @@ function defaultLanguage(): Language {
   return first;
 }
 
+/**
+ * La lingua che il telefono dichiara, se e' fra quelle offerte.
+ *
+ * Serve perche' la PRIMA schermata si legge prima di poter scegliere: aprendo
+ * sempre in italiano, a un visitatore cinese si chiede di riconoscere la frase
+ * «Lingua dei contenuti» per arrivare a 中文. Il suo telefono quella risposta ce
+ * l'ha gia'.
+ *
+ * `navigator.languages` porta le preferenze in ordine di gradimento. Si prova
+ * prima il codice intero e poi la sola radice, perche' un telefono dice `en-GB`
+ * o `pt-PT` dove il nostro elenco ha `en` e `pt` — e all'incontrario dice `zh`
+ * dove noi abbiamo solo `zh-CN`. Una radice che porta a piu' lingue prende la
+ * prima dell'elenco: e' l'unica cinese che il progetto ha.
+ */
+function browserLanguage(): Language | null {
+  const preferite = navigator.languages || [navigator.language];
+  for (const p of preferite) {
+    if (!p) continue;
+    const codice = p.toLowerCase();
+    for (const l of languages) {
+      if (l.translate.toLowerCase() === codice) return l;
+    }
+    const radice = codice.split("-")[0];
+    for (const l of languages) {
+      if (l.translate.toLowerCase().split("-")[0] === radice) return l;
+    }
+  }
+  return null;
+}
+
+/** Quella gia' scelta, poi quella del telefono, poi l'italiano. */
 function loadLanguage(): Language {
   const saved = localStorage.getItem(LANG_KEY);
   for (const l of languages) {
     if (l.translate === saved) return l;
   }
+  const dalTelefono = browserLanguage();
+  if (dalTelefono) return dalTelefono;
   return defaultLanguage();
 }
 
 export const language = ref<Language>(loadLanguage());
 
+/**
+ * La lingua la SPINGE questo modulo dentro `i18n`, invece di essere letta da li'
+ * con un `watch`: quella direzione chiudeva un anello di import
+ * (i18n → state → api → i18n) e faceva partire l'applicazione con `language` non
+ * ancora inizializzato. Nel verso giusto `i18n` non importa niente e l'anello non
+ * si puo' formare — vedi la sua intestazione.
+ */
+setLocale(language.value.translate);
+
 export function setLanguage(lang: Language) {
   language.value = lang;
   localStorage.setItem(LANG_KEY, lang.translate);
+  setLocale(lang.translate);
 }
 
 // ============================================================================
@@ -204,19 +248,33 @@ export function stopSubtitle(stop: Match): string {
   return "";
 }
 
-/** L'immagine della tappa: quella dell'item vince, perche' l'ha scelta l'autore. */
-export function stopImage(stop: Match): string {
-  const proprie = [stop.item.imagePath];
-  if (stop.artwork) {
-    proprie.push(stop.artwork.imagePath);
-    proprie.push(stop.artwork.imageUri);
+/**
+ * L'immagine della tappa e CHE COSA ritrae, che non sono la stessa cosa.
+ *
+ * Vince quella dell'item, perche' l'ha scelta l'autore. Quando non c'e' — a un
+ * contenuto che parla di uno stile o di un periodo non si chiede piu' di
+ * portarne una — si ripiega sull'ANCORA: l'opera davanti a cui si sta mentre lo
+ * si ascolta. Non e' un riempitivo, e' la foto di dove il visitatore si trova.
+ *
+ * Il nome torna insieme all'indirizzo perche' la didascalia deve dire l'opera
+ * che si vede e non il soggetto della tappa: altrimenti la Primavera verrebbe
+ * annunciata come «Rinascimento».
+ */
+export function stopImage(stop: Match): { src: string; name: string } {
+  if (stop.item.imagePath) {
+    return { src: mediaUrl(stop.item.imagePath), name: stopName(stop) };
   }
-  for (const src of proprie) {
-    if (!src) continue;
-    if (src.startsWith("http")) return src;
-    return mediaOrigin() + src;
+  const opera = stop.artwork || stop.anchor;
+  if (opera) {
+    const src = opera.imagePath || opera.imageUri;
+    if (src) return { src: mediaUrl(src), name: opera.name };
   }
-  return "";
+  return { src: "", name: "" };
+}
+
+function mediaUrl(src: string): string {
+  if (src.startsWith("http")) return src;
+  return mediaOrigin() + src;
 }
 
 // ============================================================================

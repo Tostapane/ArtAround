@@ -6,6 +6,7 @@
  */
 import { ref } from "vue";
 import jsQR from "jsqr";
+import { t } from "@/i18n";
 
 export function useQRScanner() {
   const error = ref<string>("");
@@ -22,7 +23,7 @@ export function useQRScanner() {
     stopped = false;
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        error.value = "Fotocamera non disponibile (serve https o localhost).";
+        error.value = t("Fotocamera non disponibile (serve https o localhost).");
         return;
       }
 
@@ -58,11 +59,11 @@ export function useQRScanner() {
     } catch (e) {
       const err = e as DOMException;
       if (err.name === "NotAllowedError") {
-        error.value = "Permesso fotocamera negato.";
+        error.value = t("Permesso fotocamera negato.");
       } else if (err.name === "NotFoundError") {
-        error.value = "Nessuna fotocamera trovata.";
+        error.value = t("Nessuna fotocamera trovata.");
       } else {
-        error.value = "Impossibile accedere alla fotocamera.";
+        error.value = t("Impossibile accedere alla fotocamera.");
       }
     }
   }

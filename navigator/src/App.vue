@@ -52,13 +52,14 @@ import {
 import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
 import { useAnnouncer } from "./composables/useAnnouncer";
+import { t } from "@/i18n";
 import type { Visit, Artwork, Item } from "../../shared/types";
 
 const { message, announce } = useAnnouncer();
 
 const pronto = ref(false);
 const erroreAvvio = ref("");
-const testoAvvio = ref("Apertura del museo…");
+const testoAvvio = ref(t("Apertura del museo…"));
 const started = ref(false);
 const choice = ref<string>("");
 
@@ -88,7 +89,7 @@ onMounted(async () => {
   }
   if (!hasSession()) {
     erroreAvvio.value =
-      "Apri l'app da museo dal marketplace: è lì che si entra col proprio profilo.";
+      t("Apri l'app da museo dal marketplace: è lì che si entra col proprio profilo.");
     pronto.value = true;
     return;
   }
@@ -105,7 +106,7 @@ onMounted(async () => {
     } catch (err) {
       console.error("Impossibile agganciare la visita guidata", err);
       erroreAvvio.value =
-        "Non è stato possibile entrare nella visita guidata. Chiedi al docente di riaprire la sala d'attesa.";
+        t("Non è stato possibile entrare nella visita guidata. Chiedi al docente di riaprire la sala d'attesa.");
     }
   }
   if (role === "docente" && guidedVisitParam) {
@@ -115,7 +116,7 @@ onMounted(async () => {
       return;
     } catch (err) {
       console.error("Impossibile avviare la visita guidata", err);
-      erroreAvvio.value = "Non è stato possibile aprire la sala d'attesa.";
+      erroreAvvio.value = t("Non è stato possibile aprire la sala d'attesa.");
     }
   }
 
@@ -138,7 +139,7 @@ onMounted(async () => {
   const qid = museumParam || museumQid();
   if (!qid) {
     erroreAvvio.value =
-      "Nessun museo configurato. Il curatore deve indicarlo in config.json.";
+      t("Nessun museo configurato. Il curatore deve indicarlo in config.json.");
     pronto.value = true;
     return;
   }
@@ -146,14 +147,14 @@ onMounted(async () => {
 
   const richiesta = (params.get("custom") || "").trim();
   if (richiesta !== "") {
-    testoAvvio.value = "Stiamo componendo la tua visita…";
+    testoAvvio.value = t("Stiamo componendo la tua visita…");
     try {
       const risultato = await createCustomVisit(qid, richiesta);
       onCustomStart(risultato);
     } catch (err) {
       console.error("Impossibile comporre la visita su misura", err);
       erroreAvvio.value =
-        "Non è stato possibile comporre la visita. Torna al marketplace e riprova, magari descrivendola con altre parole.";
+        t("Non è stato possibile comporre la visita. Torna al marketplace e riprova, magari descrivendola con altre parole.");
     }
   }
 
@@ -164,7 +165,7 @@ function onStart(v: Visit) {
   setVisit(v);
   choice.value = v["@id"];
   started.value = true;
-  announce(`Visita avviata: ${v.name}`);
+  announce(t("Visita avviata: {nome}", { nome: v.name }));
 }
 
 function onCustomStart(payload: {
@@ -177,12 +178,12 @@ function onCustomStart(payload: {
   setCustomVisit(payload.visit, buildStops(items));
   choice.value = payload.visit["@id"];
   started.value = true;
-  announce(`Visita avviata: ${payload.visit.name}`);
+  announce(t("Visita avviata: {nome}", { nome: payload.visit.name }));
 }
 
 function exit() {
   started.value = false;
-  announce("Scelta della visita");
+  announce(t("Scelta della visita"));
 }
 
 const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
@@ -190,7 +191,7 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
 
 <template>
   <div class="flex h-[100dvh] flex-col overflow-hidden bg-bg text-text">
-    <a href="#contenuto" class="salta">Salta al contenuto</a>
+    <a href="#contenuto" class="salta">{{ t("Salta al contenuto") }}</a>
 
     <main id="contenuto" tabindex="-1" class="flex min-h-0 flex-1 flex-col">
       <div v-if="!pronto" class="flex flex-1 items-center justify-center p-8">

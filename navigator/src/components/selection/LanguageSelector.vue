@@ -9,17 +9,23 @@ import {
 } from "@headlessui/vue";
 import { languages, type Language } from "../../../../shared/constants";
 import { language, setLanguage } from "@/state";
+import { t } from "@/i18n";
 
 // testo digitato per filtrare la lista delle lingue
 const query = ref("");
 
-// lingue che corrispondono al testo digitato (ricerca per nome, case-insensitive)
+// Lingue che corrispondono al testo digitato. Si cerca anche nel CODICE, non
+// solo nel nome: i nomi sono scritti nella lingua stessa (中文, Русский), quindi
+// chi non ha quella tastiera non puo' digitarli — `zh`, `ru`, `de` invece li
+// scrive chiunque.
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (q === "") return languages;
   const result: Language[] = [];
   for (const l of languages) {
-    if (l.name.toLowerCase().includes(q)) result.push(l);
+    const nome = l.name.toLowerCase();
+    const codice = l.translate.toLowerCase();
+    if (nome.includes(q) || codice.includes(q)) result.push(l);
   }
   return result;
 });
@@ -38,7 +44,7 @@ function displayName(lang: Language): string {
 <template>
   <div class="flex flex-col gap-2">
     <span id="label-lingua" class="text-sm font-medium text-text">
-      Lingua dei contenuti
+      {{ t("Lingua dei contenuti") }}
     </span>
     <Combobox
       :model-value="language"
@@ -53,12 +59,12 @@ function displayName(lang: Language): string {
           aria-labelledby="label-lingua"
           class="w-full bg-surface px-4 py-2.5 text-sm font-medium text-text focus:outline-none"
           :display-value="(l) => displayName(l as Language)"
-          placeholder="Cerca una lingua…"
+          :placeholder="t('Cerca una lingua…')"
           @change="query = ($event.target as HTMLInputElement).value"
         />
         <ComboboxButton
           class="absolute inset-y-0 right-0 flex items-center px-2 text-muted"
-          aria-label="Apri elenco lingue"
+          :aria-label="t('Apri elenco lingue')"
         >
           <svg
             class="h-5 w-5"
@@ -82,7 +88,7 @@ function displayName(lang: Language): string {
           v-if="filtered.length === 0"
           class="px-3 py-2 text-sm text-muted"
         >
-          Nessuna lingua trovata.
+          {{ t("Nessuna lingua trovata.") }}
         </p>
         <ComboboxOption
           v-for="lang in filtered"

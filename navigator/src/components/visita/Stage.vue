@@ -71,6 +71,7 @@ import {
 } from "@/state";
 import { bussola, stima } from "@/localization";
 import { useAnnouncer } from "@/composables/useAnnouncer";
+import { t } from "@/i18n";
 
 const emit = defineEmits<{
   select: [value: number];
@@ -323,10 +324,12 @@ function prepareMap() {
     if (indices.length > 1) {
       numeri = indices.map((i) => stopNumber(i)).join(", ");
     }
-    const label =
-      `${indices.length > 1 ? "Tappe" : "Tappa"} ${numeri}: ${art.name}` +
-      `${optional ? " (tappa opzionale)" : ""}` +
-      `${indices.length > 1 ? `, ${indices.length} descrizioni` : ""}`;
+    let label =
+      indices.length > 1
+        ? t("Tappe {numeri}: {nome}", { numeri, nome: art.name })
+        : t("Tappa {numeri}: {nome}", { numeri, nome: art.name });
+    if (optional) label += " " + t("(tappa opzionale)");
+    if (indices.length > 1) label += ", " + t("{n} descrizioni", { n: indices.length });
     element.setAttribute("aria-label", label);
     let title = element.querySelector("title") as SVGTitleElement | null;
     if (!title) {
@@ -444,7 +447,7 @@ watch(pianoAttivo, (nuovo, vecchio) => {
   nextTick(inquadraPiano);
   if (vecchio === null || nuovo === vecchio) return;
   for (const p of piani.value) {
-    if (p.numero === nuovo) announce(`Pianta: ${p.etichetta}`);
+    if (p.numero === nuovo) announce(t("Pianta: {nome}", { nome: p.etichetta }));
   }
 });
 watch([stima, bussola], () => nextTick(drawPosition));
@@ -461,7 +464,7 @@ const optionalCount = computed(() => {
   <div class="flex min-h-0 flex-col">
     <!-- Due modi pari di navigare la stessa visita -->
     <div class="flex shrink-0 items-center gap-2 px-3 py-2">
-      <div class="segmenti" role="radiogroup" aria-label="Come vedere la visita">
+      <div class="segmenti" role="radiogroup" :aria-label="t('Come vedere la visita')">
         <button
           type="button"
           role="radio"
@@ -470,7 +473,7 @@ const optionalCount = computed(() => {
           :class="stageView === 'mappa' ? 'segmento-attivo' : ''"
           @click="setStageView('mappa')"
         >
-          Mappa
+          {{ t("Mappa") }}
         </button>
         <button
           type="button"
@@ -480,7 +483,7 @@ const optionalCount = computed(() => {
           :class="stageView === 'elenco' ? 'segmento-attivo' : ''"
           @click="setStageView('elenco')"
         >
-          Elenco
+          {{ t("Elenco") }}
         </button>
       </div>
 
@@ -489,7 +492,7 @@ const optionalCount = computed(() => {
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
           <circle cx="12" cy="10" r="2.4" />
         </svg>
-        Dove sono?
+        {{ t("Dove sono?") }}
       </button>
     </div>
 
@@ -503,8 +506,8 @@ const optionalCount = computed(() => {
         class="h-5 w-5 shrink-0 accent-[var(--accent)]"
       />
       <span class="text-small">
-        <span class="font-medium">Includi le {{ optionalCount }} tappe opzionali</span>
-        <span class="block text-caption text-muted">Se hai ancora tempo</span>
+        <span class="font-medium">{{ t("Includi le {n} tappe opzionali", { n: optionalCount }) }}</span>
+        <span class="block text-caption text-muted">{{ t("Se hai ancora tempo") }}</span>
       </span>
     </label>
 
@@ -518,7 +521,7 @@ const optionalCount = computed(() => {
         v-show="piani.length > 1"
         class="segmenti mx-auto mb-2 flex max-w-3xl flex-wrap"
         role="radiogroup"
-        aria-label="Piano del museo"
+        :aria-label="t('Piano del museo')"
       >
         <button
           v-for="p in piani"
@@ -545,7 +548,7 @@ const optionalCount = computed(() => {
         @click="onMapClick"
       ></div>
       <p v-if="!map" class="vuoto mt-4">
-        La mappa di questo museo non è disponibile. Usa l'elenco delle tappe.
+        {{ t("La mappa di questo museo non è disponibile. Usa l'elenco delle tappe.") }}
       </p>
     </div>
 
@@ -572,17 +575,17 @@ const optionalCount = computed(() => {
               <span class="block truncate text-small text-muted">
                 {{ stopSubtitle(match) }}
                 <span v-if="match.item.educationalLevel">
-                  · {{ match.item.educationalLevel }}
+                  · {{ t(match.item.educationalLevel) }}
                 </span>
               </span>
             </span>
             <span v-if="isOptionalItem(match.item['@id'])" class="pastiglia pastiglia-ardesia shrink-0">
-              Opzionale
+              {{ t("Opzionale") }}
             </span>
           </button>
         </li>
       </ul>
-      <p v-else class="vuoto">Questa visita non ha tappe.</p>
+      <p v-else class="vuoto">{{ t("Questa visita non ha tappe.") }}</p>
     </div>
   </div>
 </template>

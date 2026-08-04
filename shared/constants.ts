@@ -5,7 +5,7 @@
  * specialistico) e sono l'unico vocabolario del sistema: li usano l'editor, il
  * seed, il pianificatore delle visite su misura e tutti i filtri. Cambiarli qui
  * non ribalta da solo il database: per riallineare i documenti esistenti si usa
- * server/src/testers.ts.
+ * server/src/scripts/testers.ts.
  *
  * Il VOCABOLARIO CONTROLLATO (`options`) e' la sorgente unica sia dei pulsanti a
  * schermo sia della mappatura dei comandi vocali. Vale una distinzione:
@@ -131,6 +131,17 @@ export interface CommandOption {
   hint?: string;
 }
 
+/**
+ * L'id del comando che chiede la strada per la tappa successiva.
+ *
+ * E' esportato perche' e' l'unico comando d'orientamento la cui destinazione non
+ * e' un tipo di servizio scritto sulla mappa ma un'OPERA della visita: chi lo
+ * riceve deve riconoscerlo per risolvere quel qid, e chi disegna i bottoni per
+ * spegnerlo dove una tappa successiva non c'e'. Confrontarlo riscrivendo la
+ * stringa in tre file e' il modo in cui le due meta' smettono di essere d'accordo.
+ */
+export const NEXT_STOP_COMMAND = "Dove e la prossima tappa?";
+
 export const options: CommandOption[] = [
   { id: "Leggi", label: "Leggi", surface: "scheda" },
   { id: "Ferma lettura", label: "Ferma lettura", surface: "scheda" },
@@ -164,6 +175,12 @@ export const options: CommandOption[] = [
   { id: "Chi e' l'autore?", label: "Chi è l'autore?", surface: "chiedi" },
   { id: "Che stile e?", label: "Che stile è?", surface: "chiedi" },
 
+  {
+    id: NEXT_STOP_COMMAND,
+    label: "Dov'è la prossima tappa?",
+    surface: "orientati",
+    hint: "Indicazioni per raggiungere l'opera della tappa successiva",
+  },
   { id: "Dove esco?", label: "Dove esco?", surface: "orientati" },
   { id: "Dove e il bagno?", label: "Dov'è il bagno?", surface: "orientati" },
   { id: "Dove e il bar?", label: "Dov'è il bar?", surface: "orientati" },

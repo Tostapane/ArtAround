@@ -25,6 +25,7 @@
 
 import { ref } from "vue";
 import { applyFix, bussola } from "@/localization";
+import { t } from "@/i18n";
 
 export function useSensors() {
   const error = ref<string>("");
@@ -109,7 +110,7 @@ export function useSensors() {
 
   function startPosition() {
     if (!navigator.geolocation) {
-      error.value = "Questo dispositivo non sa dire dove si trova.";
+      error.value = t("Questo dispositivo non sa dire dove si trova.");
       return;
     }
     watchId = navigator.geolocation.watchPosition(
@@ -123,11 +124,11 @@ export function useSensors() {
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
-          error.value = "Permesso di posizione negato.";
+          error.value = t("Permesso di posizione negato.");
         } else if (err.code === err.TIMEOUT) {
-          error.value = "Il satellite non risponde: al chiuso capita.";
+          error.value = t("Il satellite non risponde: al chiuso capita.");
         } else {
-          error.value = "Posizione non disponibile.";
+          error.value = t("Posizione non disponibile.");
         }
       },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
@@ -142,7 +143,7 @@ export function useSensors() {
     error.value = "";
     if (!window.isSecureContext) {
       error.value =
-        "I sensori funzionano solo su indirizzi sicuri (https o localhost).";
+        t("I sensori funzionano solo su indirizzi sicuri (https o localhost).");
       return;
     }
     startPosition();

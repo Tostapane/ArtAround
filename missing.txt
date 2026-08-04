@@ -1,14 +1,18 @@
 MANCANTI
 - PS. mi turbano ancora le opere un po rotonde e un po quadrate.
 - far selezionare una lingua?
-- indicazioni per arrivare a una opera?
-
+- generalizzare cose nel marketplace
+- l'immagine non dovrebbe esere obbligatoria quando creo un meta item
+- perche l'hashtag?
+- rimuovere bullshit e caratteri strani
+- le indicazioni iniziali non si avviano se starti dal marketplace
 DA DISCUTERE
 - aggiungere sessione e tasto torna alla home, tasto home navigator
 - Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere?
+- qr code per visite?
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
-- testare il nuovo sistema di audio (ora compatibile per iphone)
+- testare il nuovo sistema di audio su iphone
 - Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tipo filtrarle per periodi (vendite effettuate in mese x anno y)
 - E se avesse piu' piani?
 - E se ci fossero piu' bagni o x?
@@ -16,13 +20,14 @@ DA TESTARE
 - Dovremmo testare una visita guidata con quiz
 - Se ci sono delle indicazioni all'inizio della visita prima di ogni opera, come fa l'utente a visualizzarle 
 e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo potrebbe essere la soluzione.
-- La cam risulta attiva sempre dopo avere dato i permessi, non solo mentre viene effettivamente usata 
-(e.g. durante scan qr). Vincenzo non ci dormirebbe la notte.
 - preview di una opera non inclusa nella visita
 - c'è il rischio che il visitatore perda tempo facendo zig zag da un opera all'altra, se l'AI nella creazione della visita inserisce le opere in ordine randomico 
 (non in ordine di vicinanza tra loro/lontananza progressiva dall'ingresso)?
 - se non sicuro, deve blurrare le immagini
-  - stress test delle sessioni
+- stress test delle sessioni
+- creare item multipli di uguale tono
+- testare funzionalita del curatore
+- ordine delle visite
 PROBLEMI
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra

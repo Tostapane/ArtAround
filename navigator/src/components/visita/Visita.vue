@@ -64,6 +64,8 @@ import {
   teacherGoToStep,
   studentAsk,
 } from "@/guided";
+import { NEXT_STOP_COMMAND, labelForCommand } from "../../../../shared/constants";
+import { t } from "@/i18n";
 import type { Match } from "../../../../shared/types";
 
 const props = defineProps<{ currVisit: string; title: string }>();
@@ -199,10 +201,13 @@ const progresso = computed(() => {
   const totale = navigableStops.value.length;
   const qui = currentPosition.value;
   if (qui === 0) {
-    const tutte = `${totale} tappe`;
+    const tutte = totale === 1 ? t("1 tappa") : t("{n} tappe", { n: totale });
     return { esteso: tutte, compatto: tutte };
   }
-  return { esteso: `Tappa ${qui} di ${totale}`, compatto: `${qui}/${totale}` };
+  return {
+    esteso: t("Tappa {n} di {m}", { n: qui, m: totale }),
+    compatto: `${qui}/${totale}`,
+  };
 });
 
 function selectIndex(i: number) {
@@ -212,7 +217,13 @@ function selectIndex(i: number) {
   lastVisitIndex.value = i;
   const pos = currentPosition.value;
   if (pos > 0) {
-    announce(`Tappa ${pos} di ${navigableStops.value.length}: ${stopName(match)}`);
+    announce(
+      t("Tappa {n} di {m}: {nome}", {
+        n: pos,
+        m: navigableStops.value.length,
+        nome: stopName(match),
+      }),
+    );
   } else {
     announce(stopName(match));
   }
@@ -250,7 +261,7 @@ const azioneTappa = computed(() => {
   if (guidedStudent.value) return null;
   if (currentArtwork.value) return null;
   if (navigableStops.value.length === 0) return null;
-  return { label: "Inizia dalla prima tappa", index: stepIndex(-1, 1) };
+  return { label: t("Inizia dalla prima tappa"), index: stepIndex(-1, 1) };
 });
 
 function apriTappaCorrente() {
@@ -283,7 +294,7 @@ function navigationHandler(direction: string) {
         ? notesAfter(currentArtwork.value.item["@id"])
         : [];
       fine.value = { notes };
-      announce("Visita completata");
+      announce(t("Visita completata"));
     }
     return;
   }
@@ -344,12 +355,12 @@ function armaTeletrasporto() {
   showLocator.value = false;
   teletrasportoArmato.value = true;
   setStageView("mappa");
-  announce("Teletrasporto pronto: tocca la pianta nel punto in cui ti trovi.");
+  announce(t("Teletrasporto pronto: tocca la pianta nel punto in cui ti trovi."));
 }
 
 function annullaTeletrasporto() {
   teletrasportoArmato.value = false;
-  announce("Teletrasporto annullato");
+  announce(t("Teletrasporto annullato"));
 }
 
 /** Su un punto qualunque non c'e' un nome da dire: quale opera sia e' il
@@ -357,7 +368,7 @@ function annullaTeletrasporto() {
 function teletrasportaSuPunto(x: number, y: number) {
   reanchor(x, y);
   teletrasportoArmato.value = false;
-  announce("Posizione aggiornata");
+  announce(t("Posizione aggiornata"));
 }
 
 /** Una tappa: la "posizione predeterminata" accanto all'opera (slide 34). */
@@ -366,17 +377,17 @@ function teletrasportaSuTappa(i: number) {
   if (!match) return;
   const ancora = match.anchor;
   if (!ancora) {
-    announce("Non so dove si trovi questa tappa sulla pianta");
+    announce(t("Non so dove si trovi questa tappa sulla pianta"));
     return;
   }
   const nodo = nodeOf(ancora.qid);
   if (!nodo) {
-    announce("Non so dove si trovi quest'opera sulla pianta");
+    announce(t("Non so dove si trovi quest'opera sulla pianta"));
     return;
   }
   reanchor(nodo.x, nodo.y);
   teletrasportoArmato.value = false;
-  announce(`Sei accanto a ${ancora.name}`);
+  announce(t("Sei accanto a {nome}", { nome: ancora.name }));
 }
 
 function onKeyTeletrasporto(e: KeyboardEvent) {
@@ -415,10 +426,10 @@ async function goToArtwork(qid: string) {
       artwork: anteprima.artwork,
       anchor: anteprima.artwork,
     };
-    announce(`${anteprima.artwork.name}, non fa parte di questa visita`);
+    announce(t("{nome}, non fa parte di questa visita", { nome: anteprima.artwork.name }));
   } catch (err) {
     console.error("Impossibile caricare l'opera", err);
-    announce("Opera non trovata");
+    announce(t("Opera non trovata"));
   }
 }
 
@@ -426,14 +437,33 @@ async function goToArtwork(qid: string) {
 const openRequest = ref("");
 
 /**
- * Il servizio toccato sulla pianta. E' la stessa domanda di "Dove e' il bagno?",
- * posta pero' indicando: il bersaglio e' il `data-poi` scritto sul disegno,
- * quindi vale per tutti i servizi di tutte le piante e non solo per i quattro
- * che il vocabolario controllato sa nominare. La risposta esce dove escono le
- * altre — dentro Orientati — perche' una risposta sola in un posto solo e' la
- * ragione per cui la scheda sta sempre aperta.
+ * DOVE si vuole andare, quando la domanda non e' un comando che se lo porta
+ * dietro. Due sorgenti, che il grafo tratta allo stesso modo perche' per lui una
+ * destinazione e' un nodo e basta: il `data-poi` del servizio toccato sulla
+ * pianta — quindi tutti i servizi di tutte le piante, non i quattro che il
+ * vocabolario sa nominare — e il qid dell'opera della tappa successiva. La
+ * risposta esce dove escono le altre, dentro Orientati: una risposta sola in un
+ * posto solo e' la ragione per cui la scheda sta sempre aperta.
  */
 const openTarget = ref("");
+
+/**
+ * L'opera verso cui si va, cioe' l'ANCORA della tappa successiva e non la sua
+ * opera: una tappa che parla di uno stile non sta da nessuna parte sulla pianta,
+ * ma chi la ascolta si', ed e' quella la posizione che tutto il resto usa gia'.
+ *
+ * Vuoto vuol dire "non c'e' un dopo", e sono i due casi in cui il comando si
+ * spegne: l'ultima tappa, e lo studente di una visita guidata — li' la tappa la
+ * decide il docente, e mandare avanti chi chiede spezzerebbe la classe.
+ */
+const nextAnchorQid = computed(() => {
+  if (guidedStudent.value) return "";
+  const i = stepIndex(navBase(), 1);
+  if (i < 0) return "";
+  const stop = matchedContent.value[i];
+  if (!stop || !stop.anchor) return "";
+  return stop.anchor.qid;
+});
 
 /**
  * L'opera a cui si riferiscono le domande. Finche' non se n'e' aperta nessuna
@@ -463,6 +493,20 @@ function actionHandler(option: string) {
   if (option === "Prossimo") return navigationHandler("next");
   if (option === "Precedente") return navigationHandler("prev");
 
+  // Chiedere la strada non e' andarci: si apre la risposta, la tappa non cambia.
+  if (option === NEXT_STOP_COMMAND) {
+    if (!nextAnchorQid.value) {
+      // Il bottone e' spento, ma la voce ci arriva lo stesso: se qui si tacesse,
+      // un comando riconosciuto e ripetuto non produrrebbe niente.
+      announce(t("Non c'è una tappa successiva: sei all'ultima."));
+      return;
+    }
+    openRequest.value = option;
+    openTarget.value = nextAnchorQid.value;
+    announce(t(labelForCommand(option)));
+    return;
+  }
+
   openRequest.value = option;
   openTarget.value = "";
   const art = riferimento.value;
@@ -472,7 +516,7 @@ function actionHandler(option: string) {
 function chiediServizio(servizio: { target: string; label: string }) {
   openRequest.value = servizio.label;
   openTarget.value = servizio.target;
-  announce(`Indicazioni per ${servizio.label}`);
+  announce(t("Indicazioni per {nome}", { nome: servizio.label }));
 }
 
 function chiudiRisposta() {
@@ -523,7 +567,7 @@ onUnmounted(() => {
           <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19 8 12l7-7" />
           </svg>
-          <span class="sr-only sm:not-sr-only">Esci</span>
+          <span class="sr-only sm:not-sr-only">{{ t("Esci") }}</span>
         </button>
 
         <p class="hidden min-w-0 flex-1 truncate text-small font-medium sm:block">
@@ -552,8 +596,8 @@ onUnmounted(() => {
 
       <!-- TELETRASPORTO ARMATO -->
       <div v-if="teletrasportoArmato" class="flex shrink-0 items-center gap-3 bg-structure px-3 py-2 text-on-structure">
-        <p class="min-w-0 flex-1 text-small font-medium">Tocca la pianta nel punto in cui ti trovi.</p>
-        <button type="button" class="btn-fantasma-chiaro shrink-0" @click="annullaTeletrasporto">Annulla</button>
+        <p class="min-w-0 flex-1 text-small font-medium">{{ t("Tocca la pianta nel punto in cui ti trovi.") }}</p>
+        <button type="button" class="btn-fantasma-chiaro shrink-0" @click="annullaTeletrasporto">{{ t("Annulla") }}</button>
       </div>
 
       <!-- PALCOSCENICO -->
@@ -585,6 +629,7 @@ onUnmounted(() => {
       :guided-teacher="guidedTeacher"
       :richiesta="openRequest"
       :target="openTarget"
+      :can-ask-next="nextAnchorQid !== ''"
       @navigation="navigationHandler"
       @action="actionHandler"
       @close-request="chiudiRisposta"
@@ -603,7 +648,7 @@ onUnmounted(() => {
           id="transizione-titolo"
           class="text-caption uppercase tracking-wider text-muted"
         >
-          {{ transition.target < 0 ? "Prima di cominciare" : "Verso la prossima tappa" }}
+          {{ transition.target < 0 ? t("Prima di cominciare") : t("Verso la prossima tappa") }}
         </p>
         <ul class="mt-3 flex flex-col gap-3">
           <li
@@ -624,10 +669,10 @@ onUnmounted(() => {
             class="btn-secondario"
             @click="tts.speak(transition.notes.join('. '))"
           >
-            Leggi
+            {{ t("Leggi") }}
           </button>
           <button type="button" class="btn-primario flex-1 justify-center" @click="closeTransition">
-            Continua
+            {{ t("Continua") }}
           </button>
         </div>
       </div>
@@ -646,12 +691,14 @@ onUnmounted(() => {
           {{ title }}
         </p>
         <h2 id="fine-titolo" class="mt-1 font-display text-title-1">
-          Visita completata.
+          {{ t("Visita completata.") }}
         </h2>
         <p class="mt-2 text-body text-muted">
-          Hai visto tutte le
-          <span class="tabular">{{ navigableStops.length }}</span>
-          {{ navigableStops.length === 1 ? "tappa" : "tappe" }} del percorso.
+          {{
+            navigableStops.length === 1
+              ? t("Hai visto l'unica tappa del percorso.")
+              : t("Hai visto tutte le {n} tappe del percorso.", { n: navigableStops.length })
+          }}
         </p>
 
         <ul v-if="fine.notes.length" class="mt-5 flex flex-col gap-3">
@@ -670,10 +717,10 @@ onUnmounted(() => {
 
         <div class="mt-6 flex flex-col gap-2">
           <button type="button" class="btn-primario justify-center" @click="tornaAllaHome">
-            Torna alla home
+            {{ t("Torna alla home") }}
           </button>
           <button type="button" class="btn-secondario justify-center" @click="fine = null">
-            Resta nella visita
+            {{ t("Resta nella visita") }}
           </button>
         </div>
       </div>

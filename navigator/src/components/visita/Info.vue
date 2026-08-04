@@ -7,11 +7,13 @@
  * mappa, che risponde prima con la sola zona e, su richiesta, con il percorso
  * passo-passo; tutte le altre vengono riformulate e mandate all'LLM.
  *
- * `target` e' la stessa domanda posta senza passare da un comando: la manda chi
- * tocca un servizio sulla pianta, ed e' il `data-poi` che il curatore ha scritto
- * sul disegno. Per questo la tabella qui sotto traduce i COMANDI e non elenca i
- * servizi: i servizi di un museo sono quelli della sua mappa, non quelli che il
- * codice sa nominare.
+ * `target` e' la destinazione quando la domanda non se la porta dietro: il
+ * `data-poi` del servizio toccato sulla pianta, oppure il qid dell'opera verso
+ * cui si sta andando. Il grafo non distingue i due casi — per lui una
+ * destinazione e' un nodo — quindi qui non c'e' nessun ramo. Per lo stesso
+ * motivo la tabella qui sotto traduce i COMANDI e non elenca i servizi: i
+ * servizi di un museo sono quelli della sua mappa, non quelli che il codice sa
+ * nominare.
  *
  * La domanda resta scritta sopra la risposta: senza, la risposta perde il suo
  * riferimento appena si distoglie lo sguardo — e questo riquadro serve proprio
@@ -28,6 +30,10 @@
  * La condizione `sicuro` non e' una raffinatezza: all'apertura la posizione e'
  * l'ingresso con un'incertezza larga quanto il museo, e senza quel controllo le
  * indicazioni partirebbero con sicurezza da un'opera qualsiasi vicina all'entrata.
+ * Se la partenza coincide con la destinazione si manda vuoto, che per il server
+ * vuol dire "dall'ingresso": succede a inizio visita, quando la tappa di
+ * riferimento e' ancora quella verso cui si sta chiedendo la strada, e senza
+ * questo si rispondeva «e' la sala in cui si trova» a chi sta ancora alla porta.
  */
 import { computed, ref, watch } from "vue";
 import { getInfo, getDirections } from "@/api";
@@ -35,6 +41,7 @@ import { useTTS } from "./useTTS";
 import { language, museum, posizioneAttiva } from "@/state";
 import { rank } from "@/localization";
 import { labelForCommand } from "../../../../shared/constants";
+import { t } from "@/i18n";
 import type { Match } from "../../../../shared/types";
 
 const tts = useTTS();
@@ -75,19 +82,21 @@ const bersaglio = computed(() => {
 
 const canDetail = computed(() => bersaglio.value !== "" && bersaglio.value !== "obstacles");
 
-const title = computed(() => labelForCommand(props.request));
+const title = computed(() => t(labelForCommand(props.request)));
 
-/** L'opera da cui far partire il percorso. */
+/** L'opera da cui far partire il percorso. Vuoto vuol dire "dall'ingresso". */
 function partenza(): string {
+  let qui = "";
   if (posizioneAttiva.value) {
     const verdetto = rank();
     if (verdetto && verdetto.sicuro && verdetto.candidati[0]) {
-      return verdetto.candidati[0].qid;
+      qui = verdetto.candidati[0].qid;
     }
   }
   // Si parte dall'ANCORA: uno stile non ha un posto sulla pianta, chi lo ascolta si'.
-  if (props.about.anchor) return props.about.anchor.qid;
-  return "";
+  if (!qui && props.about.anchor) qui = props.about.anchor.qid;
+  if (qui === bersaglio.value) return "";
+  return qui;
 }
 
 async function ask() {
@@ -169,7 +178,7 @@ watch(
           type="button"
           class="icona-mini"
           :disabled="!canRead"
-          aria-label="Leggi la risposta ad alta voce"
+          :aria-label="t('Leggi la risposta ad alta voce')"
           @click="tts.speak(responseText)"
         >
           <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -180,7 +189,7 @@ watch(
           v-else
           type="button"
           class="icona-mini text-accent"
-          aria-label="Ferma la lettura"
+          :aria-label="t('Ferma la lettura')"
           @click="tts.stop()"
         >
           <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -190,7 +199,7 @@ watch(
         <button
           type="button"
           class="icona-mini"
-          aria-label="Chiudi la risposta"
+          :aria-label="t('Chiudi la risposta')"
           @click="$emit('close')"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
@@ -203,7 +212,7 @@ watch(
     <div class="mt-2" aria-live="polite" :aria-busy="isLoading">
       <!-- Attesa: un blocco fermo, niente luccichii -->
       <div v-if="isLoading" class="flex flex-col gap-2">
-        <span class="sr-only">Sto cercando la risposta…</span>
+        <span class="sr-only">{{ t("Sto cercando la risposta…") }}</span>
         <span class="h-3 w-full rounded-plate bg-surface-2" aria-hidden="true"></span>
         <span class="h-3 w-11/12 rounded-plate bg-surface-2" aria-hidden="true"></span>
         <span class="h-3 w-3/5 rounded-plate bg-surface-2" aria-hidden="true"></span>
@@ -215,8 +224,8 @@ watch(
           <path stroke-linecap="round" d="M12 10v4" />
         </svg>
         <span>
-          Non sono riuscito a rispondere.
-          <button type="button" class="link" @click="ask">Riprova</button>
+          {{ t("Non sono riuscito a rispondere.") }}
+          <button type="button" class="link" @click="ask">{{ t("Riprova") }}</button>
         </span>
       </div>
 
@@ -229,7 +238,7 @@ watch(
       class="btn-secondario mt-3"
       @click="detailed = true"
     >
-      Indicazioni dettagliate
+      {{ t("Indicazioni dettagliate") }}
     </button>
   </section>
 </template>

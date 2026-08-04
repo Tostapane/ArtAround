@@ -26,6 +26,7 @@ import { museum } from "@/state";
 import { museumTitle, mediaOrigin } from "@/config";
 import { useTheme } from "@/composables/useTheme";
 import { formatDuration } from "../../../../shared/constants";
+import { t } from "@/i18n";
 import type { Visit, Artwork, Item } from "../../../../shared/types";
 
 const emit = defineEmits<{
@@ -88,10 +89,12 @@ function clearFilters() {
 function summary(v: Visit): string {
   const stops = (v.itemListElement || []).length;
   const parts = [
-    `${stops} ${stops === 1 ? "tappa" : "tappe"}`,
+    stops === 1 ? t("1 tappa") : t("{n} tappe", { n: stops }),
     formatDuration(v.duration),
   ];
-  if (v.level) parts.push(v.level);
+  // Il tono si LEGGE tradotto e si CONFRONTA in italiano: il valore e' quello
+  // che sta nel database e nel filtro, tradurlo li' spegnerebbe la ricerca.
+  if (v.level) parts.push(t(v.level));
   return parts.join(" · ");
 }
 
@@ -104,7 +107,7 @@ const marketplaceUrl = computed(() => `${mediaOrigin()}/`);
 
 const { isDark, toggle } = useTheme();
 const themeLabel = computed(() =>
-  isDark() ? "Attiva il tema chiaro" : "Attiva il tema scuro",
+  isDark() ? t("Attiva il tema chiaro") : t("Attiva il tema scuro"),
 );
 
 // --- Visita su misura ------------------------------------------------------
@@ -129,7 +132,7 @@ async function createCustom() {
   } catch (err) {
     console.error("Errore nella creazione della visita su misura", err);
     customError.value =
-      "Non è stato possibile preparare la visita. Riprova fra poco.";
+      t("Non è stato possibile preparare la visita. Riprova fra poco.");
   } finally {
     creating.value = false;
   }
@@ -145,7 +148,7 @@ async function createCustom() {
           <path stroke-linecap="round" stroke-linejoin="round" d="m19 5-8 8" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M18 14v5H5V6h5" />
         </svg>
-        Marketplace
+        {{ t("Marketplace") }}
       </a>
       <button
         type="button"
@@ -169,7 +172,7 @@ async function createCustom() {
       {{ museumName }}
     </p>
     <h1 class="mt-2 font-display text-display leading-[1.02] tracking-tight">
-      Scegli la tua visita.
+      {{ t("Scegli la tua visita.") }}
     </h1>
 
     <div class="mt-8">
@@ -178,33 +181,36 @@ async function createCustom() {
 
     <div class="mt-8 flex flex-wrap gap-3">
       <div>
-        <label for="f-livello" class="sr-only">Filtra per livello</label>
+        <label for="f-livello" class="sr-only">{{ t("Filtra per livello") }}</label>
         <select id="f-livello" v-model="levelFilter" class="campo-select">
-          <option value="tutti">Ogni livello</option>
+          <option value="tutti">{{ t("Ogni livello") }}</option>
           <option v-for="l in availableLevels" :key="l" :value="l">
-            {{ l }}
+            {{ t(l) }}
           </option>
         </select>
       </div>
       <div>
-        <label for="f-durata" class="sr-only">Filtra per durata</label>
+        <label for="f-durata" class="sr-only">{{ t("Filtra per durata") }}</label>
         <select id="f-durata" v-model="durationFilter" class="campo-select">
-          <option value="tutti">Ogni durata</option>
-          <option value="breve">Meno di 30 min</option>
-          <option value="media">Da 30 a 60 min</option>
-          <option value="lunga">Più di 60 min</option>
+          <option value="tutti">{{ t("Ogni durata") }}</option>
+          <option value="breve">{{ t("Meno di 30 min") }}</option>
+          <option value="media">{{ t("Da 30 a 60 min") }}</option>
+          <option value="lunga">{{ t("Più di 60 min") }}</option>
         </select>
       </div>
       <button v-if="hasActiveFilters" type="button" class="btn-fantasma" @click="clearFilters">
-        Azzera i filtri
+        {{ t("Azzera i filtri") }}
       </button>
     </div>
 
     <p class="mt-4 text-small text-muted" role="status">
-      <span v-if="loading">Caricamento delle visite…</span>
+      <span v-if="loading">{{ t("Caricamento delle visite…") }}</span>
       <span v-else>
-        {{ filteredVisits.length }}
-        {{ filteredVisits.length === 1 ? "visita disponibile" : "visite disponibili" }}
+        {{
+          filteredVisits.length === 1
+            ? t("1 visita disponibile")
+            : t("{n} visite disponibili", { n: filteredVisits.length })
+        }}
       </span>
     </p>
 
@@ -235,19 +241,19 @@ async function createCustom() {
     </ul>
 
     <div v-else-if="!loading" class="vuoto mt-4">
-      <p v-if="hasActiveFilters">Nessuna visita con questi filtri.</p>
-      <p v-else>In questo museo non ci sono ancora visite disponibili.</p>
+      <p v-if="hasActiveFilters">{{ t("Nessuna visita con questi filtri.") }}</p>
+      <p v-else>{{ t("In questo museo non ci sono ancora visite disponibili.") }}</p>
       <button v-if="hasActiveFilters" type="button" class="btn-secondario mt-4" @click="clearFilters">
-        Azzera i filtri
+        {{ t("Azzera i filtri") }}
       </button>
     </div>
 
     <section class="mt-12 border-t border-line pt-8" aria-labelledby="su-misura">
       <h2 id="su-misura" class="font-display text-title-2">
-        Oppure raccontaci che visita vorresti
+        {{ t("Oppure raccontaci che visita vorresti") }}
       </h2>
       <p class="mt-1 text-small text-muted">
-        Descrivi il tempo che hai, con chi sei, cosa ti interessa.
+        {{ t("Descrivi il tempo che hai, con chi sei, cosa ti interessa.") }}
       </p>
 
       <div class="mt-4 flex flex-wrap gap-2">
@@ -263,7 +269,7 @@ async function createCustom() {
       </div>
 
       <label for="su-misura-testo" class="sr-only">
-        Descrizione della visita che desideri
+        {{ t("Descrizione della visita che desideri") }}
       </label>
       <textarea
         id="su-misura-testo"
@@ -271,7 +277,7 @@ async function createCustom() {
         rows="3"
         :disabled="creating"
         class="campo mt-4 resize-y"
-        placeholder="Ho solo mezz'ora e vorrei vedere i ritratti."
+        :placeholder="t(`Ho solo mezz'ora e vorrei vedere i ritratti.`)"
       ></textarea>
 
       <button
@@ -280,7 +286,7 @@ async function createCustom() {
         :disabled="!customRequest.trim() || creating"
         @click="createCustom"
       >
-        {{ creating ? "Prepariamo il percorso…" : "Crea la visita" }}
+        {{ creating ? t("Prepariamo il percorso…") : t("Crea la visita") }}
       </button>
 
       <p v-if="customError" class="avviso mt-3" role="alert">

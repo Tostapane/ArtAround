@@ -58,6 +58,7 @@
  */
 import { ref } from "vue";
 import { STT_SAMPLE_RATE } from "../../../../shared/constants";
+import { t } from "@/i18n";
 
 declare global {
   interface Window {
@@ -95,7 +96,7 @@ export const startRecording = async () => {
 
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !AudioContextClass) {
-    errorMsg.value = "Il browser non supporta la registrazione audio.";
+    errorMsg.value = t("Il browser non supporta la registrazione audio.");
     return;
   }
 
@@ -126,7 +127,7 @@ export const startRecording = async () => {
     isRecording.value = true;
   } catch (err) {
     console.error("Error accessing microphone:", err);
-    errorMsg.value = "Accesso al microfono negato o non disponibile.";
+    errorMsg.value = t("Accesso al microfono negato o non disponibile.");
     release();
   }
 };
@@ -141,7 +142,7 @@ export const stopRecording = () => {
 
   const samples = concat(recorded);
   if (samples.length === 0) {
-    errorMsg.value = "Non ho sentito nulla. Riprova parlando dopo il segnale.";
+    errorMsg.value = t("Non ho sentito nulla. Riprova parlando dopo il segnale.");
     return;
   }
 
