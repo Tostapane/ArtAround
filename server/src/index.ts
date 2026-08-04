@@ -53,6 +53,14 @@ app.use(
   "/dist",
   express.static(path.join(__dirname, "../../marketplace/dist")),
 );
+// In sviluppo il navigator ha un server suo (Vite, porta 5173); in deploy quel
+// server non c'e' — il dipartimento pubblica UNA sola porta per sito — quindi il
+// navigator e' un mucchio di file statici serviti da qui, sotto /navigator.
+// La cartella e' il prodotto di `npm run build`, che va rifatto a ogni modifica.
+app.use(
+  "/navigator",
+  express.static(path.join(__dirname, "../../navigator/dist")),
+);
 
 const connectWithRetry = () => {
   console.log("Attempting to connect to MongoDB...");

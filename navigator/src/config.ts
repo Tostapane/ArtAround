@@ -40,9 +40,25 @@ let loaded = false;
 //                                 Lettura
 // ============================================================================
 
+/**
+ * Dove sta il server. Tre casi, e nessuno indovinato:
+ *
+ * 1. `apiBase` scritto nel file di configurazione: comanda lui. Serve a chi apre
+ *    il navigator dal telefono con l'IP della rete locale, dove "localhost"
+ *    sarebbe sbagliato per definizione.
+ * 2. In SVILUPPO il navigator ha un server suo (Vite) e il server sta su un'altra
+ *    porta, quindi l'indirizzo va scritto per intero.
+ * 3. In DEPLOY li serve la stessa origine — il dipartimento pubblica una porta
+ *    sola per sito — quindi basta un percorso. Scrivere host e porta qui
+ *    romperebbe anche in un altro modo: la pagina arriva in https e una chiamata
+ *    in http verso una porta esplicita e' contenuto misto, che il browser blocca.
+ */
 export function apiBase(): string {
   if (config.apiBase) return config.apiBase.replace(/\/$/, "");
-  return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+  if (import.meta.env.DEV) {
+    return `${window.location.protocol}//${window.location.hostname}:8000/api`;
+  }
+  return "/api";
 }
 
 /** Origine da cui arrivano le immagini scaricate sul server. */
@@ -79,7 +95,11 @@ export function museumTitle(): string {
 export async function loadConfig(): Promise<NavigatorConfig> {
   if (loaded) return config;
   try {
-    const res = await fetch("/config.json", { cache: "no-cache" });
+    // `BASE_URL` e' `/` in sviluppo e `/navigator/` compilato: un percorso
+    // assoluto scritto a mano finirebbe sulla radice, cioe' sul marketplace.
+    const res = await fetch(`${import.meta.env.BASE_URL}config.json`, {
+      cache: "no-cache",
+    });
     if (res.ok) {
       const raw = await res.json();
       config = {

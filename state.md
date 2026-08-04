@@ -12,6 +12,8 @@
 > are now closed — each is marked where that is the case.
 >
 > Relationship to the other docs:
+> - `deploy.md` — il runbook per i docker di dipartimento: che cosa cambia fra sviluppo e
+>   laboratorio, il primo deploy, il giro di aggiornamento, e i quattro modi in cui si rompe.
 > - `slides.pdf` — the assignment. Authoritative for *requirements*.
 > - `prelude.md` — the redesign brief the restyle implements (§7 marketplace, §8 navigator).
 >   Authoritative for *intent*: what each screen should be and why.
@@ -1591,13 +1593,45 @@ sola fonte che non invecchia: qui e in `left.md` era gia' stato scritto due volt
 
 ⚠️ **I SEGNAPOSTO NON SI SOSTITUIVANO IN ITALIANO** — cioe' nella lingua predefinita, e solo
 in quella. A schermo si leggeva `Tappa {n} di {m}` con le graffe; in inglese `Stop 1 of 3`,
-giusto. La causa e' esattamente il punto in cui questo disegno e' diverso dagli altri: in
-italiano il catalogo non esiste, quindi ogni chiave risulta «mancante», e il gestore `missing`
-restituiva la chiave — ma quel valore `vue-i18n` lo usa **cosi' com'e'**, saltando il
-compilatore dei messaggi, che e' l'unico posto in cui `{n}` diventa un numero. Ora c'e'
-`fallbackFormat: true`, che e' l'opzione fatta per le chiavi-che-sono-messaggi: la chiave viene
-compilata. Trovato guardando l'`alt` di un'immagine in un browser, non leggendo — provando in
-una lingua tradotta non si vede, ed e' il motivo per cui era passato.
+giusto. La causa sta esattamente dove questo disegno e' diverso dagli altri: in italiano il
+catalogo non esiste, quindi ogni chiave risulta «mancante», e il gestore `missing` di
+`vue-i18n` restituiva la chiave — ma quel valore la libreria lo usa **cosi' com'e'**, saltando
+il compilatore dei messaggi, che e' l'unico posto in cui `{n}` diventa un numero. Si chiuse
+con `fallbackFormat: true`; **oggi il difetto non e' piu' possibile**, perche' `i18next`
+interpola da se' una chiave che non trova (vedi qui sotto). Trovato guardando l'`alt` di
+un'immagine in un browser, non leggendo — in una lingua tradotta non si vede, ed e' il motivo
+per cui era passato.
+
+### 5.6-bis Una libreria sola per tutt'e due le applicazioni *(2026-08-04)*
+
+`vue-i18n` e' uscito, `i18next` e' entrato. Il motivo non e' la libreria in se': e' che gli
+stessi cataloghi dovranno leggerli **due programmi**. `vue-i18n` e' un plugin di Vue e vuole
+un'istanza dell'applicazione, mentre il marketplace Vue non ce l'ha e **non puo' averlo** — la
+slide 37 dice che li' non ci va nessun framework. Restavano due strade: due letture diverse
+degli stessi file, che quando smettono di essere d'accordo non danno un errore ma una
+schermata sbagliata (`no stops | one stop | 3 stops`); oppure una libreria che gira in
+tutt'e due i posti. `i18next` non ha dipendenze di framework e ha una build da vendere al
+browser, quindi puo' stare in tutt'e due.
+
+**Il travaso e' costato UN file**, e la ragione va saputa: nessun componente importava mai
+`vue-i18n`. Diciassette file su diciannove importano `t` da `@/i18n`, per una decisione presa
+per un'altra ragione — nei moduli `.ts` un composable non si puo' chiamare — che si e'
+rivelata la cucitura che rende la libreria sostituibile. **I dodici cataloghi non sono stati
+toccati**: `interpolation: {prefix:"{", suffix:"}"}` li legge byte per byte, e
+`keySeparator/nsSeparator: false` fa passare le chiavi che sono frasi, con i loro punti e i
+loro due punti.
+
+| | |
+| --- | --- |
+| perche' non serve piu' `fallbackFormat` | `i18next` interpola da se' una chiave assente: e' il caso NORMALE dell'italiano, non l'eccezione |
+| perche' `lng` a ogni chiamata e non `changeLanguage` | quella e' asincrona, e subito dopo averla chiamata `t` risponderebbe ancora nella lingua di prima |
+| che cosa sostituisce la reattivita' del plugin | `t` legge un `ref`: una riga che sceglie la lingua e insieme registra la dipendenza che fa ridisegnare |
+| perche' `escapeValue: false` | col valore di serie un nome d'opera con l'apostrofo arriva a schermo come `L&#39;Ange`. A difendere dal marcatore ci pensa Vue, che interpola testo come testo — quindi **nessuno di questi messaggi puo' finire in un `v-html`** |
+
+**Verificato in browser**, non dedotto: in italiano `Tappa 1 di 13` e nessuna graffa a schermo;
+cambiando lingua dentro la visita l'interfaccia diventa `跳至内容 · 退出 · 第 1 站，共 13 站`
+**con una sola navigazione**, cioe' ridisegnando senza ricaricare, e torna indietro allo stesso
+modo; l'avvio con un telefono `zh-CN` resta cinese; zero errori in console.
 
 ⚠️ **Quel che resta italiano di proposito, e non e' una dimenticanza**: gli **id dei comandi**
 (`"Dove e il bagno?"` in `Info.vue`), che sono i token con cui `mapRequest` confronta la

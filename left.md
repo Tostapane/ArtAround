@@ -1,5 +1,56 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-04, da `vue-i18n` a `i18next`
+
+Una libreria sola per le due applicazioni. Ragionamento in `state.md` §5.6-bis.
+
+- **Ha toccato un file**: `navigator/src/i18n.ts` riscritto, piu' una riga di `main.ts`
+  (`.use(i18n)` non serve piu'). I **16 file che chiamano `t` non sono stati toccati**, e i
+  **12 cataloghi nemmeno**: `interpolation: {prefix:"{", suffix:"}"}` li legge come sono.
+- **Perche':** il marketplace dovra' leggere gli stessi file e Vue non lo puo' avere (slide 37),
+  quindi con `vue-i18n` servivano due letture degli stessi cataloghi — e due letture che devono
+  comportarsi uguale, quando smettono, non danno un errore ma una schermata sbagliata.
+- ⚠️ **La lingua si passa a ogni chiamata** (`t(k, {lng: locale.value, ...})`) e non con
+  `changeLanguage`, che e' **asincrona**: subito dopo averla chiamata `t` risponde ancora nella
+  lingua di prima. Leggere il `ref` dentro `t` fa anche da dipendenza reattiva — e' quel che
+  sostituisce il solo servizio che il plugin di Vue dava gratis.
+- ⚠️ **`escapeValue: false` non e' facoltativo**: col valore di serie `L'Ange thuriféraire`
+  diventa `L&#39;Ange` a schermo. E' sicuro perche' Vue interpola testo come testo — **nessuno
+  di questi messaggi deve mai finire in un `v-html`**.
+- Sparito `fallbackFormat`: `i18next` interpola da se' una chiave che non trova, che qui e' il
+  caso normale (l'italiano non ha catalogo). Il difetto delle graffe non e' piu' possibile.
+
+**Verificato in chromium**: italiano `Tappa 1 di 13` e nessuna graffa; cambio lingua dentro la
+visita → `跳至内容 · 退出 · 第 1 站，共 13 站` con **una sola navigazione** (ridisegna, non
+ricarica) e ritorno all'italiano; avvio con telefono `zh-CN` ancora cinese; `stato` 232/232 su
+12 lingue; `vue-tsc` verde; zero errori in console.
+
+⚠️ **Cambiando dipendenza il dev server va riavviato** (`docker restart node-con`): Vite
+ottimizza le dipendenze all'avvio e non si accorge da solo dello scambio.
+
+### E via headless UI, che era una dipendenza per un componente
+
+Trovata guardando la trappola qui sopra — il combobox che una prova non riesce a pilotare.
+
+- **`@headlessui/tailwindcss` era morto in tutt'e due le applicazioni**: caricato come plugin
+  nei due fogli di stile per dare le varianti `ui-open:`/`ui-selected:`, che **nessuno usa**.
+  Nel marketplace non poteva nemmeno funzionare — li' non c'e' Vue e non c'e' nessun
+  componente headless. Tolto da `main.css`, da `style.css` e dai due `package.json`.
+- **`@headlessui/vue` serviva a un file solo** (1,1 MB per un componente). `LanguageSelector`
+  e' ora un `<select>` nativo: **126 righe → 40**, ed e' lo stesso controllo che la scheda
+  usa gia' per la stessa scelta — una scelta sola, un vocabolario solo. Su un telefono il
+  nativo apre il selettore del sistema, che e' meglio di una lista disegnata da noi.
+- Ci va dietro la ricerca per codice (`zh`, `ru`) aggiunta poche ore prima: serviva perche' i
+  nomi sono scritti nella propria lingua e senza quella tastiera non si digitano. Con tredici
+  voci tutte visibili non c'e' piu' niente da digitare.
+
+⚠️ **Tailwind non c'entra e resta dov'e'**: quello tolto e' un plugin *per* Tailwind. Le due
+applicazioni continuano a compilare `@import "tailwindcss"` come prima.
+
+**Verificato**: la biglietteria elenca 13 lingue, il cambio a 中文 ridipinge con **una sola
+navigazione**, il ritorno all'italiano pure; la stessa prova dentro la visita non e' cambiata;
+`vue-tsc` verde, CSS del marketplace ricostruito, zero errori in console, scatto guardato.
+
 ## ⏸ Ripresa — 2026-08-04, l'immagine del meta-item non serve piu'
 
 Chiude la riga di `missing.txt` «l'immagine non dovrebbe essere obbligatoria quando creo un

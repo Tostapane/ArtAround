@@ -1,0 +1,6 @@
+{
+  "_commento": "Nodemon guarda SOLO il codice. Senza questo elenco guarderebbe anche server/public/images: sono 53 MB, e soprattutto e' la cartella in cui il server scrive quando un autore carica l'immagine di un contenuto — il riavvio scatterebbe in mezzo alla richiesta che l'ha appena scritta.",
+  "watch": ["index.js", "server/src", "shared"],
+  "ext": "ts,js,json",
+  "ignore": ["server/public", "**/node_modules/**"]
+}

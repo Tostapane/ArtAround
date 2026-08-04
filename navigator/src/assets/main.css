@@ -3,7 +3,6 @@
    Non aggiungere qui colori o componenti generici — vanno in shared/. */
 @import "../../../shared/theme.css";
 @import "../../../shared/components.css";
-@plugin "@headlessui/tailwindcss";
 
 /*
   LA SALA — solo cio' che esiste unicamente nell'app da museo.
