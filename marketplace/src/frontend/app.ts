@@ -43,46 +43,26 @@ export function themeToggle() {
 // ============================================================================
 
 /** Una figura pronta: punti normalizzati fra 0 e 1, piu' le proporzioni della
- *  sorgente — senza, un dipinto verticale verrebbe schiacciato in un 4:3. */
+ *  sorgente, senza le quali un dipinto verticale verrebbe schiacciato in 4:3. */
 type Shape = { points: Float32Array; aspect: number };
 
 /**
- * LO SCIAME — il fondale della porta d'ingresso.
+ * Lo sciame: il fondale della soglia.
  *
- * Una nuvola di punti che si raduna a formare, una dopo l'altra, le OPERE in
- * vendita. Ogni figura si compone a ondate, resta ferma qualche secondo con un
- * respiro appena percettibile, poi i punti scivolano nella figura successiva.
+ * Una nuvola di punti che compone, una dopo l'altra, le immagini delle opere in
+ * vendita. Le sorgenti sono quelle del catalogo, quindi il fondale cambia da se'
+ * quando cambia il museo.
  *
- * Fra una figura e l'altra NON c'e' dispersione: i punti restano sempre attratti
- * da un bersaglio, e non si riavvolgono ai bordi. Il passaggio diretto e' piu'
- * calmo e si legge meglio — non reintrodurre una fase di dispersione.
+ * La figura si ricava con un retino a diffusione d'errore (Floyd-Steinberg), non
+ * misurando i contorni: un dipinto non ha bordi netti, ha luce e buio, e le
+ * particelle sono tutte uguali, quindi l'unica cosa modulabile e' la densita'.
  *
- * Non e' decorazione presa altrove: le sorgenti sono le STESSE immagini delle
- * opere che si vendono qui dentro, nell'ordine in cui le da' il server. Il
- * fondale cambia da solo quando cambia il catalogo, e la figura sulla porta e'
- * davvero la cosa che c'e' dentro.
+ * Fra una figura e l'altra i punti restano attratti da un bersaglio. Non
+ * reintrodurre una fase di dispersione: il passaggio diretto si legge meglio.
  *
- * COME SI RICAVA UNA FIGURA: con un RETINO. Un dipinto e' una fotografia, e
- * misurarne il contrasto locale non funziona — un Caravaggio non ha contorni
- * netti, ha luce e buio, e il gradiente lo riduce a grumi sparsi. Si mette
- * invece un punto dove il quadro e' chiaro, con densita' proporzionale alla
- * luce e l'errore diffuso sui vicini (Floyd-Steinberg): e' il modo in cui si
- * stampa una fotografia avendo un solo colore, ed e' quel che serve qui, perche'
- * le particelle sono tutte uguali e l'unica cosa modulabile e' quante ce ne sono
- * per centimetro.
- *
- * Regole di garbo:
- * - punti piccoli e tenui: a dominare dev'essere il titolo;
- * - sulle viewport larghe la figura sta a destra, non dietro al titolo;
- * - la prima figura parte appena e' pronta, senza aspettare le altre e senza
- *   girovagare prima: si apre COMPONENDO il primo quadro;
- * - a "riduci animazioni" lo sciame compone la prima figura e si ferma li';
- * - il moto si sospende quando la sezione non si vede o la scheda passa in
- *   secondo piano;
- * - i punti si spengono avvicinandosi ai bordi, cosi' la nuvola sfuma nel buio
- *   invece di finire tagliata contro il margine;
- * - se le sorgenti non arrivano, i punti restano a vagare piano: la soglia non
- *   resta mai vuota.
+ * Si ferma quando deve: "riduci animazioni", sezione fuori vista, scheda in
+ * secondo piano. Senza sorgenti i punti vagano piano, cosi' la soglia non resta
+ * vuota.
  */
 export function swarm() {
   return {
@@ -242,7 +222,6 @@ export function swarm() {
      * cosi' come sono finirebbero larghe zero. Si iniettano le dimensioni prese
      * dal viewBox e poi si passa dalla via normale.
      */
-    /** Disegna l'opera in piccolo e la riduce a una nuvola di punti. */
     shapeFromImage(this: any, src: string): Promise<Shape | null> {
       return new Promise((resolve) => {
         const img = new Image();
@@ -366,9 +345,9 @@ export function swarm() {
 
       // Poco piu' di una particella per punto della figura: impilandone sei
       // sullo stesso bersaglio il disegno si impasta invece di definirsi.
-      // Il MINIMO non e' un ripiego per schermi piccoli: e' la soglia sotto la
-      // quale un volto smette di essere un volto — il retino chiede novemila
-      // punti, e sotto quel numero il quadro resta una macchia. Non abbassarlo.
+      // Il minimo non e' un ripiego per schermi piccoli: e' la soglia sotto la
+      // quale un volto smette di essere un volto. Il retino chiede novemila
+      // punti, e sotto quel numero il quadro resta una macchia: non abbassarlo.
       const wanted = Math.round((canvas.width * canvas.height) / 110);
       this.count = Math.max(6000, Math.min(13000, wanted));
 
@@ -401,20 +380,20 @@ export function swarm() {
       this.phase = "hold";
       this.phaseAt = performance.now();
       this.run();
-      // Se le opere sono gia' arrivate — o se questa e' una ricostruzione dopo
-      // un ridimensionamento — si riparte subito a comporre.
+      // Se le opere sono gia' arrivate, o se questa e' una ricostruzione dopo
+      // un ridimensionamento, si riparte subito a comporre.
       this.compose();
     },
 
     /**
      * Attacca la composizione della figura successiva.
      *
-     * Esiste perche' la prima figura non deve aspettare NIENTE: ne' le altre
-     * opere, ne' lo scadere di una fase. Prima la soglia si apriva con i punti
-     * che vagavano nel campo di flusso per tutta la durata di `HOLD`, e la
-     * Gioconda arrivava solo dopo quattro secondi di ghirigori. Ora appena la
-     * prima opera e' pronta si comincia a comporla, e il vagare resta solo dove
-     * serve davvero: quando le sorgenti non arrivano affatto.
+     * Esiste perche' la prima figura non deve aspettare niente, ne' le altre
+     * opere ne' lo scadere di una fase: appena la prima opera e' pronta si
+     * comincia a comporla. Senza, la soglia si aprirebbe con i punti che vagano
+     * nel campo di flusso per tutta la durata di `HOLD`, e la prima opera
+     * arriverebbe dopo secondi di ghirigori. Il vagare resta cosi' soltanto dove
+     * serve davvero, cioe' quando le sorgenti non arrivano affatto.
      */
     compose(this: any) {
       if (this.shapes.length === 0 || this.count === 0) return;
@@ -485,8 +464,8 @@ export function swarm() {
      * Dove sta la figura, e quanto spazio ha. Sempre fuori dal testo, ma da un
      * lato diverso secondo quanto posto c'e':
      * - viewport larga: il titolo tiene la sinistra, la figura va a destra. Al
-     *   centro finiva esattamente dietro ad "ART AROUND" e le due cose si
-     *   mangiavano a vicenda;
+     *   centro finirebbe dietro al titolo e le due cose si mangerebbero a
+     *   vicenda;
      * - viewport stretta: di fianco non c'e' posto, quindi la figura sale. Il
      *   volto finisce nella fascia vuota in cima e il testo resta sotto, dove il
      *   velo lo stacca dal fondale.
@@ -507,7 +486,6 @@ export function swarm() {
       };
     },
 
-    /** Sceglie la figura successiva e ne distribuisce i punti fra le particelle. */
     nextShape(this: any) {
       if (this.shapes.length === 0) return;
       this.shapeIndex = (this.shapeIndex + 1) % this.shapes.length;
@@ -552,8 +530,8 @@ export function swarm() {
       }
       mine.sort((a, b) => mineAngle[a] - mineAngle[b]);
 
-      // Quante particelle tocca in media a ogni punto. Quando sono parecchie —
-      // e' il caso delle piante, che di punti ne danno pochi — si scostano un
+      // Quante particelle tocca in media a ogni punto. Quando sono parecchie,
+      // com'e' il caso delle piante che di punti ne danno pochi, si scostano un
       // poco invece di impilarsi tutte sullo stesso bersaglio. Quando sono circa
       // una a testa lo scostamento va tolto: su un retino di dipinto sposta ogni
       // punto quasi di una cella e sfoca il quadro.
@@ -573,8 +551,8 @@ export function swarm() {
 
     tick(this: any, now: number, dt: number) {
       let elapsed = now - this.phaseAt;
-      // `elapsed` va RICALCOLATO quando la fase cambia. Restando quello della
-      // fase appena finita — piu' lungo dell'intera fase nuova — il primo
+      // `elapsed` va ricalcolato quando la fase cambia. Restando quello della
+      // fase appena finita, piu' lungo dell'intera fase nuova, il primo
       // fotogramma di ogni passaggio partiva con avanzamento 1, cioe' a velocita'
       // massima: era lo strappo che si vedeva nell'istante in cui la figura
       // cominciava a cambiare.
@@ -595,15 +573,16 @@ export function swarm() {
      *
      * Il passaggio da una figura all'altra e' un'INTERPOLAZIONE fra la posizione
      * di partenza e il bersaglio, non un inseguimento. La differenza si vede.
-     * Con l'inseguimento — ogni passo una frazione fissa della distanza residua —
-     * la velocita' e' massima al primo istante e poi decade: ogni punto scattava
+     * Con l'inseguimento, cioe' un passo pari a una frazione fissa della distanza
+     * residua, la velocita' e' massima al primo istante e poi decade: ogni punto
+     * scatta
      * via e strisciava fino a fermarsi. Nessuna accelerazione, nessun arrivo:
      * uno scarto secco seguito da una coda. E' quel che si vedeva.
      *
      * Qui la posizione e' `partenza + (bersaglio - partenza) * e`, con `e` la
      * SMOOTHERSTEP (6e⁵-15e⁴+10e³): derivata prima E seconda nulle a entrambi i
      * capi. Ogni punto quindi parte da fermo senza strappo, accelera, decelera e
-     * si posa esattamente sul bersaglio quando la fase finisce — anziche'
+     * si posa esattamente sul bersaglio quando la fase finisce, invece di
      * avvicinarvisi all'infinito.
      *
      * La traiettoria e' inoltre ARCUATA, non un segmento: uno scostamento
@@ -705,8 +684,8 @@ export function swarm() {
       const px = this.px as Float32Array;
       const py = this.py as Float32Array;
       const maxAlpha = this.ALPHA as number;
-      // Il colore si scompone UNA volta per tutto il disegno: Alpine avvolge gli
-      // oggetti semplici in un Proxy — non i typed array — e `ink.r/g/b` letto
+      // Il colore si scompone una volta per tutto il disegno: Alpine avvolge gli
+      // oggetti semplici in un Proxy, ma non i typed array, e `ink.r/g/b` letto
       // dentro il ciclo sui pixel costerebbe tre trappole per pixel.
       const ink = this.ink as { r: number; g: number; b: number };
       const tr = ink.r;

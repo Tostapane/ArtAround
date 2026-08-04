@@ -19,14 +19,13 @@
  *
  * ADDITIVO. Semina il museo chiesto e non tocca gli altri. Cancellare tutto per
  * aggiungere un museo vorrebbe dire rigenerare anche i contenuti degli altri
- * tre — e, con essi, buttare via gli acquisti e le visite composte a mano che vi
- * puntano.
+ * tre, e con essi gli acquisti e le visite composte a mano che vi puntano.
  *
  * Le immagini si scaricano subito dopo l'opera, non in una passata finale: cosi'
  * un'interruzione lascia opere complete, non opere senza volto.
  *
- * Oltre alle opere semina due soggetti che opere non sono — lo stile e l'autore
- * piu' ricorrenti in QUEL museo — perche' la slide 21 chiede contenuti anche su
+ * Oltre alle opere semina due soggetti che opere non sono, lo stile e l'autore
+ * piu' ricorrenti in quel museo, perche' la slide 21 chiede contenuti anche su
  * stili e artisti, e senza nemmeno uno non si possono mostrare. Restano nel
  * catalogo: in quale visita e in quale punto vadano non lo decide il seed.
  */
@@ -83,7 +82,7 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
   const totalItems = config.activeArtworks.length * itemsPerArtwork;
 
   console.log(
-    `\n=== ${config.name} (${config.qid}) — ${config.activeArtworks.length} opere, ` +
+    `\n=== ${config.name} (${config.qid}): ${config.activeArtworks.length} opere, ` +
       `fino a ${totalItems} item ===`,
   );
   const senzaNodo = config.activeArtworks.filter((q) => !positions.has(q));
@@ -207,8 +206,9 @@ function piuRicorrente(
 }
 
 /**
- * I contenuti che NON parlano di un'opera. Quali soggetti lo decide il catalogo
- * — lo stile e l'autore che vi ricorrono di piu' — e non un elenco scritto qui,
+ * I contenuti che non parlano di un'opera. Quali soggetti siano lo decide il
+ * catalogo, cioe' lo stile e l'autore che vi ricorrono di piu', e non un elenco
+ * scritto qui:
  * cosi' un museo di arte contemporanea non semina il Rinascimento. L'immagine e'
  * quella di un'opera che porta quel valore: e' la piu' vicina che il museo abbia.
  */
@@ -271,10 +271,10 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
  * Una visita per ogni combinazione di tono e durata, con dentro tutte le opere
  * del museo per cui quell'item esiste davvero.
  *
- * Ci stanno solo OPERE: dove metterci un contenuto su uno stile e' una scelta di
- * curatela, e questa e' un'enumerazione meccanica del catalogo. I soggetti
- * seminati restano nel catalogo, e a metterli in un percorso — e nel punto in cui
- * hanno senso — e' chi la visita la compone.
+ * Ci stanno solo opere. Dove mettere un contenuto su uno stile e' una scelta di
+ * curatela, mentre questa e' un'enumerazione meccanica del catalogo: i soggetti
+ * seminati restano disponibili, e a collocarli in un percorso, nel punto in cui
+ * hanno senso, e' chi compone la visita.
  */
 async function seedMuseumVisits(config: MuseumConfig) {
   const uri = museumUri(config.qid);

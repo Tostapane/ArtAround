@@ -2,7 +2,7 @@
  * Ritentativi per le chiamate di rete.
  *
  * Il seed fa centinaia di chiamate a Gemini e a Wikidata di fila e dura quasi
- * un'ora: un singolo timeout di connessione — che capita — non deve costare
+ * un'ora, e un singolo timeout di connessione, che capita, non deve costare
  * l'intera esecuzione. Qui si riprova, e solo dopo l'ultimo tentativo si lascia
  * passare l'errore, cosi' chi chiama continua a gestire il fallimento come
  * prima: questa funzione aggiunge i tentativi, non cambia chi decide che cosa

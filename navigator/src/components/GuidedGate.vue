@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * LA VISITA GUIDATA — sala d'attesa, conduzione, quiz, chiusura.
+ * LA VISITA GUIDATA: sala d'attesa, conduzione, quiz, chiusura.
  *
  * La sala d'attesa e' una schermata PROIETTATA: viene letta a voce alta in una
  * stanza e trenta persone la guardano insieme, percio' la parola chiave ha la
@@ -138,7 +138,7 @@ function backHome() {
 
 /**
  * La correzione e' sempre del server: qui si tengono solo le scelte, e il voto
- * arriva dalla risposta. Il conto alla rovescia e' informativo — la scadenza
+ * arriva dalla risposta. Il conto alla rovescia e' informativo: la scadenza
  * vera la controlla il server, che rifiuta le consegne in ritardo.
  */
 const quizDurata = ref(120);
@@ -526,7 +526,7 @@ async function consegna() {
               <span v-if="r.consegnato">
                 {{ r.score }} / {{ guidedQuizDocente.total }}
               </span>
-              <span v-else class="text-on-structure/50">—</span>
+              <span v-else class="text-on-structure/50">·</span>
             </td>
           </tr>
         </tbody>

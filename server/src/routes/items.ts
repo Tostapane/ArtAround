@@ -1,37 +1,32 @@
 /**
  * Rotte dei contenuti (item).
  *
- * L'elenco pubblico esclude gli item privati, che esistono solo per le visite
- * guidate del loro autore, e si restringe a un museo con `?museum=Qxxx`: il client
- * scarica il catalogo di un museo alla volta, non tutto per poi buttare via.
+ * L'elenco pubblico esclude i privati, che esistono solo per le visite guidate
+ * del loro autore, e si restringe a un museo con `?museum=Qxxx`.
  *
- * Di elenchi ce ne sono DUE, e la differenza e' il testo. `GET /items` porta i
- * documenti interi ed e' quello che serve a chi il testo lo vuole davvero;
- * `GET /items/metadata` porta gli stessi item senza il testo, per le schermate
- * che mostrano solo tono, durata, autore e prezzo. Il testo e' circa i tre quarti
- * del peso di un catalogo, e in un museo da centoquattro opere sono ottocento
- * descrizioni: la prima rotta manda 1,1 MB, la seconda 300 KB. Chi apre una
- * descrizione la chiede a `GET /artworks/:qid/items`.
- * IL SOGGETTO non e' per forza un'opera (slide 21): lo dice `genere`. Un'opera si
- * cerca nel database e porta con se' museo e immagine; ogni altro soggetto arriva
- * come nome scritto dall'autore, e il museo va detto. L'immagine invece e'
- * facoltativa: una tappa che parla di uno stile si ascolta stando davanti a
- * un'opera vera — la sua ANCORA — e il navigator mostra quella quando l'autore
- * non ne ha caricata una propria.
+ * Gli elenchi sono due e la differenza e' il testo: `GET /items` porta i
+ * documenti interi ed e' la primitiva completa, `GET /items/metadata` gli stessi
+ * item senza testo, per le schermate che mostrano solo i metadati. Il testo e'
+ * la parte piu' pesante del catalogo e non se ne legge nessuno finche' non se ne
+ * apre uno: quello si chiede a `GET /artworks/:qid/items`.
  *
- * SULLO STESSO SOGGETTO E COLLO STESSO TONO se ne possono scrivere quante se ne
- * vuole: due letture Infantili della Gioconda sono due letture, non un errore, e
- * chi compone una visita sceglie quella che gli serve. A distinguerle e' l'`@id`,
- * che dalla seconda in poi porta un contatore (`freeItemId`). In modifica invece
- * cambiano solo testo e prezzo — il resto e' identita', o diritti di chi l'ha gia'
- * adottata — e per questo si sbriga PRIMA di risolvere il soggetto, che li' non
- * serve.
+ * Il soggetto non e' per forza un'opera (slide 21): lo dice `genere`. Un'opera si
+ * cerca nel database e porta con se' museo e immagine, ogni altro soggetto arriva
+ * come nome scritto dall'autore. L'immagine e' facoltativa: una tappa su uno
+ * stile si ascolta davanti a un'opera vera, la sua ancora, e il navigator mostra
+ * quella.
  *
- * L'ELIMINAZIONE e' a cascata: un item citato da una visita non puo' sparire da
- * solo, perche' lascerebbe una tappa che non si risolve — e una tappa
- * irrisolvibile non da' errore, semplicemente non compare. Si eliminano quindi
- * anche le visite che lo contengono, e gli uni e le altre spariscono da ogni
- * collezione. `GET /:id/impact` serve a dichiararlo PRIMA di chiedere conferma.
+ * Sullo stesso soggetto e con lo stesso tono se ne possono scrivere quante se ne
+ * vuole, e a distinguerle e' l'`@id`, che dalla seconda porta un contatore
+ * (`freeItemId`). In modifica cambiano solo testo e prezzo, perche' il resto e'
+ * identita' o diritti di chi l'ha adottata: per questo si sbriga prima di
+ * risolvere il soggetto, che li' non serve.
+ *
+ * L'eliminazione e' a cascata: un item citato da una visita lascerebbe una tappa
+ * che non si risolve, e una tappa irrisolvibile non da' errore, semplicemente
+ * non compare. Spariscono quindi anche le visite che lo contengono, e gli uni e
+ * le altre da ogni collezione. `GET /:id/impact` lo dichiara prima di chiedere
+ * conferma.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -49,11 +44,11 @@ import { kindById } from "../../../shared/constants";
 const router = Router();
 
 /**
- * Quali item sono "quelli pubblici di questo museo": niente privati, e — se il
- * museo e' indicato — quelli del suo catalogo.
+ * Quali item sono quelli pubblici di questo museo: niente privati e, se il museo
+ * e' indicato, solo quelli del suo catalogo.
  *
  * Sta in un posto solo perche' le due rotte che elencano il catalogo devono
- * elencare le STESSE cose: se un giorno cambia chi e' pubblico, non possono
+ * elencare le stesse cose: cambiando la definizione di pubblico non possono
  * cambiare a meta'.
  */
 function filtroPubblico(museum: string): Record<string, unknown> {
@@ -66,7 +61,7 @@ function filtroPubblico(museum: string): Record<string, unknown> {
 
 /**
  * GET /api/items[?museum=Qxxx]
- * Ritorna: gli item PUBBLICI del museo indicato (o tutti senza parametro), con
+ * Ritorna: gli item pubblici del museo indicato (o tutti senza parametro), con
  * l'opera (`about`) popolata dove c'e'.
  */
 router.get("/", async (req, res) => {
@@ -90,14 +85,14 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/items/metadata[?museum=Qxxx]
- * Ritorna: gli stessi item di `GET /items`, ma SENZA il campo `text` e senza
- * l'opera popolata dentro ognuno. E' il catalogo per decidere: tono, durata,
- * autore, licenza, prezzo — i metadati che la slide 21 chiede — e basta.
+ * Ritorna: gli stessi item di `GET /items` ma senza il campo `text` e senza
+ * l'opera popolata dentro ognuno. E' il catalogo per decidere, cioe' tono,
+ * durata, autore, licenza e prezzo: i metadati che la slide 21 chiede.
  *
- * Perche' `text` viene OMESSO e non svuotato: `access.ts withoutText` manda
- * `text: ""` con `locked: true` per dire «non puoi leggerlo». Qui il testo non
- * c'e' perche' non e' stato ancora chiesto, che e' un'altra cosa; il client
- * distingue i due casi guardando se la proprieta' esiste, e una descrizione
+ * Il campo `text` viene omesso e non svuotato perche' i due casi sono diversi:
+ * `access.ts withoutText` manda `text: ""` con `locked: true` per dire che non
+ * si puo' leggere, mentre qui il testo non c'e' perche' non e' stato chiesto. Il
+ * client li distingue guardando se la proprieta' esiste, e una descrizione
  * gratuita non deve mai sembrare sotto chiave.
  *
  * L'opera non viene popolata perche' il client ha gia' scaricato le opere del
@@ -116,7 +111,7 @@ router.get("/metadata", async (req, res) => {
 
 /**
  * GET /api/items/author/:authorName
- * Ritorna: gli item di quell'autore, PRIVATI COMPRESI, con l'opera popolata.
+ * Ritorna: gli item di quell'autore, privati compresi, con l'opera popolata.
  */
 router.get("/author/:authorName", async (req, res) => {
   try {
@@ -137,8 +132,9 @@ router.get("/author/:authorName", async (req, res) => {
 
 /**
  * GET /api/items/:id/text
- * Ritorna: { text, locked } — il testo di UNA descrizione. `/artworks/:qid/items`
- * li porta un'opera per volta, e un contenuto su uno stile non ne ha nessuna.
+ * Ritorna: { text, locked }, il testo di una sola descrizione.
+ * `/artworks/:qid/items` le porta un'opera per volta, e un contenuto che parla di
+ * uno stile non ha nessuna opera da cui farsi trovare.
  */
 router.get("/:id/text", async (req, res) => {
   try {
@@ -177,7 +173,7 @@ const uploadImmagine = multer({
 
 /**
  * POST /api/items/image (multipart, campo `immagine`)
- * Ritorna: { path } — da rimandare in `immagine` quando si pubblica il contenuto.
+ * Ritorna: { path }, da rimandare in `immagine` quando si pubblica il contenuto.
  */
 router.post("/image", uploadImmagine.single("immagine"), async (req, res) => {
   try {
@@ -211,7 +207,6 @@ function rimuoviImmagine(imagePath: string | undefined) {
 
 // --- Scrittura --------------------------------------------------------------
 
-/** La parte di `@id` che identifica un soggetto scritto a mano. */
 function slug(text: string): string {
   const pulito = text
     .toLowerCase()
@@ -233,11 +228,11 @@ function slug(text: string): string {
  *
  * Lo stesso autore puo' scrivere piu' descrizioni dello stesso tono sulla stessa
  * opera: sono letture diverse dello stesso quadro, non un errore. L'`@id` pero'
- * e' unico in indice, e senza questo la seconda morirebbe su una chiave
- * duplicata. La prima tiene la forma di sempre — cosi' gli id gia' scritti e
- * quelli del seed restano quelli — e dalla seconda in poi si aggiunge un
- * contatore. Resta comunque una chiave opaca: nessuno la spacchetta per leggerci
- * dentro il tono o la durata.
+ * e' unico in indice, quindi senza questo la seconda morirebbe su una chiave
+ * duplicata. La prima descrizione tiene la forma leggibile, cosi' gli id scritti
+ * dal seed restano prevedibili, e dalla seconda in poi si aggiunge un contatore.
+ * Resta comunque una chiave opaca: nessuno la spacchetta per leggerci dentro il
+ * tono o la durata.
  */
 async function freeItemId(base: string): Promise<string> {
   let candidate = base;
@@ -256,9 +251,9 @@ router.post("/", async (req, res) => {
     if (payload.tipo !== "Item")
       return res.status(400).json({ error: "Contenuto non riconosciuto." });
 
-    // Il prezzo e il testo li controlla il SERVER, che e' l'unico posto in cui
-    // il controllo vale: un prezzo negativo non e' uno sconto, e' credito
-    // regalato a chi compra la visita che lo contiene.
+    // Il prezzo e il testo li controlla il server, che e' l'unico posto in cui
+    // il controllo vale davvero: un prezzo negativo non e' uno sconto, e'
+    // credito regalato a chi compra la visita che lo contiene.
     if (Number(payload.prezzo) < 0)
       return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
     const testo = payload.descrizioni?.[0]?.testo;
@@ -366,8 +361,8 @@ async function measureImpact(itemId: string) {
 
 /**
  * GET /api/items/:id/impact
- * Ritorna: { visite[], adozioni } — cosa sparirebbe eliminando questo item,
- * da dichiarare all'utente prima di chiedergli conferma. Non scrive nulla.
+ * Ritorna: { visite[], adozioni }, cioe' cosa sparirebbe eliminando questo item.
+ * Serve a dichiararlo prima di chiedere conferma. Non scrive nulla.
  */
 router.get("/:id/impact", async (req, res) => {
   try {

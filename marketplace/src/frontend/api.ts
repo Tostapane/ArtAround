@@ -4,14 +4,13 @@
  * Tutti i percorsi sono relativi: il marketplace e' servito dallo stesso server
  * delle API, quindi qui non compaiono host ne' porte.
  *
- * CHI CHIEDE NON STA PIU' NELL'INDIRIZZO. Prima ogni chiamata portava
- * `?user=nome`, e un nome scritto a mano valeva quanto il proprio: si leggevano
- * i testi a pagamento di un altro e si spendeva il suo portafoglio. Ora l'unica
- * cosa che dice chi siamo e' il biglietto coniato dal server all'accesso, che
- * `call` attacca da se' a ogni richiesta — quindi nessuna funzione qui sotto ha
- * piu' un parametro `user`, e non c'e' nessun posto in cui dimenticarselo.
+ * Chi chiede non sta nell'indirizzo. L'unica cosa che dice chi siamo e' il
+ * biglietto coniato dal server all'accesso, che `call` attacca da se' a ogni
+ * richiesta: nessuna funzione qui sotto ha un parametro `user`, quindi non c'e'
+ * nessun posto in cui dimenticarselo e nessun nome che si possa riscrivere a
+ * mano per leggere i testi a pagamento di un altro o spenderne il portafoglio.
  *
- * IL BIGLIETTO STA IN `sessionStorage`, non in `localStorage`: muore chiudendo
+ * Il biglietto sta in `sessionStorage` e non in `localStorage`: muore chiudendo
  * la scheda, cosi' riaprire l'applicazione mostra di nuovo la soglia. Sopravvive
  * pero' al ricaricamento e all'andata e ritorno verso il navigator, che stanno
  * nella stessa scheda: e' proprio quel viaggio a non funzionare senza.
@@ -55,7 +54,6 @@ export function hasToken(): boolean {
   return token !== '';
 }
 
-/** Che cosa fare quando il server dice che la sessione non vale piu'. */
 export function onSessionExpired(handler: () => void): void {
   onExpired = handler;
 }
@@ -63,7 +61,7 @@ export function onSessionExpired(handler: () => void): void {
 /**
  * Il 401 si gestisce QUI e non nelle ~25 chiamate: una sola di quelle
  * dimenticata darebbe una schermata vuota invece di riportare alla soglia.
- * Si avvisa solo se un biglietto c'era davvero — altrimenti il 401 di una
+ * Si avvisa solo se un biglietto c'era davvero, altrimenti il 401 di una
  * password sbagliata butterebbe fuori chi non e' ancora entrato.
  */
 async function call(url: string, init: RequestInit = {}): Promise<Response> {
@@ -124,7 +122,6 @@ export const ArtAPI = {
     return response.json();
   },
 
-  /** L'account di chi ha il biglietto: e' come il ricaricamento ritrova se stesso. */
   async fetchMe(): Promise<UserDTO> {
     const response = await call('/api/users/me');
     if (!response.ok) throw new Error('Sessione non valida');
@@ -212,14 +209,12 @@ export const ArtAPI = {
     return response.json();
   },
 
-  /** Il testo di UNA descrizione: chi non parla di un'opera non sta negli elenchi per opera. */
   async fetchItemText(id: string): Promise<{ text: string; locked: boolean }> {
     const response = await call(`/api/items/${encodeURIComponent(id)}/text`);
     if (!response.ok) throw new Error('Errore caricamento del testo');
     return response.json();
   },
 
-  /** Carica l'immagine di un contenuto e ritorna l'indirizzo con cui mostrarla. */
   async uploadItemImage(file: File): Promise<string> {
     const form = new FormData();
     form.append('immagine', file);
@@ -230,7 +225,6 @@ export const ArtAPI = {
     return data.path;
   },
 
-  /** I soggetti che il catalogo del museo gia' nomina: stili e autori. */
   async fetchMuseumTopics(qid: string): Promise<{ name: string; kind: string }[]> {
     const response = await call(`/api/museums/${encodeURIComponent(qid)}/topics`);
     if (!response.ok) throw new Error('Errore caricamento dei soggetti');

@@ -1,5 +1,104 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-04, la traduzione del marketplace
+
+**Stato: fatta. 434 chiavi in 12 lingue, `residui` a zero** (restano solo `ART`,
+`AROUND` e `ArtAround`, che sono il marchio). Ragionamento in `state.md` §5.7.
+
+### Che cosa c'e' gia', e funziona
+
+- **`marketplace/src/frontend/i18n.ts`** (nuovo): stessa libreria del navigator,
+  `i18next`, con le stesse identiche opzioni. Non si puo' importare da npm perche' il
+  marketplace non ha un impacchettatore, quindi arriva da
+  `public/vendor/i18next-26.3.6.min.js` (43 KB) con un `<script defer>` messo **prima**
+  del modulo, come Alpine.
+- **`GET /i18n/<codice>.json`**: il server pubblica `shared/i18n/` (una riga in
+  `index.ts`). Il navigator i cataloghi se li porta dentro il pacchetto compilato, il
+  marketplace no: ne scarica **uno solo**, quello della lingua scelta.
+- **`AppState.lingua` + `AppState.t()`**: `t()` legge `this.lingua`, quindi leggerla
+  dentro un binding Alpine registra la dipendenza e cambiare lingua **ridisegna da se'**
+  tutto il tradotto. E' l'equivalente del `ref` letto dentro `t` nel navigator.
+- **Selettore lingua** nel piede del binario, 13 voci, nomi ciascuno nella propria lingua.
+- **La lingua e' la stessa chiave del navigator** (`artaround-lang` in `localStorage`):
+  scegliendola di qua, di la' e' gia' scelta.
+- **`languages.ts` scandisce anche il marketplace** (`SOURCE_DIRS` + `SOURCE_FILES`):
+  `index.html` si tratta come un template, prendendo il `<body>`. Senza questo `pota`
+  avrebbe preso le chiavi del marketplace per orfane e le avrebbe cancellate.
+- **Cataloghi: 392/392 su 12 lingue.**
+
+### Le frasi mescolate a un tag
+
+Le 58 che lo script non poteva toccare erano di tre forme, e si sono chiuse cosi':
+
+| forma | soluzione |
+| --- | --- |
+| testo accanto a un'icona (`<svg/> Indietro`) | uno `<span x-text>` attorno al solo testo: un `x-text` sul controllo cancellerebbe l'icona |
+| prefisso piu' valore (`Curatore: <span x-text=…>`) | **una frase intera con segnaposto**, `t("Curatore: {nome}", {nome})` |
+| `<option>` statici | `x-text` sull'option |
+
+⚠️ **I frammenti non si concatenano.** `Curatore: ` piu' il nome sono due pezzi in italiano
+e possono non esserlo altrove: in altre lingue cambiano ordine e accordo, e una frase
+composta a pezzi esce sgrammaticata senza che niente lo segnali. Per lo stesso motivo sono
+state riscritte le `aria-label` che si costruivano con `+` (`'Inizia la visita ' + v.name`).
+
+⚠️ **`ART`, `AROUND` e `ArtAround` restano fra i residui e NON vanno tradotti**: sono il
+marchio. `residui` non li puo' distinguere, come non distingue gli id dei comandi.
+
+⚠️ **Una traduzione sbagliata trovata leggendola, non deducendola**: «non ha prezzo» in
+cinese era diventato «e' inestimabile». L'italiano era ambiguo (il campo prezzo non si
+imposta, non il valore incalcolabile), quindi si e' riscritta la frase italiana invece di
+correggere dodici traduzioni. Cambiare l'italiano cambia la chiave: serve `pota` e poi
+`traduci`.
+
+### Come si e' fatto il grosso, se serve rifarlo
+
+Uno script nello scratchpad (`avvolgi2.py`) ha avvolto i due casi meccanicamente sicuri:
+elementi con **un solo nodo di testo** e i quattro attributi visibili. Due cose imparate:
+
+⚠️ **Il primo tentativo aveva un'espressione regolare che non terminava piu'**: il gruppo
+degli attributi era `(?:"[^"]*"|'[^']*'|[^>])*?`, ambiguo, e su un file da 1800 righe
+faceva backtracking esponenziale. La forma buona alterna «carattere che non sia `<`, `>` o
+virgoletta» con «stringa fra virgolette intere»: ogni alternativa consuma almeno un
+carattere e la scelta e' decisa dal primo, quindi la scansione e' lineare. Serve davvero:
+un `>` dentro `x-show="n > 0"` altrimenti spezza il tag a meta'.
+
+⚠️ **Le chiavi si scrivono fra backtick** — `x-text="t(\`Dov'e' il bagno?\`)"` — perche'
+l'italiano e' pieno di apostrofi e dentro un attributo gia' delimitato da virgolette
+doppie una stringa con `'` non si chiude.
+
+**Verificato in chromium**: `i18next` su `window`, `t()` che interpola anche in italiano
+(`7 tappe`), il selettore con 13 lingue, il cambio a `en` e a `zh-CN` **senza ricaricare**
+(1 sola navigazione), la soglia in cinese con lo sciame intatto e il marchio non tradotto,
+piu' la suite dell'editor rieseguita per le regressioni. Zero errori in console, struttura
+dell'HTML immutata (conteggio dei tag identico prima e dopo).
+
+## ⏸ Ripresa — 2026-08-04, passata sui commenti di tutto il codice
+
+Richiesta: commenti che spiegano e non si vantano, senza racconto di com'era prima,
+senza trattini lunghi e senza emoji. 66 file toccati, 638 righe aggiunte e 673 tolte.
+
+- **Zero trattini lunghi, zero `⚠️`, zero frecce unicode** in tutti i sorgenti di
+  `shared/`, `server/src`, `navigator/src`, `marketplace/src` e `index.html`. Tolti anche
+  dalle stringhe visibili: il segnaposto della licenza e del tono e' `n/d`, il titolo del
+  foglio QR e' «QR delle opere di X», gli avvisi di `testers.ts` usano `!`.
+- **Tolto il racconto.** I commenti dicevano spesso «prima era cosi', ora e' cosi'»: quella
+  roba invecchia e diventa falsa. Ora dicono cosa succederebbe *senza* la riga che
+  spiegano, che e' la stessa informazione senza data di scadenza.
+- **Tolte le misure** (`1,1 MB contro 300 KB`, `74% del peso`, `94 as any`): stanno nei
+  commit e qui, non in un'intestazione che nessuno riallinea.
+- **Corretto un commento che era diventato falso**: `shared/access.ts` dichiarava che il
+  nome utente arriva dalla richiesta e nessuno lo verifica. Non e' piu' vero da quando
+  c'e' la sessione, e un commento sbagliato sull'autorizzazione e' peggio di nessuno.
+
+⚠️ **Conseguenza da conoscere:** riscrivendo una stringa italiana visibile (in
+`Posizione.vue` c'era un trattino lungo) la sua chiave cambia, quindi le dodici traduzioni
+diventano orfane. Il giro `pota` + `traduci` e' stato rifatto: **229/229 su 12 lingue**.
+Sono sparite anche tre chiavi del combobox delle lingue, che non esiste piu'.
+
+**Verificato**: cinque controlli verdi (tre type-check, due build), stack riavviato, e le
+due prove in browser rieseguite intere (navigator: italiano, cambio a 中文 senza ricaricare,
+ritorno; marketplace: editor e barra «Manca ancora»). Zero errori in console.
+
 ## ⏸ Ripresa — 2026-08-04, da `vue-i18n` a `i18next`
 
 Una libreria sola per le due applicazioni. Ragionamento in `state.md` §5.6-bis.

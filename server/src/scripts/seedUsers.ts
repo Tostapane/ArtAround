@@ -12,7 +12,7 @@ import { UserModel } from "../models/user";
 /*
  * Seed dei 4 account richiesti dalla spec (slide "Requisiti di progetto"):
  * autore1, autore2 (ruolo autore) e visitatore1, visitatore2 (ruolo
- * visitatore) — password "12345678". Il ruolo fa parte dell'identità: la
+ * visitatore), con password "12345678". Il ruolo fa parte dell'identità: la
  * chiave d'upsert è la coppia (username, role).
  * Idempotente: aggiorna la password se già presenti, senza toccare
  * wallet/collezione esistenti (upsert con $setOnInsert sui campi mutabili).

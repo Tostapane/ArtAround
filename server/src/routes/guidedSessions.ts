@@ -2,19 +2,19 @@
  * Sessioni di VISITA GUIDATA sincronizzata (modulo 18-27, "Fenice rossa").
  *
  * Il ciclo di vita:
- *  - il docente AVVIA una sessione per una sua visita con parola chiave
+ *  - il docente avvia una sessione per una sua visita con parola chiave
  *    (stato "attesa": sala d'attesa);
- *  - gli studenti ENTRANO digitando la parola chiave → finiscono nella lista
- *    d'attesa visibile al docente (accesso TEMPORANEO, non persistente);
- *  - il docente fa PARTIRE la visita quando i suoi studenti sono pronti;
- *  - durante la visita il docente avanza opera per opera (STEP): il timestamp
+ *  - gli studenti entrano digitando la parola chiave e finiscono nella lista
+ *    d'attesa visibile al docente (accesso temporaneo, non persistente);
+ *  - il docente fa partire la visita quando i suoi studenti sono pronti;
+ *  - durante la visita il docente avanza opera per opera: il timestamp
  *    di partenza consente ai dispositivi di far partire l'audio ~insieme;
- *  - il docente TERMINA: la sessione resta qualche secondo in "terminata", cosi'
+ *  - il docente termina: la sessione resta qualche secondo in "terminata", cosi'
  *    una chiusura VOLUTA non arriva ai client come un guasto, poi sparisce.
  *
- * Lo stato vive SOLO in memoria (Map): e' effimero per costruzione — quando il
- * docente termina o il server riavvia, non resta traccia, che e' esattamente
- * quel che chiede la specifica. Nessuna scrittura su MongoDB.
+ * Lo stato vive solo in memoria, dentro una Map: e' effimero per costruzione,
+ * quindi quando il docente termina o il server riavvia non ne resta traccia, che
+ * e' quel che chiede la specifica. Su MongoDB non si scrive niente.
  *
  * Trasporto: POLLING REST. I client interrogano `GET /:id` (docente) o
  * `GET /:id/state` (studente) a intervalli brevi. Nessun WebSocket/SSE.
@@ -389,9 +389,9 @@ router.post("/:id/quiz/end", (req, res) => {
 /**
  * La sessione non sparisce di colpo: resta per una breve coda con stato
  * "terminata", il tempo che l'ultima interrogazione degli studenti la legga. Se
- * la si cancellasse subito, ogni client riceverebbe un 410 — cioe' "la sessione
- * e' sparita sotto i piedi" — e una chiusura VOLUTA dal docente verrebbe
- * annunciata a tutti come un guasto.
+ * la si cancellasse subito ogni client riceverebbe un 410, cioe' "la sessione e'
+ * sparita sotto i piedi", e una chiusura voluta dal docente arriverebbe a tutti
+ * come un guasto.
  */
 const CODA_CHIUSURA_MS = 30000;
 

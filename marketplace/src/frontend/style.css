@@ -1,6 +1,6 @@
 @import "tailwindcss";
 /* Token e componenti: un'unica fonte condivisa col navigator.
-   Non aggiungere qui colori o componenti generici — vanno in shared/. */
+   Non aggiungere qui colori o componenti generici: vanno in shared/. */
 @import "../../../shared/theme.css";
 @import "../../../shared/components.css";
 
@@ -8,8 +8,8 @@
 @source "../../public/index.html";
 
 /*
-  IL DEPOSITO — solo cio' che esiste unicamente nel marketplace: il binario di
-  navigazione, il banco di lavoro dell'editor, la soglia. Tutto il resto
+  IL DEPOSITO: solo cio' che esiste unicamente nel marketplace, cioe' il binario
+  di navigazione, il banco di lavoro dell'editor e la soglia. Tutto il resto
   (lastre, bottoni, campi, pastiglie, immagini) sta in shared/components.css.
 */
 
@@ -138,8 +138,8 @@
 
 /*
   Velo: lascia in luce la figura e scurisce tutto il resto. Serve a due cose
-  insieme — dare profondita' allo sciame, e staccare il titolo dal fondale,
-  dove altrimenti i punti gli si avvicinano troppo.
+  insieme, dare profondita' allo sciame e staccare il titolo dal fondale, dove
+  altrimenti i punti gli si avvicinano troppo.
 */
 .sciame-velo {
   position: absolute;

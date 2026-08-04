@@ -7,9 +7,9 @@
  * ha descrizioni ne genera una con l'LLM e la salva, cosi' la volta dopo c'e'.
  *
  * `/:qid/items` e' l'altra meta' di `GET /items/metadata`: quella porta tutto il
- * catalogo senza i testi, questa i testi di UNA sola opera, quando qualcuno la
- * apre davvero. I testi sono il 74% del peso del catalogo e quasi nessuno li
- * legge tutti.
+ * catalogo senza i testi, questa i testi di una sola opera, quando qualcuno la
+ * apre davvero. I testi sono la parte piu' pesante del catalogo e quasi nessuno
+ * li legge tutti, quindi si mandano su richiesta.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";

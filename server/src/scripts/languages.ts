@@ -1,26 +1,28 @@
 /**
- * LINGUE — i cataloghi dell'interfaccia del navigator.
+ * LINGUE: i cataloghi dell'interfaccia del navigator.
  *
  * Non tocca il database: per questo non sta in `testers.ts`, che dichiara in testa
  * di essere l'utilita' che i dati esistenti li riallinea. Qui si legge il sorgente
  * e si scrivono dodici file JSON.
  *
- * IL MODELLO GIRA UNA VOLTA SOLA, QUI, e non in faccia al visitatore. Tradurre a
+ * Il modello gira una volta sola, qui, e non davanti al visitatore. Tradurre a
  * runtime darebbe la stessa frase in due modi in due caricamenti, dipenderebbe da
- * una quota che si e' gia' esaurita una volta spegnendo i comandi vocali, e non
- * lascerebbe nessun file da correggere quando una parola esce storta. L'app
- * pronuncia le proprie etichette: una parola che oscilla e' peggio di una sbagliata.
+ * una quota che puo' esaurirsi, e non lascerebbe nessun file da correggere quando
+ * una parola esce storta. L'applicazione pronuncia le proprie etichette, e una
+ * parola che oscilla e' peggio di una sbagliata.
  *
- * PERCHE' IL MODELLO E NON IL SERVIZIO DI TRADUZIONE che il progetto gia' usa per i
- * contenuti: qui le stringhe sono corte e senza contesto, ed e' proprio dove una
- * traduzione automatica sbaglia. "Tappa" da sola e' un tappo, una sosta o una
- * frazione di gara; "Vetrina" e' una finestra di negozio. Al modello si passa il
- * glossario e si dice che museo e' — cosa che a `translateTexts` non si puo' dire.
- * I contenuti restano dove sono: sono DATI, crescono quando un autore pubblica e
- * non si possono enumerare prima. L'interfaccia e' PROGRAMMA, sta nel sorgente, e
- * quindi si enumera. E' quella la riga che divide le due strade, non il gusto.
+ * Si usa il modello e non il servizio di traduzione che il progetto gia' adopera
+ * per i contenuti perche' qui le stringhe sono corte e senza contesto, ed e'
+ * proprio li' che una traduzione automatica sbaglia: "tappa" da sola e' un tappo,
+ * una sosta o una frazione di gara, "vetrina" e' una finestra di negozio. Al
+ * modello si possono passare il glossario e il contesto museale, cosa che a
+ * `translateTexts` non si puo' dire.
  *
- * LE REVISIONI A MANO NON SI PERDONO: `traduci` riempie solo le chiavi mancanti.
+ * I contenuti restano invece dove sono, perche' sono dati: crescono quando un
+ * autore pubblica e non si possono enumerare in anticipo. L'interfaccia sta nel
+ * sorgente e quindi si enumera, ed e' quella la riga che divide le due strade.
+ *
+ * Le revisioni a mano non si perdono: `traduci` riempie solo le chiavi mancanti.
  * Per rifare una traduzione si cancella quella riga dal file, o si passa `--tutto`.
  *
  * Uso:
@@ -49,8 +51,32 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = "gemini-3.1-flash-lite";
 
 const ROOT = path.resolve(__dirname, "../../..");
-const SOURCE_DIR = path.join(ROOT, "navigator/src");
 const CATALOGS_DIR = path.join(ROOT, "shared/i18n");
+
+/**
+ * Dove si cercano le frasi. Le due applicazioni condividono i cataloghi, quindi
+ * vanno scandite tutte e due: se ne saltasse una, `pota` prenderebbe le sue
+ * chiavi per orfane e le cancellerebbe.
+ *
+ * Il marketplace ha una pagina sola, e le sue frasi stanno per meta' dentro
+ * l'HTML (nelle espressioni Alpine) e per meta' nei moduli TypeScript.
+ */
+const SOURCE_DIRS = [
+  path.join(ROOT, "navigator/src"),
+  path.join(ROOT, "marketplace/src/frontend"),
+];
+const SOURCE_FILES = [path.join(ROOT, "marketplace/public/index.html")];
+
+function allSources(): string[] {
+  const files: string[] = [];
+  for (const dir of SOURCE_DIRS) {
+    if (fs.existsSync(dir)) walkFiles(dir, files);
+  }
+  for (const f of SOURCE_FILES) {
+    if (fs.existsSync(f)) files.push(f);
+  }
+  return files;
+}
 
 // ============================================================================
 //                          Raccolta delle chiavi
@@ -64,7 +90,7 @@ const CATALOGS_DIR = path.join(ROOT, "shared/i18n");
  * due punti del navigator in cui succede.
  *
  * I TONI si traducono ma non cambiano di valore: `Medio` resta `Medio` nel
- * database, nel confronto del filtro e nella richiesta al server — si traduce
+ * database, nel confronto del filtro e nella richiesta al server: si traduce
  * solo quel che si legge. Tradurre il valore vorrebbe dire che un filtro scelto
  * in cinese non trova piu' niente.
  */
@@ -78,10 +104,11 @@ function keysFromSource(): string[] {
 
   for (const livello of educationalLevels) found.add(livello);
 
-  for (const file of walkFiles(SOURCE_DIR)) {
+  for (const file of allSources()) {
     const text = withoutComments(fs.readFileSync(file, "utf8"));
-    // t("…"), t('…') o t(`…`): la chiave e' letterale, mai un'espressione — una
-    // chiave calcolata qui non si potrebbe raccogliere, e resterebbe non tradotta.
+    // t("…"), t('…') o t(`…`): la chiave e' letterale e mai un'espressione,
+    // perche' una chiave calcolata non si potrebbe raccogliere da qui e
+    // resterebbe non tradotta.
     // I backtick servono nei template: `:aria-label="t(`Scheda dell'opera`)"` e'
     // l'unico modo di scrivere una stringa con un apostrofo dentro un attributo
     // gia' delimitato da virgolette doppie.
@@ -104,10 +131,9 @@ function keysFromSource(): string[] {
 
 /**
  * Toglie i commenti prima di scandire. Non e' una pulizia: le intestazioni di
- * questo progetto spiegano il codice CITANDOLO, quindi un `t("Esci")` scritto in
- * un commento d'esempio finirebbe nei cataloghi come chiave vera — e' successo, ed
- * e' la stessa trappola in cui e' caduto lo script di rinominazione (`guidelines.md`).
- * Le stringhe vanno saltate per intero, o un apostrofo italiano dentro un commento
+ * questo progetto spiegano il codice citandolo, quindi un `t("Esci")` scritto in
+ * un commento d'esempio finirebbe nei cataloghi come chiave vera. Le stringhe
+ * vanno saltate per intero, o un apostrofo italiano dentro un commento
  * ("perche'") aprirebbe un letterale che non si chiude piu'.
  */
 function withoutComments(src: string): string {
@@ -157,25 +183,25 @@ function withoutComments(src: string): string {
 /**
  * Le frasi italiane che nessuno ha avvolto in `t()`.
  *
- * E' il complemento dell'avviso del runtime, e i due non si sostituiscono: quello
- * dice che una chiave non ha traduzione, questo che una frase non e' MAI diventata
- * una chiave — e una stringa scritta a mano non chiede nessuna traduzione, quindi
- * il runtime non la vedra' mai. E' il modo in cui questo lavoro si sfalda quando
- * si aggiunge una schermata.
+ * E' il complemento dell'avviso del runtime e i due non si sostituiscono: quello
+ * dice che una chiave non ha traduzione, questo che una frase non e' mai diventata
+ * una chiave. Una stringa scritta a mano non chiede nessuna traduzione, quindi il
+ * runtime non la vedra' mai, ed e' cosi' che questo lavoro si sfalda quando si
+ * aggiunge una schermata.
  *
- * ⚠️ Guarda solo dove finisce il testo che si VEDE: i nodi dei template, i quattro
+ * Guarda solo dove finisce il testo che si vede: i nodi dei template, i quattro
  * attributi visibili, `announce()`, `riferisci()` e le assegnazioni a `*.value`.
- * Non e' pigrizia. Una prima versione prendeva ogni letterale italiano e riportava
- * venti risultati tutti deliberati — gli id dei comandi (`"Dove e il bagno?"`, che
- * il modello confronta), i prompt scritti per il modello e non per il visitatore,
- * i `console.error`. Un controllo che va rigiudicato a mano ogni volta non e' un
- * controllo: meglio che dica zero quando e' pulito.
+ * Cercando ogni letterale italiano si otterrebbero decine di risultati tutti
+ * deliberati, cioe' gli id dei comandi (che il modello confronta), i prompt
+ * scritti per il modello e non per il visitatore e i `console.error`: un controllo
+ * da rigiudicare a mano ogni volta non e' un controllo, e conviene che dica zero
+ * quando e' pulito.
  */
 function strayStrings(): { file: string; text: string }[] {
   const stray: { file: string; text: string }[] = [];
   const ITALIANO = /[a-zA-ZàèéìòùÀÈÉÌÒÙ]{2,}/;
 
-  for (const file of walkFiles(SOURCE_DIR)) {
+  for (const file of allSources()) {
     if (file.endsWith("i18n.ts")) continue;
     const src = fs.readFileSync(file, "utf8");
 
@@ -183,7 +209,15 @@ function strayStrings(): { file: string; text: string }[] {
     // (`{{ n < 0 ? … }}`) sembrerebbe l'inizio di un tag e mangerebbe fino al primo
     // `>` utile. E il taglio dei tag salta le virgolette, o un `>` dentro un
     // attributo (`v-if="n > 0"`) spezzerebbe il tag a meta'.
-    const tpl = (src.match(/<template>([\s\S]*)<\/template>/) || ["", ""])[1]!
+    // In un `.vue` il testo visibile sta dentro <template>; in `index.html` e'
+    // tutta la pagina, e il <head> non porta frasi da tradurre.
+    let grezzo: string;
+    if (file.endsWith(".html")) {
+      grezzo = (src.match(/<body[^>]*>([\s\S]*)<\/body>/) || ["", ""])[1]!;
+    } else {
+      grezzo = (src.match(/<template>([\s\S]*)<\/template>/) || ["", ""])[1]!;
+    }
+    const tpl = grezzo
       .replace(/<!--[\s\S]*?-->/g, "")
       .replace(/\{\{[\s\S]*?\}\}/g, "⟦⟧");
 
@@ -256,9 +290,10 @@ function writeCatalog(code: string, data: Record<string, string>) {
  * Il glossario e' la ragione per cui qui c'e' un modello e non un traduttore: sono
  * le parole che, prese da sole, questa applicazione le fa dire sbagliate.
  *
- * ⚠️ Le voci si SPIEGANO, non si traducono. Scrivendoci accanto una resa inglese
- * il modello la ricopia invece di cercare la parola della lingua d'arrivo: da
- * «tappa (stop)» il giapponese e' uscito ステーション, cioe' la fermata del treno.
+ * Le voci si spiegano, non si traducono. Scrivendo accanto a una voce una resa
+ * in un'altra lingua il modello ricopia quella invece di cercare la parola giusta
+ * della lingua d'arrivo: da «tappa (stop)» il giapponese esce ステーション, cioe' la
+ * fermata del treno.
  */
 const GLOSSARY = `
 - "tappa" = una sosta del percorso di visita davanti a un'opera; NON un tappo, non una
@@ -279,11 +314,11 @@ const GLOSSARY = `
 `.trim();
 
 /**
- * Quante chiavi per richiesta. Non e' una manopola di prestazione: con tutte e
- * duecento in un colpo la risposta sfonda il tetto dei token e arriva un JSON
- * troncato, cioe' NON VALIDO — ed e' successo su cinese, giapponese e coreano,
- * dove i valori sono piu' lunghi in token di quanto sembrino in caratteri. Il
- * blocco piccolo costa qualche richiesta in piu' e non fallisce.
+ * Quante chiavi per richiesta. Non e' una manopola di prestazione: chiedendole
+ * tutte in un colpo la risposta sfonda il tetto dei token e arriva un JSON
+ * troncato, cioe' non valido. Succede soprattutto su cinese, giapponese e
+ * coreano, dove i valori pesano in token piu' di quanto sembrino in caratteri;
+ * un blocco piccolo costa qualche richiesta in piu' e non fallisce.
  */
 const PER_BATCH = 40;
 
@@ -343,7 +378,7 @@ ${JSON.stringify(missing, null, 1)}`;
 
   const raw = answer.text;
   if (!raw) {
-    console.log(`  ${name.padEnd(12)} un blocco senza risposta — rilancia`);
+    console.log(`  ${name.padEnd(12)} un blocco senza risposta, rilancia`);
     return 0;
   }
 
@@ -351,7 +386,7 @@ ${JSON.stringify(missing, null, 1)}`;
   try {
     translated = JSON.parse(raw);
   } catch {
-    console.log(`  ${name.padEnd(12)} un blocco non e' JSON valido — rilancia`);
+    console.log(`  ${name.padEnd(12)} un blocco non e' JSON valido, rilancia`);
     return 0;
   }
 

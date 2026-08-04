@@ -1,33 +1,26 @@
 <script setup lang="ts">
 /**
- * LA SCHEDA — la didascalia dell'opera e i comandi, in un pannello sempre aperto.
+ * La scheda: la didascalia dell'opera e i comandi, in un pannello sempre aperto.
  *
- * Non e' una finestra e non e' un foglio che si apre: e' meta' fissa dello
- * schermo, una colonna accanto alla pianta da `lg` in su e una fascia sotto di
- * essa sul telefono. Le due domande del visitatore — «che cos'e' questo» e «dove
- * sono» — hanno cosi' una risposta ciascuna, tutte e due in vista, e non c'e'
- * nessun comando da scoprire per passare dall'una all'altra.
+ * Non e' una finestra ne' un foglio che si apre: e' meta' fissa dello schermo,
+ * colonna accanto alla pianta da `lg` in su e fascia sotto di essa sul telefono.
+ * Le due domande del visitatore hanno cosi' una risposta ciascuna, tutte e due in
+ * vista, senza comandi da scoprire per passare dall'una all'altra.
  *
- * Dall'alto in basso, che e' l'ordine in cui la si usa: la lingua dei contenuti,
- * l'opera, la barra della voce e dell'avanzamento, Chiedi/Orientati. Lingua e
- * barra sono le due cose che si cercano senza guardare, quindi stanno ai due
- * bordi e non si spostano mai; a spartirsi il resto dell'altezza sono l'opera e
- * i comandi, in proporzione fissa (`grow-[3]` / `grow-[2]`), ognuno con il
- * proprio scorrimento. Con una risposta aperta la proporzione si ribalta: quella
- * risposta e' il motivo per cui si e' premuto.
+ * Dall'alto in basso, nell'ordine in cui la si usa: lingua, opera, barra della
+ * voce e dell'avanzamento, Chiedi/Orientati. Lingua e barra si cercano senza
+ * guardare, quindi stanno ai bordi e non si spostano; opera e comandi si
+ * spartiscono il resto in proporzione fissa, e con una risposta aperta la
+ * proporzione si ribalta, perche' quella risposta e' il motivo per cui si e'
+ * premuto.
  *
- * Finche' non c'e' nessuna tappa aperta, al posto dell'opera c'e' la porta
- * d'ingresso della visita: un pannello sempre presente deve dire cosa fare anche
- * quando non c'e' niente da leggere. Le domande invece funzionano da subito,
- * perche' `riferimento` vale l'ultima tappa raggiunta — «dov'e' il bagno?» non
- * richiede di aver aperto prima una didascalia.
+ * Senza nessuna tappa aperta al posto dell'opera c'e' la porta d'ingresso della
+ * visita: un pannello sempre presente deve dire cosa fare anche quando non c'e'
+ * niente da leggere. Le domande invece funzionano da subito, perche'
+ * `riferimento` vale l'ultima tappa raggiunta.
  *
- * Chiedi e Orientati sono separati perche' sono domande di natura diversa, a
- * sistemi diversi: la prima riguarda l'opera e risponde l'LLM, la seconda
- * riguarda l'edificio e risponde il grafo ricavato dalla mappa.
- *
- * Il microfono e' un controllo permanente della barra, non un'opzione nascosta:
- * per chi non vede e' l'ingresso principale all'applicazione.
+ * Chiedi e Orientati sono separati perche' rispondono sistemi diversi: l'LLM per
+ * l'opera, il grafo della mappa per l'edificio.
  */
 import { computed, ref, watch } from "vue";
 import Pannello from "./Pannello.vue";
@@ -134,8 +127,8 @@ function cambiaLingua(codice: string) {
     <!-- OPERA -->
     <div ref="opera" class="min-h-0 basis-0 overflow-y-auto" :class="richiesta ? 'grow-[2]' : 'grow-[3]'">
       <template v-if="content">
-        <!-- Sul telefono l'intestazione e' una didascalia da museo — miniatura a
-             sinistra del titolo — perche' la colonna e' alta 200px e una foto a
+        <!-- Sul telefono l'intestazione e' una didascalia da museo, con la
+             miniatura a sinistra del titolo, perche' la colonna e' bassa e una foto a
              piena larghezza se la prenderebbe tutta, lasciando fuori proprio il
              testo. Da `lg` in su c'e' l'altezza per il passe-partout intero. -->
         <div class="flex items-start gap-3 p-4 lg:block lg:p-0">

@@ -1,34 +1,26 @@
 <script setup lang="ts">
 /**
- * IL COMANDO VOCALE.
+ * Il comando vocale.
  *
- * Sta nel piede della scheda, sempre visibile: per chi non vede e' l'ingresso
- * principale all'applicazione, non un'alternativa, e tenerlo in fondo a un
- * pannello di opzioni era il difetto di accessibilita' che pesava di piu'.
+ * Sta nel piede della scheda ed e' sempre visibile: per chi non vede e'
+ * l'ingresso principale all'applicazione, non un'alternativa da scovare in fondo
+ * a un pannello.
  *
- * Ogni cambio di stato viene annunciato, e il comando riconosciuto viene
- * ripetuto PRIMA di essere eseguito: cosi' si sa sempre cosa sta per succedere.
+ * Ogni cambio di stato viene annunciato, e il comando riconosciuto si ripete
+ * prima di eseguirlo. L'esito negativo si annuncia E si scrive: annunciandolo
+ * soltanto, chi guarda lo schermo vedrebbe "Sto capendo...", poi di nuovo
+ * "Parla", e nient'altro. Il messaggio scritto non ha pero' `role="alert"`,
+ * perche' `announce` ha gia' detto la stessa frase e due regioni vive la
+ * farebbero leggere due volte.
  *
- * L'esito negativo si ANNUNCIA e si SCRIVE. Annunciarlo soltanto lo consegnava
- * alla sola regione viva, quindi chi guarda lo schermo vedeva "Sto capendo…",
- * poi di nuovo "Parla", e nient'altro: il comando sembrava non fare niente.
- * Il messaggio scritto non ha `role="alert"` perche' `announce` ha gia' detto la
- * stessa frase, e due regioni vive la farebbero leggere due volte.
+ * Quel messaggio racconta l'ultimo tentativo, non la visita: `tappa` serve a
+ * sapere quando e' passato di moda, o un "Non ho capito" resterebbe scritto sotto
+ * al microfono per tutto il percorso, come fosse il commento all'opera aperta.
  *
- * Quel messaggio pero' racconta l'ULTIMO TENTATIVO, non la visita: `tappa` serve
- * solo a sapere quando quel tentativo e' passato di moda. Senza, un "Non ho
- * capito" preso una volta resta scritto sotto al microfono per tutto il resto
- * del percorso, e sembra il commento all'opera che si sta guardando.
- *
- * Mentre si registra, al posto dell'icona il pulsante disegna il volume che il
- * microfono sta sentendo (`levels` di `useSTT`): e' l'unico segno che distingue
- * "ti sto ascoltando" da un permesso concesso a un dispositivo muto, e sta nel
- * pulsante perche' e' li' che si guarda mentre si parla. Per lo screen reader e'
- * `aria-hidden`: una traccia che cambia dieci volte al secondo non si legge, e
- * l'avvio della registrazione e' gia' annunciato. Mentre la traccia e' visibile
- * l'etichetta si accorcia a "Invia": il pulsante divide la riga con le frecce di
- * navigazione, e su un telefono da 360px gli restano centocinquanta punti — la
- * traccia e una frase intera insieme non ci stanno.
+ * Mentre si registra il pulsante disegna il volume che il microfono sente: e'
+ * l'unico segno che distingue "ti sto ascoltando" da un permesso concesso a un
+ * dispositivo muto. Per lo screen reader e' `aria-hidden`, perche' una traccia
+ * che cambia dieci volte al secondo non si legge e l'avvio e' gia' annunciato.
  */
 import { ref, watch, onUnmounted, computed } from "vue";
 import { sendAudioToBackend } from "@/api";

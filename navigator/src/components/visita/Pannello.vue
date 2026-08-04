@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
- * IL PANNELLO DEI COMANDI — il vocabolario controllato, a bottoni.
+ * IL PANNELLO DEI COMANDI: il vocabolario controllato, a bottoni.
  *
  * La slide 28 chiede che ogni comando vocale abbia un pulsante equivalente, e
  * la slide 27 elenca le due famiglie di domande: quelle sull'OPERA ("dimmi di
  * più", "chi è l'autore?", "non ho capito") e quelle sull'EDIFICIO ("dov'è la
  * toilette?", "dove esco?"). Sono famiglie diverse perché rispondono sistemi
- * diversi — l'LLM la prima, il grafo delle sale la seconda — e tenerle separate
+ * diversi, l'LLM la prima e il grafo delle sale la seconda, e tenerle separate
  * evita un elenco unico di quindici bottoni in cui non si trova niente.
  *
  * Sta in fondo alla scheda, sempre visibile: chiedere è un comando come

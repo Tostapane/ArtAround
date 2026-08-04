@@ -2,35 +2,27 @@
 /**
  * Guscio dell'applicazione.
  *
- * Prima di ogni altra cosa carica il file di configurazione del curatore: da li'
- * arrivano il museo e l'indirizzo del server. Poi sceglie uno di cinque
- * ingressi, letti dalla query string: studente di una visita guidata, docente
- * che apre la sala d'attesa, collegamento diretto a una visita dal marketplace,
- * richiesta di una visita su misura da comporre (`custom=`), oppure accesso
- * normale alla biglietteria.
+ * Carica per prima cosa il file di configurazione del curatore, da cui arrivano
+ * il museo e l'indirizzo del server, poi sceglie uno dei cinque ingressi letti
+ * dalla query string: studente di una visita guidata, docente che apre la sala
+ * d'attesa, collegamento diretto a una visita, richiesta di visita su misura
+ * (`custom=`), oppure biglietteria.
  *
- * SI ENTRA DAL MARKETPLACE. La prima cosa dopo la configurazione e' spendere il
- * biglietto che arriva nell'indirizzo: da li' esce la sessione con cui si parla
- * col server, e senza sessione qui non funziona niente, perche' ogni rotta la
- * pretende. Il biglietto si toglie subito dall'indirizzo — vale una volta sola,
- * quindi un ricaricamento non lo rigioca e la barra non resta con dentro una
- * credenziale. Aprire questa pagina da sola non porta da nessuna parte, ed e'
- * voluto: e' il marketplace il posto in cui si entra.
+ * Si entra dal marketplace. Subito dopo la configurazione si spende il biglietto
+ * che arriva nell'indirizzo, e da li' esce la sessione: senza, qui non funziona
+ * niente, perche' ogni rotta la pretende. Il biglietto si toglie subito
+ * dall'indirizzo perche' vale una volta sola, cosi' un ricaricamento non lo
+ * rigioca e la barra non resta con dentro una credenziale.
  *
- * `custom=` porta la FRASE, non la visita: una visita su misura non e' scritta
- * nel database e le due applicazioni stanno su due origini, quindi non c'e' modo
- * di passarsela. La compone qui chi la suonera', una volta sola — generarla nel
- * marketplace per mostrarne un'anteprima darebbe un percorso diverso da quello
- * poi eseguito, perche' il modello non risponde due volte allo stesso modo.
+ * `custom=` porta la FRASE e non la visita: una visita su misura non sta nel
+ * database, e comporla nel marketplace per mostrarne un'anteprima darebbe un
+ * percorso diverso da quello poi eseguito, perche' il modello non risponde due
+ * volte allo stesso modo.
  *
- * Non c'e' intestazione fissa ne' piede durante la visita: su un telefono, in
- * piedi dentro un museo, ogni pixel appartiene alla mappa.
- *
- * Il guscio e' alto ESATTAMENTE lo schermo (`h-[100dvh] overflow-hidden`) e non
- * scorre: durante la visita pianta e scheda si spartiscono l'altezza, e una
- * pagina che scorre le farebbe uscire dallo schermo tutt'e due. Chi ha bisogno
- * di scorrere lo fa dentro di se' — per questo la biglietteria, che e' l'unica
- * schermata lunga, riceve `overflow-y-auto` da qui.
+ * Il guscio e' alto esattamente lo schermo e non scorre: durante la visita
+ * pianta e scheda si spartiscono l'altezza, e una pagina che scorre le farebbe
+ * uscire tutt'e due. Chi deve scorrere lo fa dentro di se', ed e' il motivo per
+ * cui la biglietteria riceve `overflow-y-auto` da qui.
  */
 import { onMounted, ref, computed } from "vue";
 import Biglietteria from "./components/selection/Biglietteria.vue";

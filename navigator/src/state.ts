@@ -5,20 +5,19 @@
  * volta e pochi stati, quindi dei `ref` esportati bastano.
  *
  * Cose da sapere:
- * - `matchedContent` sono le TAPPE, costruite da `buildStops` in un punto solo:
+ * - `matchedContent` sono le tappe, costruite da `buildStops` in un punto solo:
  *   l'opera arriva gia' dentro l'item dal server (`about` espanso), e qui si
  *   aggiunge l'ancora, cioe' dove si sta quando la tappa non e' un'opera. Le
  *   visite su misura e quelle guidate passano dalla stessa funzione, e
  *   `contentVisitId` impedisce a `loadVisitContent` di sovrascriverle.
- * - `stageView` ricorda se si guardava la mappa o l'elenco: sono due modi PARI
+ * - `stageView` ricorda se si guardava la mappa o l'elenco: sono due modi pari
  *   di navigare la stessa visita, non un contenuto e la sua barra laterale.
  * - `includeOptional` spento fa saltare le tappe opzionali ad avanti/indietro,
  *   ma restano apribili da elenco, mappa o QR: e' la lettura della slide 23,
  *   "se rimane tempo, o su domanda del visitatore".
  * - `notesAfter` e `openingNotes` leggono le indicazioni logistiche ancorate
- *   alla tappa che seguono. Il navigator non le leggeva affatto: erano scritte,
- *   salvate, mostrate nel marketplace e invisibili alla persona per cui erano
- *   state scritte (slide 21).
+ *   alla tappa che seguono: sono scritte per il visitatore, e la slide 21 le
+ *   vuole al momento in cui servono, cioe' fra una tappa e la successiva.
  */
 
 import { ref } from "vue";
@@ -70,9 +69,9 @@ export function setStageView(value: "mappa" | "elenco") {
 /**
  * Se il visitatore vuole che l'applicazione tenga conto di dove si trova.
  *
- * Parte SPENTA: nessun sensore, nessun permesso chiesto, e le indicazioni
+ * Parte spenta: nessun sensore, nessun permesso chiesto, e le indicazioni
  * partono dall'opera aperta come hanno sempre fatto. Accendendola, i sensori si
- * avviano e le indicazioni partono da dove si e' — comunque ci si sia arrivati,
+ * avviano e le indicazioni partono da dove si e', comunque ci si sia arrivati,
  * camminando o col teletrasporto.
  */
 export const posizioneAttiva = ref(
@@ -99,16 +98,16 @@ function defaultLanguage(): Language {
 /**
  * La lingua che il telefono dichiara, se e' fra quelle offerte.
  *
- * Serve perche' la PRIMA schermata si legge prima di poter scegliere: aprendo
+ * Serve perche' la prima schermata si legge prima di poter scegliere: aprendo
  * sempre in italiano, a un visitatore cinese si chiede di riconoscere la frase
  * «Lingua dei contenuti» per arrivare a 中文. Il suo telefono quella risposta ce
  * l'ha gia'.
  *
  * `navigator.languages` porta le preferenze in ordine di gradimento. Si prova
  * prima il codice intero e poi la sola radice, perche' un telefono dice `en-GB`
- * o `pt-PT` dove il nostro elenco ha `en` e `pt` — e all'incontrario dice `zh`
+ * o `pt-PT` dove il nostro elenco ha `en` e `pt`, e all'incontrario dice `zh`
  * dove noi abbiamo solo `zh-CN`. Una radice che porta a piu' lingue prende la
- * prima dell'elenco: e' l'unica cinese che il progetto ha.
+ * prima dell'elenco.
  */
 function browserLanguage(): Language | null {
   const preferite = navigator.languages || [navigator.language];
@@ -140,11 +139,12 @@ function loadLanguage(): Language {
 export const language = ref<Language>(loadLanguage());
 
 /**
- * La lingua la SPINGE questo modulo dentro `i18n`, invece di essere letta da li'
+ * La lingua la spinge questo modulo dentro `i18n` invece di essere letta da li'
  * con un `watch`: quella direzione chiudeva un anello di import
- * (i18n → state → api → i18n) e faceva partire l'applicazione con `language` non
- * ancora inizializzato. Nel verso giusto `i18n` non importa niente e l'anello non
- * si puo' formare — vedi la sua intestazione.
+ * (i18n, state, api e di nuovo i18n) e farebbe partire l'applicazione con
+ * `language` non ancora inizializzato. Nel verso giusto `i18n` non importa
+ * niente e l'anello non si puo' formare; il dettaglio sta nella sua
+ * intestazione.
  */
 setLocale(language.value.translate);
 
@@ -199,7 +199,7 @@ export function openingNotes(): string[] {
 
 /**
  * Da item a tappe: l'opera (che il server manda dentro `about`, e che non c'e'
- * per uno stile o un periodo) e l'ANCORA, cioe' dove si sta mentre si ascolta —
+ * per uno stile o un periodo) e l'ancora, cioe' dove si sta mentre si ascolta:
  * la prossima opera del percorso, o quella prima se dopo non ce ne sono.
  * Senza ancora la tappa non avrebbe posizione e la pianta resterebbe indietro.
  */
@@ -249,12 +249,12 @@ export function stopSubtitle(stop: Match): string {
 }
 
 /**
- * L'immagine della tappa e CHE COSA ritrae, che non sono la stessa cosa.
+ * L'immagine della tappa e che cosa ritrae, che non sono la stessa cosa.
  *
- * Vince quella dell'item, perche' l'ha scelta l'autore. Quando non c'e' — a un
- * contenuto che parla di uno stile o di un periodo non si chiede piu' di
- * portarne una — si ripiega sull'ANCORA: l'opera davanti a cui si sta mentre lo
- * si ascolta. Non e' un riempitivo, e' la foto di dove il visitatore si trova.
+ * Vince quella dell'item, perche' l'ha scelta l'autore. Quando non c'e', e a un
+ * contenuto che parla di uno stile o di un periodo non se ne chiede nessuna, si
+ * ripiega sull'ancora, cioe' sull'opera davanti a cui si sta mentre lo si
+ * ascolta: non e' un riempitivo, e' la foto di dove il visitatore si trova.
  *
  * Il nome torna insieme all'indirizzo perche' la didascalia deve dire l'opera
  * che si vede e non il soggetto della tappa: altrimenti la Primavera verrebbe

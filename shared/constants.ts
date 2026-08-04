@@ -7,12 +7,12 @@
  * non ribalta da solo il database: per riallineare i documenti esistenti si usa
  * server/src/scripts/testers.ts.
  *
- * Il VOCABOLARIO CONTROLLATO (`options`) e' la sorgente unica sia dei pulsanti a
- * schermo sia della mappatura dei comandi vocali. Vale una distinzione:
- * `id` e' il token canonico — i gestori lo confrontano e su di esso l'LLM mappa
- * le richieste libere — mentre `label` e' solo il testo mostrato. Sono separati
- * apposta: finche' dovevano coincidere, le etichette visibili all'utente erano
- * costrette a essere italiano senza accenti ne' apostrofi.
+ * Il vocabolario controllato (`options`) e' la sorgente unica sia dei pulsanti a
+ * schermo sia della mappatura dei comandi vocali. `id` e' il token canonico: i
+ * gestori confrontano quello, e su quello il modello mappa le richieste libere.
+ * `label` e' soltanto il testo mostrato, ed e' un campo separato perche' altrimenti
+ * gli id andrebbero scritti in italiano corretto, con accenti e apostrofi, dove
+ * invece devono restare stabili e facili da confrontare.
  * `surface` dice dove vive il pulsante equivalente al comando vocale, che la
  * specifica richiede sempre presente.
  */
@@ -80,21 +80,19 @@ export const licenses = [
 //                                  Lingue
 // ============================================================================
 
-/** Lingua dei contenuti salvati nel database. La traduzione parte da qui. */
 export const SOURCE_LANG = "it";
 
 /**
  * Frequenza dell'audio del comando vocale, in Hz.
  *
  * Sta qui e non nei due file che la usano perche' e' un accordo fra client e
- * server: la navigator ricampiona a questo valore (`useSTT.ts`) e il server lo
+ * server: il navigator ricampiona a questo valore (`useSTT.ts`) e il server lo
  * dichiara a Google (`services/stt.ts`), che non guarda i byte e crede a quel
- * che gli si dice. Se i due numeri divergono non si ottiene un errore: si
- * ottiene una trascrizione vuota, che e' il difetto appena chiuso.
+ * che gli si dice. Se i due numeri divergono non arriva nessun errore, arriva
+ * una trascrizione vuota.
  */
 export const STT_SAMPLE_RATE = 16000;
 
-/** Una lingua selezionabile: nome mostrato + i tre codici dei servizi Google. */
 export interface Language {
   name: string;
   translate: string;
@@ -135,10 +133,10 @@ export interface CommandOption {
  * L'id del comando che chiede la strada per la tappa successiva.
  *
  * E' esportato perche' e' l'unico comando d'orientamento la cui destinazione non
- * e' un tipo di servizio scritto sulla mappa ma un'OPERA della visita: chi lo
- * riceve deve riconoscerlo per risolvere quel qid, e chi disegna i bottoni per
- * spegnerlo dove una tappa successiva non c'e'. Confrontarlo riscrivendo la
- * stringa in tre file e' il modo in cui le due meta' smettono di essere d'accordo.
+ * e' un servizio scritto sulla mappa ma un'opera della visita: chi lo riceve deve
+ * riconoscerlo per risolverne il qid, e chi disegna i pulsanti per spegnerlo dove
+ * una tappa successiva non c'e'. Va confrontato con questa costante e non con la
+ * stringa riscritta a mano, o le due meta' smettono di essere d'accordo.
  */
 export const NEXT_STOP_COMMAND = "Dove e la prossima tappa?";
 
@@ -212,11 +210,10 @@ export function formatDuration(totalSeconds: number): string {
 }
 
 /**
- * Quante parole si leggono in un minuto. E' il cambio fra una DURATA e una
- * LUNGHEZZA di testo, e lo usano le due sponde per la stessa cosa vista dai due
- * lati: il server per decidere quanto lunga generare una descrizione di N
- * secondi, il marketplace per dire a chi scrive se il suo testo sta nella durata
- * che ha dichiarato. Scritto due volte, i due si sarebbero messi d'accordo su
- * "60 secondi di lettura" in silenzio e in due modi diversi.
+ * Quante parole si leggono in un minuto: il cambio fra la durata di una
+ * descrizione e la lunghezza del suo testo. Lo usano le due sponde per la stessa
+ * cosa vista da lati opposti, il server per generare un testo che stia in N
+ * secondi e il marketplace per dire a chi scrive se il suo sta nella durata che
+ * ha dichiarato, quindi il numero deve essere uno solo.
  */
 export const WORDS_PER_MINUTE = 100;

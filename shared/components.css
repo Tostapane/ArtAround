@@ -1,14 +1,14 @@
 /*
-  ArtAround — vocabolario di componenti condiviso fra navigator e marketplace.
+  ArtAround: vocabolario di componenti condiviso fra navigator e marketplace.
   Riferimento: prelude.md §9.
 
-  Perche' sta in shared/ e non dentro le due app: le due app sono "la stessa
-  istituzione in due stanze". Se il bottone primario esiste in due file, entro
-  una settimana sono due bottoni diversi. Qui c'e' UNA definizione di ogni
-  componente; le classi specifiche di una sola app restano nel suo foglio
-  (il binario del marketplace, la mappa del navigator).
+  Sta in shared/ e non dentro le due applicazioni perche' le due sono la stessa
+  istituzione in due stanze: un bottone primario definito in due file diventa in
+  fretta due bottoni diversi. Qui c'e' una definizione sola di ogni componente,
+  mentre le classi proprie di una sola applicazione restano nel suo foglio, come
+  il binario del marketplace e la mappa del navigator.
 
-  Va importato DOPO shared/theme.css, da cui prende tutti i token.
+  Va importato dopo shared/theme.css, da cui prende tutti i token.
 */
 
 @layer components {
@@ -232,10 +232,10 @@
     @apply font-medium text-accent underline underline-offset-4 hover:opacity-80;
   }
   /*
-    Verderame come TESTO su Cemento fa 4.06:1 — sotto la soglia AA per il testo
-    normale (prelude.md §3.1, l'unica eccezione dichiarata). Sulle lastre (Gesso)
-    fa 5.74:1 e va bene. Qui il collegamento resta inchiostro e si distingue per
-    la sottolineatura, non per il colore.
+    Il Verderame come testo su Cemento fa 4.06:1, sotto la soglia AA per il
+    testo normale (prelude.md §3.1, l'unica eccezione dichiarata); sulle lastre
+    di Gesso fa 5.74:1 e va bene. Qui percio' il collegamento resta inchiostro e
+    si distingue per la sottolineatura invece che per il colore.
   */
   .link-scuro {
     @apply text-text underline decoration-line underline-offset-4 hover:decoration-accent;

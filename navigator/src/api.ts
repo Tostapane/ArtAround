@@ -6,13 +6,13 @@
  *
  * CHI CHIEDE NON STA NELL'INDIRIZZO: nessuna funzione qui sotto ha un parametro
  * `user` o `username`. Lo dice il biglietto che `call` attacca a ogni richiesta,
- * e il server lo traduce nell'account — quindi non c'e' nessun punto in cui
+ * e il server lo traduce nell'account, quindi non c'e' nessun punto in cui
  * dimenticarsene, e nessun nome che si possa riscrivere a mano.
  *
  * IL BIGLIETTO ARRIVA DAL MARKETPLACE, una volta sola, nell'indirizzo con cui
  * questa pagina si apre: le due applicazioni stanno su origini diverse e questa
  * non vede la memoria dell'altra. Si spende subito in cambio di una sessione
- * propria, che sta in `sessionStorage` — chiusa la scheda non resta niente.
+ * propria, che sta in `sessionStorage`: chiusa la scheda non resta niente.
  * Aprire il navigator da solo non porta da nessuna parte, ed e' voluto: si entra
  * dal marketplace.
  *
@@ -35,7 +35,6 @@ export function hasSession(): boolean {
   return token !== "";
 }
 
-/** Spende il biglietto ricevuto dal marketplace e tiene la sessione che ne esce. */
 export async function redeemHandoff(handoff: string): Promise<void> {
   const res = await fetch(`${base()}/users/redeem`, {
     method: "POST",
@@ -98,9 +97,9 @@ export async function createCustomVisit(
 }
 
 /**
- * Visite di un museo, filtrate per CHI STA GUARDANDO: le gratuite piu' quelle
- * che questa persona possiede. Le visite guidate non compaiono mai — ci si entra
- * con la parola chiave, non scegliendole da un elenco.
+ * Visite di un museo, filtrate per chi sta guardando: le gratuite piu' quelle
+ * che questa persona possiede. Le visite guidate non compaiono mai, perche' ci
+ * si entra con la parola chiave e non scegliendole da un elenco.
  */
 export async function getVisitsByMuseum(qid: string): Promise<Visit[]> {
   const res = await call(

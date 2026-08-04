@@ -1,39 +1,27 @@
 <script setup lang="ts">
 /**
- * LA RISPOSTA a un comando del vocabolario controllato.
+ * La risposta a un comando del vocabolario controllato.
  *
- * Due sorgenti, scelte in base al comando: le domande sull'edificio (uscita,
- * bagno, bar, negozio, ostacoli) vanno al grafo delle sale ricavato dalla
- * mappa, che risponde prima con la sola zona e, su richiesta, con il percorso
- * passo-passo; tutte le altre vengono riformulate e mandate all'LLM.
+ * Due sorgenti, scelte in base al comando: le domande sull'edificio vanno al
+ * grafo delle sale ricavato dalla mappa, che risponde prima con la sola zona e su
+ * richiesta col percorso passo-passo; tutte le altre vanno all'LLM.
  *
  * `target` e' la destinazione quando la domanda non se la porta dietro: il
- * `data-poi` del servizio toccato sulla pianta, oppure il qid dell'opera verso
- * cui si sta andando. Il grafo non distingue i due casi — per lui una
- * destinazione e' un nodo — quindi qui non c'e' nessun ramo. Per lo stesso
- * motivo la tabella qui sotto traduce i COMANDI e non elenca i servizi: i
- * servizi di un museo sono quelli della sua mappa, non quelli che il codice sa
- * nominare.
+ * `data-poi` del servizio toccato, oppure il qid dell'opera verso cui si va. Il
+ * grafo non distingue i due casi, quindi qui non c'e' nessun ramo, e per lo
+ * stesso motivo la tabella traduce i comandi invece di elencare i servizi: quelli
+ * di un museo sono quelli della sua mappa.
  *
- * La domanda resta scritta sopra la risposta: senza, la risposta perde il suo
- * riferimento appena si distoglie lo sguardo — e questo riquadro serve proprio
- * a chi non ha capito il testo precedente.
+ * La domanda resta scritta sopra la risposta, che serve proprio a chi il testo
+ * precedente non l'ha capito. Un contatore scarta le risposte in ritardo, cosi'
+ * un cambio di lingua non viene sovrascritto da una vecchia.
  *
- * Un contatore di richieste scarta le risposte che arrivano in ritardo, cosi'
- * un cambio di lingua non viene sovrascritto da una risposta vecchia.
- *
- * DA DOVE parte un'indicazione: dall'opera piu' vicina a dove si e', se la
- * posizione e' accesa e il calcolo se la sente; altrimenti dall'opera aperta.
- * Non si cerca la sala esatta perche' il percorso ragiona per SALE e un'opera
- * basta a nominarne una: due quadri della stessa stanza danno lo stesso
- * cammino, e sbagliare quadro costa al massimo una sala di scarto.
- * La condizione `sicuro` non e' una raffinatezza: all'apertura la posizione e'
- * l'ingresso con un'incertezza larga quanto il museo, e senza quel controllo le
- * indicazioni partirebbero con sicurezza da un'opera qualsiasi vicina all'entrata.
- * Se la partenza coincide con la destinazione si manda vuoto, che per il server
- * vuol dire "dall'ingresso": succede a inizio visita, quando la tappa di
- * riferimento e' ancora quella verso cui si sta chiedendo la strada, e senza
- * questo si rispondeva «e' la sala in cui si trova» a chi sta ancora alla porta.
+ * Un'indicazione parte dall'opera piu' vicina se la posizione e' accesa e il
+ * calcolo se la sente, altrimenti da quella aperta. Non si cerca la sala esatta
+ * perche' il percorso ragiona per sale e un'opera basta a nominarne una. La
+ * condizione `sicuro` non e' una raffinatezza: all'apertura la posizione e'
+ * l'ingresso con un'incertezza larga quanto il museo. Se partenza e destinazione
+ * coincidono si manda vuoto, che per il server vuol dire "dall'ingresso".
  */
 import { computed, ref, watch } from "vue";
 import { getInfo, getDirections } from "@/api";

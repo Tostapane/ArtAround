@@ -1,42 +1,32 @@
 /**
- * LOCALIZZAZIONE AVANZATA — dove sei, e quindi davanti a cosa (slide 33).
+ * Localizzazione avanzata: dove sei, e quindi davanti a cosa (slide 33).
  *
- * Qui non si guarda nessuna tappa e non si tocca nessun sensore: c'e' solo la
- * geometria. I sensori stanno in composables/useSensors.ts, la tappa aperta
- * resta affare di Visita.vue. Questo modulo tiene una stima di DOVE SI E'
- * fisicamente, che e' una cosa diversa da quel che si sta guardando: aprire una
- * tappa per curiosita' non sposta nessuno.
+ * Qui c'e' solo la geometria. I sensori stanno in `composables/useSensors.ts`, la
+ * tappa aperta resta affare di `Visita.vue`: questo modulo stima dove si e'
+ * FISICAMENTE, che e' altra cosa da quel che si sta guardando.
  *
- * IL SISTEMA DI COORDINATE NASCE ALL'AVVIO. Il visitatore parte dall'ingresso
- * della pianta e la mappa e' un dipinto steso intorno a lui, che sia a Bologna o
- * a Reykjavik: nessuna coordinata vera va inventata per i musei, e il nord della
- * Terra e' il su della pianta PER DEFINIZIONE — la posa e' arbitraria, quindi si
- * sceglie invece di misurarla. Dal disegno servono due soli dati, entrambi
- * scritti nell'SVG: `data-width-m` (quanti metri e' larga davvero) e il POI
- * `entrance` (dove nasce il sistema). Senza il primo non si sa quanti pixel vale
- * un passo, e la localizzazione automatica non parte.
+ * Il sistema di coordinate nasce all'avvio, col visitatore all'ingresso e la
+ * pianta stesa intorno a lui: il nord della Terra e' il su del disegno per
+ * definizione, quindi nessun museo ha bisogno di coordinate vere. Dall'SVG
+ * servono due dati soli: `data-width-m` (quanti metri e' larga la pianta) e il
+ * POI `entrance`. Senza il primo non si sa quanti pixel vale un passo e la
+ * localizzazione automatica non parte.
  *
- * L'ANCORA. Una lettura GPS da sola non vuol dire niente qui, perche' la pianta
- * e' appoggiata dove capita: conta solo la DIFFERENZA fra due letture. Percio'
- * si ricorda una coppia sola — "la lettura di quel momento stava in quel punto
- * della pianta" — e si misura tutto da li'. Chi dichiara dove si trova (QR,
- * codice, scelta fra i candidati, domani il teletrasporto) rifa' la coppia e
- * butta via la deriva accumulata; il movimento GPS invece accumula e basta.
- * Da cui la conseguenza che conta: teletrasportato accanto al tavolo, tre metri
- * a est sono tre metri a est DAL PUNTO DI TELETRASPORTO. E se il GPS tace al
- * chiuso il segnalino resta sull'ultima ancora, che e' la verita': so dov'eri,
+ * L'ancora e' il cuore: una lettura GPS da sola non dice niente, conta solo la
+ * DIFFERENZA fra due letture, quindi si ricorda una coppia sola (quella lettura
+ * stava in quel punto della pianta) e si misura da li'. Chi dichiara dove si
+ * trova rifa' la coppia e butta la deriva; il movimento GPS invece accumula. Ne
+ * segue che tre metri a est sono tre metri a est DAL PUNTO DICHIARATO, e che se
+ * il GPS tace il segnalino resta sull'ultima ancora, che e' la verita': so dov'eri,
  * non ti ho visto muovere.
  *
- * LA CERTEZZA E' UN'EQUAZIONE SOLA, senza rami per piattaforma. Ogni opera ha
- * due scarti — quanto e' lontana e quanto e' fuori asse — pesati per quanto vale
- * ciascuna misura: sigma della distanza e' l'accuratezza che DICHIARA IL DEVICE
- * (un fix da 5 m ordina con decisione, uno da 300 m appiattisce tutto, ed e'
- * corretto cosi'), sigma dell'angolo e' la tolleranza di una bussola dentro un
- * edificio pieno di acciaio e vetrine. Senza bussola il termine angolare sparisce
- * dalla stessa equazione, le probabilita' si appiattiscono e compare il pannello
- * di scelta: l'orientamento non viene TOLTO dove manca il magnetometro, e'
- * ASSENTE, e la formula dice gia' cosa significa. Il nome del sistema operativo
- * non compare da nessuna parte: contano solo i numeri che i sensori hanno dato.
+ * La certezza e' un'equazione sola, senza rami per piattaforma: ogni opera ha due
+ * scarti, distanza e disallineamento, pesati per quanto vale la misura. Sigma
+ * della distanza e' l'accuratezza dichiarata dal dispositivo, sigma dell'angolo la
+ * tolleranza di una bussola dentro un edificio pieno di acciaio. Senza bussola il
+ * termine angolare sparisce dalla stessa equazione, le probabilita' si
+ * appiattiscono e compare il pannello di scelta: l'orientamento non viene tolto,
+ * e' assente, e la formula dice gia' cosa vuol dire.
  */
 
 import { ref, computed } from "vue";
@@ -154,7 +144,7 @@ export interface Stima {
 
 /**
  * L'ancora: un punto della pianta e la lettura GPS che gli corrisponde. `lat` e
- * `lon` restano nulle finche' un fix non arriva — si puo' dichiarare di essere
+ * `lon` restano nulle finche' un fix non arriva, perche' si puo' dichiarare
  * davanti a un'opera prima che il GPS abbia parlato, e allora sara' la prima
  * lettura utile a prendere il posto.
  */
@@ -177,16 +167,16 @@ export function startAtEntrance() {
 }
 
 /**
- * Un atto dichiarato — QR, codice, scelta fra i candidati, teletrasporto — da
- * adesso "qui" e' questo punto della pianta, e la deriva accumulata dal GPS si
+ * Un atto dichiarato (QR, codice, scelta fra i candidati, teletrasporto): da
+ * qui in avanti "qui" e' questo punto della pianta, e la deriva accumulata si
  * butta via. Chi dichiara sta davanti all'opera, quindi l'incertezza torna a
  * pochi passi: e' il dato migliore che il sistema possa avere, meglio di
  * qualunque fix.
  *
  * `lat` e `lon` tornano nulle, e non e' una dimenticanza: la lettura ricordata
  * nell'ancora e' la PRIMA arrivata e non viene piu' aggiornata, quindi tenerla
- * qui vorrebbe dire misurare il prossimo fix a partire da quella — cioe'
- * riapplicare, tutta in una volta, la deriva accumulata da allora, buttando via
+ * qui vorrebbe dire misurare il prossimo fix a partire da quella, cioe'
+ * riapplicare tutta in una volta la deriva accumulata da allora, buttando via
  * il punto appena dichiarato. Azzerandole, la prima lettura utile ridiventa il
  * riferimento proprio qui. Al chiuso, dove nessun fix arriva, la differenza non
  * si vede: e' il motivo per cui non si vedeva.

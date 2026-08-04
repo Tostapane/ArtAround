@@ -1,35 +1,16 @@
 /**
  * I file di configurazione dei musei: uno per museo, in `data/museums/`.
  *
- * E' il file che la slide 19 chiede — "adattarsi a musei e esposizioni diverse
- * solo cambiando qualche immagine e file di configurazione" — quindi e' un
- * INGRESSO, non un prodotto: aggiungere un museo vuol dire posare un JSON qui e
- * una SVG in `public/maps/`, e non toccare una riga di codice. Prima l'elenco
- * dei musei stava in un modulo TypeScript e questi file venivano riscritti dal
- * seed a partire da Wikidata: chi aggiungeva un museo doveva ricompilare, e le
- * scelte del curatore venivano sovrascritte.
+ * E' il file che la slide 19 chiede, "adattarsi a musei diversi solo cambiando
+ * qualche immagine e file di configurazione", quindi e' un ingresso e non un
+ * prodotto: aggiungere un museo vuol dire posare un JSON qui e una SVG in
+ * `public/maps/`, senza toccare una riga di codice. Niente qui dentro viene mai
+ * riscritto dal seed, o le scelte del curatore andrebbero perse.
  *
- * Il file dice solo quel che non si puo' dedurre da nient'altro:
- *
- *   qid             l'identificatore universale (Wikidata) del museo. E' la
- *                   chiave con cui opere, visite e configurazione si ritrovano.
- *   name            come si chiama per chi guarda, e come si chiama la sua mappa.
- *                   Vince su Wikidata, che per gli Uffizi restituisce "Palazzo
- *                   degli Uffizi", cioe' l'edificio e non la galleria.
- *   location        dove si trova, in chiaro.
- *   created         anno di fondazione.
- *   mapPath         la pianta SVG, servita da `public/`. Tutto lo spazio —
- *                   sale, opere, servizi, ostacoli, collegamenti, metri —
- *                   e' dentro quel disegno: qui non se ne ripete niente.
- *   logistics       le indicazioni valide per il museo intero (ingresso,
- *                   biglietto, guardaroba: l'esempio della slide 21). Il seed
- *                   le mette in apertura a ogni visita che genera.
- *   activeArtworks  i qid delle opere che il curatore espone nell'app. Non sono
- *                   tutte quelle del museo: sono quelle scelte.
- *
- * La POSIZIONE di un'opera non sta qui ma nella mappa, sul nodo che porta il suo
- * `data-qid`: due elenchi paralleli da tenere allineati a mano sono un elenco di
- * troppo, e con centoquattro opere e' il primo posto in cui si sbaglia.
+ * Il file dice solo quel che non si puo' dedurre: il qid, il nome (che vince su
+ * Wikidata, perche' e' una scelta e non un dato), luogo e anno, la pianta, le
+ * indicazioni logistiche del museo e le opere da mettere in vetrina. Tutto lo
+ * spazio - sale, opere, servizi, ostacoli, metri - sta dentro il disegno.
  */
 import fs from "fs";
 import path from "path";

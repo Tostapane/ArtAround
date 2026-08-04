@@ -1,37 +1,29 @@
 /**
- * IL DEPOSITO — l'unico stato del marketplace, piu' i metodi che i binding Alpine
- * chiamano. Quattro cose da sapere per leggerlo:
+ * Il deposito: l'unico stato del marketplace, piu' i metodi che i binding Alpine
+ * chiamano. Quel che serve per leggerlo:
  *
- *  1. LA NAVIGAZIONE E' UN ROUTER A FRAMMENTO. `view` dice quale schermata e'
- *     attiva e la decide l'indirizzo (`#/opere`, `#/opera/Q12418`), non un click:
- *     quindi il tasto "indietro" funziona e un ricaricamento non perde il posto.
- *     Le finestre modali sono riservate alle CONFERME.
- *  2. RUOLO E MUSEO ARRIVANO PRIMA DEI DATI. Il ruolo lo risolve il server dalle
- *     credenziali; il museo si sceglie una volta e resta in `localStorage`. Il
- *     catalogo si scarica per museo, quindi entrambi vanno noti prima (`initApp`).
- *  3. DUE CATALOGHI SEPARATI: le visite si vendono, le opere si sfogliano.
- *  4. LA VETRINA E' UN ELENCO SOLO con dentro due specie, visite e opere, e
- *     quindi UNA serie sola di ricerca e filtri (`market*`): due copie
- *     tornerebbero a divergere. Il livello di una visita si legge dai toni
- *     delle sue tappe e non da `Visit.level`, che per una visita composta a
- *     mano dice "Personalizzata" — che non e' un tono ma l'assenza di una
- *     dichiarazione; le tappe possono averne piu' d'uno, e allora e' "Misto".
- *     `#/visite` e `#/opere` rispondono ancora, con la specie gia' scelta.
- *  5. TRE RUOLI: visitatore, autore, curatore.
- *     ⚠️ Le diramazioni per ruolo qui dentro sono scritte `role === "autore"
- *     ? ... : ...`, col visitatore nel ramo altrimenti: un ruolo nuovo ci cade
- *     dentro senza che nulla protesti. Nominarlo esplicitamente dove conta.
+ *  1. la navigazione e' un router a frammento. `view` dice quale schermata e'
+ *     attiva e la decide l'indirizzo, non un click, quindi il tasto "indietro"
+ *     funziona e un ricaricamento non perde il posto. Le finestre modali sono
+ *     riservate alle conferme;
+ *  2. ruolo e museo arrivano prima dei dati, perche' il catalogo si scarica per
+ *     museo (`initApp`);
+ *  3. la vetrina e' un elenco solo con dentro visite e opere, quindi una serie
+ *     sola di ricerca e filtri: due copie tornerebbero a divergere. Il livello di
+ *     una visita si legge dai toni delle sue tappe, non da `Visit.level`, che per
+ *     una visita composta a mano dice "Personalizzata";
+ *  4. i ruoli sono tre ma le diramazioni sono scritte `role === "autore" ? …`,
+ *     col visitatore nel ramo altrimenti: un ruolo nuovo ci cade dentro senza
+ *     che nulla protesti, quindi va nominato dove conta.
  *
- * ⚠️ L'ORDINE di `draft.tappe` E' L'ANCORAGGIO delle note logistiche: il server non
+ * L'ordine di `draft.tappe` e' l'ancoraggio delle note logistiche: il server non
  * riceve una posizione, la ricava percorrendo `percorso` e legando ogni nota alla
- * tappa che la precede (nessuna ⇒ `after: null`, cioe' nota d'apertura). Quindi
- * ricostruire un percorso nell'ordine sbagliato non e' un difetto di visualizzazione:
- * al primo salvataggio la nota si riancora dove l'ha messa `rebuildStops`.
+ * tappa che la precede. Ricostruire un percorso nell'ordine sbagliato non e'
+ * quindi un difetto di visualizzazione: al primo salvataggio la nota si riancora.
  *
- * ⚠️ Nel catalogo del curatore la durata di una descrizione e' in SECONDI esatti e
- * non in `formatDuration()`: le descrizioni sono uniche per (opera, autore, tono,
- * DURATA), quindi ogni riga ha una gemella identica in tutto il resto, e i minuti
- * arrotondati le renderebbero indistinguibili. Non "correggerlo" in minuti.
+ * Nel catalogo del curatore la durata e' in secondi esatti e non in
+ * `formatDuration()`: le descrizioni sono uniche per (opera, autore, tono,
+ * DURATA), e i minuti arrotondati renderebbero due righe indistinguibili.
  */
 
 import {
@@ -56,6 +48,13 @@ import {
   WORDS_PER_MINUTE,
 } from "../../../shared/constants.js";
 import { isReadable } from "../../../shared/access.js";
+import { languages } from "../../../shared/constants.js";
+import {
+  linguaSalvata,
+  preparaLingua,
+  salvaLingua,
+  traduci,
+} from "./i18n.js";
 import {
   ArtAPI,
   clearToken,
@@ -124,7 +123,6 @@ export interface MuseumOverview {
   account: { autori: number; visitatori: number; curatori: number };
 }
 
-/** Riga del resoconto vendite, come la calcola il server. */
 export interface SaleRow {
   id: string;
   type: string;
@@ -153,18 +151,17 @@ export interface Soggetto {
   style?: { name: string; qid: string };
 }
 
-/** Un soggetto con le descrizioni che gli appartengono, come le raggruppa il catalogo. */
 export interface ArtworkGroup {
   artwork: Soggetto;
   items: Item[];
 }
 
 export type View =
-  // Prima che `start()` abbia risposto non si sa ancora che schermata sia: c'e'
-  // un biglietto in sessionStorage da spendere, e finche' non si sa niente si
-  // disegna niente. Senza, la soglia compariva per un istante a ogni
-  // ricaricamento e poi saltava alla home — cioe' la pagina diceva "non sei
-  // entrato" a chi era entrato.
+  // Finche' `start()` non ha risposto non si sa che schermata sia: c'e' un
+  // biglietto in sessionStorage da spendere, e finche' non si sa niente si
+  // disegna niente. Senza questo stato la soglia comparirebbe per un istante a
+  // ogni ricaricamento per poi saltare alla home, cioe' direbbe "non sei
+  // entrato" a chi e' entrato.
   | "avvio"
   | "soglia"
   | "accedi"
@@ -252,6 +249,15 @@ export class AppState {
   curatedItems: Item[] = [];
 
   private navigatorOrigin: string = "";
+
+  /**
+   * La lingua dell'interfaccia. E' una proprieta' dello stato, non una variabile
+   * di modulo, perche' `t()` la legge a ogni chiamata: leggerla dentro un
+   * binding di Alpine registra la dipendenza, e cambiarla ridisegna da se' tutto
+   * quel che e' tradotto. Fuori dallo stato Alpine non se ne accorgerebbe.
+   */
+  lingua: string = linguaSalvata();
+  lingueDisponibili = languages;
 
   licenseOptions: string[] = licenses;
   tones: string[] = educationalLevels;
@@ -400,8 +406,27 @@ export class AppState {
     });
   }
 
+  /**
+   * Traduce, ed e' il metodo che i template chiamano. Il catalogo dell'italiano
+   * non esiste, quindi in italiano la chiave stessa e' il messaggio.
+   */
+  t(chiave: string, parametri?: Record<string, unknown>): string {
+    return traduci(chiave, this.lingua, parametri);
+  }
+
+  async cambiaLingua(codice: string) {
+    await preparaLingua(codice);
+    salvaLingua(codice);
+    this.lingua = codice;
+    document.documentElement.lang = codice;
+  }
+
   async start() {
     window.addEventListener("hashchange", () => this.applyRoute());
+    // Prima di qualunque disegno: altrimenti la pagina comparirebbe in italiano
+    // per un istante e cambierebbe sotto gli occhi di chi sta leggendo.
+    await preparaLingua(this.lingua);
+    document.documentElement.lang = this.lingua;
     onSessionExpired(() => this.sessionLost());
     try {
       const cfg = await ArtAPI.fetchConfig();
@@ -415,8 +440,8 @@ export class AppState {
 
   /**
    * Il biglietto sopravvive al ricaricamento e all'andata e ritorno verso il
-   * navigator — stessa scheda, stessa origine — mentre il resto dello stato no.
-   * Portafoglio e collezione NON si ricordano: si rileggono, perche' fra un
+   * navigator, nella stessa scheda, mentre il resto dello stato no. Portafoglio
+   * e collezione non si ricordano ma si rileggono, perche' fra un
    * caricamento e l'altro puo' esserci stato un acquisto.
    */
   private async resumeSession() {
@@ -428,7 +453,6 @@ export class AppState {
     }
   }
 
-  /** La sessione non vale piu': si torna alla soglia dicendolo. */
   private sessionLost() {
     this.resetToThreshold();
     this.showToast("La sessione è scaduta: entra di nuovo.", "error");
@@ -466,10 +490,10 @@ export class AppState {
   }
 
   /**
-   * Scarica il catalogo del museo scelto, e solo quello — SENZA i testi delle
+   * Scarica il catalogo del museo scelto e solo quello, senza i testi delle
    * descrizioni, che arrivano un'opera alla volta quando qualcuno la apre
-   * (`caricaTesti`). Nel museo piu' grande i testi sono tre quarti del peso:
-   * 1,1 MB contro 300 KB, e all'arrivo non se ne legge nessuno.
+   * (`caricaTesti`). In un museo grande i testi sono circa tre quarti del peso
+   * del catalogo, e all'ingresso non se ne legge nessuno.
    */
   private async loadCatalogue() {
     if (!this.selectedMuseum) return;
@@ -794,8 +818,8 @@ export class AppState {
       this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
       this.userCollection = u.collezione;
       // Il testo di quest'opera puo' essere gia' stato chiesto quando ancora non
-      // si aveva diritto a leggerlo, e allora era arrivato vuoto: si dimentica
-      // di averlo chiesto, cosi' la prossima apertura lo riprende per davvero.
+      // si aveva diritto a leggerlo, e in quel caso e' arrivato vuoto: si
+      // dimentica di averlo chiesto, cosi' la prossima apertura lo riprende.
       if (isItem(item) && item.about && typeof item.about === "object") {
         const qid = item.about.qid;
         const i = this.artworksWithText.indexOf(qid);
@@ -875,7 +899,7 @@ export class AppState {
           visite.length === 1
             ? "la visita che la contiene"
             : `le ${visite.length} visite che la contengono`;
-        testo += `, e con essa ${quali} — ${nomi} — perché una tappa che non si risolve non darebbe errore, semplicemente non comparirebbe`;
+        testo += `, e con essa ${quali} (${nomi}), perché una tappa che non si risolve non darebbe errore, semplicemente non comparirebbe`;
       }
       testo += ". ";
       if (adozioni > 0) {
@@ -980,8 +1004,8 @@ export class AppState {
     // si compra sono le descrizioni che le mancano, tutte insieme e per un
     // prezzo solo. Passa di qui perche' la richiesta prende sempre e soltanto
     // quel che NON hai: la visita, essendo gia' tua, non entra nel conto.
-    // Il ciclo di prima — una richiesta per tappa — spezzava invece l'acquisto:
-    // col credito buono per le prime due si restava pagati e incompleti.
+    // Una richiesta per tappa spezzerebbe l'acquisto: col credito buono per le
+    // prime due si resterebbe pagati e incompleti.
     if (this.visitToComplete) {
       const visit = this.visitToComplete;
       this.cancelConfirm();
@@ -1111,7 +1135,7 @@ export class AppState {
           kind: "visita",
           id: v["@id"],
           name: v.name,
-          author: v.author || "—",
+          author: v.author || "n/d",
           tone: v.level,
           duration: Number(v.duration) || 0,
           price: v.price || 0,
@@ -1453,7 +1477,7 @@ export class AppState {
 
   /**
    * Il soggetto della pagina aperta: un'opera del catalogo, oppure ricostruito
-   * dai contenuti che ne parlano — se nessuno ne parla piu', la pagina non c'e'.
+   * dai contenuti che ne parlano: se nessuno ne parla piu', la pagina non c'e'.
    */
   currentArtwork(): Soggetto | null {
     if (this.view !== "opera" || !this.param) return null;
@@ -1693,8 +1717,8 @@ export class AppState {
   /**
    * Il soggetto che si sta descrivendo, per tenerlo sotto gli occhi mentre si
    * scrive: sceglierlo da un menu a tendina lo riduceva a un titolo. Per un'opera
-   * e' l'opera del catalogo, per il resto la bozza stessa — nome e immagine
-   * caricata — perche' li' il soggetto non esiste altrove.
+   * e' l'opera del catalogo, per il resto la bozza stessa, cioe' il nome e
+   * l'immagine caricata, perche' li' il soggetto non esiste altrove.
    */
   draftSubject(): any {
     if (this.draft.genere !== "opera") {
@@ -1715,7 +1739,7 @@ export class AppState {
 
   /**
    * Le righe sotto il nome: autore e stile per un'opera, il genere per il resto.
-   * Si salta quel che il catalogo non sa — Wikidata lascia scritto "Unknown", e
+   * Si salta quel che il catalogo non sa: Wikidata lascia scritto "Unknown", e
    * stamparlo fa sembrare rotta una scheda che e' solo incompleta.
    */
   draftSubjectFacts(): string[] {
@@ -1916,9 +1940,9 @@ export class AppState {
     let giudizio = "";
     if (dichiarata > 0) {
       const scarto = secondi / dichiarata;
-      if (scarto < 0.6) giudizio = " — più corta della durata dichiarata";
-      else if (scarto > 1.6) giudizio = " — più lunga della durata dichiarata";
-      else giudizio = " — in linea con la durata dichiarata";
+      if (scarto < 0.6) giudizio = ", più corta della durata dichiarata";
+      else if (scarto > 1.6) giudizio = ", più lunga della durata dichiarata";
+      else giudizio = ", in linea con la durata dichiarata";
     }
     return `${parole} parole · circa ${secondi}s di lettura${giudizio}`;
   }
@@ -2229,8 +2253,8 @@ export class AppState {
   /**
    * Il passo dopo quello aperto, "" se non ce n'e' un altro. E' quel che rende
    * il compositore una strada invece di tre schede: si pubblica solo dall'ultimo
-   * passo, quindi dalle impostazioni si passa comunque — prima si poteva
-   * pubblicare dal percorso senza averle mai viste. Il quiz e' un passo solo per
+   * passo, quindi dalle impostazioni si passa comunque e non si puo' pubblicare
+   * senza averle viste. Il quiz e' un passo solo per
    * le visite guidate, percio' l'ultimo passo non e' sempre lo stesso.
    */
   nextVisitStep(): string {
@@ -2339,7 +2363,7 @@ export class AppState {
   }
 
   readableRevenue(r: any): string {
-    if (!r.price || Number(r.price) === 0) return "—";
+    if (!r.price || Number(r.price) === 0) return "n/d";
     return `€ ${(r.ricavo || 0).toFixed(2)}`;
   }
 

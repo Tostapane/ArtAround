@@ -158,8 +158,8 @@ export async function populateVisit(
  * Scrive nel database il museo descritto dal suo file di configurazione.
  *
  * Il file vince su Wikidata, che si interroga solo per i campi che il curatore
- * ha lasciato in bianco: il nome, in particolare, e' una scelta e non un dato —
- * per gli Uffizi Wikidata risponde "Palazzo degli Uffizi", che e' l'edificio.
+ * ha lasciato in bianco. Il nome in particolare e' una scelta e non un dato: per
+ * gli Uffizi Wikidata risponde "Palazzo degli Uffizi", che e' l'edificio.
  */
 export async function populateMuseum(config: MuseumConfig) {
   let name = config.name;

@@ -1,34 +1,25 @@
 <script setup lang="ts">
 /**
- * IL SVOLGIMENTO DELLA VISITA.
+ * Lo svolgimento della visita.
  *
- * Tiene insieme tre cose: la guida d'avanzamento ("Tappa 3 di 13", che conta
- * solo le tappe che "Prossimo" raggiungera' davvero), il palcoscenico e la
- * scheda dell'opera.
+ * Tiene insieme la guida d'avanzamento ("Tappa 3 di 13", che conta solo le tappe
+ * che "Prossimo" raggiungera' davvero), il palcoscenico e la scheda.
  *
- * Lo schermo e' diviso in due meta' che convivono sempre — la pianta e la
- * scheda — perche' "dove sono" e "che cos'e' questo" sono due domande che il
- * visitatore si fa insieme. La scheda quindi non copre mai niente e non ha
- * bisogno di essere aperta: qui non si rende inerte nulla e non si tiene nessuno
- * stato di apertura. E' anche l'unico posto dove si chiede qualcosa
- * all'applicazione, cosi' il vocabolario controllato (slide 27-28) sta in un
- * elenco solo.
+ * Lo schermo e' diviso in due meta' che convivono sempre, pianta e scheda,
+ * perche' "dove sono" e "che cos'e' questo" sono due domande che il visitatore si
+ * fa insieme: la scheda non copre mai niente e non ha uno stato di apertura. E'
+ * anche l'unico posto da cui si chiede qualcosa, cosi' il vocabolario controllato
+ * (slide 27-28) sta in un elenco solo.
  *
- * Andando avanti, se l'autore ha lasciato un'indicazione per arrivare all'opera
- * successiva, la si mostra PRIMA di aprirla; le note d'apertura compaiono prima
- * della prima tappa. E' lo scopo per cui esistono (slide 21).
+ * Andando avanti, l'indicazione per raggiungere l'opera successiva si mostra
+ * PRIMA di aprirla, e le note d'apertura prima della prima tappa: e' lo scopo per
+ * cui esistono (slide 21). QR e codice digitato approdano entrambi in
+ * `goToArtwork`, e un'opera fuori dalla visita si apre senza toccare la
+ * progressione.
  *
- * QR e codice digitato approdano entrambi qui, in `goToArtwork`: un'opera fuori
- * dalla visita viene mostrata comunque, senza toccare la progressione.
- *
- * Sotto `sm` a cedere il posto e' il NOME DELLA VISITA, che li' si accorciava a
- * "Visita I…": e' l'unica cosa nella barra che non serve durante la visita — la
- * si e' appena scelta — mentre uscire e sapere a che tappa si e' servono in ogni
- * momento.
- *
- * Il TELETRASPORTO cambia il significato di un tocco sul palcoscenico, quindi lo
- * stato sta qui: si arma da "Dove sono?", una striscia lo dichiara finche' dura,
- * e dura un tocco solo — una modalita' e' una cosa in cui si resta intrappolati.
+ * Il teletrasporto cambia il significato di un tocco sul palcoscenico, quindi lo
+ * stato sta qui: si arma da "Dove sono?" e dura un tocco solo, perche' una
+ * modalita' e' una cosa in cui si resta intrappolati.
  */
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useSensors } from "@/composables/useSensors";
@@ -93,9 +84,9 @@ const showLocator = ref(false);
 /**
  * I sensori partono solo se il visitatore ha ACCESO la posizione (`posizioneAttiva`,
  * spenta di suo): finche' e' spenta non si chiede nessun permesso e non si legge
- * nessun sensore. Da accesa partono col tocco che apre "Dove sono?" — iOS concede il permesso
- * per l'orientamento solo dentro un gesto dell'utente, e quello e' il gesto — e
- * NON si spengono richiudendo il pannello: il segnalino sulla pianta deve
+ * nessun sensore. Da accesa partono col tocco che apre "Dove sono?", perche' iOS
+ * concede il permesso per l'orientamento solo dentro un gesto dell'utente, e
+ * quello e' il gesto. Non si spengono richiudendo il pannello: il segnalino deve
  * continuare a seguire chi cammina. Muoversi pero' non apre mai una scheda: a
  * decidere e' solo la pressione del bottone.
  */
@@ -124,10 +115,10 @@ function tornaAllaHome() {
 }
 
 /**
- * La posizione si cerca sull'ITEM, non sull'opera. Una visita puo' avere piu'
- * item per lo stesso oggetto — la slide 21 dice che dovrebbe averne — e
- * cercando per opera la seconda descrizione ritrovava sempre l'indice della
- * prima: "Prossimo" riportava alla tappa gia' vista e la visita si bloccava li'.
+ * La posizione si cerca sull'item e non sull'opera. Una visita puo' avere piu'
+ * item per lo stesso oggetto, e la slide 21 dice che dovrebbe averne: cercando
+ * per opera, la seconda descrizione ritroverebbe sempre l'indice della prima, e
+ * "Prossimo" riporterebbe alla tappa gia' vista bloccando li' la visita.
  */
 function indexInVisit(): number {
   if (!currentArtwork.value) return -1;
@@ -282,7 +273,7 @@ function navigationHandler(direction: string) {
   const base = navBase();
   const target = stepIndex(base, direction === "next" ? 1 : -1);
   if (target < 0) {
-    // Fine del percorso: prima non succedeva nulla e la visita non finiva mai.
+    // Fine del percorso: senza questo ramo la visita non finirebbe mai.
     // In visita guidata no: li' la chiusura la decide il docente, che dopo
     // l'ultima opera fa partire il quiz.
     if (
@@ -318,8 +309,8 @@ function closeTransition() {
     goToIndex(t.target);
     return;
   }
-  // Note d'apertura: "Continua" continua: porta alla prima tappa. Prima chiudeva
-  // il riquadro e basta, e la visita restava ferma senza niente di aperto.
+  // Note d'apertura: "Continua" deve continuare, cioe' portare alla prima tappa.
+  // Chiudendo solo il riquadro la visita resterebbe ferma senza niente di aperto.
   const primo = stepIndex(-1, 1);
   if (primo >= 0) goToIndex(primo);
 }
@@ -349,8 +340,9 @@ function apriTappa(i: number) {
 // --- Teletrasporto (slide 34) ----------------------------------------------
 const teletrasportoArmato = ref(false);
 
-/** Sposta la posizione e basta: non apre nessuna tappa e non fa avanzare la visita —
- *  dichiarare dove si e' e decidere cosa leggere sono due atti diversi. */
+/** Sposta la posizione e basta: non apre nessuna tappa e non fa avanzare la
+ *  visita, perche' dichiarare dove si e' e decidere cosa leggere sono due atti
+ *  diversi. */
 function armaTeletrasporto() {
   showLocator.value = false;
   teletrasportoArmato.value = true;
@@ -440,8 +432,8 @@ const openRequest = ref("");
  * DOVE si vuole andare, quando la domanda non e' un comando che se lo porta
  * dietro. Due sorgenti, che il grafo tratta allo stesso modo perche' per lui una
  * destinazione e' un nodo e basta: il `data-poi` del servizio toccato sulla
- * pianta — quindi tutti i servizi di tutte le piante, non i quattro che il
- * vocabolario sa nominare — e il qid dell'opera della tappa successiva. La
+ * pianta, quindi tutti i servizi di tutte le piante e non i quattro che il
+ * vocabolario sa nominare, e il qid dell'opera della tappa successiva. La
  * risposta esce dove escono le altre, dentro Orientati: una risposta sola in un
  * posto solo e' la ragione per cui la scheda sta sempre aperta.
  */
@@ -453,8 +445,8 @@ const openTarget = ref("");
  * ma chi la ascolta si', ed e' quella la posizione che tutto il resto usa gia'.
  *
  * Vuoto vuol dire "non c'e' un dopo", e sono i due casi in cui il comando si
- * spegne: l'ultima tappa, e lo studente di una visita guidata — li' la tappa la
- * decide il docente, e mandare avanti chi chiede spezzerebbe la classe.
+ * spegne: l'ultima tappa e lo studente di una visita guidata, dove la tappa la
+ * decide il docente e mandare avanti chi chiede spezzerebbe la classe.
  */
 const nextAnchorQid = computed(() => {
   if (guidedStudent.value) return "";

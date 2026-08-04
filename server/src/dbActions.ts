@@ -10,8 +10,8 @@
  * Qui sta anche la risoluzione degli item per le visite su misura.
  * `resolveOrGenerateItem` usa il
  * `twist` come interruttore: senza angolazione particolare riusa un item curato
- * gia' presente, con un'angolazione ne genera uno nuovo che NON viene salvato —
- * le visite su misura vivono solo nel client.
+ * gia' presente, con un'angolazione ne genera uno nuovo che non viene salvato,
+ * perche' le visite su misura vivono solo nel client.
  */
 import { createHash } from "crypto";
 import { IArtwork, ArtworkModel } from "./models/artwork";

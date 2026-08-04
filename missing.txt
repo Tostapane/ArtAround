@@ -6,6 +6,7 @@ MANCANTI
 - perche l'hashtag?
 - rimuovere bullshit e caratteri strani
 - le indicazioni iniziali non si avviano se starti dal marketplace
+- login e passaggi lentissimi
 DA DISCUTERE
 - aggiungere sessione e tasto torna alla home, tasto home navigator
 - Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere?

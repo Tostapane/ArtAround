@@ -1,9 +1,9 @@
 /**
  * Documento Mongoose di un contenuto (item).
  *
- * `about` e' salvato come stringa — l'`@id` dell'opera — e non come oggetto: il
- * collegamento si espande con `populate` solo quando serve al client. Per questo
- * IItem restringe il tipo condiviso invece di ereditarlo tale e quale.
+ * `about` e' salvato come stringa, cioe' l'`@id` dell'opera, e non come oggetto:
+ * il collegamento si espande con `populate` solo quando serve al client. Per
+ * questo IItem restringe il tipo condiviso invece di ereditarlo tale e quale.
  *
  * `about` non e' obbligatorio: uno stile o un periodo non sono un documento da
  * referenziare, sono il nome che ne ha scritto l'autore. A dire quale dei due

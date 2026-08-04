@@ -1,9 +1,10 @@
 /**
  * Rotte dei musei.
  *
- * `/overview` e `/items` sono le due letture del CURATORE: la prima da' conteggi e
- * copertura del catalogo, la seconda tutti gli item del museo — privati compresi,
- * ed e' la differenza con `GET /api/items`, che li nasconde.
+ * `/overview` e `/items` sono le due letture del curatore: la prima da' conteggi
+ * e copertura del catalogo, la seconda tutti gli item del museo, privati
+ * compresi. E' quest'ultimo dettaglio a distinguerla da `GET /api/items`, che
+ * invece li nasconde.
  *
  * `/config` legge il museo dal FILE DI CONFIGURAZIONE del curatore invece che dal
  * database: e' quello il file che si modifica per adattare il navigator.
@@ -89,12 +90,13 @@ router.get("/:qid/artworks", requireSession, async (req, res) => {
 
 /**
  * GET /api/museums/:qid/topics
- * Ritorna: [{name, kind}] — i soggetti che il catalogo del museo GIA' nomina,
+ * Ritorna: [{name, kind}], i soggetti che il catalogo del museo gia' nomina,
  * cioe' gli stili e gli autori delle sue opere.
  *
  * Non c'e' niente di memorizzato: uno stile esiste finche' un'opera lo dichiara.
- * Suggeriscono un nome a chi scrive un contenuto che non parla di un'opera —
- * scritto uguale, quel contenuto e la pastiglia dello stile si ritrovano.
+ * Servono a suggerire un nome a chi scrive un contenuto che non parla di
+ * un'opera, perche' scritto uguale quel contenuto e la pastiglia dello stile
+ * sulla pagina dell'opera si ritrovano.
  */
 router.get("/:qid/topics", requireSession, async (req, res) => {
   try {
@@ -163,8 +165,8 @@ router.get("/:qid/visits", requireSession, async (req, res) => {
  *
  * E' l'unica rotta del file senza `requireSession`, e non per dimenticanza: si
  * apre come pagina, quindi a chiederla e' il browser e non il nostro codice, e a
- * una navigazione non si puo' attaccare un'intestazione. Non ci si perde niente
- * — sono indirizzi di opere, e il foglio nasce per essere appeso al muro.
+ * una navigazione non si puo' attaccare un'intestazione. Non ci si perde niente,
+ * perche' sono indirizzi di opere e il foglio nasce per essere appeso al muro.
  */
 router.get("/:qid/qrcodes", async (req, res) => {
   try {
@@ -194,7 +196,7 @@ router.get("/:qid/qrcodes", async (req, res) => {
 <html lang="it">
 <head>
   <meta charset="utf-8" />
-  <title>QR delle opere — ${escapeHtml(museum.name)}</title>
+  <title>QR delle opere di ${escapeHtml(museum.name)}</title>
   <style>
     :root { color-scheme: light; }
     body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -222,7 +224,7 @@ router.get("/:qid/qrcodes", async (req, res) => {
   <h1>Opere di ${escapeHtml(museum.name)}</h1>
   <p class="nota">
     Ritaglia e affianca ogni riquadro alla sua opera. Il visitatore può inquadrare il QR
-    oppure — se non può usare la fotocamera — digitare il codice stampato sotto.
+    oppure, se non può usare la fotocamera, digitare il codice stampato sotto.
   </p>
   <div class="grid">${cells.join("")}</div>
 </body>

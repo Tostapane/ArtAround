@@ -4,7 +4,7 @@
  * La slide 33 chiede che almeno una visita sincronizzata abbia "un test sensato
  * di competenza alla fine": sensato vuol dire che le domande parlano di cio' che
  * si e' appena visto, e i distrattori sono altri autori e altri stili dello
- * stesso museo — non nomi inventati. Nessuna domanda e' scritta a mano, percio'
+ * stesso museo, non nomi inventati. Nessuna domanda e' scritta a mano, percio'
  * la regola vale per qualunque museo si configuri in `data/museums/`.
  *
  * Se il museo non offre abbastanza autori o stili diversi per fare tre

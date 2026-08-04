@@ -2,9 +2,9 @@
  * Documento Mongoose di una sessione aperta.
  *
  * Dice una cosa sola: quale stringa vale, in questo momento, per quale account.
- * Non porta portafoglio ne' collezione — quelli stanno sull'utente e si leggono
- * quando servono, altrimenti una sessione descriverebbe un account com'era al
- * momento dell'accesso e non com'e' adesso.
+ * Non porta portafoglio ne' collezione, che stanno sull'utente e si leggono
+ * quando servono: copiandoli qui una sessione descriverebbe l'account com'era
+ * al momento dell'accesso invece che com'e' adesso.
  *
  * Sta in Mongo e non in una Map perche' il processo riparte a ogni modifica del
  * codice: in memoria, ogni riavvio del server obbligherebbe tutti a rientrare.

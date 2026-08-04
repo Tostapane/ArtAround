@@ -1,72 +1,44 @@
 /**
  * Da mappa SVG a grafo delle sale.
  *
- * La mappa e' l'unica fonte di verita' spaziale: il curatore arricchisce con
- * attributi data-* il disegno che fa comunque, e qui lo si traduce in sale, nodi,
- * collegamenti e ostacoli.
+ * La mappa e' l'unica fonte di verita' spaziale: il curatore annota con
+ * attributi data-* il disegno che fa comunque, e qui lo si traduce in sale,
+ * nodi, collegamenti e ostacoli.
  *
- * La sala di un nodo e' quella la cui AREA lo contiene, non quella piu' vicina:
- * cosi' i muri contano. I collegamenti sono solo quelli disegnati, nessuna
- * adiacenza viene indovinata — quindi ogni spazio percorribile, corridoi
- * compresi, dev'essere una sala, altrimenti non puo' comparire in un percorso.
+ * Il contratto che il curatore annota:
+ *  - sala          data-room="Nome" su una forma. Le aree si valutano in ordine
+ *                  di documento e vince la prima che contiene il punto, quindi
+ *                  una sala dentro un'altra va scritta prima di quella che la
+ *                  circonda.
+ *  - nodo-opera    data-qid="Qxxx" [+ data-label]
+ *  - nodo-POI      data-poi="exit|emergency_exit|toilet|bar|shop|elevator|stairs"
+ *  - ostacolo      data-obstacle="steps|door|chairs|object" + data-desc
+ *  - collegamento  <line data-edge>: ogni estremo si risolve alla sala che lo
+ *                  contiene, non al nodo piu' vicino
+ *  - percorso      data-flow="3" sulla sala: l'ordine in cui il museo consiglia
+ *                  di attraversarla. Non si calcola, perche' non e' una
+ *                  proprieta' geometrica. Le sale che tacciono vanno in fondo.
+ *  - piano         <g data-floor="1" data-floor-label="Primo piano">
  *
- * La convenzione che il curatore annota sul disegno:
- *  - sala (AREA)  -> una forma (circle/rect/polygon) con data-room="Nome". Le aree
- *                    si valutano in ordine di documento: la prima che contiene il
- *                    punto vince, quindi una sala dentro un'altra va scritta prima
- *                    di quella che la circonda.
- *  - nodo-opera   -> data-qid="Qxxx" [+ data-label] (una forma puo' essere insieme
- *                    area e opera: un'opera che e' essa stessa una sala)
- *  - nodo-POI     -> data-poi="exit|emergency_exit|toilet|bar|shop|elevator|stairs" [+ data-label]
- *  - ostacolo     -> data-obstacle="steps|door|chairs|object" + data-desc
- *  - collegamento -> <line data-edge ...> tra due sale: ogni estremo viene
- *                    risolto alla sala che lo CONTIENE (non al nodo piu' vicino).
- *  - percorso     -> data-flow="3" sulla sala: in che ordine il curatore vuole
- *                    che si attraversino. E' il giro che il museo consiglia gia'
- *                    ai suoi visitatori, e non si calcola: la sala di Botticelli
- *                    prima di quella di Leonardo puo' essere una ragione che sul
- *                    disegno non si vede. Le sale che non lo dichiarano vanno in
- *                    fondo, quindi una mappa senza `data-flow` si comporta come
- *                    prima.
- *  - piano        -> <g data-floor="1" data-floor-label="Primo piano"> ... </g>
- *                    attorno a tutto quel che sta su quel piano. I piani si
- *                    disegnano uno sopra l'altro DENTRO LO STESSO viewBox, come
- *                    su una pianta stampata; il navigator inquadra un piano per
- *                    volta partendo dall'estensione del gruppo.
+ * La sala di un nodo e' quella la cui area lo contiene, non quella piu' vicina,
+ * cosi' i muri contano. I collegamenti sono solo quelli disegnati: ogni spazio
+ * percorribile, corridoi compresi, deve essere una sala o non puo' comparire in
+ * un percorso.
  *
- * Le coordinate si leggono ALLA LETTERA (cx/cy oppure x/y/width/height): un
- * transform su un elemento con data-* non viene applicato, e il nodo finisce
- * nella sala sbagliata senza che nessuno se ne accorga.
+ * Il grafo non si divide per piano. Le scale sono un vano su ciascun piano, i
+ * due vani sono uniti da un data-edge come due sale confinanti, e un percorso
+ * attraversa i piani come attraversa le sale: non esiste un caso "cambio piano".
+ * Il nome del piano lo scrive il curatore, perche' un museo ha il Mezzanino e un
+ * altro cinque piani numerati.
  *
- * IL GRAFO NON SI DIVIDE PER PIANO. Le scale (o l'ascensore) sono un vano su
- * ciascun piano, i due vani sono collegati da un data-edge come due sale
- * confinanti, e un percorso attraversa i piani nello stesso modo in cui
- * attraversa le sale. Cosi' la ricerca del cammino resta quella di prima e non
- * esiste un caso "cambio piano" da trattare a parte: c'e' una sala in piu'.
- *
- * IL PIANO SI LEGGE DAL GRUPPO, MA LO DECIDE LA SALA. Scandendo il file il piano
- * corrente e' quello del <g data-floor> piu' esterno rimasto aperto: si conta la
- * profondita' dei <g> perche' dentro il gruppo di un piano ce ne sono altri (i
- * nodi, i servizi, gli ostacoli), e col primo </g> il piano si spegnerebbe
- * mentre si e' ancora dentro il piano. A nodo risolto pero' il piano buono e'
- * quello della sala che lo contiene: e' il pavimento su cui si sta a dire dove
- * si e', non il gruppo in cui l'elemento e' finito.
- *
- * IL NOME DI UN PIANO LO SCRIVE IL CURATORE, in `data-floor-label`: un museo ha
- * il Mezzanino e il Piano Nobile, un altro cinque piani numerati, e un elenco di
- * ordinali scritto nel codice sarebbe l'italiano di un museo solo imposto a
- * tutti gli altri. Un piano numerato e non nominato si chiama "piano N", che e'
- * un ripiego dichiarato e non una traduzione inventata.
- *
- * I NOMI DELLE SALE SONO UNICI SU TUTTA LA MAPPA, piani compresi. Il nome e' la
- * parola con cui le indicazioni nominano la sala, e le adiacenze si tengono per
- * nome: due sale omonime su due piani diventerebbero una sala sola, cioe' un
- * passaggio fra i piani che non esiste e che nessuno ha disegnato. Il parser lo
- * segnala invece di indovinare quale delle due intendeva il curatore.
- *
- * I COMMENTI SI TOLGONO PRIMA DI SCANDIRE: la scansione e' a espressione
- * regolare, e questi file spiegano se stessi a lungo — un <g> nominato dentro un
- * commento sposterebbe il conto dei gruppi, e con lui il piano di tutto il resto.
+ * Tre trappole:
+ *  - le coordinate si leggono alla lettera (cx/cy, x/y/width/height): un
+ *    transform su un elemento con data-* non viene applicato, e il nodo finisce
+ *    nella sala sbagliata senza che nessuno se ne accorga;
+ *  - i nomi delle sale sono unici su tutta la mappa, piani compresi, perche' le
+ *    adiacenze si tengono per nome: due omonime diventerebbero una sola;
+ *  - i commenti si tolgono prima di scandire, o un <g> nominato in un commento
+ *    sposta il conto dei gruppi e con lui il piano di tutto il resto.
  */
 import fs from "fs";
 import path from "path";
@@ -161,8 +133,8 @@ function parseSvgFile(mapPath: string): MuseumGraph {
 
 /**
  * I qid delle opere nell'ordine in cui il curatore vuole che si percorra il
- * museo: `data-flow` sulle sale, e dentro una sala l'ordine in cui sono disegnate
- * — li' non c'e' niente da percorrere, ci sei gia'.
+ * museo: `data-flow` sulle sale, e dentro una sala l'ordine in cui sono
+ * disegnate, perche' li' non c'e' niente da percorrere, ci si e' gia'.
  *
  * Le sale senza `data-flow` vanno in fondo nell'ordine del disegno, quindi una
  * mappa che non lo dichiara affatto lascia le opere come stavano.

@@ -1,39 +1,29 @@
 <script setup lang="ts">
 /**
- * DOVE SONO — un solo ingresso, tre modi, nessuno privilegiato.
+ * Dove sono: un solo ingresso, quattro modi, nessuno privilegiato.
  *
- * Inquadrare un QR accanto a un quadro e' esattamente il gesto che una persona
- * cieca non puo' compiere, in un'app il cui scopo e' parlarle. Ed e' anche il
- * gesto che fallisce fuori da un contesto sicuro: aprendo il navigator con
- * l'IP della rete locale — il modo normale di provarlo su un telefono —
- * getUserMedia semplicemente non c'e'.
- *
- * Lo stesso campo risolve entrambe le cose: il codice dell'opera, stampato sul
- * foglio accanto al QR, si puo' digitare. Un solo campo incollabile, mai
- * spezzato in caselle, mai a tempo (WCAG 2.2, 3.3.8).
+ * Inquadrare un QR accanto a un quadro e' il gesto che una persona cieca non puo'
+ * compiere, in un'applicazione fatta per parlarle, ed e' anche quello che manca
+ * fuori da un contesto sicuro. Lo stesso campo risolve entrambe le cose: il
+ * codice stampato accanto al QR si puo' digitare. Un campo solo, incollabile, mai
+ * spezzato in caselle e mai a tempo (WCAG 2.2, 3.3.8).
  *
  * La terza scheda e' la localizzazione automatica (slide 33): il calcolo sta in
- * localization.ts, qui c'e' solo il momento in cui lo si interroga — premendo,
- * mai da sola. Quando non vince nessuna opera si mostrano le possibili con la
- * loro immagine e sceglie il visitatore: e' il comportamento che la slide
- * chiede, e insieme l'unico modo di far funzionare la cosa dove una bussola non
- * esiste. Le immagini sono quelle del catalogo, piccole e SFOCATE come la slide
- * chiede ("a bassa risoluzione"): a chi riconosce un quadro che ha davanti basta
- * la sagoma, e nitide sarebbero l'app che gli mostra l'opera invece di aiutarlo
- * a dire quale sia.
+ * `localization.ts`, qui c'e' solo il momento in cui lo si interroga, premendo e
+ * mai da sola. Quando non vince nessuna opera si mostrano le candidate e sceglie
+ * il visitatore, con le immagini piccole e sfocate che la slide chiede: a chi
+ * riconosce il quadro che ha davanti basta la sagoma, e nitide sarebbero l'app
+ * che gli mostra l'opera invece di aiutarlo a dire quale sia.
  *
- * L'INTERRUTTORE in cima decide se l'applicazione tiene conto di dove si e'.
- * Parte spento, e finche' lo e' non si legge nessun sensore, non si chiede
- * nessun permesso e le indicazioni partono dall'opera aperta. Il QR e il codice
- * digitato restano accesi comunque: NOMINANO un oggetto, non misurano una
- * posizione, ed e' il modo in cui una persona cieca dice dov'e'.
+ * L'interruttore in cima decide se l'applicazione tiene conto di dove si e'.
+ * Parte spento, e finche' lo e' non si legge nessun sensore e non si chiede
+ * nessun permesso. QR e codice restano accesi comunque, perche' NOMINANO un
+ * oggetto invece di misurare una posizione.
  *
- * LA QUARTA E' IL TELETRASPORTO (slide 34): sposta il visitatore in un punto
- * della pianta e nient'altro. E' l'unico comando che muove la posizione senza un
- * sensore, ed e' il motivo per cui esiste — da li' "Trovami" ragiona sui numeri
- * veri, quindi la localizzazione si mostra al chiuso, senza fogli stampati.
- * Qui e' solo un interruttore: il salto si fa toccando la pianta, che questo
- * pannello coprirebbe, percio' il bottone arma la modalita' e chiude.
+ * La quarta e' il teletrasporto (slide 34): sposta il visitatore su un punto
+ * della pianta e nient'altro, ed e' l'unico comando che muove la posizione senza
+ * un sensore. Qui e' solo un interruttore, perche' il salto si fa toccando la
+ * pianta, che questo pannello coprirebbe.
  */
 import { ref, watch, onUnmounted, computed } from "vue";
 import { useQRScanner } from "@/composables/useQRScanner";
@@ -89,7 +79,6 @@ watch(
 const candidati = ref<Candidato[]>([]);
 const esitoVuoto = ref("");
 
-/** Quel che i sensori sanno dire, detto a chi guarda: precisione e bussola. */
 const statoSensori = computed(() => {
   const parti: string[] = [];
   const dove = stima.value;
@@ -328,7 +317,7 @@ onUnmounted(() => scanner.stop());
       <!-- Teletrasporto -->
       <div v-show="sheet === 'teletrasporto'" class="mt-4">
         <p class="text-small text-muted">
-          {{ t("Ti porta dove vuoi sulla pianta senza attraversare il museo: il tocco successivo ti sposta lì, su una tappa o sul pavimento. Non apre nessuna tappa — da lì premi «Trovami».") }}
+          {{ t("Ti porta dove vuoi sulla pianta senza attraversare il museo: il tocco successivo ti sposta lì, su una tappa o sul pavimento. Non apre nessuna tappa: da lì premi «Trovami».") }}
         </p>
 
         <p v-if="!localizzabile" class="avviso mt-4">

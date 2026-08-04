@@ -1,5 +1,5 @@
 /**
- * TESTERS — utilità che toccano il DATABASE.
+ * TESTERS: utilità che toccano il database.
  *
  * Tutto ciò che modifica dati esistenti vive qui e solo qui: il seed ricostruisce
  * da zero (e costa ore di chiamate all'LLM), queste funzioni invece riallineano
@@ -53,8 +53,8 @@ export async function stato() {
 
   const itemTones = await ItemModel.distinct("educationalLevel");
   const visitLevels = await VisitModel.distinct("level");
-  console.log(`\nToni negli item:      ${itemTones.sort().join(", ") || "—"}`);
-  console.log(`Livelli nelle visite: ${visitLevels.sort().join(", ") || "—"}`);
+  console.log(`\nToni negli item:      ${itemTones.sort().join(", ") || "nessuno"}`);
+  console.log(`Livelli nelle visite: ${visitLevels.sort().join(", ") || "nessuno"}`);
   console.log(`Toni attesi:          ${educationalLevels.join(", ")}`);
 
   const offVocabulary = itemTones.filter(
@@ -62,7 +62,7 @@ export async function stato() {
   );
   if (offVocabulary.length > 0) {
     console.log(
-      `\n⚠  ${offVocabulary.length} toni fuori vocabolario: ${offVocabulary.join(", ")}` +
+      `\n!  ${offVocabulary.length} toni fuori vocabolario: ${offVocabulary.join(", ")}` +
         `\n   Esegui:  npx ts-node src/scripts/testers.ts toni`,
     );
   }
@@ -72,7 +72,7 @@ export async function stato() {
   });
   if (unplacedNotes > 0) {
     console.log(
-      `\n⚠  ${unplacedNotes} visite con note logistiche senza posizione.` +
+      `\n!  ${unplacedNotes} visite con note logistiche senza posizione.` +
         `\n   Esegui:  npx ts-node src/scripts/testers.ts logistica`,
     );
   }
@@ -190,7 +190,7 @@ export async function requiredAccounts() {
   const roleless = await UserModel.find({ role: { $exists: false } }).lean();
   if (roleless.length > 0) {
     console.log(
-      `\n⚠  ${roleless.length} account senza ruolo (non possono accedere): ` +
+      `\n!  ${roleless.length} account senza ruolo (non possono accedere): ` +
         roleless.map((o: any) => o.username).join(", ") +
         `\n   Assegna loro un ruolo, oppure eseguendo seedUsers.ts verranno eliminati.`,
     );

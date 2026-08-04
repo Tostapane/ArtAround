@@ -284,11 +284,11 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
  * Ritorna il comando riconosciuto, la stringa vuota se non c'era niente da
  * riconoscere, e **null se il modello non ha risposto affatto**.
  *
- * I tre casi non si possono confondere: «non ho capito quel che hai detto» e «il
- * servizio non risponde» chiedono due cose diverse a chi ascolta — ripetere, o
- * smettere di provare e usare i pulsanti. Prima il fallimento cadeva fuori dal
- * `catch` senza `return`, quindi tornava `undefined`, che `JSON.stringify`
- * toglie dalla risposta: il client riceveva `{}` con uno stato 200, cioe' un
+ * I tre casi non si possono confondere, perche' «non ho capito quel che hai
+ * detto» e «il servizio non risponde» chiedono due cose diverse a chi ascolta:
+ * ripetere, oppure smettere di provare e usare i pulsanti. Il fallimento va
+ * quindi restituito esplicitamente: tornando `undefined` verrebbe tolto dalla
+ * risposta da `JSON.stringify`, e il client leggerebbe `{}` con stato 200, cioe'
  * «ho capito, e non era niente».
  */
 export async function mapRequest(transcript: string): Promise<string | null> {

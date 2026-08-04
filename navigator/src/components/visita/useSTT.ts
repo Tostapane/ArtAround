@@ -1,60 +1,38 @@
 /**
  * STT: la voce dell'utente diventa testo. PCM a 16 kHz, identico su ogni browser.
  *
- * E' la meta' che ascolta, e sta accanto a `useTTS.ts`, che e' quella che parla:
- * qui si registra e si manda al server, li' si riceve l'audio sintetizzato.
+ * E' la meta' che ascolta e sta accanto a `useTTS.ts`, che e' quella che parla.
  *
- * `MediaRecorder` sceglie il formato al posto tuo, e il formato che sceglie su
- * Safari — quindi su ogni iPhone — e' MP4/AAC, che il riconoscimento vocale di
- * Google non ha fra le codifiche accettate (LINEAR16, FLAC, MULAW, AMR,
- * OGG_OPUS, WEBM_OPUS, MP3, e basta). Non e' un problema di etichetta: non
- * esiste nessun formato che Safari sappia produrre e il server sappia leggere,
- * quindi chiedere a `MediaRecorder` il mime type giusto non salva il caso —
- * sposta soltanto il punto in cui fallisce. Prima si dichiarava `audio/webm` su
- * qualunque registrazione, e su iPhone il pulsante era muto senza un errore: il
- * comando vocale e' obbligatorio nella base 18-24 e la navigator e' pensata per
- * lo smartphone.
- *
- * Da qui la forma del file: alla Web Audio API non si chiede un file, si
- * chiedono i campioni. Le codifiche fra browser sono diverse, i numeri no. Li
- * si porta a 16 kHz mono, ci si scrive sopra un'intestazione WAV e il server
- * riceve sempre LINEAR16 — un solo percorso, nessun ramo per piattaforma. Un
- * `if (Safari)` non avrebbe risparmiato questo codice: sarebbe stato questo
- * codice **piu'** quello vecchio, e il ramo non verificabile e' proprio quello
- * che si rompe.
+ * Non si usa `MediaRecorder` perche' sceglie lui il formato, e su Safari, cioe'
+ * su ogni iPhone, sceglie MP4/AAC, che il riconoscimento di Google non accetta.
+ * Non c'e' nessun formato che Safari sappia produrre e il server sappia leggere,
+ * quindi chiedergli un mime type diverso sposta soltanto il punto in cui
+ * fallisce. Si scende invece alla Web Audio API, a cui non si chiede un file ma
+ * i campioni: si portano a 16 kHz mono, ci si scrive un'intestazione WAV e il
+ * server riceve sempre LINEAR16. Un percorso solo, nessun ramo per piattaforma,
+ * perche' il ramo che nessuno riesce a provare e' quello che si rompe.
  *
  * Tre passaggi che sembrano superflui e non lo sono:
+ *  - la frequenza del contesto non si puo' imporre, quindi si accetta quella che
+ *    da' e si scende facendo la MEDIA dei campioni accorpati. Tenerne uno ogni
+ *    tre e' aliasing: le frequenze alte rientrano travestite da basse, proprio
+ *    nella banda in cui si capisce una parola;
+ *  - `resume()` va chiamato dentro il gesto dell'utente, o su iOS il contesto
+ *    nasce sospeso e si registra silenzio;
+ *  - il nodo di elaborazione non gira senza una destinazione, ma collegarlo agli
+ *    altoparlanti rimanderebbe il microfono nelle casse: in mezzo va un guadagno
+ *    a zero.
  *
- * - la frequenza del contesto audio non si puo' imporre (Safari ignora o
- *   rifiuta un valore non nativo): si accetta quella che da', 44100 o 48000, e
- *   si scende a STT_SAMPLE_RATE facendo la MEDIA dei campioni che si accorpano.
- *   Tenerne uno ogni tre e buttare gli altri e' aliasing: le frequenze alte
- *   rientrano travestite da basse, e sporcano la banda in cui si capisce una
- *   parola;
- * - `resume()` va chiamato dentro il gesto dell'utente, altrimenti su iOS il
- *   contesto nasce sospeso e si registra silenzio;
- * - il nodo di elaborazione non gira se non arriva a una destinazione, ma
- *   collegarlo agli altoparlanti rimanderebbe il microfono nelle casse: in
- *   mezzo ci va un guadagno a zero.
+ * `createScriptProcessor` e' deprecato ma e' l'unico accesso ai campioni
+ * presente ovunque, iOS compreso, senza servire un modulo separato.
  *
- * `createScriptProcessor` e' deprecato — Firefox lo scrive in console — ma e'
- * l'unico accesso ai campioni presente ovunque, iOS compreso, senza caricare un
- * modulo separato: `AudioWorklet` vorrebbe un file a parte servito per URL, per
- * una registrazione di cinque secondi in cui il costo sul thread principale non
- * si misura.
+ * `getUserMedia` vuole un contesto sicuro: su `http://<ip-lan>:5173` il microfono
+ * non c'e' comunque, ed e' il motivo per cui il codice si puo' anche digitare.
  *
- * Resta fuori portata quel che non dipende dal formato: `getUserMedia` vuole un
- * contesto sicuro, quindi aprendo la navigator su `http://<ip-lan>:5173` il
- * microfono non c'e' comunque — e' lo stesso limite documentato per la
- * fotocamera, ed e' il motivo per cui il codice si puo' anche digitare.
- *
- * `levels` e' la traccia che il pulsante disegna mentre si registra: senza,
- * un microfono che non sente nulla e uno che funziona hanno lo stesso aspetto,
- * e l'errore si scopre solo alla risposta del server. E' il volume dei campioni
- * che stiamo gia' raccogliendo, non una seconda lettura del microfono. Il
- * callback arriva una volta per buffer, cioe' una decina di volte al secondo:
- * troppo poco perche' la scia scorra, quindi ogni buffer viene misurato a
- * pezzi: `WINDOWS` valori nuovi per callback invece di uno.
+ * `levels` e' la traccia disegnata mentre si registra: senza, un microfono muto e
+ * uno che funziona hanno lo stesso aspetto. Il callback arriva una decina di
+ * volte al secondo, troppo poco perche' la scia scorra, quindi ogni buffer viene
+ * misurato a pezzi (`WINDOWS` valori per callback invece di uno).
  */
 import { ref } from "vue";
 import { STT_SAMPLE_RATE } from "../../../../shared/constants";

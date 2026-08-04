@@ -40,10 +40,10 @@ const MAX_CUSTOM_ARTWORKS = 30;
 /**
  * GET /api/visits[?museum=Qxxx][&user=nome]
  * Ritorna: le visite del museo indicato, o tutte se il parametro manca.
- * Con `user`, ogni visita porta anche il suo conto per QUELLA persona —
- * `mancanti`, `costoMancanti`, `totale` — cosi' il client scrive un numero che
- * gli e' stato dato invece di rifarne uno suo. Le tappe di tutte le visite si
- * leggono con una query sola: una per visita crescerebbe col catalogo.
+ * Con `user`, ogni visita porta anche il conto per quella persona (`mancanti`,
+ * `costoMancanti`, `totale`), cosi' il client scrive un numero che gli e' stato
+ * dato invece di rifarne uno suo. Le tappe di tutte le visite si leggono con una
+ * query sola, perche' una per visita crescerebbe col catalogo.
  */
 router.get("/", async (req, res) => {
   try {

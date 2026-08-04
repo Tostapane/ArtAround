@@ -3,9 +3,9 @@
  *
  * E' qui che nasce la sessione, perche' `login` e `register` sono i due soli
  * punti in cui una password viene verificata: coniarla altrove vorrebbe dire
- * fabbricare un'identita' per un nome qualsiasi, che e' esattamente il difetto
- * che aveva `?user=`. Da qui in poi chi chiede lo dice l'intestazione
- * `Authorization`, mai il percorso — vedi `session.ts`.
+ * fabbricare un'identita' per un nome qualsiasi. Da qui in poi chi chiede lo
+ * dice l'intestazione
+ * `Authorization` e mai il percorso; il meccanismo sta in `session.ts`.
  *
  * Il ruolo non si chiede a chi entra: lo deduce il server dalle credenziali, e lo
  * domanda solo nel caso raro in cui le stesse credenziali valgano per piu' profili.
@@ -299,7 +299,7 @@ router.get("/sales", requireSession, async (req, res) => {
         ofMuseum: it.ofMuseum,
         educationalLevel: it.educationalLevel,
         price: it.price || 0,
-        license: it.license || "—",
+        license: it.license || "n/d",
       });
     }
     for (const v of visits) {
@@ -309,7 +309,7 @@ router.get("/sales", requireSession, async (req, res) => {
         name: v.name,
         ofMuseum: v.ofMuseum,
         price: v.price || 0,
-        license: v.license || "—",
+        license: v.license || "n/d",
       });
     }
 

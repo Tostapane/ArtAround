@@ -1,15 +1,13 @@
 <script setup lang="ts">
 /**
- * LA BIGLIETTERIA — si sceglie una visita da un elenco.
+ * LA BIGLIETTERIA: si sceglie una visita da un elenco.
  *
- * Prima c'erano due menu (livello x durata in secondi) e la visita partiva solo
- * se la combinazione esisteva ESATTAMENTE: le visite che condividevano una
- * coppia erano irraggiungibili, quelle create dagli utenti inquinavano i menu
- * con "Personalizzata" e "195", e il nome della visita — l'unica cosa che una
- * persona riconosce — non compariva mai. La slide 25 chiede "selezione di una
- * delle molteplici forme di visita disponibili": un elenco, non un prodotto
- * cartesiano. I due menu restano come FILTRI, e non possono piu' produrre un
- * vicolo cieco silenzioso.
+ * La slide 25 chiede "selezione di una delle molteplici forme di visita
+ * disponibili", quindi la schermata e' un elenco e non un prodotto cartesiano di
+ * livello per durata: scegliendo da due menu, le visite che condividono la stessa
+ * coppia sarebbero irraggiungibili e il nome della visita, che e' l'unica cosa
+ * che una persona riconosce, non comparirebbe mai. Livello e durata restano come
+ * filtri, dove non possono produrre un vicolo cieco silenzioso.
  *
  * L'elenco e' consapevole di chi guarda: senza utente si vedono solo le visite
  * gratuite, e quelle guidate non compaiono mai (ci si entra con la parola

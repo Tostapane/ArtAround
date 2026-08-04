@@ -1,12 +1,11 @@
 /**
- * Configurazione del navigator — il "file di configurazione" della specifica.
+ * Configurazione del navigator: il "file di configurazione" della specifica.
  *
  * Slide 25: la selezione del museo avviene via file di configurazione. Slide 33:
  * "attraverso un file di configurazione con immagini e titoli il curatore del
  * museo puo' creare una versione specifica del navigator". Il file vive in
- * public/config.json e si modifica senza ricompilare nulla: prima il museo era
- * una costante scritta nel codice, cioe' l'unico pezzo legato a UN museo dentro
- * un'app il cui pregio dichiarato e' di non esserlo.
+ * public/config.json e si modifica senza ricompilare nulla: e' l'unico posto in
+ * cui l'applicazione nomina un museo, e serve a tenerla generica ovunque.
  *
  * Nello stesso posto sta l'indirizzo del server. Se `apiBase` e' vuoto lo si
  * ricava dall'host da cui la pagina e' stata aperta: cosi' il navigator
@@ -46,10 +45,10 @@ let loaded = false;
  * 1. `apiBase` scritto nel file di configurazione: comanda lui. Serve a chi apre
  *    il navigator dal telefono con l'IP della rete locale, dove "localhost"
  *    sarebbe sbagliato per definizione.
- * 2. In SVILUPPO il navigator ha un server suo (Vite) e il server sta su un'altra
- *    porta, quindi l'indirizzo va scritto per intero.
- * 3. In DEPLOY li serve la stessa origine — il dipartimento pubblica una porta
- *    sola per sito — quindi basta un percorso. Scrivere host e porta qui
+ * 2. In sviluppo il navigator ha un server suo, Vite, e il server sta su un'altra
+ *    porta: l'indirizzo va scritto per intero.
+ * 3. In deploy li serve la stessa origine, perche' il dipartimento pubblica una
+ *    porta sola per sito, quindi basta un percorso. Scrivere host e porta qui
  *    romperebbe anche in un altro modo: la pagina arriva in https e una chiamata
  *    in http verso una porta esplicita e' contenuto misto, che il browser blocca.
  */
@@ -61,7 +60,6 @@ export function apiBase(): string {
   return "/api";
 }
 
-/** Origine da cui arrivano le immagini scaricate sul server. */
 export function mediaOrigin(): string {
   return apiBase().replace(/\/api$/, "");
 }
@@ -71,10 +69,9 @@ export function mediaOrigin(): string {
  * marketplace, quindi non c'e' un secondo indirizzo da configurare. E' li' che
  * si torna a fine visita.
  *
- * Non porta nessun biglietto, e non gli serve: si torna nella stessa scheda da
- * cui si e' partiti, dove la sessione del marketplace e' rimasta in
- * `sessionStorage`. Era il viaggio di ritorno a chiedere un biglietto quando di
- * sessione non ce n'era nessuna.
+ * Non porta nessun biglietto e non gli serve: si torna nella stessa scheda da
+ * cui si e' partiti, dove la sessione del marketplace e' rimasta viva in
+ * `sessionStorage`.
  */
 export function marketplaceHome(): string {
   return `${mediaOrigin()}/#/home`;

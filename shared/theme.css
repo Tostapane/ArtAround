@@ -1,23 +1,24 @@
 /*
-  ArtAround — foglio dei token condiviso fra navigator e marketplace.
-  Importato da navigator/src/assets/main.css e marketplace/src/frontend/style.css:
-  le due app devono restare identiche sui token, quindi i valori vivono QUI e
-  in nessun altro posto (un colore scritto a mano dentro un componente e' un bug).
+  ArtAround: foglio dei token condiviso fra navigator e marketplace.
+  Importato da navigator/src/assets/main.css e marketplace/src/frontend/style.css.
+  Le due applicazioni devono restare identiche sui token, quindi i valori vivono
+  qui e in nessun altro posto: un colore scritto a mano dentro un componente e'
+  un errore, perche' non seguira' il tema scuro ne' un cambio di palette.
 
   Riferimento: prelude.md §3. Palette "Sala e Deposito":
     Gesso #FFFFFF · Cemento #D9D9D9 · Grafite #353535 · Notte #284B63 · Verderame #3C6E71
   Regola che tiene in piedi tutta l'interfaccia:
     NOTTE e' dove sei (struttura), VERDERAME e' dove puoi andare (interazione).
 
-  A questi si affiancano tre tinte di SOLO SIGNIFICATO, mai cliccabili — se la
-  regola qui sopra resta vera, nessuno le scambia per un comando:
+  Accanto ci sono quattro tinte di solo significato, mai cliccabili. Finche' la
+  regola qui sopra vale, nessuno le scambia per un comando:
     OTTONE   valore      prezzi, ricavi, credito
     ARDESIA  categoria   tipo di contenuto, livello, metadati secondari
     SALVIA   acquisito   posseduto, pronto da pubblicare, operazione riuscita
-    MINIO    allarme     errori e azioni distruttive (gia' presente)
-  Stanno nella stessa famiglia fredda della palette e sono state scelte per
-  passare AA su ENTRAMBI i fondi chiari, cosi' — a differenza del Verderame —
-  si possono usare anche come testo sul muro.
+    MINIO    allarme     errori e azioni distruttive
+  Stanno nella stessa famiglia fredda della palette e sono scelte in modo da
+  passare AA su entrambi i fondi chiari, cosi', a differenza del Verderame, si
+  possono usare anche come testo sul muro.
 */
 
 /* ---------------------------------------------------------------------------
@@ -53,7 +54,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  /* Colori — sempre attraverso le CSS var, cosi' `.dark` cambia tutto a runtime */
+  /* Colori: sempre attraverso le CSS var, cosi' `.dark` cambia tutto a runtime */
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -81,7 +82,7 @@
     "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  /* Scala tipografica — questi gradini e nessun altro (prelude.md §3.2) */
+  /* Scala tipografica: questi gradini e nessun altro (prelude.md §3.2) */
   --text-hero: clamp(3rem, 12vw, 9rem);
   --text-hero--line-height: 0.9;
   --text-display: clamp(2.25rem, 6vw, 3rem);
@@ -112,10 +113,10 @@
 }
 
 /* ===========================================================================
-   LA SORGENTE — le uniche righe da toccare per cambiare l'aspetto.
+   LA SORGENTE: le uniche righe da toccare per cambiare l'aspetto.
 
-   Nove colori. Tutto il resto del sistema — i venti token di ogni tema, il tema
-   scuro compreso — si ricava da questi con `color-mix`, quindi non c'e' niente
+   Nove colori. Tutto il resto del sistema, cioe' i venti token di ogni tema e
+   il tema scuro compreso, si ricava da questi con `color-mix`: non c'e' niente
    da riallineare a mano e non esiste un valore che possa restare indietro.
 
    I nove non sono una tavolozza a caso: sono i RUOLI dell'interfaccia.
@@ -155,7 +156,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   LA DERIVAZIONE — da qui in giu' non si tocca nulla per cambiare palette.
+   LA DERIVAZIONE: da qui in giu' non si tocca nulla per cambiare palette.
    Ogni token e' una funzione dei nove colori sopra. Le percentuali sono state
    scelte una volta contro tre sorgenti diverse e verificate in un browser:
    cambiando i nove, i rapporti di contrasto si spostano di poco e restano AA.
@@ -187,22 +188,20 @@
 }
 
 /*
-  L'IRIDE — i quattro semantici in fila, e l'unico posto dove compaiono insieme.
-  Serve alla visita nata da una frase: e' la sola cosa del prodotto che li
-  attraversa tutti e quattro, perche' sceglie per CATEGORIA, e' un percorso da
-  fare (ACCENTO), consegna contenuti (ACQUISITO) e ha un VALORE. Sta li' e in
-  nessun altro punto: usato altrove sarebbe decorazione, e smetterebbe di
-  indicare qualcosa.
+  L'IRIDE: i quattro semantici in fila, e l'unico posto dove compaiono insieme.
+  Serve alla visita nata da una frase, che e' la sola cosa del prodotto ad
+  attraversarli tutti e quattro: sceglie per categoria, e' un percorso da fare
+  (accento), consegna contenuti (acquisito) e ha un valore. Va usata li' e in
+  nessun altro punto, o diventa decorazione e smette di indicare qualcosa.
 
-  Non e' un'eccezione alle due regole della sorgente: nessuna delle quattro
-  tinte viene qui asserita da sola — e' una scorsa, non un'etichetta — quindi
-  l'oro resta l'oro del valore e il rosso resta fuori.
+  Non rompe le due regole della sorgente perche' nessuna delle quattro tinte
+  viene qui asserita da sola: e' una scorsa, non un'etichetta, quindi l'oro
+  resta l'oro del valore e il rosso resta fuori.
 
-  L'ordine e' per DISTANZA DI TINTA, non per importanza: oro, verde, verderame,
-  ardesia sono quattro gradini da ~60 gradi l'uno dall'altro, quindi la scorsa
-  si legge come piu' colori anche dentro una tessera di 40 px. Mettendo vicini
-  ardesia e verderame — che dell'altro ordine erano i primi due — meta'
-  gradiente sembrava una tinta sola.
+  L'ordine e' per distanza di tinta e non per importanza: oro, verde, verderame
+  e ardesia sono quattro gradini da circa 60 gradi l'uno dall'altro, cosi' la
+  scorsa si legge come piu' colori anche dentro una tessera di 40 px. Con due
+  tinte vicine accostate, meta' gradiente sembra una tinta sola.
 
   Le `var()` dentro si risolvono sull'elemento che usa il gradiente, non qui:
   al buio prende da se' le versioni schiarite, senza una seconda definizione.
@@ -218,10 +217,10 @@
 }
 
 /*
-  Al buio si scambiano i ruoli dei neutri — l'inchiostro diventa la lastra e il
-  muro scende sotto — e le tinte si schiariscono quanto basta a reggere su un
-  fondo scuro. E' la stessa palette, letta al contrario: nessun secondo elenco
-  di colori da tenere allineato al primo.
+  Al buio i neutri si scambiano i ruoli, cioe' l'inchiostro diventa la lastra e
+  il muro scende sotto, e le tinte si schiariscono quanto basta a reggere su un
+  fondo scuro. E' la stessa palette letta al contrario, non un secondo elenco di
+  colori da tenere allineato al primo.
 */
 .dark {
   --bg: color-mix(in oklab, var(--inchiostro) 86%, #000);
@@ -254,10 +253,10 @@
   e saturazione: e' quello che si fa a mano quando si adatta una palette al buio,
   scritto una volta sola.
 
-  Sta dentro un @supports perche' un valore non capito, in una proprieta'
-  personalizzata, non ricade sulla dichiarazione precedente — diventa invalido e
-  basta. Dove `oklch(from …)` non c'e', restano le mescolanze qui sopra: piu'
-  spente, ma leggibili.
+  Sta dentro un @supports perche' un valore non capito, dentro una proprieta'
+  personalizzata, non ricade sulla dichiarazione precedente: diventa invalido e
+  basta. Dove `oklch(from ...)` non c'e', restano le mescolanze qui sopra, piu'
+  spente ma leggibili.
 */
 @supports (color: oklch(from red l c h)) {
   .dark {
@@ -286,9 +285,9 @@
   }
 
   /*
-    Anello di fuoco a DUE tinte: uno dei due membri e' sempre lontano dal fondo
-    su cui si trova — comprese le fotografie delle opere, dove un anello a tinta
-    unica e' un terno al lotto. Verificato contro ogni fondo del sistema.
+    Anello di fuoco a due tinte, cosi' uno dei due membri e' sempre lontano dal
+    fondo su cui si trova. Vale anche sulle fotografie delle opere, dove un
+    anello a tinta unica sparirebbe a seconda dell'immagine.
   */
   :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
     outline: 3px solid var(--focus-ink);
@@ -351,7 +350,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   SORGENTI GIA' PROVATE — si incolla il blocco al posto di quello in cima.
+   SORGENTI GIA' PROVATE: si incolla il blocco al posto di quello in cima.
 
    "Sala e Deposito" e' quella IN USO, in cima. Unica riserva: l'accento sul muro
    sta a 4.06:1, sotto AA per il testo normale.

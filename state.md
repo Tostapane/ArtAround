@@ -398,6 +398,32 @@ Nota minore: la cache delle traduzioni (`services/translate.ts`) è una `Map` **
 sfratto**, con dentro i testi interi. È la scelta giusta per la demo — gli stessi testi li
 chiedono tutti — ma cresce in modo monotono finché il processo vive.
 
+### 1.2-bis I commenti: cosa ci va e cosa no *(2026-08-04)*
+
+Passata su tutti i sorgenti (66 file). Le regole che ne sono uscite, oltre a quelle di
+`guidelines.md`:
+
+- **Niente trattini lunghi, niente emoji, niente frecce unicode**, nemmeno nelle stringhe
+  visibili. Dove servivano come segnaposto di «valore assente» ora c'e' `n/d`.
+- **Niente racconto di com'era prima.** Un commento che dice «prima era X, ora e' Y»
+  invecchia fino a diventare falso, e chi legge non ha modo di accorgersene. La stessa
+  informazione si scrive al presente dicendo che cosa succederebbe *senza* la riga che si
+  sta spiegando: e' altrettanto utile e non scade.
+- **Niente misure.** `1,1 MB contro 300 KB`, `74% del peso`, `94 as any`: appartengono al
+  messaggio di commit e a questo documento. In un'intestazione diventano numeri che nessuno
+  riallinea.
+- **Niente maiuscolo enfatico** a meta' frase, che era il tic piu' diffuso.
+
+Un commento e' risultato **falso**, ed e' il motivo per cui la passata vale piu' di una
+pulizia estetica: `shared/access.ts` dichiarava che il nome utente arriva dalla richiesta e
+che nessuno verifica sia davvero il tuo. Da quando esiste la sessione lo verifica eccome, e
+un commento sbagliato proprio sull'autorizzazione e' peggio che nessun commento.
+
+⚠️ **Riscrivere una stringa italiana visibile cambia una chiave di traduzione.** Correggendo
+un trattino lungo dentro un testo di `Posizione.vue` le sue dodici traduzioni sono diventate
+orfane in silenzio. Dopo ogni passata sui testi va rifatto il giro `residui` → `traduci` →
+`pota` → `stato`.
+
 ### 1.2 Convenzioni di codice
 
 Stanno in **`guidelines.md`**, che è la sede unica: cinque regole (spiegazione in cima al
@@ -1679,6 +1705,51 @@ attributi visibili, `announce()`, `riferisci()`, le assegnazioni a `*.value`. La
 prima riportava venti risultati tutti deliberati (id dei comandi, prompt, `console.error`) e
 non poteva servire da controllo; stringendolo sono saltate fuori **due stringhe davvero
 dimenticate** che nel rumore non si vedevano.
+
+### 5.7 L'interfaccia del marketplace *(2026-08-04)*
+
+Anche il marketplace parla dodici lingue, sugli stessi cataloghi del navigator:
+**434 chiavi, 12 lingue, `residui` a zero.**
+
+**La libreria e' la stessa, e non e' un dettaglio.** `vue-i18n` qui non ci puo' stare
+(vuole Vue, e la slide 37 vieta un framework nel marketplace), ed e' il motivo per cui il
+navigator e' passato a `i18next`: due letture diverse degli stessi file, quando smettono di
+essere d'accordo, non danno un errore ma una schermata sbagliata. Con una libreria sola la
+questione non esiste. Non si puo' pero' importarla da npm, perche' non c'e' un
+impacchettatore: arriva da `public/vendor/` con un `<script defer>`, come Alpine, e va
+messa **prima** del modulo o `app.js` non la trova.
+
+| | navigator | marketplace |
+| --- | --- | --- |
+| da dove arriva la libreria | `import` (Vite) | `public/vendor/`, su `window` |
+| quanti cataloghi carica | tutti e dodici, nel pacchetto | **uno**, `GET /i18n/<cod>.json` |
+| perche' | sta in mano al visitatore, il cambio dev'essere immediato | si cambia lingua di rado, e una richiesta costa poco |
+| cosa fa ridisegnare | un `ref` letto dentro `t` | `AppState.lingua` letta dentro `t()` |
+
+La lingua e' la **stessa chiave** nei due (`artaround-lang`), quindi si sceglie una volta.
+
+⚠️ **`languages.ts` ora scandisce tutte e due le applicazioni.** Non e' un'aggiunta
+comoda ma obbligatoria: scandendone una sola, `pota` prenderebbe le chiavi dell'altra per
+orfane e le cancellerebbe.
+
+⚠️ **`ART`, `AROUND` e `ArtAround` restano italiani perche' sono il marchio.** `residui` li
+elenca e non li puo' distinguere, esattamente come non distingue gli id dei comandi vocali.
+
+**I frammenti non si concatenano.** Dove il testo era mescolato a un valore
+(`Curatore: <span x-text=…>`) la frase e' diventata intera con un segnaposto,
+`t("Curatore: {nome}", {nome})`, e non due pezzi da incollare. Comporre una frase da
+frammenti e' l'errore classico dell'i18n: in un'altra lingua cambiano l'ordine e l'accordo,
+e il risultato esce sgrammaticato senza che niente lo segnali. Per lo stesso motivo sono
+state riscritte le `aria-label` costruite con `+`.
+
+⚠️ **Una traduzione va letta, non dedotta.** «non ha prezzo» in cinese era uscito «e'
+inestimabile»: l'italiano era ambiguo fra "non si imposta un prezzo" e "vale troppo per
+avere un prezzo". Si e' riscritta la frase italiana, non le dodici traduzioni. Riscrivere
+l'italiano cambia la chiave, quindi il giro e' `pota` e poi `traduci`.
+
+**Cosa non e' tradotto, e non deve esserlo:** il marchio (`ART`, `AROUND`, `ArtAround`), i
+nomi delle opere e delle visite (sono dati) e gli id dei comandi vocali. `residui` li elenca
+lo stesso perche' non li puo' distinguere, e lo dichiara invece di fingere.
 
 ### 5.4 `GuidedGate`
 
