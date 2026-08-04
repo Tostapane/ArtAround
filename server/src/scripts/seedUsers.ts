@@ -5,9 +5,9 @@
  * unico": non potrebbero piu' accedere. Se quegli account servono, si usa invece
  * `testers.ts account`, che non cancella niente.
  */
-import { MONGO_URI } from "./env";
+import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
-import { UserModel } from "./models/user";
+import { UserModel } from "../models/user";
 
 /*
  * Seed dei 4 account richiesti dalla spec (slide "Requisiti di progetto"):

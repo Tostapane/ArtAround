@@ -53,7 +53,14 @@ export function computeDirections(
   fromQid: string,
   target: string,
 ): RouteIR {
-  const fromNode = graph.nodes.find((n) => n.id === fromQid);
+  // Partenza VUOTA = l'ingresso. E' dove si e' prima di essersi mossi, ed e'
+  // l'unico punto che ogni pianta dichiara comunque (`data-poi="entrance"`),
+  // perche' e' li' che nasce il sistema di riferimento della localizzazione.
+  // Un `from` sconosciuto resta un errore: confonderlo con "non l'ho detto"
+  // farebbe rispondere dall'ingresso a chi ha indicato un punto che non c'e'.
+  const fromNode = fromQid
+    ? graph.nodes.find((n) => n.id === fromQid)
+    : graph.nodes.find((n) => n.poiType === "entrance");
   if (!fromNode) {
     return unavailable("posizione corrente sconosciuta");
   }

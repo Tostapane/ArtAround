@@ -6,23 +6,23 @@
  * quello che c'è già. Sono idempotenti: eseguirle due volte non fa danni.
  *
  * Uso:
- *   npx ts-node src/testers.ts stato
- *   npx ts-node src/testers.ts toni
- *   npx ts-node src/testers.ts nomi
- *   npx ts-node src/testers.ts logistica
- *   npx ts-node src/testers.ts generi
- *   npx ts-node src/testers.ts tutto
+ *   npx ts-node src/scripts/testers.ts stato
+ *   npx ts-node src/scripts/testers.ts toni
+ *   npx ts-node src/scripts/testers.ts nomi
+ *   npx ts-node src/scripts/testers.ts logistica
+ *   npx ts-node src/scripts/testers.ts generi
+ *   npx ts-node src/scripts/testers.ts tutto
  */
 
-import { MONGO_URI } from "./env";
+import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
-import { ItemModel } from "./models/item";
-import { VisitModel } from "./models/visit";
-import { ArtworkModel } from "./models/artwork";
-import { MuseumModel } from "./models/museum";
-import { UserModel } from "./models/user";
-import { educationalLevels, formatDuration } from "../../shared/constants";
-import { UserRole } from "../../shared/types";
+import { ItemModel } from "../models/item";
+import { VisitModel } from "../models/visit";
+import { ArtworkModel } from "../models/artwork";
+import { MuseumModel } from "../models/museum";
+import { UserModel } from "../models/user";
+import { educationalLevels, formatDuration } from "../../../shared/constants";
+import { UserRole } from "../../../shared/types";
 
 const TONE_MAP: Record<string, string> = {
   Principiante: "Semplice",
@@ -63,7 +63,7 @@ export async function stato() {
   if (offVocabulary.length > 0) {
     console.log(
       `\n⚠  ${offVocabulary.length} toni fuori vocabolario: ${offVocabulary.join(", ")}` +
-        `\n   Esegui:  npx ts-node src/testers.ts toni`,
+        `\n   Esegui:  npx ts-node src/scripts/testers.ts toni`,
     );
   }
 
@@ -73,7 +73,7 @@ export async function stato() {
   if (unplacedNotes > 0) {
     console.log(
       `\n⚠  ${unplacedNotes} visite con note logistiche senza posizione.` +
-        `\n   Esegui:  npx ts-node src/testers.ts logistica`,
+        `\n   Esegui:  npx ts-node src/scripts/testers.ts logistica`,
     );
   }
   console.log("");

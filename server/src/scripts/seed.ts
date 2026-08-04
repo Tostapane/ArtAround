@@ -3,11 +3,11 @@
  *
  * Si esegue un museo alla volta:
  *
- *     npx ts-node src/seed.ts                 elenca i musei configurati
- *     npx ts-node src/seed.ts Q51252          semina quel museo
- *     npx ts-node src/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
- *     npx ts-node src/seed.ts tutti           semina tutti i musei configurati
- *     npx ts-node src/seed.ts speciali        le due visite dimostrative
+ *     npx ts-node src/scripts/seed.ts                 elenca i musei configurati
+ *     npx ts-node src/scripts/seed.ts Q51252          semina quel museo
+ *     npx ts-node src/scripts/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
+ *     npx ts-node src/scripts/seed.ts tutti           semina tutti i musei configurati
+ *     npx ts-node src/scripts/seed.ts speciali        le due visite dimostrative
  *
  * Due proprieta' che decidono la forma di tutto il file:
  *
@@ -30,24 +30,24 @@
  * stili e artisti, e senza nemmeno uno non si possono mostrare. Restano nel
  * catalogo: in quale visita e in quale punto vadano non lo decide il seed.
  */
-import { MONGO_URI } from "./env";
+import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
-import { ArtworkModel } from "./models/artwork";
-import { ItemModel } from "./models/item";
-import { VisitModel } from "./models/visit";
-import { UserModel } from "./models/user";
+import { ArtworkModel } from "../models/artwork";
+import { ItemModel } from "../models/item";
+import { VisitModel } from "../models/visit";
+import { UserModel } from "../models/user";
 import {
   populateArtwork,
   populateItem,
   populateVisit,
   populateMuseum,
   locationsFromMap,
-} from "./manager";
-import { educationalLevels, secPerArt, kindById } from "../../shared/constants";
-import { createSubjectDescription } from "./services/llm";
-import { LogisticNote } from "../../shared/types";
-import { loadMuseumConfigs, findMuseumConfig, MuseumConfig } from "./data/museumConfigs";
-import { costruisciQuiz } from "./data/quiz";
+} from "../manager";
+import { educationalLevels, secPerArt, kindById } from "../../../shared/constants";
+import { createSubjectDescription } from "../services/llm";
+import { LogisticNote } from "../../../shared/types";
+import { loadMuseumConfigs, findMuseumConfig, MuseumConfig } from "../data/museumConfigs";
+import { costruisciQuiz } from "../data/quiz";
 
 const PAUSA_LLM_MS = 6000;
 const PAUSA_IMMAGINE_MS = 1000;
@@ -426,7 +426,7 @@ function elenca(configs: MuseumConfig[]) {
     );
   }
   console.log(
-    "\nUso: npx ts-node src/seed.ts <qid|tutti|speciali> [--force]",
+    "\nUso: npx ts-node src/scripts/seed.ts <qid|tutti|speciali> [--force]",
   );
 }
 

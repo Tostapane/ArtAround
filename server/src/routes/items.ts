@@ -14,7 +14,10 @@
  * descrizione la chiede a `GET /artworks/:qid/items`.
  * IL SOGGETTO non e' per forza un'opera (slide 21): lo dice `genere`. Un'opera si
  * cerca nel database e porta con se' museo e immagine; ogni altro soggetto arriva
- * come nome scritto dall'autore e deve portarsi l'immagine.
+ * come nome scritto dall'autore, e il museo va detto. L'immagine invece e'
+ * facoltativa: una tappa che parla di uno stile si ascolta stando davanti a
+ * un'opera vera — la sua ANCORA — e il navigator mostra quella quando l'autore
+ * non ne ha caricata una propria.
  *
  * SULLO STESSO SOGGETTO E COLLO STESSO TONO se ne possono scrivere quante se ne
  * vuole: due letture Infantili della Gioconda sono due letture, non un errore, e
@@ -304,11 +307,6 @@ router.post("/", async (req, res) => {
       subject = String(payload.soggetto || "").trim();
       if (subject === "")
         return res.status(400).json({ error: "Manca il nome del soggetto." });
-      // Senza opera non c'e' nessuna immagine da cui ripiegare.
-      if (immagine === "")
-        return res
-          .status(400)
-          .json({ error: "Un contenuto che non parla di un'opera deve avere un'immagine." });
       const museo = String(payload.museo || "");
       if (museo === "")
         return res.status(400).json({ error: "Manca il museo del contenuto." });
