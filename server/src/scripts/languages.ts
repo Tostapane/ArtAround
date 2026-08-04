@@ -38,7 +38,12 @@ import "../env";
 import fs from "fs";
 import path from "path";
 import { GoogleGenAI } from "@google/genai";
-import { SOURCE_LANG, languages, options } from "../../../shared/constants";
+import {
+  SOURCE_LANG,
+  languages,
+  options,
+  educationalLevels,
+} from "../../../shared/constants";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = "gemini-3.1-flash-lite";
@@ -52,11 +57,16 @@ const CATALOGS_DIR = path.join(ROOT, "shared/i18n");
 // ============================================================================
 
 /**
- * Le chiavi sono le stringhe passate a `t(...)`, piu' quelle del vocabolario
- * controllato. Queste ultime vanno prese a parte perche' nel codice compaiono come
- * `t(o.label)`: la chiave sta nei DATI di `shared/constants.ts`, e una scansione
- * del testo non la vedrebbe mai. E' il prezzo di una chiave calcolata, ed e' anche
- * il solo punto del navigator in cui succede.
+ * Le chiavi sono le stringhe passate a `t(...)`, piu' due elenchi di
+ * `shared/constants.ts`. Questi vanno presi a parte perche' nel codice compaiono
+ * come `t(o.label)` e `t(v.level)`: la chiave sta nei DATI, e una scansione del
+ * testo non la vedrebbe mai. E' il prezzo di una chiave calcolata, e sono i soli
+ * due punti del navigator in cui succede.
+ *
+ * I TONI si traducono ma non cambiano di valore: `Medio` resta `Medio` nel
+ * database, nel confronto del filtro e nella richiesta al server — si traduce
+ * solo quel che si legge. Tradurre il valore vorrebbe dire che un filtro scelto
+ * in cinese non trova piu' niente.
  */
 function keysFromSource(): string[] {
   const found = new Set<string>();
@@ -65,6 +75,8 @@ function keysFromSource(): string[] {
     found.add(o.label);
     if (o.hint) found.add(o.hint);
   }
+
+  for (const livello of educationalLevels) found.add(livello);
 
   for (const file of walkFiles(SOURCE_DIR)) {
     const text = withoutComments(fs.readFileSync(file, "utf8"));
@@ -256,9 +268,14 @@ const GLOSSARY = `
 - "scheda" = il pannello che mostra la descrizione dell'opera
 - "pianta" = il disegno delle sale del museo visto dall'alto
 - "sala" = una stanza del museo
-- "vetrina" = il catalog dei contenuti in vendita; NON la finestra di un negozio
-- "tono" = il registro del text (infantile, semplice, medio, avanzato)
-- "curatore" = la persona che risponde del museo e del suo catalog
+- "tono" = il registro in cui una descrizione e' scritta
+- "curatore" = la persona che risponde del museo e del suo catalogo
+- "Infantile" = il tono di chi racconta a un bambino, con parole semplici e affetto;
+  NON vuol dire puerile, sciocco o offensivo
+- "Semplice" = il tono per un adulto che dell'argomento non sa nulla
+- "Medio" = il tono intermedio, per un visitatore curioso e gia' un po' informato;
+  NON vuol dire mediocre o scadente
+- "Avanzato" = il tono per chi la materia la conosce gia', col lessico degli studiosi
 `.trim();
 
 /**
@@ -311,9 +328,9 @@ Regole:
 - mantieni la punteggiatura finale e le maiuscole iniziali come nell'originale;
 - un'etichetta di pulsante resta corta almeno quanto l'originale;
 - non aggiungere spiegazioni: traduci e basta;
-- se una stringa e' gia' comprensibile come name proprio, lasciala.
+- se una stringa e' gia' comprensibile come nome proprio, lasciala.
 
-Rispondi con un oggetto JSON che ha per keys ESATTAMENTE le stringhe italiane qui
+Rispondi con un oggetto JSON che ha per chiavi ESATTAMENTE le stringhe italiane qui
 sotto e per valori la traduzione. Nient'altro.
 
 ${JSON.stringify(missing, null, 1)}`;
@@ -400,13 +417,13 @@ async function main() {
       const bar = "█".repeat(Math.round((present / Math.max(keys.length, 1)) * 20));
       console.log(
         `  ${l.name.padEnd(12)} ${String(present).padStart(4)}/${keys.length} ${bar}` +
-          (orphans ? `  ${orphans} orphans` : ""),
+          (orphans ? `  ${orphans} orfane` : ""),
       );
     }
     const stray = strayStrings().length;
     console.log(
-      `\n${stray} frasi italiane stray dal catalog (vedi "residui")` +
-        (orphansTotal ? `\n${orphansTotal} traduzioni orphans (vedi "pota")` : ""),
+      `\n${stray} frasi italiane fuori dal catalogo (vedi "residui")` +
+        (orphansTotal ? `\n${orphansTotal} traduzioni orfane (vedi "pota")` : ""),
     );
     return;
   }
