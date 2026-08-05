@@ -16,15 +16,30 @@
  */
 
 const { execSync } = require('child_process');
+const path = require('path');
 
 const root = __dirname;
 
+/*
+ * Dentro il container HOME non e' scrivibile: npm prova a creare la sua cache
+ * in /.npm e prende EACCES, fallendo con codice 243 dopo aver scaricato tutto.
+ * Cache e home vanno quindi spostate sotto /webapp, che e' la cartella montata
+ * e l'unica su cui abbiamo diritto di scrittura.
+ */
+const ambiente = {
+  ...process.env,
+  HOME: root,
+  npm_config_cache: path.join(root, '.npm-cache'),
+};
+
 // I comandi sono quelli di package.json, spezzati uno per riga: se qualcosa
 // fallisce vogliamo sapere *quale* passo, non che «setup» e' andato male.
+// --no-audit --no-fund: due giri di rete in meno per passo, su una macchina
+// dove l'installazione e' gia' la parte lenta.
 const passi = [
-  ['dipendenze server',      'npm install --include=dev --prefix server'],
-  ['dipendenze marketplace', 'npm install --include=dev --prefix marketplace'],
-  ['dipendenze navigator',   'npm install --include=dev --prefix navigator'],
+  ['dipendenze server',      'npm install --include=dev --no-audit --no-fund --prefix server'],
+  ['dipendenze marketplace', 'npm install --include=dev --no-audit --no-fund --prefix marketplace'],
+  ['dipendenze navigator',   'npm install --include=dev --no-audit --no-fund --prefix navigator'],
   ['build marketplace',      'npm run build --prefix marketplace'],
   ['build navigator',        'npm run build --prefix navigator'],
 ];
@@ -35,7 +50,7 @@ console.log('=== node ' + process.version);
 for (const [nome, comando] of passi) {
   console.log('\n--- ' + nome + ': ' + comando);
   try {
-    execSync(comando, { cwd: root, stdio: 'inherit' });
+    execSync(comando, { cwd: root, stdio: 'inherit', env: ambiente });
     console.log('--- ' + nome + ': OK');
   } catch (errore) {
     // Uscire con codice diverso da zero: un fallimento silenzioso qui
