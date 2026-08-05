@@ -40,6 +40,7 @@ import {
   createCustomVisit,
   redeemHandoff,
   hasSession,
+  onSessionExpired,
 } from "./api";
 import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
@@ -61,6 +62,16 @@ function museumQidFromUri(uri: string): string {
 }
 
 onMounted(async () => {
+  // Una sessione che scade a meta' visita: senza questo, ogni chiamata
+  // fallirebbe per conto suo e la persona resterebbe davanti a una pianta che
+  // non risponde piu'. Si dice invece dove si rientra, che e' il marketplace.
+  onSessionExpired(() => {
+    erroreAvvio.value = t(
+      "La sessione è scaduta. Torna al marketplace ed entra di nuovo col tuo profilo.",
+    );
+    pronto.value = true;
+  });
+
   await loadConfig();
 
   const params = new URLSearchParams(window.location.search);
@@ -190,9 +201,9 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
         <p class="text-small text-muted" role="status">{{ testoAvvio }}</p>
       </div>
 
-      <!-- Visita guidata (modulo 18-27) -->
-      <GuidedGate v-else-if="guidedActive" />
-
+      <!-- L'avviso viene prima della visita guidata: una sessione scaduta
+           spegne anche quella, e lasciarla a schermo direbbe che si sta ancora
+           seguendo il docente. -->
       <div
         v-else-if="erroreAvvio"
         class="flex flex-1 items-center justify-center p-8"
@@ -201,6 +212,9 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
           <p class="text-body">{{ erroreAvvio }}</p>
         </div>
       </div>
+
+      <!-- Visita guidata (modulo 18-27) -->
+      <GuidedGate v-else-if="guidedActive" />
 
       <!-- Fase 1: la biglietteria -->
       <Biglietteria

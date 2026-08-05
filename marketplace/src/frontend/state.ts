@@ -45,12 +45,13 @@ import {
   secPerArt,
   itemKinds,
   kindById,
+  languages,
+  SOURCE_LANG,
   WORDS_PER_MINUTE,
 } from "../../../shared/constants.js";
 import { isReadable } from "../../../shared/access.js";
-import { languages } from "../../../shared/constants.js";
 import {
-  linguaSalvata,
+  linguaIniziale,
   preparaLingua,
   salvaLingua,
   traduci,
@@ -180,6 +181,21 @@ export type View =
   | "gestione"
   | "catalogo";
 
+/**
+ * I contenuti per `@id`: descrizioni del museo, propri e visite.
+ *
+ * Sta FUORI dallo stato, ed e' la parte da sapere. Quel che Alpine rende
+ * reattivo viaggia dentro un Proxy, e questa mappa si consulta migliaia di volte
+ * per ogni disegnata della vetrina: una tappa per visita, per ogni visita
+ * dell'elenco, a ogni filtro che cambia. Fuori dallo stato una lettura resta una
+ * lettura, e nessuno si mette in ascolto di una mappa che si rifa' intera.
+ *
+ * Cercare a ogni chiamata scorrendo gli elenchi costa quanto il catalogo, non
+ * quanto la risposta: alla Galleria degli Uffizi sono 832 descrizioni per 36
+ * visite, e la scelta del museo passava otto secondi qui dentro.
+ */
+const indiceContenuti = new Map<string, Content>();
+
 export class AppState {
   // --- Rotta corrente -------------------------------------------------------
   view: View = "avvio";
@@ -255,8 +271,17 @@ export class AppState {
    * di modulo, perche' `t()` la legge a ogni chiamata: leggerla dentro un
    * binding di Alpine registra la dipendenza, e cambiarla ridisegna da se' tutto
    * quel che e' tradotto. Fuori dallo stato Alpine non se ne accorgerebbe.
+   *
+   * PARTE DALL'ITALIANO ANCHE QUANDO NON E' LA LINGUA SCELTA, e la vera si
+   * assegna in `start()` quando il catalogo e' arrivato. Alpine costruisce tutte
+   * le viste all'avvio — sono `x-show`, quindi stanno nel documento anche da
+   * nascoste — e ogni legame si valuta li' una volta sola: se la lingua fosse
+   * gia' quella giusta, il catalogo arriverebbe quando non c'e' piu' niente da
+   * invalidare, e la pagina resterebbe in italiano fino al legame successivo che
+   * cambia per conto suo. E' l'assegnazione a ridisegnare, quindi deve venire
+   * dopo l'attesa.
    */
-  lingua: string = linguaSalvata();
+  lingua: string = SOURCE_LANG;
   lingueDisponibili = languages;
 
   licenseOptions: string[] = licenses;
@@ -371,25 +396,36 @@ export class AppState {
     this.goTo(this.roleHome());
   }
 
+  /**
+   * Il nome della schermata: finisce nel titolo della pagina e nella regione
+   * viva, quindi e' quel che sente chi non guarda. Tradotto come tutto il resto
+   * dell'interfaccia: `residui` di qui non passa — guarda i template, non gli
+   * script — e una schermata che si annuncia in italiano dentro un'app cinese
+   * non risulterebbe mai «mancante».
+   */
   viewLabel(): string {
     const labels: Record<View, string> = {
       avvio: "ArtAround",
       soglia: "ArtAround",
-      accedi: "Accedi",
-      registrati: "Crea un profilo",
-      musei: "Scegli il museo",
-      home: "Home",
-      vetrina: "Vetrina",
-      opera: "Scheda dell'opera",
-      visita: "Scheda della visita",
-      libreria: "La mia libreria",
-      componi: this.editingId ? "Modifica la visita" : "Componi una visita",
-      sumisura: "Visita su misura",
-      nuovo: this.editingId ? "Modifica la descrizione" : "Nuova descrizione",
-      lavori: "I miei contenuti",
-      vendite: "Vendite e adozioni",
-      gestione: "Gestione del museo",
-      catalogo: "Catalogo del museo",
+      accedi: this.t("Accedi"),
+      registrati: this.t("Crea un profilo"),
+      musei: this.t("Scegli il museo"),
+      home: this.t("Home"),
+      vetrina: this.t("Vetrina"),
+      opera: this.t("Scheda dell'opera"),
+      visita: this.t("Scheda della visita"),
+      libreria: this.t("La mia libreria"),
+      componi: this.editingId
+        ? this.t("Modifica la visita")
+        : this.t("Componi una visita"),
+      sumisura: this.t("Visita su misura"),
+      nuovo: this.editingId
+        ? this.t("Modifica la descrizione")
+        : this.t("Nuova descrizione"),
+      lavori: this.t("I miei contenuti"),
+      vendite: this.t("Vendite e adozioni"),
+      gestione: this.t("Gestione del museo"),
+      catalogo: this.t("Catalogo del museo"),
     };
     return labels[this.view] || "";
   }
@@ -423,10 +459,13 @@ export class AppState {
 
   async start() {
     window.addEventListener("hashchange", () => this.applyRoute());
-    // Prima di qualunque disegno: altrimenti la pagina comparirebbe in italiano
-    // per un istante e cambierebbe sotto gli occhi di chi sta leggendo.
-    await preparaLingua(this.lingua);
-    document.documentElement.lang = this.lingua;
+    // La lingua si assegna dopo aver aspettato il catalogo, e non prima: il
+    // motivo sta sul campo `lingua`. Finche' si aspetta non c'e' niente a
+    // schermo, perche' `view` vale ancora "avvio".
+    const scelta = linguaIniziale();
+    await preparaLingua(scelta);
+    this.lingua = scelta;
+    document.documentElement.lang = scelta;
     onSessionExpired(() => this.sessionLost());
     try {
       const cfg = await ArtAPI.fetchConfig();
@@ -512,6 +551,7 @@ export class AppState {
     } else {
       this.myItems = [];
     }
+    this.reindicizza();
     if (this.currentUserRole === "curatore") await this.loadMuseumState();
   }
 
@@ -623,6 +663,7 @@ export class AppState {
     this.marketItems = [];
     this.artworksWithText = [];
     this.myItems = [];
+    this.reindicizza();
     this.museums = [];
     this.selectedMuseum = null;
     this.sales = [];
@@ -856,6 +897,7 @@ export class AppState {
     const qid = this.selectedMuseum ? this.selectedMuseum.qid : "";
     if (!qid) return;
     this.visits = await ArtAPI.fetchVisite(qid);
+    this.reindicizza();
   }
 
   /** L'etichetta dello sblocco nella striscia Riprendi. */
@@ -988,6 +1030,7 @@ export class AppState {
         this.visits = this.visits.filter(
           (c: any) => c["@id"] !== visit["@id"],
         );
+        this.reindicizza();
         this.userCollection = this.userCollection.filter(
           (id) => id !== visit["@id"],
         );
@@ -1036,6 +1079,7 @@ export class AppState {
       this.overview = await ArtAPI.fetchOverview(qid);
       this.curatedItems = await ArtAPI.fetchCuratedItems(qid);
       this.visits = await ArtAPI.fetchVisite(qid);
+      this.reindicizza();
     } catch (e) {
       this.showToast((e as Error).message, "error");
     }
@@ -2128,13 +2172,24 @@ export class AppState {
     );
   }
 
+  /**
+   * Rifa' l'indice dei contenuti. Si chiama dove i tre elenchi vengono
+   * assegnati, e in nessun altro posto: un indice che non segue i suoi elenchi
+   * mostra il prezzo di prima di un acquisto appena fatto.
+   *
+   * L'ordine di riempimento e' rovesciato rispetto a quello in cui si cercava:
+   * l'ultimo `set` vince, quindi mettendo per ultimi i propri contenuti restano
+   * loro a rispondere, com'era quando la ricerca si fermava al primo trovato.
+   */
+  private reindicizza() {
+    indiceContenuti.clear();
+    for (const c of this.visits) indiceContenuti.set(c["@id"], c);
+    for (const c of this.marketItems) indiceContenuti.set(c["@id"], c);
+    for (const c of this.myItems) indiceContenuti.set(c["@id"], c);
+  }
+
   findItem(id: string) {
-    const all = [
-      ...this.myItems,
-      ...this.marketItems,
-      ...this.visits,
-    ];
-    return all.find((i) => i["@id"] === id) || null;
+    return indiceContenuti.get(id) || null;
   }
 
   itemName(id: string) {

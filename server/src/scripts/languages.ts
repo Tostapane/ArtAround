@@ -305,6 +305,10 @@ const GLOSSARY = `
 - "sala" = una stanza del museo
 - "tono" = il registro in cui una descrizione e' scritta
 - "curatore" = la persona che risponde del museo e del suo catalogo
+- "vetrina" = la sezione dove si sfoglia quel che il museo offre, visite e descrizioni;
+  e' il nome di una schermata, NON un mobile con i ripiani ne' una teca
+- "libreria" = la raccolta personale di quel che si e' preso o comprato; NON un negozio
+  di libri e NON una libreria di programmazione
 - "Infantile" = il tono di chi racconta a un bambino, con parole semplici e affetto;
   NON vuol dire puerile, sciocco o offensivo
 - "Semplice" = il tono per un adulto che dell'argomento non sa nulla

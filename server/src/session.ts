@@ -12,11 +12,13 @@
  * Quattro rotte devono restare aperte (`index.ts` dice quali), e un rifiuto
  * montato su tutto le spegnerebbe senza dirlo.
  *
- * Il biglietto per il navigator e' una sessione come le altre con una scadenza
- * corta: il navigator sta su un'altra origine, quindi l'identita' deve
- * attraversare nell'indirizzo, ma un indirizzo finisce nella cronologia, percio'
- * quel che attraversa dura dieci minuti e `POST /users/redeem` lo cancella
- * spendendolo.
+ * Il biglietto per il navigator e' una riga come le altre con una scadenza
+ * corta e un `kind` diverso: il navigator sta su un'altra origine, quindi
+ * l'identita' deve attraversare nell'indirizzo, ma un indirizzo finisce nella
+ * cronologia e nei registri, percio' quel che attraversa dura dieci minuti,
+ * `POST /users/redeem` lo cancella spendendolo, e `resolveSession` non lo
+ * accetta come intestazione: senza quel `kind` il biglietto sarebbe una
+ * credenziale piena, spendibile quante volte si vuole finche' non scade.
  *
  * L'utente si legge con `sessionUser` e mai da `req` a mano: aggiungere il campo
  * ai tipi di Express vorrebbe dire un `.d.ts` ambientale, e ts-node quelli non
@@ -24,7 +26,7 @@
  */
 import { Request, Response, NextFunction } from "express";
 import { randomUUID } from "crypto";
-import { SessionModel } from "./models/session";
+import { SessionModel, SessionKind } from "./models/session";
 
 export const SESSION_TTL_MS = 6 * 60 * 60 * 1000;
 export const TICKET_TTL_MS = 10 * 60 * 1000;
@@ -48,23 +50,35 @@ export function sessionUser(req: Request): SessionUser {
 export async function createSession(
   user: SessionUser,
   ttlMs: number = SESSION_TTL_MS,
+  kind: SessionKind = "sessione",
 ): Promise<string> {
   const token = randomUUID();
   await SessionModel.create({
     token,
     username: user.username,
     role: user.role,
+    kind,
     expiresAt: new Date(Date.now() + ttlMs),
   });
   return token;
 }
 
-/** Spendere un biglietto e uscire sono la stessa operazione: la riga sparisce. */
+/**
+ * Spendere un biglietto e uscire sono la stessa operazione: la riga sparisce.
+ *
+ * `kind` lo passa chi sa che cosa si aspetta, ed entra nell'interrogazione e non
+ * in un controllo dopo: `redeem` pretende un biglietto, e cancellare prima di
+ * guardare vorrebbe dire che mandargli una sessione qualunque la butta giu'.
+ * L'uscita non lo passa, perche' li' va bene qualunque riga sia.
+ */
 export async function destroySession(
   token: string,
+  kind?: SessionKind,
 ): Promise<SessionUser | null> {
   if (!token) return null;
-  const found = await SessionModel.findOneAndDelete({ token });
+  const filtro: Record<string, unknown> = { token };
+  if (kind) filtro.kind = kind;
+  const found = await SessionModel.findOneAndDelete(filtro);
   if (!found) return null;
   if (found.expiresAt.getTime() < Date.now()) return null;
   return { username: found.username, role: found.role };
@@ -88,7 +102,14 @@ export async function resolveSession(
   const token = tokenFromHeader(req);
   if (!token) return next();
   try {
-    const found = await SessionModel.findOne({ token });
+    // Il biglietto di passaggio non vale come intestazione: e' passato per un
+    // indirizzo, quindi e' scritto in posti che una credenziale non deve
+    // toccare. Si confronta con `$ne` e non con `sessione` perche' le righe
+    // scritte prima di questo campo non ce l'hanno, e sono sessioni vere.
+    const found = await SessionModel.findOne({
+      token,
+      kind: { $ne: "handoff" },
+    });
     if (found && found.expiresAt.getTime() > Date.now())
       (req as any).sessionUser = {
         username: found.username,

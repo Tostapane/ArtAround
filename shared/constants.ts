@@ -117,6 +117,60 @@ export const languages: Language[] = [
   { name: "Türkçe", translate: "tr", tts: "tr-TR", stt: "tr-TR" },
 ];
 
+/**
+ * Dove resta scritta la lingua scelta.
+ *
+ * La chiave sta qui perche' le due applicazioni devono leggerla e scriverla
+ * uguale: sceglierla nel marketplace e ritrovarla nel navigator e' una scelta
+ * sola, non due. Scritta in tutt'e due i file, prima o poi ne diventa due.
+ */
+export const LANG_KEY = "artaround-lang";
+
+/**
+ * La lingua con cui aprire: quella gia' scelta, poi quella del dispositivo,
+ * poi l'italiano.
+ *
+ * Serve perche' la prima schermata si legge PRIMA di poter scegliere: aprendo
+ * sempre in italiano, a un visitatore cinese si chiede di riconoscere la frase
+ * «Lingua dei contenuti» per arrivare a 中文. Il suo dispositivo quella
+ * risposta ce l'ha gia'.
+ *
+ * `preferite` sono le lingue del dispositivo in ordine di gradimento
+ * (`navigator.languages`). Si prova prima il codice intero e poi la sola
+ * radice, perche' un dispositivo dice `en-GB` o `pt-PT` dove il nostro elenco
+ * ha `en` e `pt`, e all'incontrario dice `zh` dove noi abbiamo solo `zh-CN`.
+ * Una radice che porta a piu' lingue prende la prima dell'elenco.
+ *
+ * La funzione non tocca la memoria e non guarda il dispositivo da se': i due
+ * valori glieli passa chi chiama. Cosi' la stessa regola vale nel navigator e
+ * nel marketplace, che quei due valori li prendono in posti diversi.
+ *
+ * Quella del dispositivo NON si salva: e' un ripiego, non una scelta, e
+ * scrivendola le due cose diventerebbero indistinguibili.
+ */
+export function pickLanguage(
+  saved: string | null,
+  preferite: readonly string[],
+): Language {
+  for (const l of languages) {
+    if (l.translate === saved) return l;
+  }
+  for (const p of preferite) {
+    if (!p) continue;
+    const codice = p.toLowerCase();
+    for (const l of languages) {
+      if (l.translate.toLowerCase() === codice) return l;
+    }
+    const radice = codice.split("-")[0];
+    for (const l of languages) {
+      if (l.translate.toLowerCase().split("-")[0] === radice) return l;
+    }
+  }
+  const prima = languages[0];
+  if (!prima) throw new Error("Nessuna lingua configurata");
+  return prima;
+}
+
 // ============================================================================
 //                          Vocabolario controllato
 // ============================================================================

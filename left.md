@@ -1,5 +1,181 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-05, revisione di lingua e sessioni, e il difetto che ne e' uscito
+
+Richiesta: guardare com'e' implementata la traduzione nelle due applicazioni e come sono
+implementate le sessioni, e dire se il deploy sui docker di dipartimento rompe qualcosa.
+Poi correggere. Il ragionamento durevole sta in `state.md` §0.3 (il riepilogo), §5.7 (lingua),
+§"Le sessioni", §1.1-quinquies (fin dove regge) e §1.1-sexies (il difetto di prestazioni);
+qui quel che serve a chi prosegue.
+
+### 1. La lingua si perdeva a ogni ricaricamento (marketplace)
+
+⚠️ **Difetto vero, e la traduzione del marketplace era di fatto inservibile.** La lingua
+scelta valeva solo dentro il caricamento in cui la si sceglieva: **qualunque ricaricamento
+tornava all'italiano**, compresa la prima schermata di chi era gia' stato qui e il ritorno
+dal navigator. Trovato pilotando chromium, non leggendo:
+
+```
+lingua = it            -> "Entra"
+cambiaLingua('zh-CN')  -> "进入"     (e' il caso che era stato provato)
+ricarico, zh-CN salvato-> "Entra"    ma t('Entra') = 进入, html lang = zh-CN
+```
+
+La causa e' l'incontro fra due scelte giuste: Alpine costruisce **tutte** le viste all'avvio
+(sono `x-show`, quindi stanno nel documento anche da nascoste) e ogni legame si valuta li'
+una volta sola; `t()` ha una sola dipendenza reattiva, `lingua`, che al ricaricamento era
+**gia'** il valore finale. Il catalogo arriva dalla rete e trova la pagina gia' disegnata:
+non c'e' piu' niente da invalidare. Non si autoripara nemmeno richiamando `cambiaLingua`
+con lo stesso valore, perche' assegnare lo stesso valore non e' un cambiamento.
+
+**Rimedio, e la regola da non rompere:** `lingua` parte da `SOURCE_LANG` e la lingua vera
+si assegna in `start()` **dopo** `await preparaLingua`. E' l'assegnazione a ridisegnare,
+quindi deve venire dopo l'attesa. Non si vede nessun lampo di italiano perche' finche' si
+aspetta `view` vale ancora `"avvio"`, che non e' nessuna schermata.
+
+⚠️ La prima idea era `window.deferLoadingAlpine`, che **non esiste in Alpine 3**: e' di
+Alpine 2. Controllato nel file vendorizzato prima di scrivere la correzione.
+
+### 2. La lingua del dispositivo, e la regola in `shared/`
+
+Il navigator la proponeva dal telefono, il marketplace no, e il marketplace e' la porta
+d'ingresso: la schermata che si legge prima di poter scegliere era proprio quella che non
+guardava. `pickLanguage(saved, preferite)` e `LANG_KEY` stanno ora in `shared/constants.ts`
+e li usano tutt'e due; il navigator ha perso `defaultLanguage`, `browserLanguage` e
+`loadLanguage`. E' una funzione pura: memoria e dispositivo glieli passa chi chiama, perche'
+le due applicazioni li leggono in posti diversi. La lingua **del dispositivo non si salva**:
+e' un ripiego, non una scelta, e scrivendola le due cose diventerebbero indistinguibili.
+
+⚠️ **La lingua sopravvive alla chiusura della finestra, ed e' voluto**: sta in `localStorage`
+sotto la stessa chiave del navigator, quindi si sceglie una volta per tutt'e due. La sessione
+invece muore con la scheda. Chi lo nota adesso lo nota perche' prima il ricaricamento
+ripartiva sempre in italiano, cioe' per via del difetto qui sopra. Volendo il contrario basta
+`sessionStorage`, ma si perde la scelta condivisa fra le due applicazioni, che in sviluppo
+stanno su due origini diverse.
+
+### 3. Due punti che non erano MAI stati tradotti, trovati provando
+
+⚠️ **Il binario, cioe' la navigazione principale del marketplace.** Le voci erano
+`x-text="v.raw"` su stringhe italiane dentro un `x-for` scritto in linea nel markup. Ora
+`label:t('Vetrina')`: la chiave e' letterale, quindi l'estrattore la vede.
+
+⚠️ **`viewLabel()`**, che alimenta il titolo della pagina e **ogni annuncio della regione
+viva**: cioe' quel che sente chi non guarda lo schermo era italiano in tutte e dodici le
+lingue.
+
+Nessuno dei due lo poteva segnalare `residui`: il primo e' testo dentro l'espressione di un
+attributo, il secondo sta in uno script, e `residui` guarda i template. La rete di sicurezza
+resta la prova in browser con la lingua impostata su un'altra.
+
+**Catalogo: 434 → 447 chiavi**, dodici lingue piene, zero orfane, `residui` a 4 (il marchio).
+Delle 13 chiavi nuove, 12 vengono da questi due punti.
+
+⚠️ **Il glossario ha imparato «vetrina» e «libreria»**, per la ragione gia' pagata coi toni:
+`Vetrina` in cinese era uscita 展柜, cioe' il mobile con i ripiani, e `Libreria` rischiava il
+negozio di libri. Rifatte le 5 chiavi: cambiate 3 in ja/ko/zh-CN, 1 in de/es/nl/pt, 2 in pl,
+**nessuna** in en/fr/ru/tr. E' il motivo per cui il diff dei dodici cataloghi non ha lo stesso
+numero di righe pur avendo tutti 447 chiavi: dove la resa nuova coincide con la vecchia, git
+non vede niente. `zh-CN: Vetrina` e' stata poi corretta **a mano** in 展示, e va riguardata
+da chi il cinese lo legge.
+
+### 4. Sessioni: tre buchi, nessuno strutturale
+
+- ⚠️ **Il biglietto di passaggio era una credenziale piena.** `createSession(who, 10min)`
+  scriveva una riga identica a una sessione, quindi il biglietto che viaggia **in un
+  indirizzo** valeva come `Authorization: Bearer` per tutti i suoi dieci minuti, e usato
+  cosi' non si consumava: «vale una volta sola» era vero solo per `POST /users/redeem`. Ora
+  `Session.kind` (`sessione` | `handoff`), `resolveSession` filtra `kind: {$ne: "handoff"}` —
+  con `$ne` e non `=== "sessione"`, perche' le righe scritte prima del campo non ce l'hanno e
+  sono sessioni vere — e `/redeem` pretende un biglietto. Il `kind` sta nell'**interrogazione**
+  e non in un controllo dopo, o mandare una sessione a `/redeem` la butterebbe giu'.
+- ⚠️ **Il navigator non gestiva il 401 in nessun punto** (`grep 401 navigator/src` non dava
+  niente): a sessione scaduta ogni chiamata falliva per conto suo dentro il proprio `catch`, e
+  la persona restava davanti a una pianta che non rispondeva. Ora `onSessionExpired` in
+  `call()` e una schermata che dice dove si rientra. L'avviso e' stato messo **prima** di
+  `GuidedGate` nella catena `v-else-if`: una sessione scaduta spegne anche la visita guidata, e
+  lasciarla a schermo direbbe che si sta ancora seguendo il docente.
+- `sessionStorage` era letto a livello di modulo senza guardia in tutt'e due le `api.ts`: un
+  browser che nega la memoria faceva cadere il modulo prima che esistesse qualcosa in grado di
+  dirlo.
+
+**Verificato contro il server vivo, 15 controlli, zero fallimenti**: il biglietto da'
+401 come intestazione ma si riscatta ancora; monouso; una sessione mandata a `/redeem` viene
+rifiutata **e sopravvive**; uscita, biglietti inventati e le quattro rotte aperte invariati.
+Piu' la prova in browser della scadenza a meta' visita, con un gesto vero e non con un import.
+
+⚠️ **Trappola della prova, non del codice:** `await import('/src/api.ts')` da CDP puo' dare
+una **seconda istanza** del modulo. Il 401 ripuliva `sessionStorage` (che e' globale) ma il
+gestore era quello dell'altra copia, quindi la schermata non cambiava e sembrava un difetto.
+Va premuto un bottone vero.
+
+### 5. Il difetto di prestazioni, segnalato come «l'accesso e' lentissimo»
+
+⚠️ **Non era l'accesso** (101 ms) **e non era il server** (13-45 ms a chiamata): era il primo
+caricamento del catalogo di un museo grosso. **Galleria degli Uffizi: 8246 ms**, di cui ~300
+di rete e il resto thread principale, in due blocchi da 4,3 e 3,6 secondi.
+
+`findItem()` ricostruiva `[...myItems, ...marketItems, ...visits]` — 868 elementi ricopiati —
+**a ogni chiamata**, e poi lo scandiva. La chiamata sta in `visitTones()`, una per tappa,
+dentro `shownVisits()`, che e' un legame reattivo: 36 visite × 104 tappe = **3744 chiamate per
+ogni disegnata**, ognuna delle quali ricopia 868 elementi **attraverso il Proxy di Alpine**.
+Il profilo della CPU: 3,0 s in `findItem`, 5,9 s nel Proxy sotto di lui.
+
+Rimedio: un `Map<string, Content>` **fuori** dallo stato (dentro sarebbe a sua volta
+proxato), rifatto da `reindicizza()` nei cinque punti in cui i tre elenchi vengono assegnati.
+L'ordine di riempimento e' rovesciato perche' l'ultimo `set` vince e i propri contenuti devono
+restare quelli che rispondono, com'era quando la ricerca si fermava al primo trovato.
+
+**8246 ms → 1201 ms (6,9×)**, e nel profilo non resta calda nessuna funzione nostra: quel che
+avanza e' Alpine che disegna 250 carte. Il British Museum stava gia' a ~500 ms, quindi il
+difetto si vedeva solo dove c'e' volume, e cresce con **item × visite**.
+
+### 6. Quanto regge il catalogo di un museo: misurato
+
+Il catalogo vero degli Uffizi moltiplicato dentro la pagina, database intatto (`state.md`
+§1.1-quinquies per il ragionamento):
+
+| item in UN museo | ingresso nel museo | cambio schermata | un tasto nella ricerca | nodi DOM |
+| --- | --- | --- | --- | --- |
+| 848 (oggi) | 1,2 s | 169 ms | 221 ms | 8 462 |
+| 2 544 | 1,6 s | 55 ms | 165 ms | 20 334 |
+| 5 088 | 5,8 s | 72 ms | 262 ms | 38 142 |
+| 10 176 | 13,5 s | 91 ms | 559 ms | 73 758 |
+
+**Non e' un lavoro da fare prima dell'esame** (oggi il museo piu' grosso sta a 1,2 s); e' un
+tetto da saper raccontare. Il rimedio vero, quando servira', sta in `state.md` §1.1-quinquies.
+
+### 7. Il deploy: `deploy.md` aggiornato
+
+Cinque cose fermavano il sito e non erano scritte, una era scritta al contrario. Ora ci sono:
+`PORT=3000` (`deploy.md` diceva «Express resta in chiaro sulla 8000», che e' il modo in cui il
+sito non risponde e i log non dicono niente di sbagliato); `npm run setup` con
+`--include=dev`, perche' `tsc`, `vite` e `vue-tsc` stanno fra le devDependencies e i due
+`build` senza di loro muoiono; **Mongo si raggiunge solo da dentro il cluster**, con la prova
+in una riga e la via d'uscita (`start node-22 <sito> <file>.js`, che gira dentro e vede la
+stessa cartella); leggere `scripts/mongo.js` di Company invece di indovinare `authSource`;
+provare **presto** se il container esce su internet, o cadono le quattro voci LLM; e
+`node-22` invece di `nodemon-22` il giorno della dimostrazione, perche' un riavvio scioglie
+una classe collegata.
+
+⚠️ **Una conseguenza del deploy che si vede solo li':** stessa origine vuol dire
+`sessionStorage` condiviso, quindi **un biglietto che non si riscatta non si nota piu'** — il
+navigator trova la sessione del marketplace e prosegue. Toccando `handoff`/`redeem`, la prova
+che conta va fatta da un browser che quella sessione non ce l'ha.
+
+### Stato e verifiche
+
+Tre type-check verdi, `marketplace/dist` ricostruito, server riavviato. In browser: 12
+controlli sulla lingua (ricaricamento in cinese che regge dentro l'accesso e dopo un secondo
+ricaricamento, ritorno all'italiano, dispositivo cinese senza scelta salvata, navigator
+invariato), 15 sulle sessioni contro il server vivo, piu' le misure di prestazioni. Zero
+errori in console. **Nessun dato di prova lasciato nel database**: il carico e' stato
+simulato nel client.
+
+⚠️ **Rimasto aperto, e non e' stato toccato**: i ~94 messaggi d'errore del server sono
+italiani e arrivano a schermo cosi' come sono in 17 punti del marketplace, quindi in cinese i
+percorsi d'errore parlano italiano. `residui` non li vede perche' non sta nei client. Il modo
+giusto e' un codice nella risposta che il client mappa su `t()`, non ricopiare le stringhe.
+
 ## ⏸ Ripresa — 2026-08-04, la traduzione del marketplace
 
 **Stato: fatta. 434 chiavi in 12 lingue, `residui` a zero** (restano solo `ART`,

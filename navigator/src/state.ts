@@ -22,7 +22,12 @@
 
 import { ref } from "vue";
 import type { Artwork, Item, Visit, Museum, Match } from "../../shared/types";
-import { languages, kindById, type Language } from "../../shared/constants";
+import {
+  LANG_KEY,
+  kindById,
+  pickLanguage,
+  type Language,
+} from "../../shared/constants";
 import { getMuseum, getMuseumArtworks, getVisitItems } from "./api";
 import { mediaOrigin } from "./config";
 import { setLocale } from "./i18n";
@@ -87,56 +92,17 @@ export function setPosizioneAttiva(value: boolean) {
 //                                 Lingua
 // ============================================================================
 
-const LANG_KEY = "artaround-lang";
-
-function defaultLanguage(): Language {
-  const first = languages[0];
-  if (!first) throw new Error("Nessuna lingua configurata");
-  return first;
-}
-
 /**
- * La lingua che il telefono dichiara, se e' fra quelle offerte.
- *
- * Serve perche' la prima schermata si legge prima di poter scegliere: aprendo
- * sempre in italiano, a un visitatore cinese si chiede di riconoscere la frase
- * «Lingua dei contenuti» per arrivare a 中文. Il suo telefono quella risposta ce
- * l'ha gia'.
- *
- * `navigator.languages` porta le preferenze in ordine di gradimento. Si prova
- * prima il codice intero e poi la sola radice, perche' un telefono dice `en-GB`
- * o `pt-PT` dove il nostro elenco ha `en` e `pt`, e all'incontrario dice `zh`
- * dove noi abbiamo solo `zh-CN`. Una radice che porta a piu' lingue prende la
- * prima dell'elenco.
+ * Quella gia' scelta, poi quella del dispositivo, poi l'italiano. La regola sta
+ * in `shared/` perche' se la pone anche il marketplace, e una risposta diversa
+ * nelle due applicazioni vorrebbe dire aprirle in due lingue diverse.
  */
-function browserLanguage(): Language | null {
-  const preferite = navigator.languages || [navigator.language];
-  for (const p of preferite) {
-    if (!p) continue;
-    const codice = p.toLowerCase();
-    for (const l of languages) {
-      if (l.translate.toLowerCase() === codice) return l;
-    }
-    const radice = codice.split("-")[0];
-    for (const l of languages) {
-      if (l.translate.toLowerCase().split("-")[0] === radice) return l;
-    }
-  }
-  return null;
-}
-
-/** Quella gia' scelta, poi quella del telefono, poi l'italiano. */
-function loadLanguage(): Language {
-  const saved = localStorage.getItem(LANG_KEY);
-  for (const l of languages) {
-    if (l.translate === saved) return l;
-  }
-  const dalTelefono = browserLanguage();
-  if (dalTelefono) return dalTelefono;
-  return defaultLanguage();
-}
-
-export const language = ref<Language>(loadLanguage());
+export const language = ref<Language>(
+  pickLanguage(
+    localStorage.getItem(LANG_KEY),
+    navigator.languages || [navigator.language],
+  ),
+);
 
 /**
  * La lingua la spinge questo modulo dentro `i18n` invece di essere letta da li'

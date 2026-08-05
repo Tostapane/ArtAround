@@ -37,17 +37,40 @@ export type ScelteRuolo = { scelta: true; ruoli: UserRole[] };
 // --- Il biglietto -------------------------------------------------------------
 
 const TOKEN_KEY = 'artaround-sessione';
-let token = sessionStorage.getItem(TOKEN_KEY) || '';
 let onExpired: () => void = () => {};
+
+/**
+ * Un browser che nega la memoria non deve far cadere il modulo: senza guardia
+ * l'eccezione arriva mentre `api` si valuta, cioe' prima che esista qualcosa in
+ * grado di dirlo, e la pagina resta bianca. Senza memoria la sessione dura
+ * quanto questa pagina, e a rompersi e' solo il ricaricamento.
+ */
+function leggiToken(): string {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+let token = leggiToken();
 
 export function setToken(value: string): void {
   token = value;
-  sessionStorage.setItem(TOKEN_KEY, value);
+  try {
+    sessionStorage.setItem(TOKEN_KEY, value);
+  } catch {
+    // vedi leggiToken
+  }
 }
 
 export function clearToken(): void {
   token = '';
-  sessionStorage.removeItem(TOKEN_KEY);
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // vedi leggiToken
+  }
 }
 
 export function hasToken(): boolean {

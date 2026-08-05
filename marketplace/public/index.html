@@ -318,14 +318,14 @@
             <template x-if="currentUserRole === 'visitatore'">
               <li class="contents">
                 <template x-for="v in [
-                    {id:'home',     ico:'#ico-banco',    raw:'Home'},
-                    {id:'vetrina',  ico:'#ico-visite',   raw:'Vetrina'},
-                    {id:'libreria', ico:'#ico-libreria', raw:'Libreria'}
+                    {id:'home',     ico:'#ico-banco',    label:t('Home')},
+                    {id:'vetrina',  ico:'#ico-visite',   label:t('Vetrina')},
+                    {id:'libreria', ico:'#ico-libreria', label:t('Libreria')}
                   ]" :key="v.id">
                   <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
                     :aria-current="view === v.id ? 'page' : false">
                     <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
-                    <span x-text="v.raw"></span>
+                    <span x-text="v.label"></span>
                   </a>
                 </template>
               </li>
@@ -333,15 +333,15 @@
             <template x-if="currentUserRole === 'autore'">
               <li class="contents">
                 <template x-for="v in [
-                    {id:'lavori',  ico:'#ico-lavori',  raw:'I miei contenuti'},
-                    {id:'nuovo',   ico:'#ico-opere',   raw:'Crea descrizione'},
-                    {id:'componi', ico:'#ico-componi', raw:'Crea visita'},
-                    {id:'vendite', ico:'#ico-vendite', raw:'Vendite'}
+                    {id:'lavori',  ico:'#ico-lavori',  label:t('I miei contenuti')},
+                    {id:'nuovo',   ico:'#ico-opere',   label:t('Crea descrizione')},
+                    {id:'componi', ico:'#ico-componi', label:t('Crea visita')},
+                    {id:'vendite', ico:'#ico-vendite', label:t('Vendite')}
                   ]" :key="v.id">
                   <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
                     :aria-current="view === v.id ? 'page' : false">
                     <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
-                    <span x-text="v.raw"></span>
+                    <span x-text="v.label"></span>
                   </a>
                 </template>
               </li>
@@ -349,13 +349,13 @@
             <template x-if="currentUserRole === 'curatore'">
               <li class="contents">
                 <template x-for="v in [
-                    {id:'gestione', ico:'#ico-museo',  raw:'Il museo'},
-                    {id:'catalogo', ico:'#ico-lavori', raw:'Catalogo'}
+                    {id:'gestione', ico:'#ico-museo',  label:t('Il museo')},
+                    {id:'catalogo', ico:'#ico-lavori', label:t('Catalogo')}
                   ]" :key="v.id">
                   <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
                     :aria-current="view === v.id ? 'page' : false">
                     <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
-                    <span x-text="v.raw"></span>
+                    <span x-text="v.label"></span>
                   </a>
                 </template>
               </li>

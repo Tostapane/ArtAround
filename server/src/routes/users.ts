@@ -145,11 +145,13 @@ router.get("/me", requireSession, async (req, res) => {
  * Ritorna: { handoff }, da mettere nel collegamento al navigator.
  * Se ne conia uno per ogni viaggio, non uno per accesso: un biglietto vale una
  * volta sola, e uno per accesso lascerebbe senza il secondo viaggio.
+ * Nasce di tipo `handoff`, quindi si spende qui sotto e non vale come
+ * intestazione: viaggia in un indirizzo, e un indirizzo lo leggono in troppi.
  */
 router.post("/handoff", requireSession, async (req, res) => {
   try {
     const who = sessionUser(req);
-    res.json({ handoff: await createSession(who, TICKET_TTL_MS) });
+    res.json({ handoff: await createSession(who, TICKET_TTL_MS, "handoff") });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nel biglietto" });
   }
@@ -163,7 +165,7 @@ router.post("/handoff", requireSession, async (req, res) => {
  */
 router.post("/redeem", async (req, res) => {
   try {
-    const who = await destroySession(String(req.body.handoff || ""));
+    const who = await destroySession(String(req.body.handoff || ""), "handoff");
     if (!who)
       return res
         .status(404)

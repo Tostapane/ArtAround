@@ -10,8 +10,10 @@
  * sbagliata. Qui pero' non si importa da npm, dato che non c'e' un
  * impacchettatore: arriva da `public/vendor/` come Alpine.
  *
- * Si carica una lingua sola, e prima di disegnare qualcosa: altrimenti la pagina
- * comparirebbe in italiano per un istante e cambierebbe sotto gli occhi.
+ * Si carica una lingua sola, e il catalogo arriva dalla rete: finche' non c'e',
+ * `traduci` risponde in italiano. Chi chiama deve quindi assegnare la lingua
+ * DOPO averlo aspettato, perche' e' quell'assegnazione a far ridisegnare i
+ * legami di Alpine (vedi `AppState.start`).
  */
 
 declare const i18next: {
@@ -24,16 +26,23 @@ declare const i18next: {
   ): void;
 };
 
-/** La stessa chiave del navigator: la lingua si sceglie una volta per tutte. */
-const LANG_KEY = "artaround-lang";
-const SOURCE_LANG = "it";
+import { LANG_KEY, SOURCE_LANG, pickLanguage } from '../../../shared/constants.js';
 
 let pronto = false;
 const caricate = new Set<string>();
 
-export function linguaSalvata(): string {
+/**
+ * Con che lingua aprire. La regola e' quella di `shared/`, la stessa che usa il
+ * navigator: quella gia' scelta, poi quella del dispositivo, poi l'italiano.
+ * Qui e' il marketplace ad averne piu' bisogno, perche' e' la porta d'ingresso
+ * e la sua prima schermata si legge prima di poter scegliere.
+ */
+export function linguaIniziale(): string {
   try {
-    return localStorage.getItem(LANG_KEY) || SOURCE_LANG;
+    return pickLanguage(
+      localStorage.getItem(LANG_KEY),
+      navigator.languages || [navigator.language],
+    ).translate;
   } catch {
     return SOURCE_LANG;
   }

@@ -5,7 +5,7 @@
   "description": "Radice del monorepo. Esiste per il deploy: sovrascrive il package.json dell'applicazione d'esempio gia' presente in /home/web/<sito>/html/, che dichiarandosi ESM farebbe fallire il require() di index.js.",
   "main": "index.js",
   "scripts": {
-    "setup": "npm install --prefix server && npm install --prefix marketplace && npm install --prefix navigator",
+    "setup": "npm install --include=dev --prefix server && npm install --include=dev --prefix marketplace && npm install --include=dev --prefix navigator",
     "build": "npm run build --prefix marketplace && npm run build --prefix navigator"
   }
 }

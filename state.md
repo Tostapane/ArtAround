@@ -1,6 +1,6 @@
 # ArtAround — `state.md`
 
-**Complete state of the system as of 2026-07-28.**
+**Complete state of the system as of 2026-08-05.**
 
 > Purpose. This document is the *starting point for the restyle*. It therefore has to be
 > exhaustive about **what screens exist, in what states, reachable from where** — not just
@@ -90,6 +90,23 @@ Twelve items of feedback, seven of them defects found by using the thing:
 | the seeded guided visit had **no quiz**, so slide 33's "test sensato di competenza" was unmet by a fresh seed | `server/src/data/quiz.ts` builds one **from the visit's own artworks** — author, style, "which of these is by X", distractors drawn from the same museum, `Unknown` filtered out. No hand-written question, so it holds for any museum |
 | "Il banco" | "Home" (route `#/home`), plus the soglia and the login lost the university strapline, the dead theme toggle and the profile line |
 
+### 0.3 What the 2026-08-05 pass closed
+
+Nata da una revisione della traduzione e delle sessioni, piu' la domanda se il deploy di
+dipartimento rompa qualcosa. Ne sono usciti quattro difetti, due dei quali rendevano
+inservibile una funzione appena finita.
+
+| Was | Now |
+| --- | --- |
+| la lingua scelta valeva solo dentro il caricamento in cui la si sceglieva: **ogni ricaricamento del marketplace tornava all'italiano**, e non si autoriparava | `lingua` parte dall'italiano e la vera si assegna dopo aver aspettato il catalogo; e' l'assegnazione a ridisegnare (§5.7) |
+| il marketplace non guardava la lingua del dispositivo, pur essendo la porta d'ingresso | `pickLanguage` in `shared/constants.ts`, una regola sola per le due applicazioni (§5.7) |
+| il **binario** e `viewLabel()` non erano mai stati tradotti: la navigazione principale e ogni annuncio della regione viva restavano italiani in dodici lingue | avvolti; catalogo 434 → 447 chiavi (§5.7) |
+| il **biglietto di passaggio era una credenziale piena**: valeva come `Authorization` per dieci minuti e usato cosi' non si consumava | `Session.kind`, e `resolveSession` accetta solo le sessioni (§"Le sessioni") |
+| il navigator non gestiva il **401** in nessun punto: a sessione scaduta restava una pianta che non risponde | avviso unico e una strada per rientrare (§"Le sessioni") |
+| entrare negli Uffizi costava **8,2 secondi**, e sembrava lentezza dell'accesso | un indice fuori dallo stato: **1,2 s** (§1.1-sexies) |
+| non si sapeva fin dove regge un museo | misurato fino a diecimila item, col punto che cede e il rimedio (§1.1-quinquies) |
+| `deploy.md` non nominava la porta, e diceva anzi 8000 | `PORT=3000`, piu' le quattro cose che il laboratorio non perdona (`deploy.md`) |
+
 ### Le sessioni: chi chiede lo dice un biglietto, non l'indirizzo *(2026-08-03)*
 
 Fino a qui l'identita' viaggiava nell'indirizzo: `?user=visitatore1` su ogni lettura, il nome
@@ -138,6 +155,24 @@ biglietto **da dieci minuti** che `POST /users/redeem` cancella spendendolo — 
 lunga, che in un indirizzo finirebbe nella cronologia e nei registri. Se ne conia uno per ogni
 viaggio (`POST /users/handoff`), perche' vale una volta sola: coniarne uno per accesso, com'era
 prima, lasciava a piedi il **secondo** viaggio, ed era un difetto vero.
+
+⚠️ **Il biglietto e' di un'altra specie, e senza quella distinzione non vale la frase qui
+sopra.** `Session.kind` vale `sessione` o `handoff`; `resolveSession` accetta solo la prima.
+Fino al 2026-08-05 le due erano la stessa riga, quindi il biglietto — che viaggia in un
+indirizzo, cioe' finisce nella cronologia, nei registri del proxy e in un `Referer` — valeva
+da se' come `Authorization: Bearer` per tutti i suoi dieci minuti, e usato cosi' non si
+consumava: «vale una volta sola» era vero del riscatto, non del biglietto. Due dettagli che
+non vanno persi riscrivendo: il filtro e' `kind: {$ne: "handoff"}` e non `=== "sessione"`,
+perche' le righe scritte prima del campo non ce l'hanno e sono sessioni vere; e il `kind` che
+`destroySession` pretende entra nell'**interrogazione**, non in un controllo dopo, o mandare
+una sessione qualunque a `/redeem` la cancellerebbe prima di rifiutarla.
+
+⚠️ **Il navigator adesso sa che una sessione puo' scadere.** Prima non guardava il 401 in
+nessun punto: ogni chiamata falliva dentro il proprio `catch` e chi stava visitando restava
+davanti a una pianta che non rispondeva piu', senza una strada per rientrare. Ora `call()`
+avvisa una volta sola e la schermata dice dove si rientra, che e' il marketplace; l'avviso sta
+**prima** di `GuidedGate` nella catena, perche' una sessione scaduta spegne anche la visita
+guidata e lasciarla a schermo direbbe che si sta ancora seguendo il docente.
 
 ⚠️ **Aprire il navigator da solo non porta piu' da nessuna parte**, e lo dice invece di
 rompersi: senza biglietto non ha sessione, e ogni rotta ne pretende una. Si entra dal
@@ -397,6 +432,79 @@ Tre punti dove invece **l'idea non scala**, misurati il 2026-07-30:
 Nota minore: la cache delle traduzioni (`services/translate.ts`) è una `Map` **senza tetto né
 sfratto**, con dentro i testi interi. È la scelta giusta per la demo — gli stessi testi li
 chiedono tutti — ma cresce in modo monotono finché il processo vive.
+
+### 1.1-quinquies Fin dove regge un museo, misurato *(2026-08-05)*
+
+La domanda «e con migliaia di item?» ha due risposte diverse, e la riga che le separa non e'
+il numero totale ma **quanti item stanno in UN museo**, perche' ogni interrogazione del
+catalogo e' gia' filtrata per museo.
+
+**Sparsi su molti musei: regge oggi.** Cinquanta musei da cinquecento item sono
+venticinquemila righe in Mongo e nessuno se ne accorge: gli indici corrispondono alle forme di
+query che esistono davvero, e un visitatore non scarica mai il museo in cui non e' entrato.
+La sessione costa una lettura indicizzata a richiesta.
+
+**Dentro un museo solo: il tetto e' l'ingresso nel museo.** Misurato moltiplicando dentro la
+pagina il catalogo vero della Galleria degli Uffizi, senza toccare il database:
+
+| item in un museo | ingresso | cambio schermata | un tasto nella ricerca | nodi DOM |
+| --- | --- | --- | --- | --- |
+| 848 (oggi) | 1,2 s | 169 ms | 221 ms | 8 462 |
+| 2 544 | 1,6 s | 55 ms | 165 ms | 20 334 |
+| 5 088 | 5,8 s | 72 ms | 262 ms | 38 142 |
+| 10 176 | **13,5 s** | 91 ms | **559 ms** | 73 758 |
+
+Il costo e' del client, non del server: le rotte rispondono in 13-45 ms, e di quei 13,5
+secondi la rete e' 300 ms. Cresce col catalogo perche' `GET /items/metadata?museum=` **non e'
+paginata** e si scarica intera all'ingresso: 348 KB per 832 item, quindi ~4 MB per diecimila.
+
+L'ironia da raccontare: quasi tutto quel peso serve a mostrare **un numero**. La vetrina
+raggruppa per opera e su ogni carta scrive «N descrizioni · da € X» — infatti nella tabella
+qui sopra le carte restano 160 in tutte e quattro le righe. Gli item servono a quel conto e ai
+filtri, non al disegno.
+
+**Il rimedio, quando servira'**, e' quello gia' applicato una volta in §3.1-bis, spinto di un
+livello: non mandare affatto il catalogo per item all'ingresso, ma le opere piu' un
+riepilogo per opera (quante descrizioni, da che prezzo), e chiedere le descrizioni di
+un'opera solo quando qualcuno la apre — che e' quel che `GET /artworks/:qid/items` gia' fa. Il
+prezzo e' che i filtri per tono, durata e prezzo dovrebbero passare al server, perche' il
+client non avrebbe piu' tutte le descrizioni in mano.
+
+Gli altri due punti che cedono, in ordine: il **catalogo del curatore**
+(`GET /museums/:qid/items`) e' una tabella con una riga per item, private comprese, senza
+raggruppamento dietro cui nascondersi; e la **cache delle traduzioni** qui sopra, che con
+migliaia di testi per tredici lingue smette di essere una nota minore.
+
+⚠️ **Prima di tutto questo arriva pero' un altro limite**: creare i dati. Otto chiamate al
+modello per opera con sei secondi di pausa, su una quota gratuita da 500 al giorno, vuol dire
+che un museo da mille opere sono ottomila chiamate, cioe' settimane. Il tetto della
+dimostrazione si tocca molto prima di quello dell'esecuzione.
+
+### 1.1-sexies Il difetto che si vedeva come «l'accesso e' lentissimo» *(2026-08-05)*
+
+Segnalato cosi', e non era l'accesso: entrare costa 101 ms e le rotte rispondono in 13-45 ms.
+Erano gli **8246 ms** del primo caricamento del catalogo degli Uffizi, in due blocchi di
+thread principale da 4,3 e 3,6 secondi.
+
+`findItem()` ricostruiva `[...myItems, ...marketItems, ...visits]` — 868 elementi ricopiati —
+**a ogni chiamata**, e poi lo scandiva in cerca di un `@id`. La chiamata sta dentro
+`visitTones()`, una per tappa, che sta dentro `shownVisits()`, che e' un legame reattivo:
+trentasei visite per centoquattro tappe fanno **3744 chiamate per ogni disegnata**, e ognuna
+ricopia 868 elementi **attraverso il Proxy di Alpine**, dove ogni elemento letto e' una
+trappola. Il profilo della CPU divide il conto in due: 3,0 s dentro `findItem`, 5,9 s nel
+Proxy sotto di lui.
+
+Ora c'e' un indice, `Map<string, Content>`, e sta **fuori** dallo stato: dentro sarebbe a sua
+volta proxato, e questa mappa si legge migliaia di volte per disegnata. Lo rifa'
+`reindicizza()` nei cinque punti in cui i tre elenchi vengono assegnati, e in nessun altro:
+un indice che non segue i suoi elenchi mostra il prezzo di prima di un acquisto appena fatto.
+L'ordine di riempimento e' rovesciato rispetto a quello in cui si cercava, perche' l'ultimo
+`set` vince e i propri contenuti devono restare quelli che rispondono.
+
+**8246 ms → 1201 ms**, e nel profilo non resta calda nessuna funzione nostra: quel che avanza
+e' Alpine che disegna 250 carte. Il British Museum stava gia' a ~500 ms, quindi il difetto si
+vedeva solo dove c'e' volume: il costo cresce con **item per visite**, non col numero di
+risultati.
 
 ### 1.2-bis I commenti: cosa ci va e cosa no *(2026-08-04)*
 
@@ -1709,7 +1817,36 @@ dimenticate** che nel rumore non si vedevano.
 ### 5.7 L'interfaccia del marketplace *(2026-08-04)*
 
 Anche il marketplace parla dodici lingue, sugli stessi cataloghi del navigator:
-**434 chiavi, 12 lingue, `residui` a zero.**
+**447 chiavi, 12 lingue**, `residui` a 4 e sono il marchio.
+
+⚠️ **LA LINGUA SI ASSEGNA DOPO AVER ASPETTATO IL CATALOGO, e non prima.** E' la regola che
+tiene in piedi tutto il resto di questa sezione, ed e' stata pagata: fino al 2026-08-05 la
+lingua scelta valeva solo dentro il caricamento in cui la si sceglieva, e **qualunque
+ricaricamento tornava all'italiano** — compresa la prima schermata di chi era gia' stato qui,
+e il ritorno dal navigator. Il motivo e' l'incontro fra due scelte giuste: Alpine costruisce
+tutte le viste all'avvio, perche' sono `x-show` e stanno nel documento anche da nascoste, e
+ogni legame si valuta li' una volta sola; `t()` ha una sola dipendenza reattiva, `lingua`. Se
+`lingua` e' gia' il valore finale quando la pagina si disegna, il catalogo arriva dalla rete e
+non trova piu' niente da invalidare. `AppState.lingua` parte quindi da `SOURCE_LANG` e la
+lingua vera si scrive in `start()` dopo `await preparaLingua`: e' quell'assegnazione a
+ridisegnare. Non si vede nessun lampo di italiano perche' finche' si aspetta `view` vale
+ancora `"avvio"`, che non e' nessuna schermata.
+
+Corollario per chi cambia il caricamento: **non esiste un modo di far partire Alpine piu'
+tardi.** `deferLoadingAlpine` e' di Alpine 2 e nella versione vendorizzata non c'e'.
+
+**Con che lingua si apre lo decide `shared/constants.ts`.** `pickLanguage(saved, preferite)`
+e `LANG_KEY` stanno accanto ai tipi perche' se lo chiedono tutt'e due le applicazioni, e due
+risposte diverse vorrebbero dire aprirle in due lingue diverse. E' una funzione pura: memoria
+e dispositivo glieli passa chi chiama, che li legge in posti diversi. Il marketplace la
+proponeva dal dispositivo **da mai**, ed e' la porta d'ingresso: la schermata che si legge
+prima di poter scegliere era proprio quella che non guardava.
+
+⚠️ **La lingua sopravvive alla chiusura della finestra e la sessione no**, ed e' voluto:
+la prima e' una preferenza e sta in `localStorage`, sotto la stessa chiave del navigator,
+quindi si sceglie una volta per tutt'e due; la seconda muore con la scheda. Il prezzo di
+volerla per scheda sarebbe perdere la scelta condivisa, visto che in sviluppo le due
+applicazioni stanno su due origini diverse.
 
 **La libreria e' la stessa, e non e' un dettaglio.** `vue-i18n` qui non ci puo' stare
 (vuole Vue, e la slide 37 vieta un framework nel marketplace), ed e' il motivo per cui il
@@ -1750,6 +1887,29 @@ l'italiano cambia la chiave, quindi il giro e' `pota` e poi `traduci`.
 **Cosa non e' tradotto, e non deve esserlo:** il marchio (`ART`, `AROUND`, `ArtAround`), i
 nomi delle opere e delle visite (sono dati) e gli id dei comandi vocali. `residui` li elenca
 lo stesso perche' non li puo' distinguere, e lo dichiara invece di fingere.
+
+⚠️ **Due punti erano rimasti fuori dalla traduzione, e `residui` non li poteva vedere**
+(chiusi il 2026-08-05): le voci del **binario**, cioe' la navigazione principale, che erano
+stringhe italiane dentro l'espressione di un `x-for` scritto in linea nel markup; e
+`viewLabel()`, che alimenta il titolo della pagina e **ogni annuncio della regione viva**,
+cioe' quel che sente chi non guarda lo schermo. Il primo e' testo dentro un attributo, il
+secondo sta in uno script, e `residui` guarda i nodi dei template: la rete di sicurezza qui
+non e' lo strumento, e' la prova in browser con la lingua impostata su un'altra. Dodici delle
+tredici chiavi aggiunte quel giorno vengono da questi due punti.
+
+⚠️ **Il glossario ha dovuto imparare «vetrina» e «libreria»**, per la ragione gia' pagata coi
+toni: `Vetrina` in cinese usciva 展柜, il mobile con i ripiani, e `Libreria` rischiava il
+negozio di libri. Rifatte quelle chiavi, sono cambiate in ja, ko, zh-CN, pl, de, es, nl e pt e
+**non** in en, fr, ru, tr — che e' anche il motivo per cui il diff dei dodici cataloghi non ha
+lo stesso numero di righe pur avendo tutti lo stesso numero di chiavi: dove la resa nuova
+coincide con la vecchia non cambia niente. `zh-CN: Vetrina` e' poi stata scritta **a mano**
+(展示), e `traduci` non la tocca piu' perche' riempie solo i buchi.
+
+⚠️ **Restano italiani i messaggi d'errore del SERVER**, un centinaio, che il marketplace mostra
+cosi' come arrivano in una ventina di punti: in cinese i percorsi d'errore parlano italiano.
+Non e' una dimenticanza che `residui` possa trovare, perche' quelle stringhe non stanno nei
+client. La strada giusta e' un codice nella risposta che il client mappa su `t()`; ricopiare le
+frasi nel catalogo le farebbe cancellare da `pota` alla prima passata.
 
 ### 5.4 `GuidedGate`
 

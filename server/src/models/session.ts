@@ -13,13 +13,22 @@
  * se': non c'e' nessuna pulizia da ricordarsi di scrivere. Il controllo sulla
  * data resta comunque nel codice, perche' lo spazzino di Mongo passa circa una
  * volta al minuto e fra un passaggio e l'altro un documento scaduto c'e' ancora.
+ *
+ * `kind` distingue una sessione dal biglietto di passaggio verso il navigator.
+ * Senza, sono la stessa riga, e il biglietto — che viaggia in un indirizzo,
+ * quindi finisce nella cronologia e nei registri del proxy — varrebbe da se'
+ * come intestazione `Authorization` per tutti i suoi dieci minuti. Vale invece
+ * solo a `POST /users/redeem`, che spendendolo lo cancella.
  */
 import { Schema, model } from "mongoose";
+
+export type SessionKind = "sessione" | "handoff";
 
 export interface ISession {
   token: string;
   username: string;
   role: string;
+  kind: SessionKind;
   expiresAt: Date;
 }
 
@@ -27,6 +36,7 @@ const sessionSchema = new Schema<ISession>({
   token: { type: String, required: true, unique: true },
   username: { type: String, required: true },
   role: { type: String, required: true },
+  kind: { type: String, required: true, default: "sessione" },
   expiresAt: { type: Date, required: true },
 });
 

@@ -29,10 +29,41 @@ const base = () => apiBase();
 // --- Il biglietto -------------------------------------------------------------
 
 const TOKEN_KEY = "artaround-sessione";
-let token = sessionStorage.getItem(TOKEN_KEY) || "";
+let onExpired: () => void = () => {};
+
+/**
+ * Un browser che nega la memoria non deve far cadere il modulo: senza guardia
+ * l'eccezione arriva mentre `api` si valuta, cioe' prima che esista qualcosa in
+ * grado di dirlo, e l'applicazione resta bianca.
+ */
+function leggiToken(): string {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function scriviToken(value: string) {
+  token = value;
+  try {
+    if (value) sessionStorage.setItem(TOKEN_KEY, value);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Senza memoria la sessione dura quanto questa pagina, e non e' un errore
+    // da mostrare: quel che rompe e' solo il ricaricamento.
+  }
+}
+
+let token = leggiToken();
 
 export function hasSession(): boolean {
   return token !== "";
+}
+
+/** Che cosa fare quando il server dice che la sessione non c'e' piu'. */
+export function onSessionExpired(handler: () => void): void {
+  onExpired = handler;
 }
 
 export async function redeemHandoff(handoff: string): Promise<void> {
@@ -43,14 +74,25 @@ export async function redeemHandoff(handoff: string): Promise<void> {
   });
   if (!res.ok) throw new Error(t("Il collegamento non vale più."));
   const data = await res.json();
-  token = data.token || "";
-  sessionStorage.setItem(TOKEN_KEY, token);
+  scriviToken(data.token || "");
 }
 
+/**
+ * Il 401 si gestisce qui e non nelle chiamate una per una: durante una visita
+ * ognuna sta dentro il suo `catch`, quindi una sessione scaduta arriverebbe a
+ * schermo come un guasto diverso a seconda di quale bottone si e' premuto.
+ * Si avvisa solo se un biglietto c'era: senza, il 401 e' l'ingresso mancato che
+ * `App.vue` racconta gia' da se'.
+ */
 async function call(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  return fetch(url, { ...init, headers });
+  const res = await fetch(url, { ...init, headers });
+  if (res.status === 401 && token) {
+    scriviToken("");
+    onExpired();
+  }
+  return res;
 }
 
 export async function getVisit(id: string): Promise<Visit> {
