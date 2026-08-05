@@ -23,7 +23,7 @@ import { getVisitsByMuseum, createCustomVisit } from "@/api";
 import { museum } from "@/state";
 import { museumTitle, mediaOrigin } from "@/config";
 import { useTheme } from "@/composables/useTheme";
-import { formatDuration } from "../../../../shared/constants";
+import { durationMinutes } from "../../../../shared/constants";
 import { t } from "@/i18n";
 import type { Visit, Artwork, Item } from "../../../../shared/types";
 
@@ -86,9 +86,10 @@ function clearFilters() {
 
 function summary(v: Visit): string {
   const stops = (v.itemListElement || []).length;
+  const minuti = durationMinutes(v.duration);
   const parts = [
     stops === 1 ? t("1 tappa") : t("{n} tappe", { n: stops }),
-    formatDuration(v.duration),
+    minuti < 1 ? t("meno di 1 min") : t("{n} min", { n: minuti }),
   ];
   // Il tono si LEGGE tradotto e si CONFRONTA in italiano: il valore e' quello
   // che sta nel database e nel filtro, tradurlo li' spegnerebbe la ricerca.
@@ -173,11 +174,12 @@ async function createCustom() {
       {{ t("Scegli la tua visita.") }}
     </h1>
 
-    <div class="mt-8">
-      <LanguageSelector />
-    </div>
-
+    <!-- La lingua sta con i filtri e non sopra di loro: e' un controllo della
+         stessa taglia, e a schermo intero occupava piu' spazio del titolo. Il
+         valore ("Italiano", "中文") si legge da se', quindi l'etichetta resta
+         allo screen reader come per gli altri due. -->
     <div class="mt-8 flex flex-wrap gap-3">
+      <LanguageSelector id="f-lingua" :etichetta="false" />
       <div>
         <label for="f-livello" class="sr-only">{{ t("Filtra per livello") }}</label>
         <select id="f-livello" v-model="levelFilter" class="campo-select">

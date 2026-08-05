@@ -28,6 +28,7 @@ import { planVisit } from "../services/llm";
 import { resolveOrGenerateItem } from "../dbActions";
 import { purchasedBy, readableItems } from "../access";
 import { conto } from "../pricing";
+import { AI_LEVEL, CUSTOM_LEVEL } from "../../../shared/constants";
 
 const router = Router();
 
@@ -188,7 +189,7 @@ router.post("/custom", async (req, res) => {
     const visit = {
       "@id": `custom-${museumQid}-${Date.now()}`,
       name,
-      level: "Su misura",
+      level: AI_LEVEL,
       duration: totalSec,
       ofMuseum: museumId,
       itemListElement: content.map((c) => (c.item as any)["@id"]),
@@ -324,7 +325,7 @@ router.post("/", async (req, res) => {
       {
         "@id": visitId,
         name: payload.titolo || payload.name,
-        level: payload.level || "Personalizzata",
+        level: payload.level || CUSTOM_LEVEL,
         duration,
         price: accessKey ? 0 : payload.prezzo || payload.price,
         author,

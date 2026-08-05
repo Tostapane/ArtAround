@@ -365,11 +365,13 @@
           <!-- Piede del binario (solo schermo largo) -->
           <div class="mt-auto hidden px-6 pb-7 lg:block">
             <!-- LINGUA: i nomi sono scritti ciascuno nella propria lingua, cosi'
-                 si riconoscono senza dover prima leggere l'italiano. -->
+                 si riconoscono senza dover prima leggere l'italiano. Il campo
+                 siede sulla struttura e non sulla lastra, quindi prende la
+                 variante che non si porta dietro il fondo dell'applicazione. -->
             <div class="mb-4">
-              <label for="lingua-binario" class="block text-caption uppercase tracking-wider text-on-structure/60"
+              <label for="lingua-binario" class="etichetta-impostazione text-on-structure/60"
                 x-text="t('Lingua')"></label>
-              <select id="lingua-binario" class="campo-select mt-1 w-full"
+              <select id="lingua-binario" class="campo-select campo-select-struttura mt-1 w-full"
                 :value="lingua" @change="cambiaLingua($event.target.value)">
                 <template x-for="l in lingueDisponibili" :key="l.translate">
                   <option :value="l.translate" x-text="l.name"></option>
@@ -377,7 +379,7 @@
               </select>
             </div>
             <div x-show="currentUserRole === 'visitatore'" class="mb-4">
-              <span class="block text-caption uppercase tracking-wider text-on-structure/60" x-text="t('Credito')"></span>
+              <span class="etichetta-impostazione text-on-structure/60" x-text="t('Credito')"></span>
               <span class="valore font-display text-title-3" x-text="'€ ' + wallet.toFixed(2)"
                 :aria-label="t(`Credito disponibile: {n} euro`, { n: wallet.toFixed(2) })"></span>
             </div>
@@ -524,16 +526,16 @@
               </div>
               <div class="flex flex-wrap gap-3">
                 <div class="segmenti" role="group" :aria-label="t(`Che cosa mostrare`)">
-                  <template x-for="f in [{v:'tutti',t:'Tutto'},{v:'visite',t:'Visite'},{v:'opere',t:'Opere'}]" :key="f.v">
+                  <template x-for="f in [{v:'tutti',label:t(`Tutto`)},{v:'visite',label:t(`Visite`)},{v:'opere',label:t(`Opere`)}]" :key="f.v">
                     <button type="button" class="segmento" :class="marketType === f.v ? 'segmento-attivo' : ''"
-                      :aria-pressed="marketType === f.v" @click="setMarketType(f.v)" x-text="f.t"></button>
+                      :aria-pressed="marketType === f.v" @click="setMarketType(f.v)" x-text="f.label"></button>
                   </template>
                 </div>
                 <div>
                   <label for="f-liv-vetrina" class="sr-only" x-text="t(`Filtra per livello`)"></label>
                   <select id="f-liv-vetrina" x-model="marketLevelFilter" class="campo-select">
                     <option value="tutti" x-text="t(`Ogni livello`)"></option>
-                    <template x-for="d in availableLevels()" :key="d"><option :value="d" x-text="d"></option></template>
+                    <template x-for="d in availableLevels()" :key="d"><option :value="d" x-text="t(d)"></option></template>
                     <option x-show="marketType !== 'opere'" value="misto" x-text="t(`Misto (più livelli)`)"></option>
                   </select>
                 </div>
@@ -827,17 +829,17 @@
                 </template>
 
                 <ol class="mt-4 flex flex-col gap-2">
-                  <template x-for="t in visitStops(currentVisit())" :key="t.id">
+                  <template x-for="tappa in visitStops(currentVisit())" :key="tappa.id">
                     <li>
                       <div class="lastra flex items-center gap-4 p-4">
-                        <span class="tabular font-display text-title-2 text-muted" x-text="String(t.numero).padStart(2,'0')"></span>
+                        <span class="tabular font-display text-title-2 text-muted" x-text="String(tappa.numero).padStart(2,'0')"></span>
                         <div class="min-w-0 flex-1">
-                          <p class="font-medium" x-text="t.nome"></p>
-                          <p class="text-caption text-muted" x-text="itemDetail(t.id)"></p>
+                          <p class="font-medium" x-text="tappa.nome"></p>
+                          <p class="text-caption text-muted" x-text="itemDetail(tappa.id)"></p>
                         </div>
-                        <span x-show="t.opzionale" class="pastiglia pastiglia-ardesia" x-text="t(`Opzionale`)"></span>
+                        <span x-show="tappa.opzionale" class="pastiglia pastiglia-ardesia" x-text="t(`Opzionale`)"></span>
                       </div>
-                      <template x-for="note in notesAfter(currentVisit(), t.id)">
+                      <template x-for="note in notesAfter(currentVisit(), tappa.id)">
                         <p class="nota-logistica">
                           <svg class="h-4 w-4 shrink-0" aria-hidden="true"><use href="#ico-nota" /></svg>
                           <span x-text="note"></span>
@@ -1088,15 +1090,15 @@
                 <legend class="etichetta" x-text="t(`Tono`)"></legend>
                 <p class="mt-1 text-caption text-muted" x-text="t(`Dello stesso soggetto puoi scrivere più letture, anche nello stesso tono.`)"></p>
                 <div class="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" :aria-label="t(`Tono della descrizione`)">
-                  <template x-for="t in tones" :key="t">
+                  <template x-for="tono in tones" :key="tono">
                     <label class="scelta" :class="[
-                        draft.tono === t ? 'scelta-attiva' : '',
+                        draft.tono === tono ? 'scelta-attiva' : '',
                         editingId ? 'opacity-50' : 'cursor-pointer'
                       ]">
-                      <input type="radio" name="tono" :value="t" x-model="draft.tono"
+                      <input type="radio" name="tono" :value="tono" x-model="draft.tono"
                         :disabled="!!editingId" class="sr-only">
-                      <span class="font-medium" x-text="t"></span>
-                      <span class="mt-1 block text-caption text-muted" x-text="toneHints[t]"></span>
+                      <span class="font-medium" x-text="t(tono)"></span>
+                      <span class="mt-1 block text-caption text-muted" x-text="t(toneHints[tono])"></span>
                     </label>
                   </template>
                 </div>
@@ -1260,7 +1262,7 @@
 
                   <div class="mt-6 flex items-baseline justify-between">
                     <h2 class="font-display text-title-3" x-text="t(`Il percorso`)"></h2>
-                    <span class="tabular text-caption text-muted" x-text="stopCount() + ' tappe · ' + readableDuration(estimatedDuration())"></span>
+                    <span class="tabular text-caption text-muted" x-text="draftSummary()"></span>
                   </div>
 
                   <ol class="mt-3 flex flex-col gap-2">
@@ -1634,8 +1636,8 @@
                 <label for="tono-catalogo" class="etichetta" x-text="t(`Tono`)"></label>
                 <select id="tono-catalogo" class="campo" x-model="catalogToneFilter">
                   <option value="tutti" x-text="t(`Tutti i toni`)"></option>
-                  <template x-for="t in tones" :key="t">
-                    <option :value="t" x-text="t"></option>
+                  <template x-for="tono in tones" :key="tono">
+                    <option :value="tono" x-text="t(tono)"></option>
                   </template>
                 </select>
               </div>

@@ -18,6 +18,12 @@
  * - `notesAfter` e `openingNotes` leggono le indicazioni logistiche ancorate
  *   alla tappa che seguono: sono scritte per il visitatore, e la slide 21 le
  *   vuole al momento in cui servono, cioe' fra una tappa e la successiva.
+ * - Le note d'APERTURA hanno due sorgenti. Quelle del museo (ingresso,
+ *   biglietto, guardaroba) valgono per ogni sua visita, quindi si leggono dalla
+ *   configurazione e non dalla visita: una visita composta nel marketplace o
+ *   dal modello non le ha dentro, e senza questo si aprirebbe senza dire da che
+ *   parte si entra. Le visite seminate ne portano invece una copia, ed e' il
+ *   motivo per cui un testo che la visita ha gia' non si ripete.
  */
 
 import { ref } from "vue";
@@ -149,13 +155,25 @@ export function notesAfter(itemId: string): string[] {
 }
 
 export function openingNotes(): string[] {
+  const proprie: string[] = [];
   const current = visit.value;
-  if (!current || !current.logistics) return [];
-  const notes: string[] = [];
-  for (const n of current.logistics) {
-    if (typeof n === "string" && n.trim() !== "") notes.push(n);
-    else if (n && typeof n === "object" && !n.after && n.text) notes.push(n.text);
+  if (current && current.logistics) {
+    for (const n of current.logistics) {
+      if (typeof n === "string" && n.trim() !== "") proprie.push(n);
+      else if (n && typeof n === "object" && !n.after && n.text) proprie.push(n.text);
+    }
   }
+
+  const notes: string[] = [];
+  const sede = museum.value;
+  if (sede && sede.logistics) {
+    for (const text of sede.logistics) {
+      if (text.trim() === "") continue;
+      if (proprie.includes(text)) continue;
+      notes.push(text);
+    }
+  }
+  for (const text of proprie) notes.push(text);
   return notes;
 }
 

@@ -1,5 +1,120 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-05, le logistiche del museo mancavano a due visite su tre
+
+Segnalato come «dal marketplace non si vedono le logistiche, dall'elenco del navigator si'».
+Ragionamento in `state.md` §5.3-septies.
+
+⚠️ **Non era l'ingresso, era la visita.** I due ingressi finiscono nella stessa riga
+(`Visita.vue:68` → `openingNotes()`), e provandoli tutti e due sulla stessa visita seminata
+si comportano uguale. Le quattro indicazioni degli Uffizi le porta dentro **solo** chi le ha
+avute dal seed: `seed.ts openingNotes(config)` le copia nelle visite che genera, mentre una
+visita composta nel marketplace nasce con `logistics: []` e `POST /visits/custom` scrive
+`logistics: []` a mano (`visits.ts:195`). Due delle tre strade che creano una visita non
+sapevano niente del museo in cui sta.
+
+- **Rimedio: leggerle dove stanno.** `openingNotes()` in `state.ts` mette prima
+  `museum.value.logistics` (che arriva da `GET /museums/:qid/config` ed era **gia' scaricato**
+  a ogni visita, solo mai letto) e poi le note d'apertura della visita. Piu' `logistics?:
+  string[]` su `Museum` in `shared/types.ts`, che il tipo non dichiarava pur ricevendolo.
+- ⚠️ **Nessuna migrazione, ed e' il motivo per cui questa strada e' stata scelta**: le visite
+  gia' nel database funzionano appena il codice cambia. Copiarle a scrittura avrebbe invece
+  lasciato indietro `uffizzivisita` e ogni altra visita gia' composta.
+- ⚠️ **Il salto del testo doppio serve**: le visite seminate una copia ce l'hanno, e senza
+  quel controllo mostrerebbero otto note invece di quattro. Sparisce da se' se un giorno il
+  seed smette di copiarle — e allora la configurazione resta l'unica sorgente, che costa pero'
+  una migrazione dei documenti gia' scritti.
+
+**Verificato in chromium, quattro casi**: `uffizzivisita` (composta, vuota) mostra le quattro
+del museo; una seminata degli Uffizi ne mostra **quattro e non otto**; un tour del Louvre
+mostra la sola nota del suo autore; una del British non apre nessun riquadro vuoto. Piu' il
+gesto segnalato, per intero: accesso, scheda della visita, *Inizia la visita*. Zero errori in
+console, tre type-check verdi. **Dati di prova rimossi**: le tre visite aggiunte alla libreria
+di `visitatore1` tolte dalla `collezione` (portafoglio mai toccato, erano gratuite) e le 26
+sessioni di prova cancellate.
+
+### La scelta della lingua, resa coerente *(stessa giornata)*
+
+Ragionamento in `state.md` §2.3. I tre punti in cui si sceglie erano diversi in tutto tranne
+la classe CSS; ora sono lo stesso controllo.
+
+- **Un componente solo nel navigator.** `Scheda.vue` ricopiava il markup di
+  `LanguageSelector.vue`, `cambiaLingua` compreso: due copie dell'unico controllo che apre
+  l'applicazione a chi non legge l'italiano. Ora lo importa, con `etichetta`/`id` come prop.
+- **L'etichetta e' `Lingua`**, non «Lingua dei contenuti»: `setLanguage` chiama `setLocale`,
+  quindi cambia anche comandi, titoli e annunci. La vecchia chiave e' stata potata (12
+  traduzioni), il catalogo e' **473**.
+- ⚠️ **`appearance: none` era necessario, e il perche' non si deduce leggendo.** Sul binario
+  il campo restava un rettangolo **bianco col testo nero** pur avendo `background: transparent`
+  e `color: on-structure` **calcolati addosso** — verificato con `getComputedStyle`. E' il
+  browser che dipinge il controllo chiuso coi propri colori. Non toglie il selettore nativo:
+  su un telefono il tocco apre lo stesso quello del sistema operativo, che e' la ragione per
+  cui questi sono `<select>`.
+- ⚠️ **Si vede solo nel tema chiaro**, perche' li' il binario resta scuro mentre tutto il
+  resto schiarisce. Provando solo al buio il difetto non compare.
+- La freccia sono **due gradienti in `currentColor`**, non un SVG in `data:`: segue tema e
+  contesto senza una seconda regola per `.dark`.
+- In biglietteria il campo e' sceso **nella riga dei filtri**: a tutta larghezza sopra di loro
+  pesava piu' del titolo. Le tre `<label>` restano, tutte `sr-only`.
+
+⚠️ **Trappola della prova, non del codice:** il profilo di chromium riusa `dist/style.css`
+dalla cache, quindi il primo scatto dopo una ricostruzione del CSS puo' mostrare il vecchio
+foglio mentre `getComputedStyle` legge gia' il nuovo. Sembra che la regola non funzioni.
+Serve una navigazione con l'indirizzo cambiato.
+
+**Verificato in chromium**: i tre punti nei **due temi**, la vetrina e la biglietteria con i
+campi chiari invariati, le tre `<label>` lette dallo screen reader, zero errori in console,
+`vue-tsc` e `tsc` verdi, `dist` ricostruito.
+
+### La vetrina parlava ancora italiano dove conta *(stessa giornata)*
+
+Segnalato: «3 tappe · 2 min · Personalizzata» su ogni carta, «10 visite · 104 opere · 2
+soggetti» sotto il titolo, il segmentato «Tutto / Visite / Opere» e il filtro dei livelli.
+Ragionamento in `state.md` §5.7-bis. **Catalogo 447 → 474 chiavi, 12 lingue piene, zero
+orfane, `residui` a 4** (il marchio).
+
+⚠️ **Erano tutte frasi composte in uno script con `${}`**, e nessuno strumento le poteva
+segnalare: `residui` guarda i nodi dei template. Ora passano da `t()` con segnaposto —
+`visitSummary`, `marketSummary`, `museumSummary`, `marketDurationOptions`, `visitStatus`,
+`visitIssues`, `readablePrice`, `visitLevelLabel`.
+
+⚠️ **`t` era ombreggiato in tre punti di `index.html`.** `x-for="t in visitStops(...)"`
+(riga 830) rendeva `t(\`Opzionale\`)` un `t is not a function` a **ogni** disegnata della
+scheda di una visita; `x-for="t in tones"` (1091 e 1637) faceva stampare il tono grezzo. Le
+variabili di ciclo si chiamano ora `tappa` e `tono`. **Verificato: zero eccezioni** dove
+prima ce n'era una per tappa opzionale.
+
+⚠️ **Tre cose sono dovute salire in `shared/constants.ts`**, e il motivo e' operativo, non
+estetico: `keysFromSource` raccoglie le chiavi **calcolate** solo da quel file, quindi una
+`t(x)` con la chiave scritta altrove non entra in catalogo e **`pota` la cancella come
+orfana** alla passata dopo. Sono `visitDurationBands` (le tre fasce di durata, che usa il
+solo marketplace) e `CUSTOM_LEVEL` / `AI_LEVEL` — «Personalizzata» e «Su misura», che erano
+stringhe a mano dentro `routes/visits.ts` e che ora la rotta importa.
+
+⚠️ **`formatDuration` resta in italiano**, ed e' voluto: la usano gli script del server. Le
+due applicazioni ora compongono la frase con `durationMinutes` piu' le proprie chiavi
+(`{n} min`, `meno di 1 min`). Toccata anche `Biglietteria.vue`, perche' le due sponde devono
+dire il minuto allo stesso modo.
+
+⚠️ **Il glossario e la trappola di come si scrive una voce.** «visita» usciva con due parole
+diverse nella stessa schermata (de: `Visite`=Besuche, `{n} visite`=Rundgänge). Scrivendo nel
+glossario «va resa sempre con la stessa parola» il **coreano ha lasciato la parola italiana**
+e il **francese ha perso il plurale**. La forma che funziona e' «scegli UN termine della
+lingua d'arrivo, con le sue forme di singolare e plurale» — poi 관람 코스 e *parcours*. E' la
+stessa lezione gia' pagata coi toni e con «vetrina»: **il glossario si spiega, non si
+traduce**, e non deve nominare nessuna parola straniera.
+
+**Verificato in chromium**, lingua cinese: il selettore dei musei e la vetrina senza una
+parola italiana residua **cercando solo fra i nodi visibili** (Alpine costruisce anche le
+viste nascoste, quindi `body.innerText` accusa il falso); l'editor coi toni letti tradotti e
+il valore ancora `Infantile`; la scheda di una visita da 104 tappe con zero eccezioni; la
+biglietteria del navigator che dice `3 个站点 · 2分钟 · 个性化`, cioe' le stesse parole del
+marketplace. Restano italiani i **nomi** delle visite e delle opere, che sono dati. Tre
+type-check verdi, `dist` ricostruito, dati di prova rimossi.
+
+⚠️ **Non provata la pastiglia «Opzionale» a schermo**: nel database non c'e' nessuna visita
+con tappe opzionali (`state.md` §3.5). La prova che regge e' l'assenza dell'eccezione.
+
 ## ⏸ Ripresa — 2026-08-05, revisione di lingua e sessioni, e il difetto che ne e' uscito
 
 Richiesta: guardare com'e' implementata la traduzione nelle due applicazioni e come sono

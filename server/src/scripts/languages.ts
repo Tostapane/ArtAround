@@ -45,6 +45,9 @@ import {
   languages,
   options,
   educationalLevels,
+  educationalLevelHints,
+  assignedLevels,
+  visitDurationBands,
 } from "../../../shared/constants";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -83,11 +86,13 @@ function allSources(): string[] {
 // ============================================================================
 
 /**
- * Le chiavi sono le stringhe passate a `t(...)`, piu' due elenchi di
+ * Le chiavi sono le stringhe passate a `t(...)`, piu' gli elenchi di
  * `shared/constants.ts`. Questi vanno presi a parte perche' nel codice compaiono
- * come `t(o.label)` e `t(v.level)`: la chiave sta nei DATI, e una scansione del
- * testo non la vedrebbe mai. E' il prezzo di una chiave calcolata, e sono i soli
- * due punti del navigator in cui succede.
+ * come `t(o.label)`, `t(v.level)`, `t(toneHints[tono])` e `t(b.label)`: la
+ * chiave sta nei DATI, e una scansione del testo non la vedrebbe mai. E' il
+ * prezzo di una chiave calcolata, ed e' anche il motivo per cui quei dati
+ * stanno tutti in quel file: una chiave calcolata scritta altrove resterebbe
+ * fuori dal catalogo, e `pota` cancellerebbe le sue traduzioni come orfane.
  *
  * I TONI si traducono ma non cambiano di valore: `Medio` resta `Medio` nel
  * database, nel confronto del filtro e nella richiesta al server: si traduce
@@ -103,6 +108,14 @@ function keysFromSource(): string[] {
   }
 
   for (const livello of educationalLevels) found.add(livello);
+  for (const livello of educationalLevels) {
+    const aiuto = educationalLevelHints[livello];
+    if (aiuto) found.add(aiuto);
+  }
+
+  for (const livello of assignedLevels) found.add(livello);
+
+  for (const banda of visitDurationBands) found.add(banda.label);
 
   for (const file of allSources()) {
     const text = withoutComments(fs.readFileSync(file, "utf8"));
@@ -299,7 +312,11 @@ const GLOSSARY = `
 - "tappa" = una sosta del percorso di visita davanti a un'opera; NON un tappo, non una
   frazione di gara, non una fermata di mezzi pubblici
 - "opera" = un'opera d'arte esposta nel museo
-- "visita" = un percorso a piedi fra piu' opere del museo
+- "visita" = un percorso a piedi fra piu' opere del museo. Scegli UN termine della lingua
+  d'arrivo, con le sue forme di singolare e plurale, e usa quello in ogni chiave che la
+  nomina: l'etichetta di un filtro e il conto dei risultati stanno uno sotto l'altro nella
+  stessa schermata, e due termini diversi li' sembrano due cose diverse. La parola italiana
+  non va mai lasciata com'e'
 - "scheda" = il pannello che mostra la descrizione dell'opera
 - "pianta" = il disegno delle sale del museo visto dall'alto
 - "sala" = una stanza del museo

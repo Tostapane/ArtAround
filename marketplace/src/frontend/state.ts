@@ -41,7 +41,8 @@ import {
   licenses,
   educationalLevels,
   educationalLevelHints,
-  formatDuration,
+  durationMinutes,
+  visitDurationBands,
   secPerArt,
   itemKinds,
   kindById,
@@ -65,21 +66,6 @@ import {
 } from "./api.js";
 
 
-/*
-  Le fasce di durata delle visite: etichetta e prova nella stessa riga, cosi'
-  non possono dire due cose diverse. Sono minuti di LETTURA, che e' quel che
-  `Visit.duration` somma; quando contera' anche il cammino fra le sale, i tre
-  numeri qui vanno rialzati e non serve toccare altro.
-*/
-const VISIT_DURATION_BANDS: {
-  value: string;
-  label: string;
-  test: (min: number) => boolean;
-}[] = [
-  { value: "corta", label: "meno di 5 min", test: (m) => m < 5 },
-  { value: "media", label: "da 5 a 15 min", test: (m) => m >= 5 && m <= 15 },
-  { value: "lunga", label: "oltre 15 min", test: (m) => m > 15 },
-];
 
 /** Cio' su cui valgono gli aiutanti comuni (cercare, dire di che museo e', il tono). */
 export type Catalogabile = Content | Artwork;
@@ -720,7 +706,11 @@ export class AppState {
   museumSummary(m: Museum): string {
     const opere = typeof m.opere === "number" ? m.opere : 0;
     const visite = typeof m.visite === "number" ? m.visite : 0;
-    return `${opere} opere · ${visite} visite`;
+    const conta = [
+      opere === 1 ? this.t("1 opera") : this.t("{n} opere", { n: opere }),
+      visite === 1 ? this.t("1 visita") : this.t("{n} visite", { n: visite }),
+    ];
+    return conta.join(" · ");
   }
 
   museumArtworks() {
@@ -1321,15 +1311,19 @@ export class AppState {
   }
 
   readableDuration(secondi: number): string {
-    return formatDuration(secondi);
+    const minuti = durationMinutes(secondi);
+    if (minuti < 1) return this.t("meno di 1 min");
+    return this.t("{n} min", { n: minuti });
   }
 
   visitSummary(v: any): string {
     const tappe = (v.itemListElement || []).length;
     const parts = [
-      `${tappe} ${tappe === 1 ? "tappa" : "tappe"}`,
-      formatDuration(v.duration),
+      tappe === 1 ? this.t("1 tappa") : this.t("{n} tappe", { n: tappe }),
+      this.readableDuration(v.duration),
     ];
+    // Il tono si LEGGE tradotto e si CONFRONTA in italiano: il valore e' quello
+    // che sta nel database e nei filtri, tradurlo li' spegnerebbe la ricerca.
     const livello = this.visitLevelLabel(v);
     if (livello) parts.push(livello);
     return parts.join(" · ");
@@ -1344,18 +1338,21 @@ export class AppState {
     if (this.marketType === "opere") {
       return secPerArt.map((s) => ({
         value: String(s),
-        label: `${s} secondi di lettura`,
+        label: this.t("{n} secondi di lettura", { n: s }),
       }));
     }
     if (this.marketType === "visite") {
-      return VISIT_DURATION_BANDS.map((b) => ({ value: b.value, label: b.label }));
+      return visitDurationBands.map((b) => ({
+        value: b.value,
+        label: this.t(b.label),
+      }));
     }
     return [];
   }
 
   private matchesMarketDuration(min: number): boolean {
     if (this.marketType !== "visite") return true;
-    const banda = VISIT_DURATION_BANDS.find(
+    const banda = visitDurationBands.find(
       (b) => b.value === this.marketDurationFilter,
     );
     if (!banda) return true;
@@ -1377,10 +1374,11 @@ export class AppState {
   }
 
   visitLevelLabel(v: any): string {
-    if (this.isMixedVisit(v)) return "Misto";
+    if (this.isMixedVisit(v)) return this.t("Misto");
     const toni = this.visitTones(v);
-    if (toni.length === 1) return toni[0];
-    return v.level || "";
+    if (toni.length === 1) return this.t(toni[0]);
+    if (v.level) return this.t(v.level);
+    return "";
   }
 
   private matchesMarketLevel(tones: string[]): boolean {
@@ -1481,12 +1479,15 @@ export class AppState {
     const soggetti = gruppi.filter((g) => g.artwork.kind).length;
     const opere = gruppi.length - soggetti;
     const pezzi: string[] = [];
-    if (this.marketType !== "opere")
-      pezzi.push(`${v} ${v === 1 ? "visita" : "visite"}`);
+    if (this.marketType !== "opere") {
+      if (v === 1) pezzi.push(this.t("1 visita"));
+      else pezzi.push(this.t("{n} visite", { n: v }));
+    }
     if (this.marketType !== "visite") {
-      pezzi.push(`${opere} ${opere === 1 ? "opera" : "opere"}`);
-      if (soggetti > 0)
-        pezzi.push(`${soggetti} ${soggetti === 1 ? "soggetto" : "soggetti"}`);
+      if (opere === 1) pezzi.push(this.t("1 opera"));
+      else pezzi.push(this.t("{n} opere", { n: opere }));
+      if (soggetti === 1) pezzi.push(this.t("1 soggetto"));
+      else if (soggetti > 1) pezzi.push(this.t("{n} soggetti", { n: soggetti }));
     }
     return pezzi.join(" · ");
   }
@@ -2280,18 +2281,18 @@ export class AppState {
 
   visitIssues(): string[] {
     const issues: string[] = [];
-    if (!this.draft.titolo.trim()) issues.push("il titolo");
-    if (this.stopCount() === 0) issues.push("almeno una tappa");
+    if (!this.draft.titolo.trim()) issues.push(this.t("il titolo"));
+    if (this.stopCount() === 0) issues.push(this.t("almeno una tappa"));
     const guidata = this.currentUserRole === "autore" && this.draft.guidata;
     if (guidata) {
-      if (!this.draft.accessKey.trim()) issues.push("la parola chiave");
+      if (!this.draft.accessKey.trim()) issues.push(this.t("la parola chiave"));
       for (const q of this.draft.quiz) {
         if (
           !q.question.trim() ||
           q.options.length !== 4 ||
           q.options.some((o) => !o.trim())
         ) {
-          issues.push("le domande del quiz complete");
+          issues.push(this.t("le domande del quiz complete"));
           break;
         }
       }
@@ -2299,10 +2300,19 @@ export class AppState {
     return issues;
   }
 
+  /** "3 tappe · 2 min": il riepilogo della bozza, letto in due punti del compositore. */
+  draftSummary(): string {
+    const tappe = this.stopCount();
+    const conta =
+      tappe === 1 ? this.t("1 tappa") : this.t("{n} tappe", { n: tappe });
+    return `${conta} · ${this.readableDuration(this.estimatedDuration())}`;
+  }
+
   visitStatus(): string {
     const issues = this.visitIssues();
-    if (issues.length > 0) return `Manca ancora: ${issues.join(", ")}.`;
-    return `Pronta · ${this.stopCount()} tappe · ${formatDuration(this.estimatedDuration())}`;
+    if (issues.length > 0)
+      return this.t("Manca ancora: {elenco}.", { elenco: issues.join(", ") });
+    return this.t("Pronta · {riepilogo}", { riepilogo: this.draftSummary() });
   }
 
   /**
@@ -2423,7 +2433,7 @@ export class AppState {
   }
 
   readablePrice(p: number | undefined): string {
-    if (!p || Number(p) === 0) return "Gratis";
+    if (!p || Number(p) === 0) return this.t("Gratis");
     return `€ ${Number(p).toFixed(2)}`;
   }
 }

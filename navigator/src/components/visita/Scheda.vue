@@ -26,8 +26,9 @@ import { computed, ref, watch } from "vue";
 import Pannello from "./Pannello.vue";
 import Comando from "./Comando.vue";
 import { useTTS } from "./useTTS";
-import { labelForCommand, languages } from "../../../../shared/constants";
-import { language, setLanguage, stopImage } from "@/state";
+import LanguageSelector from "../selection/LanguageSelector.vue";
+import { labelForCommand } from "../../../../shared/constants";
+import { stopImage } from "@/state";
 import { t } from "@/i18n";
 import type { Match } from "../../../../shared/types";
 
@@ -91,10 +92,6 @@ const stile = computed(() => {
   return "";
 });
 
-function cambiaLingua(codice: string) {
-  const scelta = languages.find((l) => l.translate === codice);
-  if (scelta) setLanguage(scelta);
-}
 </script>
 
 <template>
@@ -106,22 +103,14 @@ function cambiaLingua(codice: string) {
   >
     <!-- LINGUA -->
     <div class="flex shrink-0 items-center gap-3 border-b border-line px-3 py-2">
-      <label
-        for="lingua-scheda"
-        class="shrink-0 text-caption uppercase tracking-wider text-muted"
-      >
-        {{ t("Lingua dei contenuti") }}
-      </label>
-      <select
+      <span class="etichetta-impostazione shrink-0" aria-hidden="true">
+        {{ t("Lingua") }}
+      </span>
+      <LanguageSelector
         id="lingua-scheda"
-        class="campo-select ml-auto min-w-0 max-w-[11rem] flex-1"
-        :value="language.translate"
-        @change="cambiaLingua(($event.target as HTMLSelectElement).value)"
-      >
-        <option v-for="l in languages" :key="l.translate" :value="l.translate">
-          {{ l.name }}
-        </option>
-      </select>
+        :etichetta="false"
+        class="ml-auto min-w-0 max-w-[11rem]"
+      />
     </div>
 
     <!-- OPERA -->

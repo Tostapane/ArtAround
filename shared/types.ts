@@ -72,6 +72,13 @@ export interface Museum {
    */
   opere?: number;
   visite?: number;
+  /**
+   * Le indicazioni che valgono per tutto il museo e non per una visita sola:
+   * l'ingresso, il biglietto, il guardaroba. Le scrive il curatore nel file di
+   * configurazione, e il navigator le mostra come note d'apertura di qualunque
+   * visita di quel museo.
+   */
+  logistics?: string[];
 }
 
 // ============================================================================

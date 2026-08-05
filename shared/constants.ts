@@ -256,9 +256,52 @@ export function labelForCommand(id: string): string {
   return id;
 }
 
-/** Regola di prodotto: all'utente non si mostrano mai i secondi grezzi. */
+/**
+ * I due livelli che non sceglie nessun autore: li assegna il server a una visita
+ * composta a mano e a una nata da una frase. Stanno accanto ai toni perche' sono
+ * la stessa cosa vista da chi legge — un valore che il database conserva in
+ * italiano e che a schermo si traduce — e stanno qui, e non nella rotta che li
+ * scrive, perche' l'estrattore raccoglie da questo file le chiavi che nel codice
+ * si leggono come `t(v.level)`.
+ */
+export const CUSTOM_LEVEL = "Personalizzata";
+export const AI_LEVEL = "Su misura";
+export const assignedLevels = [CUSTOM_LEVEL, AI_LEVEL];
+
+/**
+ * Le fasce di durata con cui si filtrano le visite: etichetta e prova nella
+ * stessa riga, cosi' non possono dire due cose diverse. Sono minuti di LETTURA,
+ * che e' quel che `Visit.duration` somma; quando contera' anche il cammino fra
+ * le sale, i tre numeri qui vanno rialzati e non serve toccare altro.
+ *
+ * Stanno qui e non nel marketplace, che e' il solo a usarle, perche' le tre
+ * etichette sono chiavi di traduzione lette come `t(b.label)`: l'estrattore
+ * raccoglie le chiavi calcolate da questo file, e altrove resterebbero fuori
+ * dal catalogo senza che niente lo segnali.
+ */
+export const visitDurationBands: {
+  value: string;
+  label: string;
+  test: (min: number) => boolean;
+}[] = [
+  { value: "corta", label: "meno di 5 min", test: (m) => m < 5 },
+  { value: "media", label: "da 5 a 15 min", test: (m) => m >= 5 && m <= 15 },
+  { value: "lunga", label: "oltre 15 min", test: (m) => m > 15 },
+];
+
+/** I minuti che si mostrano: l'arrotondamento sta qui e non in chi disegna. */
+export function durationMinutes(totalSeconds: number): number {
+  return Math.round((Number(totalSeconds) || 0) / 60);
+}
+
+/**
+ * Regola di prodotto: all'utente non si mostrano mai i secondi grezzi.
+ * Risponde in italiano, quindi la usa chi non ha una lingua da rispettare: gli
+ * script del server. Le due applicazioni compongono la stessa frase con le
+ * proprie chiavi di traduzione, perche' "min" non e' "min" in tredici lingue.
+ */
 export function formatDuration(totalSeconds: number): string {
-  const minutes = Math.round((Number(totalSeconds) || 0) / 60);
+  const minutes = durationMinutes(totalSeconds);
   if (minutes < 1) return "meno di 1 min";
   return `${minutes} min`;
 }

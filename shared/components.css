@@ -96,9 +96,49 @@
   .campo-piatto {
     @apply mt-0 border-b border-line bg-transparent px-2 py-1.5 text-small;
   }
+  /* `appearance: none` NON toglie il selettore nativo: su un telefono il tocco
+     apre lo stesso quello del sistema operativo, ed e' il motivo per cui questi
+     restano `<select>`. Toglie solo il disegno del controllo chiuso, che il
+     browser dipinge coi propri colori ignorando i nostri: senza, il campo che
+     sta sulla barra scura arriva come un rettangolo bianco col testo nero.
+     La freccia e' quindi nostra, e sono due gradienti invece di un'immagine
+     perche' `currentColor` segue il tema e il contesto senza una seconda
+     regola: sulla lastra e' inchiostro, sulla struttura e' chiara. */
   .campo-select {
-    @apply min-h-11 rounded-plate border border-line-strong bg-surface px-3 py-2
-           text-small font-medium text-text focus:border-accent focus:outline-none;
+    @apply min-h-11 appearance-none rounded-plate border border-line-strong bg-surface
+           py-2 pl-3 pr-9 text-small font-medium text-text
+           focus:border-accent focus:outline-none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+      calc(100% - 1.15rem) calc(50% + 1px),
+      calc(100% - 0.85rem) calc(50% + 1px);
+    background-size: 0.3rem 0.3rem;
+    background-repeat: no-repeat;
+  }
+  /* Lo stesso controllo quando siede sulla STRUTTURA e non sulla lastra: la
+     barra laterale e' scura in tutt'e due i temi, quindi un campo che si porta
+     dietro il fondo dell'applicazione ci si stacca sopra. */
+  .campo-select-struttura {
+    @apply border-on-structure/25 bg-transparent text-on-structure
+           hover:border-on-structure/50 focus:border-accent;
+  }
+  /* L'elenco che si apre al clic NON sta sulla barra: lo disegna il browser
+     sopra la pagina, con la lastra dietro. Le voci vanno percio' riportate ai
+     colori dell'applicazione, o ereditano il chiaro del testo qui sopra e
+     diventano illeggibili sul fondo chiaro dell'elenco. Non basta dichiarare
+     `color-scheme: dark`: quello e' un suggerimento e il browser lo disattende,
+     lasciando testo bianco su bianco. */
+  .campo-select-struttura option {
+    color: var(--text);
+    background-color: var(--surface);
+  }
+  /* L'etichetta di un'impostazione: minuscola e discreta, perche' il valore
+     (Italiano, 中文) e' gia' leggibile da se' e l'etichetta serve solo a dire
+     di che cosa e' il valore. */
+  .etichetta-impostazione {
+    @apply block text-caption uppercase tracking-wider text-muted;
   }
   .campo-cerca {
     @apply flex min-h-11 flex-1 items-center gap-2 rounded-plate border border-line-strong

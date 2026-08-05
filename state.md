@@ -106,6 +106,7 @@ inservibile una funzione appena finita.
 | entrare negli Uffizi costava **8,2 secondi**, e sembrava lentezza dell'accesso | un indice fuori dallo stato: **1,2 s** (§1.1-sexies) |
 | non si sapeva fin dove regge un museo | misurato fino a diecimila item, col punto che cede e il rimedio (§1.1-quinquies) |
 | `deploy.md` non nominava la porta, e diceva anzi 8000 | `PORT=3000`, piu' le quattro cose che il laboratorio non perdona (`deploy.md`) |
+| le logistiche del museo le vedeva **solo chi apriva una visita seminata**: una composta nel marketplace o dal modello si apriva senza dire da che parte si entra | le legge il navigator dalla configurazione, quindi valgono per ogni visita del museo (§5.3-septies) |
 
 ### Le sessioni: chi chiede lo dice un biglietto, non l'indirizzo *(2026-08-03)*
 
@@ -570,6 +571,11 @@ corregge lì, in quel passaggio**, invece di lasciarlo passare.
   `(string | LogisticNote)[]`: notes are **anchored to the stop they follow**, so the
   navigator can show "how to get to the next item" at the moment it matters (slide 21).
   Bare strings are pre-restyle rows, still readable; `testers.ts logistica` converts them.
+  ⚠️ **Le note d'apertura hanno due sorgenti, e solo una sta nella visita.** Quelle del
+  **museo** (`Museum.logistics`, dal file di configurazione) valgono per ogni sua visita e
+  il navigator le legge da li'; quelle della **visita** le scrive l'autore. Il seed copia le
+  prime dentro le visite che genera, quindi `openingNotes()` salta un testo che la visita ha
+  gia': senza quel salto una visita seminata le direbbe due volte (§5.3-septies).
 - **QuizQuestion** — `{question, options[4], correct}`. `correct` never leaves the server.
 - **User** — identity is the **pair `(username, role)`** (unique compound index). An
   `autore` and a `visitatore` with the same username are *distinct, unlinked accounts*.
@@ -674,6 +680,40 @@ token su un canvas e leggendone i byte. (`getComputedStyle` restituisce `oklab(�
 `color-mix`, e leggerne i numeri come RGB da' nero — e' un modo perfetto per credere che
 tutto sia rotto quando non lo e'.) La derivazione e' stata provata contro tre sorgenti
 diverse prima di essere fissata: tutte e tre passano AA senza ritocchi.
+
+### 2.3 La scelta della lingua: un controllo solo, in tre posti *(2026-08-05)*
+
+Si sceglie la lingua in tre punti — il piede del binario del marketplace, la biglietteria e la
+scheda del navigator — e i tre erano diversi in tutto tranne che nella classe CSS: etichetta
+`Lingua` contro `Lingua dei contenuti`, minuscolo contro maiuscoletto, un campo a tutta
+larghezza contro una striscia. Ora sono lo stesso controllo.
+
+| | |
+| --- | --- |
+| `LanguageSelector.vue` | il componente unico del navigator; `Scheda.vue` lo importa invece di ricopiarne il markup |
+| `.campo-select` | il `<select>` di tutt'e due le applicazioni, con la freccia disegnata da noi |
+| `.campo-select-struttura` | la variante per chi siede sulla barra scura |
+| `.etichetta-impostazione` | l'etichetta di un'impostazione, maiuscoletto spaziato |
+
+⚠️ **L'etichetta non dice piu' «dei contenuti», e non e' una limatura**: `setLanguage` chiama
+`setLocale`, quindi cambia anche i comandi, i titoli e gli annunci. Promettere i soli contenuti
+diceva meno di quel che il controllo fa.
+
+⚠️ **`appearance: none` non toglie il selettore nativo.** Su un telefono il tocco apre lo stesso
+quello del sistema operativo, che e' la ragione per cui questi restano `<select>` e non un menu
+disegnato da noi. Toglie il disegno del **controllo chiuso**, che il browser dipinge coi propri
+colori: senza, il campo sul binario arriva come un rettangolo bianco col testo nero anche
+avendo `background: transparent` e `color: on-structure` calcolati addosso. Il difetto si vede
+solo nel tema **chiaro**, perche' li' il binario resta scuro mentre il resto schiarisce.
+
+⚠️ **La freccia sono due gradienti e non un'immagine**, perche' `currentColor` segue da se' il
+tema e il contesto: sulla lastra e' inchiostro, sulla struttura e' chiara. Un SVG in `data:`
+avrebbe il colore cotto dentro e chiederebbe una seconda regola per `.dark`.
+
+In biglietteria il campo e' sceso **nella riga dei filtri**: a tutta larghezza sopra di loro
+pesava piu' del titolo della schermata, ed e' un controllo della stessa taglia. Il valore
+(`Italiano`, `中文`) si legge da se', quindi l'etichetta resta allo screen reader come per gli
+altri due — `etichetta: false` la rende `sr-only` invece di toglierla.
 
 ---
 
@@ -1684,6 +1724,41 @@ inventata, e i servizi invariati.
 gia' spegne «Prossimo», ma nel database non c'e' nessuna visita guidata (§3.5, 0 su 36), quindi
 non e' stato eseguito. Serve `seed.ts speciali`.
 
+### 5.3-septies Le logistiche del museo valgono per ogni sua visita *(2026-08-05)*
+
+Segnalato cosi': aprendo dal marketplace una visita composta a mano, il riquadro «Prima di
+cominciare» non compariva; scegliendone una dall'elenco del navigator, si'. I due ingressi
+pero' finiscono nella stessa riga di codice, e la differenza non era l'ingresso ma **la
+visita**: le quattro indicazioni degli Uffizi le portano dentro solo le visite che il **seed**
+genera, perche' e' il seed a copiarcele (`openingNotes(config)`). Una visita composta nel
+marketplace nasce con `logistics` vuoto, e la visita su misura pure — `POST /visits/custom`
+scrive `logistics: []`. Quindi il difetto non era «dal marketplace non si vedono», ma **due
+delle tre strade che creano una visita non conoscono il museo in cui sta**.
+
+Il rimedio non le copia una terza e una quarta volta: le **legge dove stanno**. Sono una
+proprieta' del museo — l'ingresso, il biglietto, il guardaroba non cambiano da visita a visita
+— e il navigator la configurazione del museo ce l'ha gia' in mano (`GET /museums/:qid/config`,
+`museum.value`), quindi `openingNotes()` mette prima quelle del museo e poi quelle che l'autore
+ha scritto per la sua visita. Non serve nessuna rotta nuova, nessun dato nuovo e nessuna
+migrazione: le visite che c'erano gia' funzionano appena il codice cambia.
+
+⚠️ **Un testo che la visita ha gia' non si ripete**, ed e' l'unica riga che chiede una
+spiegazione: le visite seminate ne portano una copia, quindi senza quel salto le direbbero due
+volte. Sparira' da se' il giorno in cui il seed smettera' di copiarle — e allora la
+configurazione sarebbe l'unica sorgente, che e' la forma piu' pulita ma costa una migrazione
+sui documenti gia' scritti.
+
+⚠️ **Il marketplace continua a leggere solo `Visit.logistics`**: la scheda della visita mostra
+le note dell'autore e non quelle del museo. Non e' incoerenza col navigator — li' e' l'itinerario
+dell'autore — ma se un giorno le si vuole anche li', la regola da riusare e' questa.
+
+**Verificato pilotando chromium**, quattro casi e non uno: `uffizzivisita` (composta, senza
+logistiche) ora le mostra tutte e quattro; una visita seminata degli Uffizi ne mostra **quattro
+e non otto**; un tour del Louvre — museo senza logistiche — mostra la sola nota del suo autore;
+e una visita del British, dove non ce n'e' da nessuna parte, non apre nessun riquadro vuoto.
+Piu' il gesto vero segnalato: accesso, scheda della visita, *Inizia la visita*. Zero errori in
+console, tre type-check verdi, dati di prova rimossi.
+
 ### 5.6 L'interfaccia nella lingua del visitatore *(in corso, 2026-08-04)*
 
 I **contenuti** si traducevano gia'; la **scorza** no. C'era un solo punto di traduzione a
@@ -1910,6 +1985,50 @@ cosi' come arrivano in una ventina di punti: in cinese i percorsi d'errore parla
 Non e' una dimenticanza che `residui` possa trovare, perche' quelle stringhe non stanno nei
 client. La strada giusta e' un codice nella risposta che il client mappa su `t()`; ricopiare le
 frasi nel catalogo le farebbe cancellare da `pota` alla prima passata.
+
+### 5.7-bis Le frasi che si compongono contando *(2026-08-05)*
+
+La vetrina restava italiana in un punto che `residui` non poteva vedere e la prova in browser
+non aveva colto: **le frasi costruite in uno script a partire da un numero**. «3 tappe · 2 min
+· Personalizzata» sotto ogni carta, «10 visite · 104 opere · 2 soggetti» sotto il titolo, il
+segmentato «Tutto / Visite / Opere», le fasce di durata, «Gratis», e il riepilogo della bozza
+nel compositore. Sono **474 chiavi** ora, da 447.
+
+Il motivo per cui erano sfuggite e' sempre lo stesso: `residui` guarda i nodi dei template, e
+una frase messa insieme con `${}` dentro `state.ts` non e' un nodo. La rete di sicurezza resta
+la prova in browser con la lingua impostata su un'altra — e stavolta va fatta **guardando solo
+cio' che si vede**, perche' Alpine costruisce tutte le viste e leggere `body.innerText` accusa
+anche quelle nascoste.
+
+⚠️ **Le chiavi calcolate stanno tutte in `shared/constants.ts`, e non e' una preferenza.**
+`t(b.label)` e `t(v.level)` non si possono raccogliere scandendo il testo, quindi
+`keysFromSource` le legge da quel file: una chiave calcolata scritta altrove non entra in
+catalogo, e alla prima passata **`pota` cancella le sue traduzioni come orfane**. Per questo ci
+sono arrivate le fasce di durata delle visite (`visitDurationBands`, che il solo marketplace
+usa) e i due livelli che assegna il server (`CUSTOM_LEVEL`, `AI_LEVEL`: «Personalizzata» e «Su
+misura», che prima erano stringhe scritte a mano dentro `routes/visits.ts`).
+
+⚠️ **`formatDuration` non traduce, e non deve.** Risponde in italiano perche' la usano gli
+script del server, dove non c'e' nessuna lingua da rispettare; le due applicazioni compongono
+la stessa frase con `durationMinutes` piu' le proprie chiavi, perche' «min» non e' «min» in
+tredici lingue. L'arrotondamento resta in un posto solo.
+
+⚠️ **Il glossario ha imparato che «visita» va resa con UN termine solo**, e la lezione e' come
+si scrive la voce. Chiedendo «sempre la stessa parola» il coreano ha lasciato a schermo la
+parola *italiana*, e il francese ha perso il plurale: e' la trappola gia' scritta qui sopra —
+una voce che nomina una parola straniera, il modello la ricopia. Chiedendo invece «scegli UN
+termine della lingua d'arrivo, con le sue forme di singolare e plurale» sono usciti 관람 코스 e
+*parcours*. Serviva perche' l'etichetta del filtro e il conto dei risultati stanno **uno sotto
+l'altro nella stessa schermata**: `Visite` diceva Besuche e `{n} visite` diceva Rundgänge.
+
+⚠️ **`t` si puo' spegnere con una variabile di ciclo.** `x-for="t in visitStops(...)"` rendeva
+`t(\`Opzionale\`)` un errore a ogni disegnata della scheda di una visita, e la pastiglia non
+compariva mai; stessa ombra su `x-for="t in tones"` in due punti, dove il tono usciva percio'
+grezzo in tutte e tredici le lingue. Le variabili di ciclo ora si chiamano `tappa` e `tono`.
+Alpine valuta le espressioni come stringhe e nessun compilatore le guarda: e' la prima delle
+tre trappole di `guidelines.md`.
+
+I **nomi delle visite e delle opere restano italiani**, ed e' voluto: quelli sono dati.
 
 ### 5.4 `GuidedGate`
 
