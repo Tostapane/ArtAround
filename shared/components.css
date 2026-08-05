@@ -230,24 +230,69 @@
     @apply border-accent text-accent;
   }
 
-  /* --- Immagini: sempre "passe-partout", mai ritagliate ------------------ */
-  .mat {
-    @apply flex items-center justify-center overflow-hidden rounded-plate border border-line
-           bg-surface-2;
+  /* --- Immagini: tre modi di mostrare un'opera --------------------------- */
+  /*
+    La DISSOLVENZA e' la tessera del catalogo. La figura riempie la testa della
+    lastra e ci sfuma dentro con una maschera, cosi' il titolo le arriva sopra
+    invece di stare in un riquadro separato sotto di lei. Il ritaglio e' voluto:
+    una tessera e' un richiamo, e un'immagine contenuta dentro proporzioni fisse
+    lascia bande vuote proprio dove dovrebbe esserci il colore dell'opera. Chi
+    vuole vedere l'opera intera apre la sua pagina, dove c'e' `.figura`.
+
+    La maschera si spegne presto, e dove passa il titolo non resta quasi niente:
+    quel titolo e' inchiostro sulla lastra, quindi ogni punto d'immagine ancora
+    acceso sotto di lui gli toglie contrasto. Le fermate valgono per i due temi,
+    e il caso peggiore e' quello scuro, dove il testo e' chiaro e una zona
+    bianca del quadro che affiorasse gli si avvicinerebbe.
+  */
+  .dissolvenza {
+    @apply relative block overflow-hidden;
     aspect-ratio: 4 / 3;
+    background-color: var(--tint);
+    --sfumatura: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 46%,
+      rgb(0 0 0 / 0.9) 60%,
+      rgb(0 0 0 / 0.55) 72%,
+      rgb(0 0 0 / 0.18) 80%,
+      transparent 86%
+    );
+    -webkit-mask-image: var(--sfumatura);
+    mask-image: var(--sfumatura);
   }
-  .mat img {
-    @apply h-full w-full object-contain;
+  /* Il ritaglio non e' centrato: in un quadro verticale il soggetto sta nella
+     meta' alta, e centrando si perdeva insieme al volto. */
+  .dissolvenza img {
+    @apply h-full w-full object-cover transition-transform duration-500;
+    object-position: 50% 30%;
   }
-  .mat-grande {
-    aspect-ratio: 1 / 1;
+
+  /* La FIGURA e' l'opera vista per intero. Nessuna cornice, nessun fondo e
+     nessun contenitore: senza proporzioni imposte non restano bande attorno a
+     un quadro verticale. Sta sull'<img>, quindi dove serve la si stringe con
+     un'altezza massima. */
+  .figura {
+    @apply w-full rounded-card object-contain;
   }
-  .mat-piccolo {
-    @apply h-14 w-14;
-    aspect-ratio: 1 / 1;
+
+  /* La MINIATURA e' il quadratino delle righe d'elenco. Il fondo serve: senza,
+     la riga di un'opera priva d'immagine perde il suo posto e il testo scivola
+     sotto quello delle altre. */
+  .miniatura {
+    @apply flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden
+           rounded-plate bg-surface-2;
   }
-  .mat-vuoto {
-    @apply px-3 text-center text-caption text-muted;
+  .miniatura img {
+    @apply h-full w-full object-cover;
+  }
+
+  /* Il ripiego dove l'immagine e' il soggetto della schermata: resta il nome,
+     che e' l'unica cosa che si puo' ancora dire. Nella tessera non serve, li'
+     il nome sta gia' sotto. */
+  .senza-figura {
+    @apply flex items-center justify-center rounded-card bg-surface-2 px-4 py-12
+           text-center font-display text-title-3 text-muted;
   }
 
   /* --- Note logistiche: non sono tappe, e si vede ------------------------ */

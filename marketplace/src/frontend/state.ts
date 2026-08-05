@@ -1713,12 +1713,23 @@ export class AppState {
     this.marketDurationFilter = "tutti";
   }
 
-  artworkSummary(g: ArtworkGroup): string {
+  /**
+   * Quante descrizioni ha un'opera, e da che prezzo partono. Sono due frasi e
+   * non una perche' portano due colori diversi: il conto e' una categoria, il
+   * prezzo e' un valore, e uniti in una stringa sola potrebbero avere un colore
+   * solo. Il conto lo dicono anche le righe d'elenco, che hanno la stessa forma.
+   */
+  artworkCount(g: ArtworkGroup): string {
     const n = g.items.length;
+    if (n === 1) return this.t("1 descrizione");
+    return this.t("{n} descrizioni", { n });
+  }
+
+  artworkFromPrice(g: ArtworkGroup): string {
     const prices = g.items.map((i: any) => Number(i.price) || 0);
     const cheapest = prices.length ? Math.min(...prices) : 0;
-    const priceLabel = cheapest === 0 ? "da gratis" : `da € ${cheapest.toFixed(2)}`;
-    return `${n} ${n === 1 ? "descrizione" : "descrizioni"} · ${priceLabel}`;
+    if (cheapest === 0) return this.t("Gratis");
+    return this.t("da {prezzo}", { prezzo: `€ ${cheapest.toFixed(2)}` });
   }
 
   /**

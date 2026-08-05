@@ -119,19 +119,17 @@ const stile = computed(() => {
         <!-- Sul telefono l'intestazione e' una didascalia da museo, con la
              miniatura a sinistra del titolo, perche' la colonna e' bassa e una foto a
              piena larghezza se la prenderebbe tutta, lasciando fuori proprio il
-             testo. Da `lg` in su c'e' l'altezza per il passe-partout intero. -->
+             testo. Da `lg` in su c'e' l'altezza per l'opera intera, e li' si
+             contiene invece di ritagliare: quella e' l'opera che si sta guardando. -->
         <div class="flex items-start gap-3 p-4 lg:block lg:p-0">
-          <div
+          <img
             v-if="immagine.src && !imgBroken"
-            class="mat h-16 w-16 shrink-0 lg:h-auto lg:max-h-48 lg:w-full lg:rounded-none
-                   lg:border-x-0 lg:border-t-0"
-          >
-            <img
-              :src="immagine.src"
-              :alt="t('Immagine di {nome}', { nome: immagine.name })"
-              @error="imgBroken = true"
-            />
-          </div>
+            class="figura h-16 w-16 shrink-0 rounded-plate object-cover
+                   lg:h-auto lg:max-h-48 lg:w-full lg:rounded-none lg:object-contain"
+            :src="immagine.src"
+            :alt="t('Immagine di {nome}', { nome: immagine.name })"
+            @error="imgBroken = true"
+          />
 
           <div class="min-w-0 lg:p-4 lg:pb-0">
             <div class="flex items-baseline gap-3">

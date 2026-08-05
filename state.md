@@ -109,6 +109,18 @@ inservibile una funzione appena finita.
 | `deploy.md` non nominava la porta, e diceva anzi 8000 | `PORT=3000`, piu' le quattro cose che il laboratorio non perdona (`deploy.md`) |
 | le logistiche del museo le vedeva **solo chi apriva una visita seminata**: una composta nel marketplace o dal modello si apriva senza dire da che parte si entra | le legge il navigator dalla configurazione, quindi valgono per ogni visita del museo (§5.3-septies) |
 
+### 0.4 What the 2026-08-05 graphic pass closed
+
+Le slide pesano *il livello di sofisticazione grafica*. Primo giro, sulle immagini del
+marketplace (§4.6-bis).
+
+| Was | Now |
+| --- | --- |
+| ogni opera stava in un vassoio grigio bordato, rimpicciolita dentro proporzioni fisse: il grigio prendeva il posto del colore dell'opera | `.dissolvenza`, `.figura`, `.miniatura`: la figura riempie la tessera e sfuma nella lastra, e il titolo le arriva sopra |
+| la riga sotto ogni tessera era grigia in blocco | conto in **ardesia**, prezzo in **ottone**: i due ruoli che `theme.css` gia' descriveva |
+| `artworkSummary()` non era **mai** stata tradotta: `20 descrizioni · da gratis` in tutte e tredici le lingue | `artworkCount()` + `artworkFromPrice()`, catalogo 499 → 501 |
+| la copertina di una visita era grigia, e ripeteva il titolo che stava gia' sotto | tipografica sulla **struttura**, il titolo detto una volta sola, filo d'accento al passaggio |
+
 ### Le sessioni: chi chiede lo dice un biglietto, non l'indirizzo *(2026-08-03)*
 
 Fino a qui l'identita' viaggiava nell'indirizzo: `?user=visitatore1` su ogni lettura, il nome
@@ -1274,7 +1286,7 @@ now. "Banco di lavoro" survives only where it means the *editor's* workbench.
 Erano due schermate, `visite` e `opere`, con due ricerche e due serie di filtri. Ora una
 sola, con **due sezioni intitolate**: le visite (copertina tipografica, `N tappe · N min`,
 livello, curatore, prezzo, e l'azione piu' forte disponibile — `Inizia` / `Completa` /
-`Sblocca`) e le opere (immagine con passe-partout, `N descrizioni · da € X`, con le
+`Sblocca`) e le opere (la figura che sfuma nella lastra, `N descrizioni · da € X`, con le
 descrizioni della stessa opera **raggruppate**, che e' il modo in cui reggono le 104 del
 Louvre). I due mazzi di carte restano diversi perche' dicono cose diverse: una visita si
 compra e si percorre, un'opera e' un contenitore di descrizioni.
@@ -1304,6 +1316,55 @@ I due indirizzi vecchi **rispondono ancora** e arrivano con la specie gia' scelt
 `#/visite` apre la vetrina sulle visite, `#/opere` sulle opere. Erano scritti in giro per
 l'app e in qualunque segnalibro, e un indirizzo che smette di funzionare rimanda alla soglia
 senza spiegare niente.
+
+### 4.6-bis La figura entra nella lastra, non ci viene incorniciata *(2026-08-05)*
+
+Segnalato cosi': attorno all'immagine di ogni opera c'e' un bordo, e non e' bello. Era la
+punta di una regola dichiarata — «immagini sempre a passe-partout, mai ritagliate» — che
+costava molto piu' di un bordo: la tessera era un vassoio grigio con dentro il quadro
+rimpicciolito e bande vuote ai lati, cioe' il grigio occupava il posto del colore
+dell'opera. In una vetrina di venti opere il museo arrivava incolore.
+
+La regola e' cambiata, e la riga che la divide adesso e' **a che cosa serve la figura**:
+
+| | | |
+| --- | --- | --- |
+| `.dissolvenza` | la tessera del catalogo | la figura riempie il riquadro, ritagliata, e **sfuma nella lastra** con una maschera; il blocco del testo risale dentro la coda della sfumatura, cosi' il titolo raggiunge l'immagine invece di essere annunciato sotto di lei |
+| `.figura` | l'opera vista per intero | nessun contenitore e nessuna proporzione imposta: sta sull'`<img>`, quindi non restano bande attorno a un quadro verticale. Pagina dell'opera, bozza dell'editor, scheda del navigator da `lg` |
+| `.miniatura` | il quadratino delle righe d'elenco | ritagliato, senza bordo. Il fondo resta, o la riga di un'opera senza immagine perde il suo posto |
+
+Il ritaglio si giustifica da se' una volta separate le due cose: una tessera e' un
+richiamo, la pagina e' la riproduzione. Non e' centrato ma spostato in alto, dove in un
+quadro verticale sta il soggetto.
+
+⚠️ **La maschera e' un vincolo di contrasto, non un effetto.** Il titolo e' inchiostro
+sulla lastra, quindi ogni punto d'immagine ancora acceso sotto di lui glielo toglie. Le
+fermate sono scelte perche' dove passa il testo l'alfa sia **0,12**, e il caso peggiore e'
+il tema **scuro**, dove il testo e' chiaro e una zona bianca del quadro che affiorasse gli
+si avvicinerebbe. Misurato leggendo il pixel vero di ogni quadro dietro ogni riga di
+titolo, su 49 tessere di due musei e nei due temi: **9,35:1 al chiaro, 5,99:1 al buio**.
+Chi tocca quelle fermate rifa' quella misura.
+
+**Il colore era gia' dichiarato e non acceso**, come i quattro semantici lo erano fino al
+2026-07-31 (§2.2). La riga sotto ogni tessera era grigia in blocco; ora il conto delle
+descrizioni e' **ardesia** (categoria) e il prezzo **ottone** (valore), che e' quel che il
+foglio dei token dice da sempre di quei due ruoli.
+
+⚠️ **Quella riga non era mai stata tradotta**, ed e' lo stesso punto cieco di §5.7-bis:
+`artworkSummary()` componeva `20 descrizioni · da gratis` con i backtick dentro `state.ts`,
+e cosi' facevano le tre righe d'elenco. `residui` guarda i nodi dei template e non poteva
+vederle. Sono diventate `artworkCount()` e `artworkFromPrice()` — due metodi e non uno,
+perche' portano due colori diversi e una stringa sola puo' averne uno solo. Catalogo
+**499 → 501** chiavi.
+
+⚠️ **La copertina di una visita NON prende la figura della prima tappa**, ed e' stato
+provato prima di scartarlo: le visite di catalogo di un museo sono le stesse opere nello
+stesso ordine e cambia solo il tono, quindi la stessa fotografia usciva su tutte e venti le
+tessere. Una scelta piu' furba non esiste nel dato — quale opera rappresenti un percorso e'
+una domanda di curatela. La copertina resta percio' tipografica, ma sulla **struttura**
+invece che sul grigio: la stessa superficie della soglia, il titolo in carattere display
+(**8,29:1**), e un filo d'accento che si accende in basso passandoci sopra. Il titolo non
+si ripete piu' sotto la copertina, dove era scritto due volte nella stessa tessera.
 
 ### 4.8 `opera/<qid>` · 4.9 `visita/<id>` — pages, not modals
 

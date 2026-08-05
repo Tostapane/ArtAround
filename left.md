@@ -1,5 +1,44 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-05, le immagini del marketplace
+
+Primo giro sulla sofisticazione grafica, che le slide pesano. Richiesta: piu' colore, e in
+particolare togliere il bordo attorno alle immagini della vetrina, far **sfumare** la figura
+e portarle il nome sopra. Ragionamento in `state.md` §4.6-bis.
+
+- **Tre classi al posto di `.mat*`** in `shared/components.css`: `.dissolvenza` (la tessera,
+  con la maschera), `.figura` (l'opera intera, **sull'`<img>` e senza contenitore**),
+  `.miniatura` (il quadratino delle righe). Sono sparite `.mat`, `.mat-grande`,
+  `.mat-piccolo`, `.mat-vuoto` e tre `<div>`/`<span>` d'involucro.
+- ⚠️ **La regola dichiarata e' cambiata**: `prelude.md` diceva «immagini sempre a
+  passe-partout, mai ritagliate». Ora si ritaglia nella tessera e si contiene nella pagina.
+  Chi rilegge quella riga sappia che e' stata superata di proposito.
+- ⚠️ **Le fermate della maschera sono un vincolo di contrasto**: dove passa il titolo l'alfa
+  vale 0,12. Misurato leggendo il pixel vero del quadro dietro ogni riga di titolo su 49
+  tessere, due musei, due temi: **9,35:1 chiaro, 5,99:1 scuro**. Toccandole, rifare la misura
+  (`contrasto.mjs` nello scratchpad).
+- ⚠️ **Difetto vero trovato guardando, non deducendo**: `artworkSummary()` non era mai stata
+  tradotta, ne' le tre righe d'elenco. `residui` non le poteva vedere — sono frasi composte
+  con `${}` dentro `state.ts`, esattamente il punto cieco di §5.7-bis. Ora `artworkCount()` e
+  `artworkFromPrice()`. **501 chiavi**, 12 lingue piene, zero orfane, `residui` a 4 (marchio).
+- ⚠️ **`1 descrizione` corretta a mano in en, ja, tr, zh-CN**: il modello, senza il plurale
+  sotto gli occhi, aveva risposto «1 opera» dove il plurale dice «descrizioni». E' la
+  trappola gia' pagata due volte — una voce di glossario non basta se le due forme si
+  traducono separatamente.
+- **La copertina di una visita** e' passata dal grigio alla **struttura**, col titolo in
+  display, e non lo ripete piu' sotto.
+  ⚠️ **Provato e scartato: metterci la figura della prima tappa.** Le visite di catalogo di
+  un museo sono le stesse opere nello stesso ordine, quindi usciva la stessa fotografia su
+  tutte e venti. Non c'e' una regola migliore nel dato. Se un giorno si riprova, il difetto
+  da conoscere e' l'altro che era emerso: `::after` e' l'ultimo figlio e dipinge **sopra** il
+  titolo, quindi `relative` da solo non basta a tirarlo su, ci vuole un `z-index`.
+
+**Verificato pilotando chromium**: la vetrina nei due temi, la pagina dell'opera, la bozza
+dell'editor, le righe del compositore, la scheda del navigator a 1400 e a 390 px (contenuta
+da `lg`, ritagliata sul telefono), piu' le misure di contrasto qui sopra. Zero errori in
+console, tre type-check verdi, `marketplace/dist` ricostruito. Nessun dato di prova nel
+database: si e' entrati dalla visita su misura, che non si salva.
+
 ## ⏸ Ripresa — 2026-08-05, le logistiche del museo mancavano a due visite su tre
 
 Segnalato come «dal marketplace non si vedono le logistiche, dall'elenco del navigator si'».
