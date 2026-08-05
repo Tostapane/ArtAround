@@ -178,7 +178,6 @@
           </div>
         </div>
 
-        <p class="text-caption text-on-structure/60" x-text="t(`Un'app da museo che parla, e un deposito dove i contenuti si costruiscono.`)"></p>
       </div>
     </section>
 
@@ -380,7 +379,7 @@
             </div>
             <div x-show="currentUserRole === 'visitatore'" class="mb-4">
               <span class="etichetta-impostazione text-on-structure/60" x-text="t('Credito')"></span>
-              <span class="valore font-display text-title-3" x-text="'€ ' + wallet.toFixed(2)"
+              <span class="valore-su-struttura font-display text-title-3" x-text="'€ ' + wallet.toFixed(2)"
                 :aria-label="t(`Credito disponibile: {n} euro`, { n: wallet.toFixed(2) })"></span>
             </div>
             <div class="flex items-center justify-between gap-2 border-t border-on-structure/20 pt-4">
@@ -406,10 +405,9 @@
           <!-- ---------- SCELTA DEL MUSEO ---------- -->
           <section x-show="view === 'musei'">
             <h1 class="font-display text-title-1" x-text="t(`Scegli il museo`)"></h1>
-            <p class="mt-2 text-small text-muted" x-text="t(`Tutto quello che vedrai dopo riguarda il museo che scegli qui. Puoi cambiarlo quando vuoi.`)"></p>
             <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <template x-for="m in museums" :key="m.qid">
-                <button type="button" @click="selectMuseum(m)" class="lastra scheda-click p-6 text-left"
+                <button type="button" @click="selectMuseum(m)" class="lastra filo-accento p-6 text-left"
                   :aria-label="t(`Entra nel museo {nome}`, { nome: m.name })">
                   <h2 class="font-display text-title-2 leading-tight" x-text="m.name"></h2>
                   <p class="mt-1 text-small text-muted" x-show="m.location" x-text="m.location"></p>
@@ -433,7 +431,7 @@
             </h1>
 
             <div class="mt-8 grid gap-4 md:grid-cols-2">
-              <a href="#/sumisura" class="lastra scheda-click filo-iride flex flex-col p-6">
+              <a href="#/sumisura" class="lastra filo-accento filo-iride flex flex-col p-6">
                 <span class="tessera-iride">
                   <svg class="h-6 w-6" aria-hidden="true"><use href="#ico-scintilla" /></svg>
                 </span>
@@ -443,7 +441,7 @@
                   <span x-text="t(`Descrivi la visita`)"></span> <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
                 </span>
               </a>
-              <a href="#/vetrina" @click="setMarketType('visite')" class="lastra scheda-click flex flex-col p-6">
+              <a href="#/vetrina" @click="setMarketType('visite')" class="lastra filo-accento flex flex-col p-6">
                 <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-visite" /></svg>
                 <h2 class="mt-4 font-display text-title-2" x-text="t(`Scegli una visita pronta`)"></h2>
                 <p class="mt-2 flex-1 text-small text-muted" x-text="t(`Percorsi già composti, gratuiti o a pagamento.`)"></p>
@@ -451,7 +449,7 @@
                   <span x-text="t(`Vedi le visite`)"></span> <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
                 </span>
               </a>
-              <a href="#/componi" @click="openComposer()" class="lastra scheda-click flex flex-col p-6">
+              <a href="#/componi" @click="openComposer()" class="lastra filo-accento flex flex-col p-6">
                 <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-componi" /></svg>
                 <h2 class="mt-4 font-display text-title-2" x-text="t(`Componi il tuo percorso`)"></h2>
                 <p class="mt-2 flex-1 text-small text-muted" x-text="t(`Scegli tu le opere, l'ordine e cosa è opzionale.`)"></p>
@@ -565,7 +563,7 @@
                     <!-- La copertina E' il titolo: ripeterlo sotto lo diceva due
                          volte nella stessa tessera. -->
                     <h3>
-                      <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="copertina" :aria-label="'Apri la scheda di ' + v.name">
+                      <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="copertina filo-accento" :aria-label="'Apri la scheda di ' + v.name">
                         <span x-text="v.name"></span>
                       </a>
                     </h3>
@@ -689,10 +687,10 @@
                     <template x-for="it in artworkItems()" :key="it['@id']">
                       <li class="lastra p-4">
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-                          <span class="pastiglia pastiglia-ardesia" x-text="it.educationalLevel"></span>
+                          <span class="pastiglia pastiglia-ametista" x-text="it.educationalLevel"></span>
                           <span class="tabular text-caption text-muted" x-text="it.timeRequired + 's di lettura'"></span>
                           <span class="text-caption text-muted" x-text="'di ' + (it.author || 'n/d')"></span>
-                          <span x-show="it.visibility === 'privato'" class="pastiglia pastiglia-ardesia" x-text="t(`Privato`)"></span>
+                          <span x-show="it.visibility === 'privato'" class="pastiglia pastiglia-ametista" x-text="t(`Privato`)"></span>
                           <span class="valore ml-auto font-display text-title-3" x-text="readablePrice(it.price)"></span>
                         </div>
 
@@ -843,13 +841,18 @@
                 <ol class="mt-4 flex flex-col gap-2">
                   <template x-for="tappa in visitStops(currentVisit())" :key="tappa.id">
                     <li>
-                      <div class="lastra flex items-center gap-4 p-4">
-                        <span class="tabular font-display text-title-2 text-muted" x-text="String(tappa.numero).padStart(2,'0')"></span>
-                        <div class="min-w-0 flex-1">
-                          <p class="font-medium" x-text="tappa.nome"></p>
-                          <p class="text-caption text-muted" x-text="itemDetail(tappa.id)"></p>
+                      <div class="lastra riga-figurata">
+                        <span class="figura-riga">
+                          <img x-show="itemImage(tappa.id)" :src="itemImage(tappa.id)" alt="" loading="lazy">
+                          <span class="numero-tappa" x-text="String(tappa.numero).padStart(2,'0')"></span>
+                        </span>
+                        <div class="riga-corpo flex items-center gap-4">
+                          <div class="min-w-0 flex-1">
+                            <p class="font-medium" x-text="tappa.nome"></p>
+                            <p class="text-caption text-muted" x-text="itemDetail(tappa.id)"></p>
+                          </div>
+                          <span x-show="tappa.opzionale" class="pastiglia pastiglia-ametista" x-text="t(`Opzionale`)"></span>
                         </div>
-                        <span x-show="tappa.opzionale" class="pastiglia pastiglia-ardesia" x-text="t(`Opzionale`)"></span>
                       </div>
                       <template x-for="note in notesAfter(currentVisit(), tappa.id)">
                         <p class="nota-logistica">
@@ -940,11 +943,11 @@
             <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <template x-for="g in myItemGroups()" :key="g.artwork['@id']">
                 <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
-                  class="lastra scheda-click flex items-center gap-4 p-4" x-data="{ rotta: false }">
-                  <span class="miniatura">
+                  class="lastra riga-figurata filo-accento" x-data="{ rotta: false }">
+                  <span class="figura-riga">
                     <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
                   </span>
-                  <span class="min-w-0">
+                  <span class="riga-corpo self-center">
                     <span class="block truncate font-medium" x-text="g.artwork.name"></span>
                     <span class="tabular block text-caption text-muted"
                       x-text="artworkCount(g)"></span>
@@ -994,7 +997,7 @@
                         <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
                         <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                         <p class="mt-1 flex flex-wrap items-center gap-2">
-                          <span x-show="v.accessKey" class="pastiglia pastiglia-ardesia">
+                          <span x-show="v.accessKey" class="pastiglia pastiglia-ametista">
                             <svg class="h-3.5 w-3.5" aria-hidden="true"><use href="#ico-chiave" /></svg>
                             <span x-text="v.accessKey"></span>
                           </span>
@@ -1024,11 +1027,11 @@
                 <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <template x-for="g in workItemGroups()" :key="g.artwork['@id']">
                     <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
-                      class="lastra scheda-click flex items-center gap-4 p-4" x-data="{ rotta: false }">
-                      <span class="miniatura">
+                      class="lastra riga-figurata filo-accento" x-data="{ rotta: false }">
+                      <span class="figura-riga">
                         <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
                       </span>
-                      <span class="min-w-0">
+                      <span class="riga-corpo self-center">
                         <span class="block truncate font-medium" x-text="g.artwork.name"></span>
                         <span class="tabular block text-caption text-muted"
                           x-text="artworkCount(g)"></span>
@@ -1200,12 +1203,6 @@
               <span x-text="t(`Descrivi il tempo che hai, con chi sei, cosa ti interessa. Le opere vengono scelte fra quelle di {museo} e le descrizioni scritte su quello che hai chiesto.`, { museo: selectedMuseum ? selectedMuseum.name : t(`questo museo`) })"></span>
             </p>
 
-            <div class="mt-6 flex flex-wrap gap-2">
-              <template x-for="e in customExamples" :key="e">
-                <button type="button" class="pastiglia-bottone normal-case" @click="customRequest = e" x-text="e"></button>
-              </template>
-            </div>
-
             <label for="sumisura-testo" class="mt-6 block text-small font-semibold" x-text="t(`La visita che vorresti`)"></label>
             <textarea id="sumisura-testo" x-model="customRequest" rows="4"
               class="campo mt-2 resize-y"
@@ -1278,15 +1275,22 @@
 
                   <ol class="mt-3 flex flex-col gap-2">
                     <template x-for="(stop, index) in draft.tappe" :key="index">
-                      <li class="lastra flex items-center gap-3 p-3" :class="stop.tipo === 'logistica' ? 'bg-surface-2' : ''">
-                        <span x-show="stop.tipo === 'item'" class="tabular w-7 shrink-0 text-center font-display text-title-3 text-muted"
-                          x-text="String(stopNumber(index)).padStart(2,'0')"></span>
-                        <svg x-show="stop.tipo === 'logistica'" class="h-5 w-5 w-7 shrink-0 text-muted" aria-hidden="true"><use href="#ico-nota" /></svg>
+                      <li class="lastra riga-figurata" :class="stop.tipo === 'logistica' ? 'bg-surface-2' : ''">
+                        <!-- La tappa porta la sua opera, la nota logistica no: non e' una
+                             tappa, e la riga lo dice prima di essere letta. -->
+                        <span x-show="stop.tipo === 'item'" class="figura-riga figura-riga-corta">
+                          <img x-show="itemImage(stop.value)" :src="itemImage(stop.value)" alt="" loading="lazy">
+                          <span class="numero-tappa" x-text="String(stopNumber(index)).padStart(2,'0')"></span>
+                        </span>
+                        <span x-show="stop.tipo === 'logistica'" class="flex w-12 shrink-0 items-center justify-center self-stretch">
+                          <svg class="h-5 w-5 text-muted" aria-hidden="true"><use href="#ico-nota" /></svg>
+                        </span>
 
-                        <div class="min-w-0 flex-1">
+                        <div class="riga-corpo flex items-center gap-3">
+                          <div class="min-w-0 flex-1">
                           <template x-if="stop.tipo === 'item'">
                             <div>
-                              <p class="truncate font-medium" x-text="itemName(stop.value)"></p>
+                              <p class="line-clamp-2 font-medium" x-text="itemName(stop.value)"></p>
                               <p class="text-caption text-muted" x-text="itemDetail(stop.value)"></p>
                             </div>
                           </template>
@@ -1297,7 +1301,7 @@
                                 :placeholder="t(`Prosegui a sinistra della scala verso la sala 12`)">
                             </div>
                           </template>
-                        </div>
+                          </div>
 
                         <div class="flex shrink-0 items-center gap-1">
                           <button type="button" x-show="stop.tipo === 'item'" @click="toggleOptional(index)"
@@ -1318,6 +1322,7 @@
                             class="icona-mini text-danger">
                             <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-chiudi" /></svg>
                           </button>
+                        </div>
                         </div>
                       </li>
                     </template>
@@ -1365,24 +1370,26 @@
 
                   <ul class="mt-4 flex flex-col gap-2">
                     <template x-for="g in editorLibrary()" :key="g.artwork['@id']">
-                      <li class="lastra p-3" x-data="{ aperta: false, rotta: false }">
+                      <li class="lastra overflow-hidden" x-data="{ aperta: false, rotta: false }">
                         <button type="button" @click="aperta = !aperta" :aria-expanded="aperta"
-                          class="flex w-full items-center gap-3 text-left">
-                          <span class="miniatura">
+                          class="riga-figurata filo-accento w-full text-left">
+                          <span class="figura-riga">
                             <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
                           </span>
-                          <span class="min-w-0 flex-1">
-                            <span class="block truncate font-medium" x-text="g.artwork.name"></span>
-                            <span class="tabular block text-caption text-muted"
-                              x-text="artworkCount(g)"></span>
+                          <span class="riga-corpo flex items-center gap-3">
+                            <span class="min-w-0 flex-1">
+                              <span class="block truncate font-medium" x-text="g.artwork.name"></span>
+                              <span class="tabular block text-caption text-muted"
+                                x-text="artworkCount(g)"></span>
+                            </span>
+                            <svg class="h-4 w-4 shrink-0 text-muted" aria-hidden="true"><use :href="aperta ? '#ico-su' : '#ico-giu'" /></svg>
                           </span>
-                          <svg class="h-4 w-4 shrink-0 text-muted" aria-hidden="true"><use :href="aperta ? '#ico-su' : '#ico-giu'" /></svg>
                         </button>
-                        <ul x-show="aperta" x-collapse class="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+                        <ul x-show="aperta" x-collapse class="flex flex-col gap-2 border-t border-line p-3">
                           <template x-for="it in g.items" :key="it['@id']">
                             <li class="flex items-center gap-3">
                               <span class="min-w-0 flex-1">
-                                <span class="pastiglia pastiglia-ardesia" x-text="it.educationalLevel"></span>
+                                <span class="pastiglia pastiglia-ametista" x-text="it.educationalLevel"></span>
                                 <span class="tabular ml-2 text-caption text-muted" x-text="it.timeRequired + 's · '"></span><span class="valore text-caption" x-text="readablePrice(it.price)"></span>
                               </span>
                               <button type="button" @click="addStop('item', it['@id'])" :disabled="itemInVisit(it['@id'])"
@@ -1542,9 +1549,9 @@
                 </thead>
                 <tbody>
                   <template x-for="r in filteredSales()" :key="r.id">
-                    <tr class="border-b border-line last:border-0">
+                    <tr class="border-b border-line transition-colors last:border-0 hover:bg-surface-2">
                       <th scope="row" class="px-4 py-3 font-medium" x-text="r.name"></th>
-                      <td class="px-4 py-3"><span class="pastiglia pastiglia-ardesia" x-text="r.type"></span></td>
+                      <td class="px-4 py-3"><span class="pastiglia pastiglia-ametista" x-text="r.type"></span></td>
                       <td class="px-4 py-3 text-muted" x-text="r.license"></td>
                       <td class="valore px-4 py-3 text-right" x-text="readablePrice(r.price)"></td>
                       <td class="tabular px-4 py-3 text-right font-medium" x-text="r.adozioni"></td>
@@ -1588,9 +1595,12 @@
                   <template x-for="r in overview.copertura.perTono" :key="r.tono">
                     <li class="flex items-center gap-4 px-5 py-4">
                       <span class="w-28 shrink-0 text-small font-medium" x-text="r.tono"></span>
-                      <span class="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+                      <!-- La barra e' ACQUISITO e non accento: dice quanto del
+                           catalogo esiste gia', non un posto dove si puo' andare.
+                           L'accento qui direbbe "clicca", che questa barra non fa. -->
+                      <span class="h-2 flex-1 overflow-hidden rounded-full" style="background-color: var(--sage-velo)">
                         <span class="block h-full rounded-full"
-                          :class="r.opere === 0 ? 'bg-danger' : 'bg-accent'"
+                          :class="r.opere === 0 ? 'bg-danger' : 'bg-sage'"
                           :style="'width:' + percentualeCopertura(r) + '%'"></span>
                       </span>
                       <span class="tabular w-20 shrink-0 text-right text-small"
@@ -1736,17 +1746,20 @@
                 </thead>
                 <tbody>
                   <template x-for="r in catalogRows()" :key="r.kind + r.id">
-                    <tr class="border-b border-line last:border-0">
+                    <tr class="border-b border-line transition-colors last:border-0 hover:bg-surface-2">
                       <th scope="row" class="px-4 py-3 font-medium">
                         <span x-text="r.name"></span>
-                        <span x-show="r.privato" class="pastiglia pastiglia-ardesia ml-2" x-text="t(`Privata`)"></span>
-                        <span x-show="r.guidata" class="pastiglia pastiglia-ardesia ml-2" x-text="t(`Guidata`)"></span>
+                        <span x-show="r.privato" class="pastiglia pastiglia-ametista ml-2" x-text="t(`Privata`)"></span>
+                        <span x-show="r.guidata" class="pastiglia pastiglia-ametista ml-2" x-text="t(`Guidata`)"></span>
                       </th>
                       <td class="px-4 py-3">
-                        <span class="pastiglia pastiglia-ardesia" x-text="r.kind === 'item' ? 'Descrizione' : 'Visita'"></span>
+                        <span class="pastiglia pastiglia-ametista" x-text="r.kind === 'item' ? 'Descrizione' : 'Visita'"></span>
                       </td>
                       <td class="px-4 py-3 text-muted" x-text="r.author"></td>
-                      <td class="px-4 py-3 text-muted" x-text="r.tone || 'n/d'"></td>
+                      <td class="px-4 py-3">
+                        <span x-show="r.tone" class="pastiglia pastiglia-ametista" x-text="r.tone"></span>
+                        <span x-show="!r.tone" class="text-muted">n/d</span>
+                      </td>
                       <td class="tabular px-4 py-3 text-right" x-text="durationLabel(r)"></td>
                       <td class="valore px-4 py-3 text-right" x-text="readablePrice(r.price)"></td>
                       <td class="px-4 py-3 text-right">

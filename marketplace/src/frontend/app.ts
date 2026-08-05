@@ -98,9 +98,29 @@ export function swarm() {
     still: false,
     ink: { r: 255, g: 255, b: 255 },
 
-    /** Durate delle due fasi, in millisecondi. */
-    MORPH: 3000,
-    HOLD: 3400,
+    /**
+     * Durate delle due fasi, in millisecondi.
+     *
+     * Le due non si accorciano allo stesso modo, ed e' la cosa da sapere prima
+     * di toccarle. `HOLD` e' tempo in cui non succede niente: si taglia quasi
+     * per intero e si perde solo attesa. `MORPH` e' il passaggio, cioe' l'unica
+     * parte che si guarda, e accorciarlo alza la velocita' di ogni punto: la
+     * smootherstep ha derivata massima 1,875, e ogni fotogramma copre quindi
+     * `1,875 / (MORPH / 16,7)` del tragitto, sul punto piu' ritardato diviso
+     * ancora per `1 - 0,35`. A 3000 ms erano l'1,6% per fotogramma; il difetto
+     * che si vedeva come "uno scatto meccanico", prima dell'interpolazione, ne
+     * faceva 8,00%. Sotto il secondo si torna in quella zona.
+     *
+     * Tarate per una dimostrazione: un ciclo dura 2,7 s invece di 6,4, cioe' in
+     * un minuto si vedono 22 opere invece di 9.
+     *
+     * `HOLD` e' basso apposta e la figura si vede piu' a lungo di cosi': la
+     * smootherstep arriva sul bersaglio con velocita' nulla, quindi l'ultimo
+     * quinto del passaggio e' gia' la figura quasi ferma. Il tempo in cui si
+     * legge e' quella coda piu' `HOLD`, non `HOLD` da solo.
+     */
+    MORPH: 1800,
+    HOLD: 900,
     /** Quanto si incurva al massimo una traiettoria, in frazione della sua
      *  lunghezza. Oltre un quinto le scie si incrociano e si legge come
      *  turbolenza; sotto un ventesimo non si distingue da una retta. */

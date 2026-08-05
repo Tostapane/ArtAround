@@ -537,7 +537,7 @@ const optionalCount = computed(() => {
         <li v-for="(match, i) in matchedContent" :key="match.item['@id']">
           <button
             type="button"
-            class="lastra flex w-full items-center gap-4 p-4 text-left transition-colors hover:bg-surface-2"
+            class="lastra filo-accento flex w-full items-center gap-4 p-4 text-left"
             :class="{
               'opacity-60': isOptionalItem(match.item['@id']) && !includeOptional,
               'border-l-4 border-l-accent': i === props.currentIndex,
@@ -558,7 +558,7 @@ const optionalCount = computed(() => {
                 </span>
               </span>
             </span>
-            <span v-if="isOptionalItem(match.item['@id'])" class="pastiglia pastiglia-ardesia shrink-0">
+            <span v-if="isOptionalItem(match.item['@id'])" class="pastiglia pastiglia-ametista shrink-0">
               {{ t("Opzionale") }}
             </span>
           </button>

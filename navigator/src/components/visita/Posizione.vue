@@ -291,7 +291,7 @@ onUnmounted(() => scanner.stop());
               <li v-for="c in candidati" :key="c.qid">
                 <button
                   type="button"
-                  class="lastra w-full overflow-hidden p-0 text-left transition-colors hover:bg-surface-2"
+                  class="lastra filo-accento w-full overflow-hidden p-0 text-left"
                   @click="emit('found', c.qid)"
                 >
                   <img

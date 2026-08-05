@@ -11,16 +11,17 @@ MANCANTI
 - stuiole: unknown
 - gli uffizi hanno tutto gratis
 - queste licenze hanno senso?
+- aggiungere un filtro per durata nel marketplace
 - su sfondo chiaro le schede degli item rimangono chiare e si confondono con il bordo
 - e se volessi mostrare all'inizio altre opere oltre quelle di adesso?
 - cliccare su  gli item di un artwork ti apre la pagina in fondo alla lista
 - the image should fade behing the name in the marketplace, in order to not leave an awful border
 - svg piu' dettagliati e complessi
 - in the componi part, same thing, the fading would be appreciated instead of a small square
+- immagine per le visite
+- aumenta velocita animazione
+- adozione mediante unico file di configurazione
 DA DISCUTERE
-- Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere?
-- controllo su opere non esistenti o errate
-- qr code per visite?
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
 - testare il nuovo sistema di audio su iphone

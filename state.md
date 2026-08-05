@@ -121,6 +121,64 @@ marketplace (§4.6-bis).
 | `artworkSummary()` non era **mai** stata tradotta: `20 descrizioni · da gratis` in tutte e tredici le lingue | `artworkCount()` + `artworkFromPrice()`, catalogo 499 → 501 |
 | la copertina di una visita era grigia, e ripeteva il titolo che stava gia' sotto | tipografica sulla **struttura**, il titolo detto una volta sola, filo d'accento al passaggio |
 
+### 0.5 What the 2026-08-05 restyle closed
+
+Secondo giro sulla sofisticazione grafica, e stavolta sul sistema invece che su una schermata.
+La griglia di valutazione (slide 36) non chiede "piu' bello": chiede attenzione alla
+**presentazione delle informazioni**, al rapporto fra dimensione della maschera e dimensione
+del dato, e alla **corretta differenziazione nei tipi di dati e di annotazioni**. Le voci qui
+sotto sono scritte per rispondere a quella, non a un gusto.
+
+| Was | Now |
+| --- | --- |
+| la sorgente era spenta: sei ruoli a croma basso, due dei quali (categoria e accento) a 28 gradi l'uno dall'altro | sorgente **accesa** a regola dichiarata; coppia piu' vicina da ΔRGB 15 a 53; zero coppie sotto AA (§2.2) |
+| il quadratino grigio da 56 px in ogni riga d'elenco: l'opera rimpicciolita dentro un fondo che le toglieva il colore | `.riga-figurata` — la figura entra dal bordo della riga e sfuma nella lastra prima del testo (§2.4) |
+| le tappe di un percorso erano un numero e un titolo: il compositore e la pagina della visita non mostravano mai le opere che si stanno mettendo in fila | ogni tappa porta la sua figura col numero su un dischetto di struttura; la nota logistica no, e si vede che non e' una tappa |
+| ogni lastra cliccabile si segnalava riempiendosi di grigio | `.filo-accento`: un filo d'accento che cresce da sinistra. Il grigio diceva "questa lastra e' diversa", che non e' vero |
+| le pastiglie erano bordo e testo su un grigio | fondo alla **velatura** del ruolo: la stessa tinta del testo al 12%, quindi trasparente e posabile su una fotografia |
+| la barra incollata tagliava di netto le righe che le passavano sotto | `.vetro`: fondo traslucido e sfocato, con ricaduta al fondo pieno dove `backdrop-filter` non c'e' |
+| la barra di copertura del curatore era d'**accento**, cioe' del colore di "dove puoi andare", per dire quanto catalogo esiste | e' **acquisito**, che e' il ruolo giusto; la pista e' la sua velatura |
+| il credito nel binario era ottone su Notte: **1,87:1 al chiaro**, illeggibile | `--brass-chiaro` e `.valore-su-struttura`, **5,73:1 in tutt'e due i temi** |
+| nel catalogo del curatore il tono era testo grigio, mentre in ogni altra schermata dell'app e' una pastiglia | pastiglia come altrove; e le righe di tutt'e due le tabelle si seguono col fondo al passaggio, che su sette colonne serve a leggere |
+| la copertina di una visita aveva un filo d'accento **suo**, con un innesco diverso da quello di ogni altra lastra | una meccanica sola: `.filo-accento` si accende anche quando a essere puntata e' la tessera che lo contiene (`.group:hover`) |
+
+⚠️ **Il difetto del credito e' vecchio e non l'aveva mai visto nessuno**, ed e' la ragione per
+cui questa passata e' stata misurata invece che guardata: il binario e' scuro in tutt'e due i
+temi, ma l'ottone si schiarisce **solo** al buio, quindi al chiaro il credito era ottone scuro
+su Notte. E' la stessa forma del difetto gia' pagato col `<select>` sul binario (§2.3): un
+token che segue il tema, messo su una superficie che il tema non cambia.
+
+### 2.4 Il vocabolario della dissolvenza *(2026-08-05)*
+
+La dissolvenza esisteva in un posto solo, la tessera della vetrina (§4.6-bis). Ora e' una
+lingua, e la riga che divide le sue tre forme e' **se sopra la figura ci passa del testo**:
+
+| | dove | il testo ci passa sopra? |
+| --- | --- | --- |
+| `.dissolvenza` | la tessera del catalogo | **si'**, quindi le fermate della maschera sono un vincolo di contrasto e vanno misurate |
+| `.riga-figurata` + `.figura-riga` | le righe d'elenco: libreria, lavori, compositore, percorso di una visita | **no**: la sfumatura arriva a zero prima della colonna di testo |
+| `.figura-sfumata` | la scheda del navigator sul telefono | **no**, e da `lg` la maschera si toglie: li' c'e' l'altezza per l'opera intera, e quella non si sfuma, si guarda |
+
+⚠️ **Che il testo non ci passi sopra non e' pigrizia, e' quel che rende la riga sicura**: senza
+testo sull'immagine non esiste nessun rapporto di contrasto che dipenda da quale quadro sia
+capitato in quella riga. La tessera della vetrina paga invece quel prezzo, e infatti e' l'unica
+delle tre che ha una misura da rifare quando la si tocca.
+
+⚠️ **Il numero della tappa e' un dischetto PIENO di struttura, non testo sull'immagine**, per la
+stessa ragione: cosi' il rapporto e' quello del disco (10,68:1) e non dipende dal quadro.
+
+⚠️ **Il fondo al passaggio su una riga di tabella non contraddice il filo d'accento.** Sono due
+cose diverse: il filo dice «questa lastra si puo' toccare», la riga di una tabella non si tocca
+e il suo fondo serve a **seguire con l'occhio** sette colonne fino in fondo. Il grigio e' stato
+tolto dalle lastre cliccabili, non da qui.
+
+⚠️ **La velatura non va sotto un testo della sua stessa tinta se il fondo e' gia' `surface-2`.**
+Le varianti colorate della pastiglia *sostituiscono* `bg-surface-2` con la loro velatura, ed e'
+quello a tenerle sopra AA: la velatura finisce sulla lastra e non sopra un secondo grigio.
+Misurato sugli elementi veri a schermo: 5,38:1 al chiaro e 4,77:1 al buio; la stessa pastiglia
+posata su `surface-2` fa 3,91:1. Se un giorno ne serve una dentro un `.vuoto` o un `.avviso`,
+il fondo va tolto, non aggiunto.
+
 ### Le sessioni: chi chiede lo dice un biglietto, non l'indirizzo *(2026-08-03)*
 
 Fino a qui l'identita' viaggiava nell'indirizzo: `?user=visitatore1` su ogni lettura, il nome
@@ -661,9 +719,44 @@ allarme resta l'unico rosso e valore l'unico oro (altrimenti i sei ruoli cromati
 collassano). La seconda e' piu' vincolante di quanto sembri: **esclude gli accenti caldi**,
 perche' il caldo e' gia' occupato due volte — un accento rame finisce a ΔRGB 45 dall'allarme.
 
-**In uso: "Sala e Deposito"**, l'originale — gesso, cemento, grafite; struttura Notte
-`#284B63`, accento Verderame `#3C6E71`. Le sorgenti gia' provate stanno in coda al file,
-pronte da reincollare.
+**In uso: "Sala e Deposito, accesa"** *(dal 2026-08-05)* — gesso, cemento, grafite;
+struttura Notte `#0A3A55`, accento Verderame `#196969`. La versione spenta che l'ha
+preceduta, e le altre sorgenti gia' provate, stanno in coda al file pronte da reincollare.
+
+**La regola con cui e' stata accesa, che e' la cosa da saper dire:** ogni ruolo e' il colore
+**piu' saturo della sua tinta che regge ancora 4.6:1 come testo sul muro**. La luminosita'
+non e' un dato d'ingresso, e' la conseguenza. Serve dirlo perche' la strada che viene in mente
+per prima — "accendere" schiarendo — e' quella che rompe tutto: su un tema chiaro il colore si
+legge sul bianco, quindi schiarirlo gli toglie proprio il contrasto che deve avere. Provata:
+alzando la luminosita' l'accento sulla lastra scendeva da 5,74:1 a 3,97:1, sotto AA. Alzando
+il solo croma a luminosita' ferma i rapporti non si muovono di 0,05.
+
+**La struttura fa eccezione, ed e' una differenza di ruolo, non uno strappo:** non e' un testo,
+e' un fondo, quindi si giudica dal bianco che ci sta sopra. Puo' percio' andare piu' scura di
+tutte le altre — 12:1 contro i 9,22:1 di prima — ed e' quel che la fa leggere come autorita'
+invece che come una settima tinta.
+
+**La categoria ha cambiato tinta, e questo e' il punto che la griglia di valutazione premia.**
+Stava a 28 gradi dall'accento: «che tipo di dato e' questo» e «dove puoi andare» avevano quasi
+lo stesso colore, cioe' esattamente la *corretta differenziazione nei tipi di dati e di
+annotazioni* della slide 36. Portata a 288 gradi (ametista), la coppia piu' vicina fra i sei
+ruoli passa da **ΔRGB 15 a 53**. Il nome della classe e' cambiato di conseguenza —
+`.pastiglia-ardesia` → `.pastiglia-ametista` — perche' un nome che descrive un colore che non
+c'e' piu' e' peggio di nessun nome.
+
+| | prima | dopo |
+| --- | --- | --- |
+| `accento` sul muro | 4,06:1, **l'unica eccezione AA dichiarata** | **4,60:1**, chiusa |
+| bianco sulla `struttura` | 9,22:1 | **12,00:1** |
+| coppia di ruoli piu' vicina | ΔRGB 15 | **ΔRGB 53** |
+| croma dei sei ruoli | — | ×1,1 … ×3,6 |
+| coppie sotto AA sui token derivati | **4** | **0** |
+
+Quelle quattro coppie che la sorgente vecchia aveva sotto AA, misurate per confronto e non
+dedotte: `accento` su surface-2 al chiaro (4,06), `allarme` su surface (4,46) e su surface-2
+(3,43) al buio, `muted` su surface-2 al buio (3,48). Accendendo la sorgente le prime due si
+sono chiuse da se'; le altre due hanno richiesto di tarare la derivazione al buio —
+`--danger` da `oklch(… 0.71 …)` a `0.82` e `--muted` dal 66% al 78% di muro.
 
 **I quattro semantici erano dichiarati e non usati.** Fino al 2026-07-31 `--brass`,
 `--slate` e `--tint` comparivano **zero volte** in entrambe le app, e il navigator non usava
@@ -1251,6 +1344,10 @@ and in what order via `server/src/data/soglia.json` → `GET /api/config`, and *
 in the marketplace**, so genericity holds; without the file it falls back to the first six of
 the catalogue. Motion is an eased interpolation along bowed paths (`left.md` §0-bis, eighth
 pass); `prefers-reduced-motion` composes one figure and stops.
+**Le due durate sono tarate per una dimostrazione** (2026-08-05): `MORPH` 1800 ms e `HOLD`
+900 ms, cioe' un ciclo di 2,7 s e **21 opere al minuto** invece di 9. Si accorcia molto piu'
+volentieri `HOLD`, che e' attesa e basta, che `MORPH`, che e' la sola parte che si guarda e
+sotto il secondo torna a leggersi come uno scatto.
 
 Two doors: `Entra` and `Guarda com'è fatta una visita` (opens the navigator with no account —
 free visits only). Nothing is asked before something is shown. Since 2026-07-28 the screen

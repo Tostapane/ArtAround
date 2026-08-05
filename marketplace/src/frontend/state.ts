@@ -2063,12 +2063,6 @@ export class AppState {
 
   // --- Visita su misura -----------------------------------------------------
 
-  customExamples: string[] = [
-    "Ho solo mezz'ora, mostrami le cose più importanti",
-    "Siamo due adulti e due bambini di 5 e 8 anni",
-    "Mi piace il giallo",
-  ];
-
   customReady(): boolean {
     return this.customRequest.trim() !== "" && !!this.selectedMuseum;
   }
@@ -2419,6 +2413,19 @@ export class AppState {
     const item = this.findItem(id);
     if (!item || !isItem(item)) return "";
     return `${item.educationalLevel} · ${item.timeRequired}s`;
+  }
+
+  /**
+   * La figura di una tappa: l'opera che la descrizione racconta, oppure
+   * l'immagine caricata dall'autore quando il soggetto un'opera non e'.
+   * Torna vuota se non c'e' ne' l'una ne' l'altra, e va bene: la riga tiene lo
+   * stesso il suo posto, perche' la velatura sotto la figura resta anche senza.
+   */
+  itemImage(id: string): string {
+    const item = this.findItem(id);
+    if (!item || !isItem(item)) return "";
+    if (item.about) return this.artworkImage(item.about);
+    return item.imagePath || "";
   }
 
   itemInVisit(id: string) {

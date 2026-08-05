@@ -577,7 +577,8 @@ onUnmounted(() => {
       </div>
       <div
         v-if="navigableStops.length"
-        class="h-0.5 shrink-0 bg-surface-2"
+        class="h-0.5 shrink-0"
+        style="background-color: var(--accent-velo)"
         aria-hidden="true"
       >
         <div

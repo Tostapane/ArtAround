@@ -1,5 +1,131 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-05, lo sciame piu' svelto
+
+Richiesta: durante una dimostrazione si devono vedere piu' opere senza stare ad aspettare.
+
+- `MORPH` 3000 → **1800**, `HOLD` 3400 → **900**. Ciclo da 6,4 s a **2,7 s**.
+- ⚠️ **Le due fasi non si accorciano allo stesso modo, ed e' la ragione per cui il taglio non
+  e' proporzionale.** `HOLD` e' tempo in cui non succede niente: si taglia e si perde solo
+  attesa. `MORPH` e' l'unica parte che si guarda, e accorciarlo alza la velocita' di ogni
+  punto — la smootherstep ha derivata massima 1,875, e il punto piu' ritardato dispone solo
+  del 65% della fase. Sotto il secondo si torna verso lo strappo che era gia' costato una
+  passata (`left.md` §0-bis, ottava).
+- **Il modello del moto non e' stato toccato**: interpolazione, archi, ritardo per punto,
+  ramo a moto ridotto. Sono cambiate due durate.
+
+- ⚠️ **`HOLD` puo' stare basso perche' la figura si vede piu' a lungo di lui.** La
+  smootherstep arriva sul bersaglio con velocita' nulla, quindi l'ultimo quinto del passaggio
+  e' gia' la figura quasi ferma: il tempo in cui si legge e' quella coda piu' `HOLD`.
+
+**Misurato in chromium, non stimato:** 8,6 → **21 opere al minuto**, con i fotogrammi al
+secondo sani (57,3) e zero errori in console.
+
+⚠️ **Una finestra di misura corta non distingue due cadenze vicine.** Su 15 secondi passano
+sei transizioni, quindi una in piu' o in meno vale ±4 opere al minuto: 3,4 s e 2,7 s di ciclo
+davano lo stesso numero. Su 40 secondi si separano (16,5 contro 21) e tornano a coincidere con
+il conto teorico.
+
+⚠️ **Trappola della misura, non del codice.** Il primo confronto campionava *tutte* le
+particelle a ogni fotogramma per misurare lo spostamento: la sonda da sola dimezzava il frame
+rate (28-31 fps), e siccome lo spostamento per fotogramma dipende dal frame rate, quella
+colonna confrontava il costo della sonda e non la modifica. La sonda che conta e' leggera.
+
+⚠️ **`prefers-reduced-motion: reduce` e' il valore di serie di chromium headless**: senza
+`Emulation.setEmulatedMedia` si misura il ramo fermo, dove non c'e' nessuna animazione.
+
+## ⏸ Ripresa — 2026-08-05, il restyle: sorgente accesa e lingua della dissolvenza
+
+Richiesta: i flussi vanno bene, ma le slide pesano la *sofisticazione grafica*, quindi curare
+molto di piu' il dettaglio — sfumature, trasparenze, accenti, colori accesi — e in particolare,
+nel compositore, sostituire il quadratino con una dissolvenza. Ragionamento durevole in
+`state.md` §0.5 (riepilogo), §2.2 (la sorgente) e §2.4 (le tre forme della dissolvenza).
+
+### Quel che e' stato fatto
+
+- **Sorgente accesa** a regola dichiarata (`shared/theme.css`): ogni ruolo e' il colore piu'
+  saturo della sua tinta che regge 4,6:1 sul muro. La `categoria` ha cambiato tinta (ardesia →
+  **ametista**, 288 gradi), e con lei il nome della classe.
+- **Velature** (`--*-velo`), **vetro** (`--vetro` + `@utility vetro`), **filo d'accento**,
+  **riga figurata** (`.riga-figurata` / `.figura-riga` / `.riga-corpo` / `.numero-tappa`),
+  **figura sfumata**. Sparite `.miniatura` e `.scheda-click`, che non le usava piu' nessuno.
+- **Marketplace**: compositore (libreria e percorso), libreria, lavori, percorso della pagina
+  di una visita, home, scelta del museo, barra di copertura del curatore.
+- **Navigator**: scheda, biglietteria, elenco delle tappe, pista dell'avanzamento.
+- Un metodo nuovo, `itemImage(id)` in `state.ts`: la figura di una tappa e' l'opera che
+  descrive, oppure l'immagine caricata quando il soggetto un'opera non e'.
+
+### I due difetti veri, tutt'e due trovati misurando
+
+⚠️ **Il credito nel binario era illeggibile nel tema chiaro: 1,87:1.** Il binario e' scuro in
+tutt'e due i temi, ma l'ottone si schiarisce **solo** al buio. E' la stessa forma del difetto
+del `<select>` sul binario: un token che segue il tema, messo su una superficie che il tema non
+cambia. Ora `--brass-chiaro` + `.valore-su-struttura`, **5,73:1 nei due temi**. E' vecchio
+quanto il binario, non l'ha introdotto questa passata.
+
+⚠️ **Due coppie erano sotto AA al buio da prima**, e la sorgente accesa da sola non bastava:
+`--danger` e' passato da `oklch(… 0.71 …)` a `0.82` e `--muted` dal 66% al 78% di muro. Con
+quelle due, le coppie sotto AA sui token derivati passano da **4 a 0**.
+
+### Trappole, e sono tutte della prova
+
+⚠️ **`@apply` in Tailwind 4 non vede le classi di `@layer components`.** `.vetro` serviva dentro
+`.barra`, e scritta come le altre fermava la compilazione con «Cannot apply unknown utility
+class». Va dichiarata `@utility`, che sta **fuori** dal blocco `@layer`.
+
+⚠️ **E poi `@apply` si e' portato via il `@supports`, spegnendo il vetro ovunque in silenzio.**
+La ricaduta al fondo pieno stava dentro l'`@utility`; appiattendola dentro `.barra`, Tailwind ha
+emesso `background-color: var(--bg)` **senza la condizione**, cioe' come regola successiva che
+vinceva sempre. Il sorgente sembrava giusto e il foglio compilato diceva un'altra cosa: trovato
+leggendo `dist/style.css`, non il CSS scritto a mano. Ora la condizione sta su una variabile
+(`--vetro-fondo`, opaca di partenza e promossa a traslucida da un `@supports` su `:root`), che
+`@apply` non puo' appiattire. Verificato a schermo: fondo con alfa 0,72 e `blur(14px)`.
+**Regola:** dentro un'utility che qualcuno applichera' con `@apply` non ci si mette un
+`@supports`; lo si mette su un token.
+
+⚠️ **Ho modellato la pastiglia sbagliata e mi sono spaventato per niente.** Misurando la
+velatura *sopra* `surface-2` uscivano 13 coppie sotto AA; ma le varianti colorate
+**sostituiscono** `bg-surface-2`, quindi il fondo vero e' la velatura sulla lastra. Misurate le
+pastiglie **realmente a schermo**: zero sotto AA. La lezione e' quella gia' scritta altrove —
+si misura l'elemento renderizzato, non il modello che si ha in testa.
+
+⚠️ **La finestra emulata sopravvive alla navigazione.** Una prova che finisce con uno scatto a
+390 px lascia la successiva a 390 px, e li' tutto quel che compare solo da `lg` risulta
+nascosto: sembrava che la libreria del compositore non avesse righe, e ne aveva 27. Il pilota
+nello scratchpad ora azzera `Emulation.setDeviceMetricsOverride` all'apertura.
+
+⚠️ **`selectMuseum` vuole il museo, non il suo qid**, e passandogli la stringa il catalogo resta
+vuoto senza errori: `belongsToMuseum` confronta e non trova niente. Difetto della prova, non
+del codice.
+
+⚠️ **Uno scatto preso durante il cambio di tema restituisce un fotogramma composto a meta'.**
+Cambiando tema e scattando dopo 300 ms, tutta la tabella del curatore usciva slavata e sembrava
+un difetto di contrasto grosso; misurando l'elemento, il colore era `rgb(43,43,43)` con opacita'
+1 e nessun filtro. Le transizioni di colore erano semplicemente ancora in corso. Dopo il
+cambio di tema si aspetta, e comunque **si misura invece di guardare il PNG**.
+
+⚠️ **`openNavigator` naviga con `location.href`, non con `window.open`**: intercettare `open`
+non cattura niente. Per entrare nel navigator senza comprare una visita si conia il biglietto
+con `POST /api/users/handoff` e si entra **senza** `?visit=`, cosi' si atterra in biglietteria.
+
+**Verificato pilotando chromium**: 13 controlli sul compositore nei due temi, 4 sul giro
+(percorso figurato di 25 tappe, copertura del curatore, zero errori in console), 20 rapporti di
+contrasto misurati **sugli elementi veri** e 30 sui token derivati nei due temi, tutti sopra
+4,5:1. Tre type-check verdi, `marketplace/dist` ricostruito. **Nessun dato di prova nel
+database**: si e' entrati con account esistenti e non si e' comprato niente.
+
+### Rimasto aperto
+
+- Schermate non ripassate una a una, perche' non avevano niente da correggere oltre ai token
+  che ereditano: soglia, accesso e registrazione, editor della descrizione, visita su misura.
+  Nel navigator il runtime (`Stage`, `Pannello`, `Info`, `Comando`, `Posizione`) e `GuidedGate`
+  usano gia' solo classi condivise: gli unici `bg-surface-2` rimasti sono le barre finte del
+  caricamento in `Info.vue`, dove il grigio e' quel che ci va.
+- **Il tipo e il tono sono tutt'e due pastiglie ametista**, e non e' una svista: `theme.css`
+  assegna alla categoria «tipo di contenuto, livello, metadati secondari», quindi sono lo stesso
+  ruolo. A distinguerli e' l'intestazione della colonna, cioe' la label. Dargli due colori
+  vorrebbe dire un secondo ruolo cromatico per una distinzione che la parola gia' fa.
+
 ## ⏸ Ripresa — 2026-08-05, le immagini del marketplace
 
 Primo giro sulla sofisticazione grafica, che le slide pesano. Richiesta: piu' colore, e in

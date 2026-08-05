@@ -83,20 +83,14 @@
      scelta piu' furba non c'e': quale opera rappresenti un percorso e' una
      domanda di curatela, e nel dato non c'e' la risposta.
 
-     Il filo in basso e' il segno che si accende passandoci sopra, ed e'
-     accento perche' la tessera porta a una visita che si puo' cominciare. */
+     Il filo in basso lo mette `.filo-accento` (in shared/components.css), che
+     e' lo stesso segno di ogni altra lastra che si puo' toccare: qui si accende
+     puntando la tessera intera e non il solo titolo, perche' e' quello il gesto
+     che si sta facendo. */
   .copertina {
     @apply relative flex items-end overflow-hidden bg-structure p-5 font-display
            text-title-2 leading-tight text-on-structure;
     aspect-ratio: 16 / 9;
-  }
-  .copertina::after {
-    content: "";
-    @apply absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-accent
-           transition-transform duration-300;
-  }
-  .group:hover .copertina::after {
-    @apply scale-x-100;
   }
   .copertina span {
     @apply line-clamp-3;

@@ -116,16 +116,18 @@ const stile = computed(() => {
     <!-- OPERA -->
     <div ref="opera" class="min-h-0 basis-0 overflow-y-auto" :class="richiesta ? 'grow-[2]' : 'grow-[3]'">
       <template v-if="content">
-        <!-- Sul telefono l'intestazione e' una didascalia da museo, con la
-             miniatura a sinistra del titolo, perche' la colonna e' bassa e una foto a
-             piena larghezza se la prenderebbe tutta, lasciando fuori proprio il
-             testo. Da `lg` in su c'e' l'altezza per l'opera intera, e li' si
-             contiene invece di ritagliare: quella e' l'opera che si sta guardando. -->
+        <!-- Sul telefono l'intestazione e' una didascalia da museo, con l'opera
+             a sinistra del titolo, perche' la colonna e' bassa e una foto a piena
+             larghezza se la prenderebbe tutta, lasciando fuori proprio il testo.
+             Sfuma verso il titolo invece di finire con un angolo netto: cosi' e'
+             la stessa lingua della vetrina e delle righe d'elenco. Da `lg` in su
+             c'e' l'altezza per l'opera intera, e li' si contiene invece di
+             ritagliare -- la maschera si toglie da se'. -->
         <div class="flex items-start gap-3 p-4 lg:block lg:p-0">
           <img
             v-if="immagine.src && !imgBroken"
-            class="figura h-16 w-16 shrink-0 rounded-plate object-cover
-                   lg:h-auto lg:max-h-48 lg:w-full lg:rounded-none lg:object-contain"
+            class="figura figura-sfumata h-20 w-28 shrink-0 rounded-none object-cover
+                   lg:h-auto lg:max-h-48 lg:w-full lg:object-contain"
             :src="immagine.src"
             :alt="t('Immagine di {nome}', { nome: immagine.name })"
             @error="imgBroken = true"
@@ -150,8 +152,8 @@ const stile = computed(() => {
               <span v-if="stile">· {{ stile }}</span>
             </p>
 
-            <p v-if="!inVisit" class="pastiglia pastiglia-ardesia mt-3">{{ t("Non fa parte di questa visita") }}</p>
-            <p v-else-if="optional" class="pastiglia pastiglia-ardesia mt-3">{{ t("Tappa opzionale") }}</p>
+            <p v-if="!inVisit" class="pastiglia pastiglia-ametista mt-3">{{ t("Non fa parte di questa visita") }}</p>
+            <p v-else-if="optional" class="pastiglia pastiglia-ametista mt-3">{{ t("Tappa opzionale") }}</p>
           </div>
         </div>
 

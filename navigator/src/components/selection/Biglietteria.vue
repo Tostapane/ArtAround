@@ -219,7 +219,7 @@ async function createCustom() {
       <li v-for="v in filteredVisits" :key="v['@id']">
         <button
           type="button"
-          class="lastra flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-surface-2"
+          class="lastra filo-accento flex w-full items-center gap-4 p-5 text-left"
           @click="emit('start', v)"
         >
           <span class="min-w-0 flex-1">

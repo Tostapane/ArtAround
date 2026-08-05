@@ -11,6 +11,26 @@
   Va importato dopo shared/theme.css, da cui prende tutti i token.
 */
 
+/*
+  Il VETRO: fondo di una barra che sta sopra a contenuto che scorre.
+
+  E' dichiarato `@utility` e non dentro `@layer components` perche' e' l'unico
+  che serve anche dentro un `@apply` (lo usa `.barra`), e in Tailwind 4 `@apply`
+  vede le utility, non le classi di componente: scritto come le altre, la
+  compilazione si ferma con "Cannot apply unknown utility class".
+
+  La ricaduta NON e' facoltativa, e non puo' stare qui: un `@supports` dentro
+  un'utility se lo porta via `@apply` quando la appiattisce dentro `.barra`, e
+  quel che resta e' il fondo pieno applicato SEMPRE, cioe' il vetro spento
+  ovunque senza che niente lo segnali. La condizione sta percio' su
+  `--vetro-fondo`, in `theme.css`.
+*/
+@utility vetro {
+  background-color: var(--vetro-fondo);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
 @layer components {
   /* --- Salto rapido: primo elemento focalizzabile, visibile solo a fuoco --- */
   .salta {
@@ -25,8 +45,43 @@
   .lastra {
     @apply rounded-card border border-line bg-surface;
   }
-  .scheda-click {
-    @apply transition-colors hover:bg-surface-2;
+
+  /*
+    Il FILO D'ACCENTO: la riga che si accende in basso quando si passa sopra una
+    lastra che si puo' toccare. E' l'unico segnale di passaggio del sistema, ed
+    e' d'accento perche' quella e' la tinta di dove puoi andare: cambiare fondo
+    invece direbbe "questa lastra e' diversa dalle altre", che non e' vero -- e'
+    solo quella sotto il dito.
+
+    Cresce da sinistra invece di comparire, cosi' la si vede arrivare e non
+    lampeggia. Chi ha chiesto meno movimento la riceve istantanea: la regola sta
+    in theme.css e vale per tutte le transizioni.
+
+    Va sull'elemento, non dentro: `::after` e' l'ultimo figlio e dipinge SOPRA
+    il contenuto, quindi con qualcosa di alto piu' di 3 px servirebbe anche uno
+    z-index sul testo.
+  */
+  .filo-accento {
+    @apply relative;
+  }
+  .filo-accento::after {
+    content: "";
+    @apply pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-accent;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 240ms var(--ease-aa);
+  }
+  .filo-accento:hover::after,
+  .filo-accento:focus-visible::after,
+  .filo-accento:focus-within::after {
+    transform: scaleX(1);
+  }
+  /* Il filo si accende anche quando a essere puntata e' la TESSERA che lo
+     contiene, non lui: la copertina di una visita e' un pezzo di una carta piu'
+     grande, e il segno deve rispondere al gesto che la persona sta facendo. */
+  .group:hover .filo-accento::after,
+  .group:focus-within .filo-accento::after {
+    transform: scaleX(1);
   }
 
   /* --- Bottoni ----------------------------------------------------------- */
@@ -158,7 +213,7 @@
      Si ferma sotto la barra dell'applicazione, se c'e' una: `--app-bar` la
      dichiara alta quanto e', ed e' la stessa misura con cui e' disegnata. */
   .barra {
-    @apply sticky z-20 flex flex-col gap-3 border-b border-line bg-bg py-3
+    @apply vetro sticky z-20 flex flex-col gap-3 border-b border-line py-3
            md:flex-row md:items-center;
     top: var(--app-bar, 0px);
   }
@@ -173,6 +228,7 @@
   }
   .segmento-attivo {
     @apply border-b-2 border-accent text-accent;
+    background-color: var(--accent-velo);
   }
 
   /* --- Scelte descritte (radio grandi): si sceglie sulla conseguenza ------ */
@@ -180,7 +236,8 @@
     @apply block rounded-card border border-line bg-surface p-4 transition-colors hover:bg-surface-2;
   }
   .scelta-attiva {
-    @apply border-accent bg-surface-2;
+    @apply border-accent;
+    background-color: var(--accent-velo);
   }
 
   /* --- Comandi del vocabolario controllato (scheda del navigator) -------- */
@@ -190,29 +247,59 @@
            transition-colors hover:bg-surface-2;
   }
   .comando-attivo {
-    @apply border-l-accent bg-surface-2 text-accent;
+    @apply border-l-accent text-accent;
+    background-color: var(--accent-velo);
   }
 
-  /* --- Pastiglie: informazione, mai un'azione ---------------------------- */
+  /* --- Pastiglie: informazione, mai un'azione ----------------------------
+     Il fondo e' la VELATURA del ruolo, cioe' la stessa tinta del testo al 12%
+     su trasparente. Due conseguenze volute: la pastiglia dice il suo ruolo
+     anche a chi la vede di sfuggita senza leggerla, e, essendo trasparente, la
+     si puo' posare su una fotografia senza aprirci un rettangolo opaco.
+     Il colore non porta mai l'informazione da solo: accanto c'e' sempre la
+     parola (Gratis, Posseduto, Visita...). */
   .pastiglia {
     @apply inline-flex items-center gap-1 rounded-plate border border-line bg-surface-2
            px-2 py-0.5 text-caption font-medium uppercase tracking-wider text-muted;
   }
-  /* Varianti di significato. Il colore non porta mai l'informazione da solo:
-     accanto c'e' sempre la parola (Gratis, Posseduto, Visita...). */
+  /* Le varianti colorate SOSTITUISCONO `bg-surface-2` con la loro velatura: e'
+     quello a tenerle sopra AA, perche' la velatura finisce sulla lastra e non
+     sopra un secondo grigio. Una pastiglia colorata posata su `surface-2` --
+     dentro un `.vuoto` o un `.avviso` -- somma i due fondi e scende sotto 4.5:1.
+     Misurato: sulla lastra 5.38:1 al chiaro e 4.77:1 al buio; su surface-2
+     3.91:1. Se un giorno ne serve una li', il fondo va tolto, non aggiunto. */
   .pastiglia-ottone {
-    @apply border-brass/40 text-brass;
+    @apply border-brass/35 text-brass;
+    background-color: var(--brass-velo);
   }
-  .pastiglia-ardesia {
-    @apply border-slate/40 text-slate;
+  .pastiglia-ametista {
+    @apply border-slate/35 text-slate;
+    background-color: var(--slate-velo);
   }
   .pastiglia-salvia {
-    @apply border-sage/40 text-sage;
+    @apply border-sage/35 text-sage;
+    background-color: var(--sage-velo);
+  }
+  .pastiglia-allarme {
+    @apply border-danger/35 text-danger;
+    background-color: var(--danger-velo);
+  }
+  .pastiglia-accento {
+    @apply border-accent/35 text-accent;
+    background-color: var(--accent-velo);
   }
 
   /* Cifre che rappresentano un valore: prezzi, ricavi, credito. */
   .valore {
     @apply tabular-nums text-brass;
+  }
+  /* Lo stesso valore quando siede sulla STRUTTURA. Non e' una rifinitura: la
+     barra e' scura in tutt'e due i temi, ma l'ottone si schiarisce solo al buio,
+     quindi al chiaro il credito era ottone scuro su Notte -- misurato 1.87:1,
+     cioe' illeggibile. Qui l'ottone e' sempre quello schiarito. */
+  .valore-su-struttura {
+    @apply tabular-nums;
+    color: var(--brass-chiaro);
   }
 
   /* Riga o blocco messo in evidenza: velatura, non un altro fondo. */
@@ -228,6 +315,7 @@
   }
   .pastiglia-attiva {
     @apply border-accent text-accent;
+    background-color: var(--accent-velo);
   }
 
   /* --- Immagini: tre modi di mostrare un'opera --------------------------- */
@@ -268,6 +356,30 @@
     object-position: 50% 30%;
   }
 
+  /* La stessa sfumatura, ma su un'immagine che resta nel flusso invece di
+     riempire una riga: serve alla scheda del navigator, dove sul telefono
+     l'opera sta di fianco al titolo. Da `lg` la maschera si toglie, perche' li'
+     c'e' l'altezza per l'opera intera e quella non si sfuma: la si guarda.
+     Va dichiarata prima di `.figura`, che sullo stesso elemento porta il resto. */
+  .figura-sfumata {
+    --sfumatura-lato: linear-gradient(
+      to right,
+      #000 0%,
+      #000 52%,
+      rgb(0 0 0 / 0.7) 72%,
+      rgb(0 0 0 / 0.24) 88%,
+      transparent 100%
+    );
+    -webkit-mask-image: var(--sfumatura-lato);
+    mask-image: var(--sfumatura-lato);
+  }
+  @media (min-width: 1024px) {
+    .figura-sfumata {
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+  }
+
   /* La FIGURA e' l'opera vista per intero. Nessuna cornice, nessun fondo e
      nessun contenitore: senza proporzioni imposte non restano bande attorno a
      un quadro verticale. Sta sull'<img>, quindi dove serve la si stringe con
@@ -276,15 +388,75 @@
     @apply w-full rounded-card object-contain;
   }
 
-  /* La MINIATURA e' il quadratino delle righe d'elenco. Il fondo serve: senza,
-     la riga di un'opera priva d'immagine perde il suo posto e il testo scivola
-     sotto quello delle altre. */
-  .miniatura {
-    @apply flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden
-           rounded-plate bg-surface-2;
+  /*
+    La RIGA FIGURATA e' la dissolvenza applicata a un elenco invece che a una
+    griglia. Sostituisce il quadratino con un fondo suo: quello incorniciava
+    l'opera dentro 56 px e circondava di grigio proprio la cosa che si sta
+    scegliendo, e in un elenco di venti righe il grigio diventa la tinta della
+    schermata. Qui la figura entra dal bordo della riga, la riempie in altezza e
+    sfuma dentro la lastra prima che cominci il testo.
+
+    La sfumatura arriva a zero PRIMA della colonna di testo, e non e' un gusto:
+    cosi' nessuna parola sta mai sopra un'immagine, quindi non c'e' nessun
+    rapporto di contrasto che dipenda da che quadro sia capitato in quella riga.
+    E' la differenza con la tessera della vetrina, dove il titolo la attraversa
+    e le fermate della maschera vanno percio' misurate.
+
+    Il fondo velato resta anche quando l'immagine manca: senza, la riga di
+    un'opera senza figura perderebbe il suo posto e il testo scivolerebbe sotto
+    quello delle altre.
+  */
+  .riga-figurata {
+    @apply relative flex items-stretch overflow-hidden;
   }
-  .miniatura img {
-    @apply h-full w-full object-cover;
+  .figura-riga {
+    @apply relative shrink-0 self-stretch overflow-hidden;
+    width: 6.5rem;
+    min-height: 4.5rem;
+    background-color: var(--slate-velo);
+    --sfumatura-riga: linear-gradient(
+      to right,
+      #000 0%,
+      #000 40%,
+      rgb(0 0 0 / 0.7) 62%,
+      rgb(0 0 0 / 0.26) 80%,
+      transparent 100%
+    );
+    -webkit-mask-image: var(--sfumatura-riga);
+    mask-image: var(--sfumatura-riga);
+  }
+  @media (min-width: 640px) {
+    .figura-riga {
+      width: 8.5rem;
+    }
+  }
+  /* La variante corta serve dove la riga divide lo schermo con qualcos'altro,
+     come il percorso del compositore, che sta in mezza colonna accanto alla
+     libreria: a larghezza piena la figura mangia il titolo e lo tronca a tre
+     lettere. Va dichiarata DOPO la media query, o quella la sovrascrive. */
+  .figura-riga-corta {
+    width: 5rem;
+  }
+  /* Come nella tessera: il ritaglio sta in alto, dove in un quadro verticale
+     c'e' il soggetto. */
+  .figura-riga img {
+    @apply absolute inset-0 h-full w-full object-cover;
+    object-position: 50% 30%;
+  }
+  /* Il corpo della riga porta lui la spaziatura, perche' la riga non ne ha:
+     la figura deve toccare il bordo. */
+  .riga-corpo {
+    @apply min-w-0 flex-1 p-3;
+  }
+
+  /* Il numero di una tappa, posato sulla sua figura. E' un dischetto PIENO di
+     struttura e non testo sull'immagine: cosi' il rapporto di contrasto e'
+     quello del disco e non dipende da che quadro sia capitato li' sotto.
+     Sta a sinistra, dove la maschera non ha ancora cominciato a sfumare. */
+  .numero-tappa {
+    @apply absolute left-2 top-2 z-10 inline-flex h-7 min-w-7 items-center justify-center
+           rounded-full bg-structure px-1.5 font-display text-caption font-semibold
+           tabular-nums text-on-structure;
   }
 
   /* Il ripiego dove l'immagine e' il soggetto della schermata: resta il nome,
