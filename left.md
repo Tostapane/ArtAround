@@ -33,6 +33,67 @@ console, tre type-check verdi. **Dati di prova rimossi**: le tre visite aggiunte
 di `visitatore1` tolte dalla `collezione` (portafoglio mai toccato, erano gratuite) e le 26
 sessioni di prova cancellate.
 
+### «Stile: Unknown» era un buco salvato come se fosse un nome *(stessa giornata)*
+
+Segnalato: molte opere dicono `Unknown` nel marketplace. E' dell'**opera**, non degli item:
+67 opere su 143 avevano `style.name: "Unknown"` e 13 un buco in `author.name` (11 `Unknown`
+piu' 2 indirizzi di nodo anonimo `.well-known/genid/…`).
+
+⚠️ **Lo scriveva `services/wikidata.ts`**: `binding.authorLabel?.value || "Unknown"`. Un buco
+salvato come parola non si distingue piu' da un nome, quindi ogni schermata deve ricordarsi di
+riconoscerlo — e **nessuna lo faceva allo stesso modo**: `nomeAutore()` filtrava gli indirizzi
+ma non `Unknown`, `nomeStile()` nessuno dei due, `contentFacts` `Unknown` ma non gli indirizzi,
+`museums.ts` e `seed.ts` tutti e due, `Scheda.vue` e `stopSubtitle` nessuno. Sette letture,
+cinque regole diverse.
+
+- **Rimedio alla sorgente**: `valoreOMai()` in `wikidata.ts`, un buco resta **vuoto**. Le due
+  forme sono l'assenza e l'indirizzo del nodo anonimo, e si decidono in un posto solo.
+- **Migrazione**, perche' riseminare non basta: quando l'opera esiste gia' il seed le aggiorna
+  **solo la posizione**. `npx ts-node src/scripts/testers.ts buchi` — 13 autori e 67 stili
+  svuotati, zero residui, e rilanciata dice `0 e 0`.
+- ⚠️ **Nessuna modifica alle viste, ed e' la prova che il posto era quello**: il marketplace
+  scrive gia' `nomeStile() || 'n/d'` e il navigator ha `v-if="stile"`. Vuoto sanno gia'
+  gestirlo; `Unknown` no.
+
+⚠️ **Difetto latente trovato di conseguenza**: la richiesta al modello era
+`l'opera ${name} realizzata da ${author}` senza condizione, quindi per quelle 13 opere finiva
+con «realizzata da» e basta. Ora la meta' con l'autore entra solo se l'autore c'e'. **I testi
+gia' scritti per quelle opere sono nati con «realizzata da Unknown» nel prompt** e per
+rifarli servirebbe `--force`, che pero' rigenera tutto: non ne vale la pena.
+
+⚠️ **Considerato il seed in corso** (Uffizi, un altro terminale): non lo tocca. Le opere degli
+Uffizi con autore vuoto sono **zero**, `piuRicorrente` scarta i nomi vuoti con `!valore.name`
+prima dei controlli su `Unknown`, e il processo ha comunque in memoria il codice caricato alla
+partenza. Le opere del museo esistono gia' tutte, quindi non ne scrivera' di nuove.
+
+### `seed.ts speciali` su ogni museo, non piu' solo sul primo *(stessa giornata)*
+
+Chiude il secondo blocco del 18-33 (`state.md` §0): il modulo I aveva il codice e non il dato.
+
+- `main()` fa ora il giro su tutti i config; `seedSpecialVisits` resta per-museo e gli account
+  (`docente1`, `studente1..3`) escono in `seedDemoAccounts()`, chiamata **una volta sola** —
+  sono persone, non arredo di un museo, e ripeterle quattro volte stampava quattro volte.
+- ⚠️ **La parola chiave ha dovuto diventare unica per museo** (`Fenice rossa Q6373`,
+  `Fenice rossa Q51252`, …), e non e' cosmetico: `POST /visits` rifiuta con **409** due
+  guidate che condividano la parola, e `guidedSessions.ts` tiene le sale aperte in
+  `byAccessKey`, **una mappa indicizzata sulla parola**. Con una parola sola per quattro musei
+  l'ultima sala aperta si sarebbe presa gli studenti delle altre, e a chi arriva dal museo
+  sbagliato la `/join` avrebbe risposto «non esiste nel museo selezionato».
+- Il suffisso e' il **qid** perche' e' l'unico campo unico *per costruzione* fra quelli che il
+  curatore scrive: `name` e `location` sono unici di fatto, non per definizione. Un elenco di
+  parole poetiche indicizzato sul museo sarebbe stato un'enumerazione che si rompe al quinto.
+- Un museo non ancora seminato non ha item da cui pescare: lo dice e passa oltre.
+
+**Eseguito e verificato sul database**: 4 guidate con 4 parole distinte, 4 con tappe
+opzionali, 3 domande di quiz ciascuna (British 16 tappe, Uffizi 104, Met e Louvre 13).
+**Rilanciato una seconda volta: 44 visite prima e dopo**, cioe' idempotente davvero — gli
+`@id` portano il qid. `tsc` verde.
+
+⚠️ **Quattro visite composte a mano portano un `quiz` senza avere una parola chiave**
+(`uffizzivisita`, `titolo`, `vediamo se funziona`, `Visita Infantile · 60s (mia versione)`).
+Non le ha toccate questo lavoro ed e' innocuo — il quiz lo distribuisce solo la sessione
+guidata, e `GET /visits/:id` non lo manda mai — ma viaggeranno nel dump.
+
 ### La scelta della lingua, resa coerente *(stessa giornata)*
 
 Ragionamento in `state.md` §2.3. I tre punti in cui si sceglie erano diversi in tutto tranne

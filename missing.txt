@@ -1,15 +1,22 @@
 MANCANTI
 - PS. mi turbano ancora le opere un po rotonde e un po quadrate.
-- far selezionare una lingua?
 - generalizzare cose nel marketplace
-- l'immagine non dovrebbe esere obbligatoria quando creo un meta item
 - perche l'hashtag?
 - rimuovere bullshit e caratteri strani
-- le indicazioni iniziali non si avviano se starti dal marketplace
 - ottimizzazioni
+- visualizzare foto dell'item dal marketplace
+- trovare i meta-item nel marketplace
+- la barra di ricerca del marketplace e' laggy
+- una visita mista viene mostrata nei semplici (lo contiente?)
+- stuiole: unknown
+- gli uffizi hanno tutto gratis
+- queste licenze hanno senso?
+- su sfondo chiaro le schede degli item rimangono chiare e si confondono con il bordo
+- e se volessi mostrare all'inizio altre opere oltre quelle di adesso?
+- cliccare su  gli item di un artwork ti apre la pagina in fondo alla lista
 DA DISCUTERE
-- aggiungere sessione e tasto torna alla home, tasto home navigator
 - Come mai possono essere create solo visite usando l'AI, ma non descrizioni di singole opere?
+- controllo su opere non esistenti o errate
 - qr code per visite?
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 

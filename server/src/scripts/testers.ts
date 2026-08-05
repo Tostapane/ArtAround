@@ -11,6 +11,7 @@
  *   npx ts-node src/scripts/testers.ts nomi
  *   npx ts-node src/scripts/testers.ts logistica
  *   npx ts-node src/scripts/testers.ts generi
+ *   npx ts-node src/scripts/testers.ts buchi
  *   npx ts-node src/scripts/testers.ts tutto
  */
 
@@ -238,18 +239,63 @@ async function migrateKinds() {
   );
 }
 
+/**
+ * Toglie dalle opere i buchi di Wikidata scritti come se fossero nomi.
+ *
+ * Sono di due forme: la parola "Unknown", e l'indirizzo di un nodo anonimo
+ * (`.well-known/genid/…`), che e' quel che Wikidata risponde per un'entita'
+ * senza etichetta. Da oggi `services/wikidata.ts` non li scrive piu', ma un
+ * riseed non li ripulisce: quando l'opera esiste gia' il seed le aggiorna solo
+ * la posizione sulla pianta. Vanno percio' riallineati qui.
+ *
+ * Il campo diventa una stringa vuota e non sparisce: le viste si chiedono gia'
+ * se c'e' un valore, e rispondono con `n/d` o nascondendo la riga.
+ */
+async function migrateUnknowns() {
+  const artworks = await ArtworkModel.find();
+  let autori = 0;
+  let stili = 0;
+
+  for (const a of artworks) {
+    let cambiato = false;
+    const buco = (nome: unknown): boolean => {
+      if (typeof nome !== "string") return false;
+      const pulito = nome.trim();
+      if (pulito === "") return false;
+      return pulito === "Unknown" || pulito.startsWith("http");
+    };
+    if (a.author && buco(a.author.name)) {
+      a.author.name = "";
+      autori++;
+      cambiato = true;
+    }
+    if (a.style && buco(a.style.name)) {
+      a.style.name = "";
+      stili++;
+      cambiato = true;
+    }
+    if (cambiato) await a.save();
+  }
+
+  console.log(
+    `Buchi: ${autori} autori e ${stili} stili svuotati su ${artworks.length} opere.`,
+  );
+}
+
 const COMMANDS: Record<string, () => Promise<void>> = {
   stato,
   toni: migrateTones,
   nomi: renameVisits,
   logistica: migrateLogistics,
   generi: migrateKinds,
+  buchi: migrateUnknowns,
   account: requiredAccounts,
   async tutto() {
     await migrateTones();
     await renameVisits();
     await migrateLogistics();
     await migrateKinds();
+    await migrateUnknowns();
     await requiredAccounts();
     await stato();
   },

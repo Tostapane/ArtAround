@@ -71,6 +71,15 @@ async function descrizione(
   }
 }
 
+/**
+ * L'autore entra nella richiesta solo se c'e'.
+ *
+ * Di un'opera Wikidata puo' non sapere chi l'ha fatta, e li' il campo resta
+ * vuoto (`services/wikidata.ts`). Incollandolo comunque, la richiesta finisce
+ * con "realizzata da" e basta: al modello si chiede di descrivere un'opera di
+ * un autore il cui nome non e' stato detto, e il testo che torna se lo inventa
+ * o si scusa. Senza quella meta' la domanda resta invece una domanda intera.
+ */
 export async function createTwistedDescription(
   name: string,
   author: string,
@@ -78,7 +87,11 @@ export async function createTwistedDescription(
   duration: number,
   twist: string,
 ) {
-  return descrizione(`l'opera ${name} realizzata da ${author}`, name, level, duration, twist);
+  let cosa = `l'opera ${name}`;
+  if (author && author.trim() !== "") {
+    cosa = `l'opera ${name} realizzata da ${author.trim()}`;
+  }
+  return descrizione(cosa, name, level, duration, twist);
 }
 
 export async function createDescription(

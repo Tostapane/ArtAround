@@ -243,6 +243,18 @@
   <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks e
        data-qid col relativo qid. -->
   <g class="nodo-arte">
+      <circle id="art-14" class="interactive-node" data-qid="Q151952" cx="40" cy="72" r="11" />
+      <circle id="art-15" class="interactive-node" data-qid="Q29530" cx="300" cy="72" r="11" />
+      <circle id="art-16" class="interactive-node" data-qid="Q476458" cx="560" cy="72" r="11" />
+      <circle id="art-17" class="interactive-node" data-qid="Q563727" cx="40" cy="402" r="11" />
+      <circle id="art-18" class="interactive-node" data-qid="Q1231009" cx="430" cy="402" r="11" />
+      <circle id="art-19" class="interactive-node" data-qid="Q724954" cx="130" cy="72" r="11" />
+      <circle id="art-20" class="interactive-node" data-qid="Q656434" cx="390" cy="72" r="11" />
+      <circle id="art-21" class="interactive-node" data-qid="Q1978815" cx="650" cy="72" r="11" />
+      <circle id="art-22" class="interactive-node" data-qid="Q185255" cx="130" cy="402" r="11" />
+      <circle id="art-23" class="interactive-node" data-qid="Q1133821" cx="475" cy="402" r="11" />
+      <circle id="art-24" class="interactive-node" data-qid="Q1215604" cx="40" cy="117" r="11" />
+      <circle id="art-25" class="interactive-node" data-qid="Q2290433" cx="435" cy="72" r="11" />
     <!-- Ala Richelieu -->
     <circle id="art-1"  class="interactive-node" data-qid="Q12418"   cx="80"  cy="80"  r="11" />
     <rect   id="art-2"  class="interactive-node" data-qid="Q597114"  x="179" y="69"  width="22" height="22" rx="3" />

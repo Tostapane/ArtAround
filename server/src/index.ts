@@ -22,6 +22,7 @@ import mongoose from "mongoose";
 import path from "path";
 import fs from "fs";
 import cors from "cors";
+import compression from "compression";
 import QRCode from "qrcode";
 
 import { resolveSession, requireSession } from "./session";
@@ -41,12 +42,27 @@ const app = express();
 const PORT = Number(process.env.PORT) || 8000;
 
 app.use(cors());
+// Il catalogo di un museo grande e' JSON molto ripetitivo: le stesse licenze,
+// gli stessi livelli e lo stesso museo su migliaia di descrizioni. Comprimerlo
+// lo riduce di oltre trenta volte, e non tocca ne' le rotte ne' il client.
+app.use(compression());
 app.use(express.json());
 
 // Legge il biglietto se c'e' e non rifiuta niente: a rifiutare e' requireSession,
 // rotta per rotta, perche' qualcuna deve restare aperta (vedi sopra).
 app.use("/api", resolveSession);
 
+// Le immagini si tengono in cache a lungo, le mappe no. Un'immagine ha per nome
+// la sua identita' (il qid dell'opera, un UUID per quelle caricate), quindi
+// sostituirla vuol dire cambiare indirizzo e la copia vecchia non puo' avanzare;
+// una mappa invece si corregge sul posto, e va richiesta di nuovo ogni volta.
+app.use(
+  "/images",
+  express.static(path.join(__dirname, "../public/images"), {
+    maxAge: "30d",
+    immutable: true,
+  }),
+);
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.static(path.join(__dirname, "../../marketplace/public")));
 app.use(

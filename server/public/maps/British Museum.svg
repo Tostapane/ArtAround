@@ -246,6 +246,13 @@
   <!-- Nodi-opera: id="art-N" combacia con la posizione N in activeArtworks (il
        seed assegna locationId=art-N in quell'ordine) e data-qid col relativo qid. -->
   <g class="nodo-arte">
+      <circle id="art-14" class="interactive-node" data-qid="Q48584" cx="310" cy="282" r="11" />
+      <circle id="art-15" class="interactive-node" data-qid="Q187483" cx="40" cy="72" r="11" />
+      <circle id="art-16" class="interactive-node" data-qid="Q252485" cx="40" cy="442" r="11" />
+      <circle id="art-17" class="interactive-node" data-qid="Q405008" cx="175" cy="282" r="11" />
+      <circle id="art-18" class="interactive-node" data-qid="Q856544" cx="550" cy="282" r="11" />
+      <circle id="art-19" class="interactive-node" data-qid="Q748518" cx="445" cy="282" r="11" />
+      <circle id="art-20" class="interactive-node" data-qid="Q254170" cx="85" cy="72" r="11" />
     <!-- Sala Centrale -->
     <circle id="art-1"  class="interactive-node" data-qid="Q137925932" cx="400" cy="300" r="13" />
     <!-- Ala Nord -->

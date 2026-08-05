@@ -298,6 +298,16 @@ export const ArtAPI = {
     return response.json();
   },
 
+  async svuotaMuseo(qid: string): Promise<any> {
+    const response = await call(
+      `/api/museums/${encodeURIComponent(qid)}/contents`,
+      { method: 'DELETE' },
+    );
+    if (!response.ok)
+      throw new Error(await readError(response, "Errore nello svuotamento del museo"));
+    return response.json();
+  },
+
   async pubblica(payload: any): Promise<void> {
     const endpoint = payload.tipo === 'Visita' ? '/api/visits' : '/api/items';
     const response = await call(endpoint, {

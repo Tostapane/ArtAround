@@ -25,6 +25,7 @@ import { UserModel } from "../models/user";
 import { educationalLevels } from "../../../shared/constants";
 import { findMuseumConfig } from "../data/museumConfigs";
 import { sortByFlow } from "../services/svgGraph";
+import { rimuoviImmagine } from "./items";
 const router = Router();
 
 function museumUri(qid: string): string {
@@ -325,6 +326,72 @@ router.get("/:qid/items", requireSession, async (req, res) => {
   } catch (err: any) {
     console.error("[BACKEND ERROR] catalogo museo:", err);
     res.status(500).json({ error: err.message || "Errore nel catalogo" });
+  }
+});
+
+/**
+ * DELETE /api/museums/:qid/contents
+ * Ritorna: quante opere, descrizioni e visite sono state eliminate.
+ * Svuota il catalogo di UN museo. Solo il curatore, e solo il museo chiesto.
+ *
+ * E' la stessa cascata di `DELETE /api/items/:id` allargata al museo: cancellare
+ * gli item senza le visite che li citano lascerebbe tappe che non si risolvono,
+ * e una tappa che non si risolve non da' errore, semplicemente non compare.
+ * Percio' se ne va anche tutto cio' che vi puntava, comprese le righe nelle
+ * collezioni di chi li aveva presi.
+ *
+ * NON tocca due cose, ed e' voluto:
+ * - il DOCUMENTO del museo, cosi' il museo resta selezionabile (con zero opere)
+ *   invece di sparire dall'applicazione fino al prossimo seed;
+ * - le IMMAGINI delle opere su disco, che il seed ha scaricato da Wikidata e
+ *   che ricostruirle costa una chiamata per opera. Spariscono invece le immagini
+ *   caricate a mano dagli autori, che appartengono all'item e a nient'altro.
+ *
+ * Il museo si prende dal PERCORSO e mai dal corpo: e' l'unica cosa che decide
+ * che cosa viene cancellato.
+ */
+router.delete("/:qid/contents", requireSession, async (req, res) => {
+  try {
+    const chi = sessionUser(req);
+    if (chi.role !== "curatore")
+      return res
+        .status(403)
+        .json({ error: "Solo il curatore può svuotare il catalogo di un museo." });
+
+    const { qid } = req.params;
+    const config = findMuseumConfig(qid);
+    if (!config)
+      return res.status(404).json({ error: "Museo non configurato" });
+
+    const uri = museumUri(qid);
+    const items = await ItemModel.find({ ofMuseum: uri }).select("@id imagePath");
+    const visits = await VisitModel.find({ ofMuseum: uri }).select("@id");
+    const itemIds = items.map((i: any) => i["@id"]);
+    const visitIds = visits.map((v: any) => v["@id"]);
+
+    await ItemModel.deleteMany({ ofMuseum: uri });
+    await VisitModel.deleteMany({ ofMuseum: uri });
+    const opere = await ArtworkModel.deleteMany({ ofMuseum: uri });
+    await UserModel.updateMany(
+      {},
+      { $pull: { collezione: { $in: [...itemIds, ...visitIds] } } },
+    );
+    for (const it of items as any[]) rimuoviImmagine(it.imagePath);
+
+    console.log(
+      `[curatore ${chi.username}] svuotato ${config.name} (${qid}): ` +
+        `${opere.deletedCount} opere, ${itemIds.length} item, ${visitIds.length} visite.`,
+    );
+    res.json({
+      message: "Catalogo del museo svuotato",
+      museo: config.name,
+      opere: opere.deletedCount,
+      item: itemIds.length,
+      visite: visitIds.length,
+    });
+  } catch (err: any) {
+    console.error("[BACKEND ERROR] svuotamento museo:", err);
+    res.status(500).json({ error: err.message || "Errore nello svuotamento" });
   }
 });
 

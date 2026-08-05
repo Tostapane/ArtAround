@@ -7,7 +7,7 @@
  *     npx ts-node src/scripts/seed.ts Q51252          semina quel museo
  *     npx ts-node src/scripts/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
  *     npx ts-node src/scripts/seed.ts tutti           semina tutti i musei configurati
- *     npx ts-node src/scripts/seed.ts speciali        le due visite dimostrative
+ *     npx ts-node src/scripts/seed.ts speciali        le visite dimostrative, su OGNI museo
  *
  * Due proprieta' che decidono la forma di tutto il file:
  *
@@ -42,13 +42,21 @@ import {
   populateMuseum,
   locationsFromMap,
 } from "../manager";
-import { educationalLevels, secPerArt, kindById } from "../../../shared/constants";
+import {
+  educationalLevels,
+  secPerArt,
+  kindById,
+} from "../../../shared/constants";
 import { createSubjectDescription } from "../services/llm";
 import { LogisticNote } from "../../../shared/types";
-import { loadMuseumConfigs, findMuseumConfig, MuseumConfig } from "../data/museumConfigs";
+import {
+  loadMuseumConfigs,
+  findMuseumConfig,
+  MuseumConfig,
+} from "../data/museumConfigs";
 import { costruisciQuiz } from "../data/quiz";
 
-const PAUSA_LLM_MS = 6000;
+const PAUSA_LLM_MS = 0;
 const PAUSA_IMMAGINE_MS = 1000;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -59,6 +67,24 @@ function museumUri(qid: string): string {
 
 function fmt(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, "0")}s`;
+}
+
+/**
+ * Il prezzo di una descrizione seminata: uno dei sette scalini fino a 30
+ * centesimi, estratto a sorte. Serve a far esistere il commercio nel catalogo,
+ * che con tutto gratis non si puo' mostrare: ci vogliono contenuti a pagamento,
+ * visite che ne contengono qualcuno, e un portafoglio che cala.
+ *
+ * I centesimi sono interi e la divisione arriva alla fine, cosi' il valore
+ * scritto e' sempre uno dei sette e non un decimale che ci somiglia. Lo zero
+ * resta fra le possibilita': un catalogo in cui tutto costa non fa vedere il
+ * caso gratuito, che e' quello di partenza.
+ */
+const PREZZI_CENTESIMI = [0, 5, 10, 15, 20, 25, 30];
+
+function prezzoCasuale(): number {
+  const i = Math.floor(Math.random() * PREZZI_CENTESIMI.length);
+  return (PREZZI_CENTESIMI[i] as number) / 100;
 }
 
 // ============================================================================
@@ -81,9 +107,14 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
   const itemsPerArtwork = educationalLevels.length * secPerArt.length;
   const totalItems = config.activeArtworks.length * itemsPerArtwork;
 
+  // Il costo si dice PRIMA di cominciare: e' opere x toni x durate, ognuno una
+  // chiamata al modello con la sua pausa, e chi lancia il comando deve poter
+  // decidere sapendo quante ore e quante chiamate sta impegnando.
+  const oreAlPeggio = (totalItems * PAUSA_LLM_MS) / 3_600_000;
   console.log(
-    `\n=== ${config.name} (${config.qid}): ${config.activeArtworks.length} opere, ` +
-      `fino a ${totalItems} item ===`,
+    `\n=== ${config.name} (${config.qid}): ${config.activeArtworks.length} opere ` +
+      `x ${educationalLevels.length} toni x ${secPerArt.length} durate = ` +
+      `fino a ${totalItems} item (${oreAlPeggio.toFixed(1)}h se mancassero tutti) ===`,
   );
   const senzaNodo = config.activeArtworks.filter((q) => !positions.has(q));
   if (senzaNodo.length > 0) {
@@ -139,7 +170,7 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
           saltati++;
           continue;
         }
-        await populateItem(qid, level, duration);
+        await populateItem(qid, level, duration, undefined, prezzoCasuale());
         generati++;
         nuoviQui++;
         const elapsed = (Date.now() - startTime) / 1000;
@@ -224,11 +255,14 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
 
   for (const s of soggetti) {
     if (!s.scelto) {
-      console.log(`[${config.qid}] nessun ${s.kind} nel catalogo: soggetto saltato.`);
+      console.log(
+        `[${config.qid}] nessun ${s.kind} nel catalogo: soggetto saltato.`,
+      );
       continue;
     }
     const nome = s.scelto.name;
-    const immagine = s.scelto.artwork.imagePath || s.scelto.artwork.imageUri || "";
+    const immagine =
+      s.scelto.artwork.imagePath || s.scelto.artwork.imageUri || "";
     const genere = kindById(s.kind);
     if (!genere) continue;
 
@@ -240,9 +274,16 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
         const gia = await ItemModel.findOne({ "@id": id });
         if (gia && !force) continue;
 
-        const text = await createSubjectDescription(nome, genere.name, level, duration);
+        const text = await createSubjectDescription(
+          nome,
+          genere.name,
+          level,
+          duration,
+        );
         if (!text || text.trim() === "") {
-          console.warn(`[${config.qid}] soggetto "${nome}" (${level}/${duration}s) NON creato.`);
+          console.warn(
+            `[${config.qid}] soggetto "${nome}" (${level}/${duration}s) NON creato.`,
+          );
           continue;
         }
         await ItemModel.findOneAndUpdate(
@@ -257,10 +298,13 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
             timeRequired: `${duration}`,
             educationalLevel: level,
             author: "sistema",
+            price: prezzoCasuale(),
           },
           { upsert: true, new: true, setDefaultsOnInsert: true },
         );
-        console.log(`[${config.qid}] soggetto ${s.kind} "${nome}" ${level}/${duration}s.`);
+        console.log(
+          `[${config.qid}] soggetto ${s.kind} "${nome}" ${level}/${duration}s.`,
+        );
         await delay(PAUSA_LLM_MS);
       }
     }
@@ -307,19 +351,34 @@ async function seedMuseumVisits(config: MuseumConfig) {
 // ============================================================================
 
 /*
- * Le due visite che il seed omogeneo non sa produrre, sul primo museo
- * configurato:
+ * Le due visite che il seed omogeneo non sa produrre, su OGNI museo configurato:
  *  1) una visita con CONTENUTI OPZIONALI: la seconda meta' delle tappe e'
  *     marcata come "da mostrare solo se resta tempo";
  *  2) una VISITA GUIDATA del docente (modulo 18-27), protetta da parola chiave,
- *     con il quiz costruito sulle opere della visita stessa, un account docente
- *     che la avvia e tre account studente che si agganciano con la parola.
+ *     con il quiz costruito sulle opere della visita stessa.
  *
- * Idempotente: rimuove le due visite (per @id) e ricrea/aggiorna gli account.
+ * Il docente e gli studenti sono gli stessi per tutti i musei e si creano una
+ * volta sola, fuori dal giro: sono persone, non arredo di un museo.
+ *
+ * Idempotente: gli `@id` portano il qid, quindi rilanciarlo riscrive le visite
+ * di quel museo e lascia stare le altre. Un museo non ancora seminato non ha
+ * item da cui pescare: lo dice e passa oltre, invece di scrivere una visita
+ * vuota.
+ *
+ * LA PAROLA CHIAVE PORTA IL QID, e non e' un vezzo. `POST /visits` rifiuta con
+ * 409 due visite guidate che condividano la parola, e le sale aperte stanno in
+ * una mappa indicizzata proprio su quella: una parola sola per quattro musei
+ * vorrebbe dire che l'ultima sala aperta si prende gli studenti delle altre, e
+ * che a chi arriva dal museo sbagliato risponde un 409 senza spiegazione. Il
+ * qid e' l'unico campo unico per costruzione fra quelli che il curatore scrive.
  */
 const PAROLA_CHIAVE_GUIDATA = "Fenice rossa";
 const DOCENTE = "docente1";
 const STUDENTI = ["studente1", "studente2", "studente3"];
+
+function parolaChiave(config: MuseumConfig): string {
+  return `${PAROLA_CHIAVE_GUIDATA} ${config.qid}`;
+}
 
 async function seedSpecialVisits(config: MuseumConfig) {
   const uri = museumUri(config.qid);
@@ -371,7 +430,7 @@ async function seedSpecialVisits(config: MuseumConfig) {
     level: `${level}`,
     duration: durataTotale,
     author: DOCENTE,
-    accessKey: PAROLA_CHIAVE_GUIDATA,
+    accessKey: parolaChiave(config),
     ofMuseum: uri,
     itemListElement: itemIds,
     logistics: notes,
@@ -384,11 +443,14 @@ async function seedSpecialVisits(config: MuseumConfig) {
   await VisitModel.create(visitaOpzionali);
   await VisitModel.create(visitaGuidata);
   console.log(
-    `Visite create su ${config.name}: "${visitaOpzionali.name}" ` +
+    `${config.name}: "${visitaOpzionali.name}" ` +
       `(${opzionali.length}/${itemIds.length} opzionali) e "${visitaGuidata.name}" ` +
-      `(parola chiave: «${PAROLA_CHIAVE_GUIDATA}», quiz di ${quiz.length} domande).`,
+      `(parola chiave: «${visitaGuidata.accessKey}», quiz di ${quiz.length} domande).`,
   );
+}
 
+/** Il docente e i suoi studenti: gli stessi per ogni museo, quindi una volta sola. */
+async function seedDemoAccounts() {
   const account: { username: string; role: "autore" | "visitatore" }[] = [
     { username: DOCENTE, role: "autore" },
     ...STUDENTI.map((username) => ({
@@ -398,7 +460,9 @@ async function seedSpecialVisits(config: MuseumConfig) {
   ];
   for (const a of account) {
     const onInsert: any =
-      a.role === "visitatore" ? { wallet: 100, collezione: [] } : { collezione: [] };
+      a.role === "visitatore"
+        ? { wallet: 100, collezione: [] }
+        : { collezione: [] };
     await UserModel.updateOne(
       { username: a.username, role: a.role },
       {
@@ -451,7 +515,8 @@ async function main() {
     if (comando === "tutti") {
       for (const config of configs) await seedMuseum(config, force);
     } else if (comando === "speciali") {
-      await seedSpecialVisits(configs[0]);
+      await seedDemoAccounts();
+      for (const config of configs) await seedSpecialVisits(config);
     } else {
       const config = findMuseumConfig(comando);
       if (!config) {

@@ -574,7 +574,7 @@
                         <span x-text="t(`Curatore: {nome}`, { nome: v.author || 'n/d' })"></span>
                       </p>
                       <div class="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
-                        <span class="valore font-display text-title-3" x-text="readablePrice(v.price)"></span>
+                        <span class="valore font-display text-title-3" x-text="visitPrice(v)"></span>
                         <template x-if="visitUsable(v)">
                           <button type="button" @click="openNavigator(navigatorUrl(v))" class="btn-primario" :aria-label="t(`Inizia la visita {nome}`, { nome: v.name })">
                             <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> <span x-text="t(`Inizia`)"></span>
@@ -656,11 +656,16 @@
                         <span x-show="!linkAutore()" x-text="nomeAutore() || 'n/d'"></span>
                       </dd>
                     </div>
-                    <div class="flex gap-2" x-show="!currentArtwork().kind">
+                    <!-- Lo stile sparisce quando non c'e': Wikidata non lo
+                         dichiara per quasi meta' del catalogo, e una riga che
+                         ripete "n/d" su tante opere e' rumore, non un dato.
+                         L'autore invece resta, perche' manca di rado e li' il
+                         vuoto e' una notizia. -->
+                    <div class="flex gap-2" x-show="!currentArtwork().kind && nomeStile()">
                       <dt class="text-muted" x-text="t(`Stile`)"></dt>
                       <dd>
                         <a x-show="linkStile()" :href="linkStile()" class="link-scuro" x-text="nomeStile()"></a>
-                        <span x-show="!linkStile()" x-text="nomeStile() || 'n/d'"></span>
+                        <span x-show="!linkStile()" x-text="nomeStile()"></span>
                       </dd>
                     </div>
                   </dl>
@@ -754,7 +759,7 @@
                       <span x-text="t(`Licenza: {nome}`, { nome: currentVisit().license || 'n/d' })"></span>
                     </p>
                   </div>
-                  <span class="valore font-display text-title-1" x-text="readablePrice(currentVisit().price)"></span>
+                  <span class="valore font-display text-title-1" x-text="visitPrice(currentVisit())"></span>
                 </div>
 
                 <div class="mt-6 flex flex-wrap gap-3">
@@ -1601,6 +1606,17 @@
                   <span x-text="t(`Account registrati:`)"></span>
                   <span x-text="accountLine()"></span>
                 </p>
+
+                <!-- SVUOTAMENTO: sta in fondo, staccato e in rosso, perche' e'
+                     l'unico comando della schermata che distrugge invece di
+                     mostrare. I numeri che sparirebbero sono quelli qui sopra. -->
+                <div class="mt-10 rounded-card border border-danger/40 p-5">
+                  <h2 class="font-display text-title-3 text-danger" x-text="t(`Svuotare il catalogo`)"></h2>
+                  <p class="mt-2 max-w-prose text-small text-muted"
+                    x-text="t(`Elimina opere, descrizioni e visite di questo museo, e le toglie dalle librerie di chi le aveva prese. Le immagini restano sul disco e il museo resta selezionabile: per rifare il catalogo si riesegue il seed.`)"></p>
+                  <button type="button" class="btn-pericolo-pieno mt-4" @click="openWipeMuseum()"
+                    x-text="t(`Svuota il catalogo di questo museo`)"></button>
+                </div>
               </div>
             </template>
 
@@ -1726,7 +1742,7 @@
         <div class="mt-7 flex justify-end gap-3">
           <button type="button" @click="cancelConfirm()" class="btn-secondario" x-text="t(`Annulla`)"></button>
           <button type="button" @click="runConfirm()" :disabled="!confirmReady()"
-            :class="(visitToDelete || itemToDelete) ? 'btn-pericolo-pieno' : 'btn-primario'"
+            :class="(visitToDelete || itemToDelete || museoToWipe) ? 'btn-pericolo-pieno' : 'btn-primario'"
             x-text="confirmVerb()"></button>
         </div>
       </div>

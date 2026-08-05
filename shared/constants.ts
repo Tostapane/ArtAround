@@ -21,9 +21,21 @@
 //                             Toni e durate
 // ============================================================================
 
-export const educationalLevels = ["Infantile", "Semplice", "Medio", "Avanzato"];
-
-/** Cosa comporta ogni tono: l'autore sceglie sulla conseguenza, non sull'etichetta. */
+/**
+ * I toni, e cosa comporta ciascuno: l'autore sceglie sulla CONSEGUENZA, non
+ * sull'etichetta, quindi un tono senza la sua riga e' un tono che nessuno sa
+ * quando usare.
+ *
+ * Per aggiungerne uno si scrive qui una riga sola, e l'ordine di questo oggetto
+ * e' l'ordine in cui i toni compaiono ovunque. `educationalLevels` si ricava di
+ * qui invece di essere un secondo elenco da tenere allineato: due elenchi che
+ * devono coincidere, il giorno che smettono, non danno un errore ma una casella
+ * vuota nell'editor e una chiave senza traduzione.
+ *
+ * ⚠️ Dopo averne aggiunto uno serve il giro delle traduzioni (`traduci`): il
+ * tono e la sua riga sono chiavi di catalogo, raccolte da `languages.ts` proprio
+ * da qui perche' nel codice si leggono come `t(v.level)` e `t(toneHints[tono])`.
+ */
 export const educationalLevelHints: Record<string, string> = {
   Infantile: "Per bambini: frasi brevi, immagini concrete, niente tecnicismi.",
   Semplice: "Per chi visita per la prima volta: chiaro e senza gergo.",
@@ -31,8 +43,16 @@ export const educationalLevelHints: Record<string, string> = {
   Avanzato: "Per chi conosce la materia: lessico specialistico e riferimenti.",
 };
 
-/** Durate di una singola descrizione usate da seed e pianificatore, in secondi. */
-export const secPerArt = [15, 60];
+export const educationalLevels = Object.keys(educationalLevelHints);
+
+/**
+ * Durate di una singola descrizione usate da seed e pianificatore, in secondi.
+ *
+ * ⚠️ Il costo del seed e' opere x toni x durate, e ogni item e' una chiamata al
+ * modello con una pausa: aggiungere una durata qui costa, sul museo piu' grande,
+ * quanto un intero tono. Il conto lo stampa il seed prima di cominciare.
+ */
+export const secPerArt = [15, 30, 60, 120, 180];
 
 // ============================================================================
 //                            Di cosa parla un item

@@ -229,6 +229,8 @@ export class AppState {
   itemToBuy: Content | null = null;
   visitToComplete: Visit | null = null;
   visitToDelete: Visit | null = null;
+  /** Il museo di cui si sta per svuotare il catalogo (solo curatore). */
+  museoToWipe: Museum | null = null;
   itemToDelete: CatalogRow | null = null;
   itemImpact: ImpactReport | null = null;
 
@@ -519,24 +521,38 @@ export class AppState {
    * descrizioni, che arrivano un'opera alla volta quando qualcuno la apre
    * (`caricaTesti`). In un museo grande i testi sono circa tre quarti del peso
    * del catalogo, e all'ingresso non se ne legge nessuno.
+   *
+   * Le quattro richieste partono insieme perche' nessuna dipende dalla risposta
+   * di un'altra: in fila costano quattro andate e ritorni invece di una, e su
+   * una rete vera l'attesa e' quasi tutta li'. L'unico legame e' `withArtwork`,
+   * che ricuce le opere dentro le descrizioni, e per questo si applica dopo che
+   * sono arrivate entrambe.
    */
   private async loadCatalogue() {
     if (!this.selectedMuseum) return;
     const qid = this.selectedMuseum.qid;
 
-    // Arrivano nell'ordine di percorrenza dichiarato sulla mappa (`data-flow`):
-    // riordinarle per nome vorrebbe dire comporre visite a zig zag.
-    this.availableArtworks = await ArtAPI.fetchArtworks(qid);
-    this.visits = await ArtAPI.fetchVisite(qid);
-    this.marketItems = this.withArtwork(await ArtAPI.fetchItemsMetadata(qid));
-    this.artworksWithText = [];
-    this.museumTopics = await ArtAPI.fetchMuseumTopics(qid);
+    const mieiInArrivo =
+      this.currentUser && this.currentUserRole === "autore"
+        ? ArtAPI.fetchMyItems(this.currentUser)
+        : Promise.resolve([] as Item[]);
 
-    if (this.currentUser && this.currentUserRole === "autore") {
-      this.myItems = await ArtAPI.fetchMyItems(this.currentUser);
-    } else {
-      this.myItems = [];
-    }
+    // Le opere arrivano nell'ordine di percorrenza dichiarato sulla mappa
+    // (`data-flow`): riordinarle per nome vorrebbe dire comporre visite a zig zag.
+    const [opere, visite, metadati, soggetti, miei] = await Promise.all([
+      ArtAPI.fetchArtworks(qid),
+      ArtAPI.fetchVisite(qid),
+      ArtAPI.fetchItemsMetadata(qid),
+      ArtAPI.fetchMuseumTopics(qid),
+      mieiInArrivo,
+    ]);
+
+    this.availableArtworks = opere;
+    this.visits = visite;
+    this.marketItems = this.withArtwork(metadati);
+    this.artworksWithText = [];
+    this.museumTopics = soggetti;
+    this.myItems = miei;
     this.reindicizza();
     if (this.currentUserRole === "curatore") await this.loadMuseumState();
   }
@@ -877,6 +893,19 @@ export class AppState {
     return Number(content.price) || 0;
   }
 
+  /**
+   * Il prezzo scritto su una visita.
+   *
+   * Non e' `price`: quello e' il prezzo della visita in se', e una visita del
+   * catalogo ce l'ha a zero pur essendo fatta di tappe a pagamento. Chi guarda
+   * vuole sapere quanto gli costa usarla adesso, cioe' `totale`, che il server
+   * calcola sulla sua collezione ed e' la stessa cifra del bottone di sblocco e
+   * dell'addebito.
+   */
+  visitPrice(v: any): string {
+    return this.readablePrice(this.costoDi(v));
+  }
+
   /** Quante tappe mancano, secondo il server. Zero se il conto non e' arrivato. */
   mancantiDi(content: any): number {
     if (!content || typeof content.mancanti !== "number") return 0;
@@ -912,6 +941,10 @@ export class AppState {
   }
 
   confirmTitle(): string {
+    if (this.museoToWipe)
+      return this.t("Svuotare il catalogo di {museo}?", {
+        museo: this.museoToWipe.name,
+      });
     if (this.itemToDelete) return "Eliminare questa descrizione?";
     if (this.visitToDelete) return "Eliminare questa visita?";
     if (this.visitToComplete) return "Sbloccare i contenuti mancanti?";
@@ -919,6 +952,23 @@ export class AppState {
   }
 
   confirmMessage(): string {
+    // Il conto sta gia' sullo schermo del curatore: la conferma ripete quel che
+    // sparisce, perche' e' l'unica occasione in cui lo si legge prima e non dopo.
+    if (this.museoToWipe) {
+      if (!this.overview) return this.t("Sto calcolando che cosa comporta…");
+      const c = this.overview.conteggi;
+      return this.t(
+        "Spariranno {opere} opere, {item} descrizioni e {visite} visite di {museo}, " +
+          "e con esse le righe nelle librerie di chi le aveva prese. Le immagini " +
+          "delle opere restano sul disco. L'operazione non è reversibile.",
+        {
+          opere: c.opere,
+          item: c.item,
+          visite: c.visite,
+          museo: this.museoToWipe.name,
+        },
+      );
+    }
     if (this.itemToDelete) {
       if (!this.itemImpact) return "Sto calcolando che cosa comporta…";
       const visite = this.itemImpact.visite || [];
@@ -971,6 +1021,7 @@ export class AppState {
   }
 
   confirmVerb(): string {
+    if (this.museoToWipe) return this.t("Svuota il museo");
     if (this.itemToDelete) return "Elimina";
     if (this.visitToDelete) return "Elimina";
     if (this.visitToComplete) return "Sblocca tutto";
@@ -978,6 +1029,7 @@ export class AppState {
   }
 
   confirmReady(): boolean {
+    if (this.museoToWipe) return this.overview !== null;
     if (this.itemToDelete) return this.itemImpact !== null;
     return true;
   }
@@ -989,9 +1041,30 @@ export class AppState {
     this.visitToDelete = null;
     this.itemToDelete = null;
     this.itemImpact = null;
+    this.museoToWipe = null;
   }
 
   async runConfirm() {
+    if (this.museoToWipe) {
+      const museo = this.museoToWipe;
+      this.cancelConfirm();
+      try {
+        const esito = await ArtAPI.svuotaMuseo(museo.qid);
+        await this.loadMuseumState();
+        this.showToast(
+          this.t("{museo} svuotato: {opere} opere, {item} descrizioni, {visite} visite.", {
+            museo: esito.museo,
+            opere: esito.opere,
+            item: esito.item,
+            visite: esito.visite,
+          }),
+        );
+      } catch (e) {
+        this.showToast((e as Error).message, "error");
+      }
+      return;
+    }
+
     if (this.itemToDelete) {
       const row = this.itemToDelete;
       this.cancelConfirm();
@@ -1192,6 +1265,17 @@ export class AppState {
       const dove = `${r.name} ${r.author} ${r.tone}`.toLowerCase();
       return dove.includes(cerca);
     });
+  }
+
+  /**
+   * Svuotare il catalogo di un museo: si apre la stessa conferma delle altre
+   * eliminazioni, che dichiara PRIMA che cosa sparisce. I numeri sono quelli
+   * del quadro d'insieme, gia' a schermo: non serve chiederli di nuovo.
+   */
+  openWipeMuseum() {
+    if (!this.selectedMuseum) return;
+    this.museoToWipe = this.selectedMuseum;
+    this.confirmOpen = true;
   }
 
   async openDeleteRow(row: any) {

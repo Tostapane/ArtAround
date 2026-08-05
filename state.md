@@ -31,14 +31,13 @@
 | Module I (18–27) | teacher-synchronized visit + end-of-visit quiz | Sync: **complete end-to-end**. Quiz: **complete end-to-end** since 2026-07-28 (§0.2) |
 | Module II (18–33) | QR localization, **teleport module**, deep LLM integration | QR: done. LLM (4 uses): done. Advanced localization (device + orientation): done 2026-07-30 (§5.3). **Teleport: done 2026-07-30** (§5.3) |
 
-One blocker left for the declared 18-33 target:
+Nessun blocco aperto per il 18-33 dichiarato:
 
 1. ~~the **teleport module does not exist**~~ — **CLOSED 2026-07-30**, fourth tab of
    `Posizione.vue` (§5.3);
-2. **the database contains no guided visit** — 0 with `accessKey`, 0 with a quiz, 0 with
-   optional stops (§3.5). Module I is implemented and was proved against the running server,
-   but a demo today has nothing to run it on. `seedSpecialVisits()` was never executed; it
-   *would* work now. This is the cheaper of the two to fix by a wide margin.
+2. ~~**the database contains no guided visit**~~ — **CHIUSO 2026-08-05**: `seed.ts speciali`
+   le crea ora su **ogni** museo configurato, non piu' solo sul primo. Nel database: 4 visite
+   guidate con parola chiave, 4 con tappe opzionali, un quiz di 3 domande ciascuna (§3.5).
 
 Everything else is in place and type-checks cleanly (`vue-tsc` and `tsc` both pass on all
 three parts).
@@ -1137,10 +1136,18 @@ interruption leaves complete artworks rather than artworks with no face. `popula
 skips artworks with no Wikidata P18 image. `locationId` is looked up in the map (§1.1) and
 re-checked on every run, so moving a node on the plan and re-seeding is enough to move an artwork.
 
-- `seed.ts speciali` adds the two visits the homogeneous seed cannot produce, on the **first**
-  configured museum: a visit with `optionalItems` (second half of the stops) and the **guided
-  visit** "Visita guidata del docente" with key **`Fenice rossa`**, plus the accounts `docente1`
-  (autore) and `studente1..3` (visitatore), password `12345678`.
+- `seed.ts speciali` adds the two visits the homogeneous seed cannot produce, on **ogni** museo
+  configurato: a visit with `optionalItems` (second half of the stops) and the **guided visit**
+  "Visita guidata del docente", plus the accounts `docente1` (autore) and `studente1..3`
+  (visitatore), password `12345678`. Gli account si creano una volta sola, fuori dal giro sui
+  musei: sono persone, non arredo di un museo.
+  ⚠️ **La parola chiave porta il qid** — `Fenice rossa Q6373`, `Fenice rossa Q51252`… — e non
+  e' un vezzo: `POST /visits` rifiuta con 409 due guidate che condividano la parola, e le sale
+  aperte stanno in una mappa indicizzata proprio su quella. Con una parola sola per quattro
+  musei l'ultima sala aperta si prenderebbe gli studenti delle altre, e a chi arriva dal museo
+  sbagliato risponderebbe il 409 «non esiste nel museo selezionato». Il qid e' l'unico campo
+  unico **per costruzione** fra quelli che il curatore scrive.
+  Un museo non ancora seminato non ha item da cui pescare: lo dice e passa oltre.
 - `seedUsers.ts` seeds the four slide-mandated accounts (`autore1`, `autore2`,
   `visitatore1`, `visitatore2`, password `12345678`), idempotently.
 
@@ -1157,36 +1164,28 @@ il prompt, non una `replace` a valle — che dovrebbe indovinare quali «l» son
   excluded from both answers and distractors; a shape that cannot find three distinct
   distractors is skipped rather than padded.
 
-⚠️ **`seedSpecialVisits()` non è mai stato eseguito, e questo è il buco aperto più grave**
-(misurato sul database vivo il 2026-07-30, non dedotto).
-
-La vecchia versione di questa nota diceva che la funzione non trovava nulla perché il
-database si fermava a tre toni. **Non è più vero**: il database è stato riseminato per
-intero — 13 opere e **104 item per museo**, tutti e quattro i toni coperti al 100%,
-`Infantile` compreso. Quindi `seedSpecialVisits()` oggi *funzionerebbe*.
-
-Solo che non è stato lanciato, e si vede da cosa manca:
+✅ **`seedSpecialVisits()` e' stato eseguito, su tutti e quattro i musei** (2026-08-05,
+contato sul database vivo, non dedotto). Era il buco aperto piu' grave: il modulo I aveva il
+codice e non il dato.
 
 | Cosa | Nel database |
 | --- | --- |
-| Visite totali | 24 (8 per museo = 4 toni × 2 durate) |
-| Visite con `accessKey` (guidate) | **0** |
-| Visite con `quiz` | **0** |
-| Visite con `optionalItems` | **0** |
+| Visite totali | 44 |
+| Visite con `accessKey` (guidate) | **4**, una per museo, parole chiave tutte diverse |
+| Visite con `quiz` | 4 guidate (3 domande l'una) piu' 4 composte a mano |
+| Visite con `optionalItems` | **4** |
 
-Le conseguenze non sono cosmetiche:
+⚠️ **Rilanciarlo non duplica niente**: gli `@id` sono `visit-guidata-<qid>` e
+`visit-opzionali-<qid>`, quindi il comando riscrive le visite di quel museo e lascia stare le
+altre. Verificato eseguendolo due volte di fila: 44 visite prima e dopo.
 
-- **il modulo I (18-27) non ha niente da mostrare.** Niente visita guidata ⇒ niente sala
-  d'attesa, niente sincronizzazione, niente quiz. Il codice c'è ed è stato provato contro il
-  server; è il *dato* che manca;
-- l'unica visita con tappe opzionali non esiste, quindi la levetta di `Stage.vue` non ha
-  dati su cui comparire;
-- i nomi sono tornati quelli automatici (`Visita Infantile · 15s per opera`): dopo la
-  risemina **`testers.ts nomi` non è stato rieseguito**.
+Quel che la vecchia versione di questa nota temeva non e' piu' vero da tempo: il database
+copre tutti e quattro i toni al 100%, `Infantile` compreso, quindi la funzione trova gli item
+da cui pescare.
 
-Rimedio, dal 2026-07-31 in un comando: **`npx ts-node src/scripts/seed.ts speciali`**, piu'
-`npx ts-node src/scripts/testers.ts nomi`. Non serve rifare il seed completo (lento: 8 item LLM
-per opera).
+Resta aperto un solo dettaglio di quella nota: i nomi delle visite di catalogo sono quelli
+automatici (`Visita Infantile · 15s per opera`), perche' dopo la risemina **`testers.ts nomi`
+non e' stato rieseguito**. Non serve rifare il seed completo (lento: 8 item LLM per opera).
 
 ---
 
@@ -2275,6 +2274,44 @@ rimossi `chosenArtwork`/`chosenArtworkName`, morti dal restyle.
 **Non fatto, deliberatamente:** accorpare i cinque `catch` identici di `llm.ts` («meglio
 leggere codice lungo che generalizzare la cosa sbagliata»), spezzare `index.html`, toccare
 `swarm()` (692 righe, ma isolate e tarate numericamente).
+
+## 7-ter. Il marketplace con un catalogo grande *(2026-08-05)*
+
+Misurato sugli Uffizi carichi (104 opere, 2120 item), non stimato. Il costo dell'ingresso
+stava **tutto nel trasporto**, non nel codice.
+
+**Quanto pesava l'ingresso, prima:** cinque richieste per **1,03 MB**, di cui 871 KB solo
+`/items/metadata`. Ed erano **in fila**, una dopo l'altra, pur non dipendendo l'una dalla
+risposta dell'altra.
+
+Tre rimedi, tutti fatti:
+
+1. **`compression()` in `index.ts`.** Il catalogo è JSON ripetitivo — la stessa licenza, lo
+   stesso museo, lo stesso livello su migliaia di righe — e si comprime di **oltre trenta
+   volte**. Le cinque risposte: **1,03 MB → 52 KB**. Vale anche per Alpine (45→16 KB),
+   i18next (43→13 KB) e i cataloghi di lingua. È una riga e non tocca né le rotte né il client.
+2. **`loadCatalogue` in parallelo** (`Promise.all`). Le quattro richieste partivano in fila:
+   quattro andate e ritorni invece di una, e su una rete vera l'attesa è quasi tutta lì (in
+   locale non si vedeva: 0,2 s). L'unico legame è `withArtwork`, che ricuce le opere dentro le
+   descrizioni, e si applica dopo. Verificato col browser: le quattro partono entro 1 ms.
+3. **`/images` con `max-age` di 30 giorni, `immutable`.** Il nome di un'immagine *è* la sua
+   identità (il qid dell'opera, un UUID per quelle caricate), quindi sostituirla cambia
+   indirizzo e la copia vecchia non può avanzare. Prima ogni tessera rivalidava a ogni
+   ingresso. **Le mappe restano fuori:** quelle si correggono sul posto, e devono essere
+   richieste ogni volta.
+
+**Non fatto, perché misurato e innocente:** memoizzare `shownArtworks()`. Viene sì ricalcolata
+~5 volte per tick di Alpine (2 nel template, 2 in `marketSummary`, 1 in `marketEmpty`), ma una
+passata sui 2120 item costa **0,15 ms** — 0,8 ms per tick, ~8 ms a dieci volte il catalogo.
+Non è il collo di bottiglia, e una cache lì aggiungerebbe invalidazione da sbagliare.
+
+**Quello che resta, ed è il più grosso:** le immagini delle opere sono **65 MB, in media
+319 KB l'una, fino a 1,9 MB**, servite a piena risoluzione dentro tessere larghe poche
+centinaia di pixel. Le griglie hanno già `loading="lazy"` (quattro `img` su sette, e sono
+quelle giuste), quindi si paga solo il visibile — ma è comunque qualche MB per la prima
+schermata. Il rimedio è generare una miniatura accanto all'originale al momento del seed e
+puntarci dalle tessere; taglierebbe circa il 95%. Tocca la pipeline del seed e i 65 MB già
+sul disco, quindi **non è stato fatto**.
 
 ## 8. Useless things — code that can be removed or shrunk
 

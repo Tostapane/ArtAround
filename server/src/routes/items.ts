@@ -198,7 +198,7 @@ router.post("/image", uploadImmagine.single("immagine"), async (req, res) => {
  * basename: senza quel taglio un `imagePath` scritto a mano indicherebbe
  * qualunque file.
  */
-function rimuoviImmagine(imagePath: string | undefined) {
+export function rimuoviImmagine(imagePath: string | undefined) {
   if (!imagePath) return;
   if (!imagePath.startsWith(ITEM_IMAGE_URL)) return;
   const file = path.join(ITEM_IMAGE_DIR, path.basename(imagePath));

@@ -30,6 +30,28 @@ export interface MuseumMetadata {
  * ritorna le informazioni di ArtworkMetadata raccogliendole da wikidata
  */
 
+/**
+ * Quando Wikidata non sa rispondere, il campo resta VUOTO.
+ *
+ * Un buco si scrive come buco: mettendoci una parola — "Unknown" — la si salva
+ * nel database come se fosse il nome dell'autore, e a valle nessuno puo' piu'
+ * distinguere «non si sa» da «si chiama cosi'». Ogni schermata deve allora
+ * ricordarsi di riconoscerla, e chi ne aggiunge una non lo sa. Vuoto invece si
+ * riconosce da se': le viste che gia' esistono nascondono il campo o scrivono
+ * `n/d` senza sapere niente di Wikidata.
+ *
+ * I due buchi hanno due forme. Una risposta assente e' `undefined`; una entita'
+ * senza etichetta risponde con l'indirizzo di un NODO ANONIMO
+ * (`.well-known/genid/…`), che stampato com'e' sembra il nome dell'autore.
+ */
+function valoreOMai(raw: string | undefined): string {
+  if (!raw) return "";
+  const pulito = raw.trim();
+  if (pulito === "") return "";
+  if (pulito.startsWith("http")) return "";
+  return pulito;
+}
+
 export async function fetchArtwork(
   wikiDataUri: string,
 ): Promise<ArtworkMetadata | null> {
@@ -80,9 +102,9 @@ export async function fetchArtwork(
   return {
     name,
     image: binding.image?.value || "",
-    author: binding.authorLabel?.value || "Unknown",
+    author: valoreOMai(binding.authorLabel?.value),
     author_qid: binding.authorQid?.value || "",
-    style: binding.styles?.value || "Unknown",
+    style: valoreOMai(binding.styles?.value),
     style_qids: binding.styleQids?.value || "",
   };
 }
