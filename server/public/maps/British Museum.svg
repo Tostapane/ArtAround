@@ -250,8 +250,8 @@
       <circle id="art-15" class="interactive-node" data-qid="Q187483" cx="40" cy="72" r="11" />
       <circle id="art-16" class="interactive-node" data-qid="Q252485" cx="40" cy="442" r="11" />
       <circle id="art-17" class="interactive-node" data-qid="Q405008" cx="175" cy="282" r="11" />
-      <circle id="art-18" class="interactive-node" data-qid="Q856544" cx="550" cy="282" r="11" />
-      <circle id="art-19" class="interactive-node" data-qid="Q748518" cx="445" cy="282" r="11" />
+      <circle id="art-18" class="interactive-node" data-qid="Q524447" cx="550" cy="282" r="11" />
+      <circle id="art-19" class="interactive-node" data-qid="Q1471650" cx="445" cy="282" r="11" />
       <circle id="art-20" class="interactive-node" data-qid="Q254170" cx="85" cy="72" r="11" />
     <!-- Sala Centrale -->
     <circle id="art-1"  class="interactive-node" data-qid="Q137925932" cx="400" cy="300" r="13" />
@@ -260,7 +260,7 @@
     <rect   id="art-6"  class="interactive-node" data-qid="Q104411621" x="139" y="81"  width="22" height="22" rx="3" />
     <rect   id="art-7"  class="interactive-node" data-qid="Q212616"    x="629" y="81"  width="22" height="22" rx="3" />
     <circle id="art-10" class="interactive-node" data-qid="Q95571270"  cx="260" cy="165" r="11" />
-    <circle id="art-11" class="interactive-node" data-qid="Q1992041"   cx="540" cy="165" r="11" />
+    <circle id="art-11" class="interactive-node" data-qid="Q21585351"   cx="540" cy="165" r="11" />
     <!-- Ala Sud -->
     <circle id="art-3"  class="interactive-node" data-qid="Q216402"    cx="400" cy="500" r="11" />
     <rect   id="art-8"  class="interactive-node" data-qid="Q28110217"  x="139" y="489" width="22" height="22" rx="3" />

@@ -25,6 +25,42 @@ export interface MuseumMetadata {
   location: string;
 }
 
+/**
+ * Se Wikidata dice che quest'opera sta in quel museo.
+ *
+ * `P195` (collezione) e non `P276` (luogo): `P276` dice anche dove una cosa e'
+ * STATA, ed e' cosi' che un comune belga e la Dama di Elche — al Louvre dal 1897
+ * al 1941 — sono finiti in un catalogo. Si segue poi `P361*` perche' i musei
+ * grandi non dichiarano se stessi ma il dipartimento: al Louvre le opere stanno
+ * in `Q3044768`, che del Louvre e' parte.
+ *
+ * Chi risponde `false` non viene fermato: Wikidata e' incompleta, e un curatore
+ * che sa cosa ha in casa deve poter aggiungere l'opera lo stesso. Serve a dirglielo.
+ */
+export async function appartieneAlMuseo(
+  artworkQid: string,
+  museumQid: string,
+): Promise<boolean> {
+  const query = `ASK { wd:${artworkQid} wdt:P195/wdt:P361* wd:${museumQid} }`;
+  const url = "https://query.wikidata.org/sparql?query=" + encodeURIComponent(query);
+  try {
+    const data = await conTentativi(`Wikidata, collezione di ${artworkQid}`, async () => {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/sparql-results+json",
+          "User-Agent": "ArtAroundMuseumApp",
+        },
+      });
+      if (!response.ok) throw new Error(`Wikidata error: ${response.statusText}`);
+      return response.json();
+    });
+    return data.boolean === true;
+  } catch {
+    // Non sapere non e' sapere di no: si tace invece di accusare.
+    return true;
+  }
+}
+
 /*
  * dato un uri di wikidata QXXXXXX,
  * ritorna le informazioni di ArtworkMetadata raccogliendole da wikidata

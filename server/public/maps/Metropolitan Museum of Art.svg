@@ -242,7 +242,7 @@
       <circle id="art-43" class="interactive-node" data-qid="Q2404992" cx="85" cy="-588" r="11" />
       <circle id="art-44" class="interactive-node" data-qid="Q4115387" cx="85" cy="-298" r="11" />
       <circle id="art-45" class="interactive-node" data-qid="Q671237" cx="130" cy="-588" r="11" />
-      <circle id="art-46" class="interactive-node" data-qid="Q2997010" cx="130" cy="-298" r="11" />
+      <circle id="art-46" class="interactive-node" data-qid="Q7232319" cx="130" cy="-298" r="11" />
       <circle id="art-47" class="interactive-node" data-qid="Q958088" cx="175" cy="-588" r="11" />
       <circle id="art-48" class="interactive-node" data-qid="Q40432" cx="175" cy="-298" r="11" />
       <circle id="art-49" class="interactive-node" data-qid="Q4891521" cx="220" cy="-588" r="11" />
@@ -383,7 +383,7 @@
          data-qid col relativo qid. -->
     <g class="nodo-arte">
       <circle id="art-14" class="interactive-node" data-qid="Q883994" cx="40" cy="72" r="11" />
-      <circle id="art-15" class="interactive-node" data-qid="Q2664039" cx="300" cy="72" r="11" />
+      <circle id="art-15" class="interactive-node" data-qid="Q734082" cx="300" cy="72" r="11" />
       <circle id="art-16" class="interactive-node" data-qid="Q509806" cx="560" cy="72" r="11" />
       <circle id="art-17" class="interactive-node" data-qid="Q776175" cx="40" cy="362" r="11" />
       <circle id="art-18" class="interactive-node" data-qid="Q386453" cx="435" cy="332" r="11" />
@@ -393,20 +393,20 @@
       <circle id="art-22" class="interactive-node" data-qid="Q655705" cx="650" cy="72" r="11" />
       <circle id="art-23" class="interactive-node" data-qid="Q684935" cx="85" cy="362" r="11" />
       <circle id="art-24" class="interactive-node" data-qid="Q2734209" cx="300" cy="407" r="11" />
-      <circle id="art-25" class="interactive-node" data-qid="Q16950902" cx="605" cy="362" r="11" />
+      <circle id="art-25" class="interactive-node" data-qid="Q29383342" cx="605" cy="362" r="11" />
       <circle id="art-26" class="interactive-node" data-qid="Q1755464" cx="220" cy="72" r="11" />
       <circle id="art-27" class="interactive-node" data-qid="Q467359" cx="300" cy="117" r="11" />
       <circle id="art-28" class="interactive-node" data-qid="Q1220013" cx="695" cy="72" r="11" />
-      <circle id="art-29" class="interactive-node" data-qid="Q285392" cx="130" cy="362" r="11" />
+      <circle id="art-29" class="interactive-node" data-qid="Q3172259" cx="130" cy="362" r="11" />
       <circle id="art-30" class="interactive-node" data-qid="Q4717953" cx="345" cy="407" r="11" />
       <circle id="art-31" class="interactive-node" data-qid="Q334604" cx="650" cy="362" r="11" />
-      <circle id="art-32" class="interactive-node" data-qid="Q3114572" cx="40" cy="117" r="11" />
+      <circle id="art-32" class="interactive-node" data-qid="Q7818635" cx="40" cy="117" r="11" />
       <circle id="art-33" class="interactive-node" data-qid="Q839359" cx="390" cy="117" r="11" />
       <circle id="art-34" class="interactive-node" data-qid="Q941549" cx="740" cy="72" r="11" />
-      <circle id="art-35" class="interactive-node" data-qid="Q1186970" cx="175" cy="362" r="11" />
+      <circle id="art-35" class="interactive-node" data-qid="Q1196533" cx="175" cy="362" r="11" />
       <circle id="art-36" class="interactive-node" data-qid="Q2024709" cx="345" cy="407" r="11" />
       <circle id="art-37" class="interactive-node" data-qid="Q28092249" cx="695" cy="425" r="11" />
-      <circle id="art-38" class="interactive-node" data-qid="Q137836" cx="130" cy="117" r="11" />
+      <circle id="art-38" class="interactive-node" data-qid="Q845853" cx="130" cy="117" r="11" />
       <circle id="art-39" class="interactive-node" data-qid="Q3299143" cx="300" cy="162" r="11" />
       <circle id="art-40" class="interactive-node" data-qid="Q9392232" cx="560" cy="117" r="11" />
       <!-- Arte Egizia -->
@@ -414,18 +414,18 @@
       <rect   id="art-2"  class="interactive-node" data-qid="Q606662"   x="179" y="81"  width="22" height="22" rx="3" />
       <circle id="art-3"  class="interactive-node" data-qid="Q1603141"  cx="120" cy="225" r="11" />
       <!-- Dipinti Europei -->
-      <circle id="art-4"  class="interactive-node" data-qid="Q251147"   cx="340" cy="95"  r="11" />
+      <circle id="art-4"  class="interactive-node" data-qid="Q3035829"   cx="340" cy="95"  r="11" />
       <circle id="art-5"  class="interactive-node" data-qid="Q19912235" cx="460" cy="95"  r="11" />
       <circle id="art-6"  class="interactive-node" data-qid="Q609292"   cx="400" cy="225" r="11" />
       <!-- Arte Greca e Romana (art-8 sta al primo piano) -->
-      <rect   id="art-7"  class="interactive-node" data-qid="Q582103"   x="599" y="89"  width="22" height="22" rx="3" />
+      <rect   id="art-7"  class="interactive-node" data-qid="Q293990"   x="599" y="89"  width="22" height="22" rx="3" />
       <!-- American Wing -->
       <circle id="art-9"  class="interactive-node" data-qid="Q217796"   cx="90"  cy="410" r="11" />
       <circle id="art-10" class="interactive-node" data-qid="Q2324840"  cx="190" cy="515" r="11" />
       <!-- Great Hall -->
       <circle id="art-11" class="interactive-node" data-qid="Q152509"   cx="350" cy="470" r="13" />
       <!-- Arte Asiatica (art-13 sta al primo piano) -->
-      <circle id="art-12" class="interactive-node" data-qid="Q2351239"  cx="610" cy="410" r="11" />
+      <circle id="art-12" class="interactive-node" data-qid="Q44461289"  cx="610" cy="410" r="11" />
     </g>
 
     <!-- Servizi (POI): data-poi = tipo, data-label = nome mostrato e letto. -->

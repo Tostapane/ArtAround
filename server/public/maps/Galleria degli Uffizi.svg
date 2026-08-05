@@ -374,7 +374,7 @@
        numero della tappa sulla pianta, data-label il titolo pronunciato. -->
   <g class="nodo-arte">
     <!-- Duecento e Giotto -->
-    <circle id="art-1" class="interactive-node" data-qid="Q3698238" data-label="Crocifisso con storie della Passione e della Redenzione" cx="985.5" cy="88" r="11" />
+    <circle id="art-1" class="interactive-node" data-qid="Q959174" data-label="Crocifisso con storie della Passione e della Redenzione" cx="985.5" cy="88" r="11" />
     <circle id="art-2" class="interactive-node" data-qid="Q948745" data-label="Madonna Rucellai" cx="1022.5" cy="88" r="11" />
     <circle id="art-3" class="interactive-node" data-qid="Q1569622" data-label="Madonna in trono col Bambino fra angeli e profitieren. ˋMaestà di Santa Trinitá" cx="1059.5" cy="88" r="11" />
     <circle id="art-4" class="interactive-node" data-qid="Q2016193" data-label="Maestà di Ognissanti" cx="1004" cy="132" r="11" />

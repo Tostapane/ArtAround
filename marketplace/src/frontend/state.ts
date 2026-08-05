@@ -231,6 +231,11 @@ export class AppState {
   visitToDelete: Visit | null = null;
   /** Il museo di cui si sta per svuotare il catalogo (solo curatore). */
   museoToWipe: Museum | null = null;
+  /** Il qid scritto dal curatore per aggiungere un'opera, e l'opera che sta togliendo. */
+  nuovaOperaQid = "";
+  aggiungendoOpera = false;
+  operaToDelete: any = null;
+  operaImpact: any = null;
   itemToDelete: CatalogRow | null = null;
   itemImpact: ImpactReport | null = null;
 
@@ -945,6 +950,10 @@ export class AppState {
       return this.t("Svuotare il catalogo di {museo}?", {
         museo: this.museoToWipe.name,
       });
+    if (this.operaToDelete)
+      return this.t("Togliere {opera} dal catalogo?", {
+        opera: this.operaToDelete.name,
+      });
     if (this.itemToDelete) return "Eliminare questa descrizione?";
     if (this.visitToDelete) return "Eliminare questa visita?";
     if (this.visitToComplete) return "Sbloccare i contenuti mancanti?";
@@ -968,6 +977,30 @@ export class AppState {
           museo: this.museoToWipe.name,
         },
       );
+    }
+    if (this.operaToDelete) {
+      if (!this.operaImpact) return this.t("Sto calcolando che cosa comporta…");
+      const i = this.operaImpact;
+      const visite = i.visite || [];
+      let testo = this.t(
+        '"{opera}" sparirà dal catalogo con le sue {n} descrizioni',
+        { opera: i.nome, n: i.descrizioni },
+      );
+      if (visite.length > 0) {
+        const nomi = visite.map((v: any) => `"${v.name}"`).join(", ");
+        testo += this.t(
+          ", e con esse le {n} visite che le contengono ({nomi})",
+          { n: visite.length, nomi },
+        );
+      }
+      testo += ". ";
+      if (i.adozioni > 0) {
+        testo += this.t(
+          "Spariranno anche dalle librerie di {n} persone, senza rimborso. ",
+          { n: i.adozioni },
+        );
+      }
+      return testo + this.t("L'operazione non è reversibile.");
     }
     if (this.itemToDelete) {
       if (!this.itemImpact) return "Sto calcolando che cosa comporta…";
@@ -1022,6 +1055,7 @@ export class AppState {
 
   confirmVerb(): string {
     if (this.museoToWipe) return this.t("Svuota il museo");
+    if (this.operaToDelete) return this.t("Togli dal catalogo");
     if (this.itemToDelete) return "Elimina";
     if (this.visitToDelete) return "Elimina";
     if (this.visitToComplete) return "Sblocca tutto";
@@ -1030,6 +1064,7 @@ export class AppState {
 
   confirmReady(): boolean {
     if (this.museoToWipe) return this.overview !== null;
+    if (this.operaToDelete) return this.operaImpact !== null;
     if (this.itemToDelete) return this.itemImpact !== null;
     return true;
   }
@@ -1042,9 +1077,31 @@ export class AppState {
     this.itemToDelete = null;
     this.itemImpact = null;
     this.museoToWipe = null;
+    this.operaToDelete = null;
+    this.operaImpact = null;
   }
 
   async runConfirm() {
+    if (this.operaToDelete) {
+      const opera = this.operaToDelete;
+      this.cancelConfirm();
+      try {
+        const esito = await ArtAPI.eliminaOpera(opera.qid);
+        await this.loadCatalogue();
+        await this.loadMuseumState();
+        this.showToast(
+          this.t("{opera} rimossa: {n} descrizioni e {v} visite.", {
+            opera: esito.nome,
+            n: esito.descrizioni,
+            v: esito.visite.length,
+          }),
+          "success",
+        );
+      } catch (e) {
+        this.showToast((e as Error).message, "error");
+      }
+      return;
+    }
     if (this.museoToWipe) {
       const museo = this.museoToWipe;
       this.cancelConfirm();
@@ -1276,6 +1333,66 @@ export class AppState {
     if (!this.selectedMuseum) return;
     this.museoToWipe = this.selectedMuseum;
     this.confirmOpen = true;
+  }
+
+  /**
+   * Aggiungere un'opera al museo: il curatore scrive solo il qid di Wikidata,
+   * da cui il server ricava nome, autore, stile e immagine. Non nascono
+   * descrizioni: quelle costano una chiamata al modello l'una, e le scrive il
+   * seed (che salta le opere gia' presenti) oppure un autore.
+   */
+  async aggiungiOpera() {
+    if (!this.selectedMuseum) return;
+    const qid = this.nuovaOperaQid.trim().toUpperCase();
+    if (qid === "") return;
+    this.aggiungendoOpera = true;
+    try {
+      const esito = await ArtAPI.aggiungiOpera(qid, this.selectedMuseum.qid);
+      this.nuovaOperaQid = "";
+      await this.loadCatalogue();
+      await this.loadMuseumState();
+      // Due avvertimenti, e nessuno dei due impedisce l'inserimento: il primo si
+      // aggiusta solo sulla mappa, il secondo puo' essere Wikidata incompleta.
+      const avvisi: string[] = [];
+      if (!esito.sullaMappa)
+        avvisi.push(
+          this.t("sulla mappa non c'è un nodo con questo codice, quindi non comparirà nella piantina"),
+        );
+      if (esito.nelMuseo === false)
+        avvisi.push(this.t("Wikidata non la dà nella collezione di questo museo"));
+
+      if (avvisi.length === 0) {
+        this.showToast(
+          this.t("{opera} aggiunta al catalogo.", { opera: esito.artwork.name }),
+          "success",
+        );
+      } else {
+        this.showToast(
+          this.t("{opera} aggiunta, ma {avvisi}.", {
+            opera: esito.artwork.name,
+            avvisi: avvisi.join("; "),
+          }),
+          "error",
+        );
+      }
+    } catch (e) {
+      this.showToast((e as Error).message, "error");
+    } finally {
+      this.aggiungendoOpera = false;
+    }
+  }
+
+  async openDeleteArtwork(opera: any) {
+    if (!opera) return;
+    this.operaToDelete = opera;
+    this.operaImpact = null;
+    this.confirmOpen = true;
+    try {
+      this.operaImpact = await ArtAPI.impattoOpera(opera.qid);
+    } catch (e) {
+      this.operaImpact = null;
+      this.showToast((e as Error).message, "error");
+    }
   }
 
   async openDeleteRow(row: any) {

@@ -1602,6 +1602,35 @@
                   </p>
                 </div>
 
+                <!-- OPERE DEL MUSEO -->
+                <h2 class="mt-10 font-display text-title-2" x-text="t(`Opere del museo`)"></h2>
+                <p class="mt-1 text-small text-muted"
+                  x-text="t(`Il codice è quello di Wikidata: nome, autore e immagine arrivano da lì, la posizione dalla mappa. Aggiungere un'opera non crea descrizioni: le scrive il seed o un autore.`)"></p>
+
+                <form class="mt-4 flex flex-wrap items-end gap-3" @submit.prevent="aggiungiOpera()">
+                  <div class="min-w-[14rem] flex-1">
+                    <label for="nuova-opera" class="etichetta" x-text="t(`Codice Wikidata`)"></label>
+                    <input id="nuova-opera" type="text" class="campo" x-model="nuovaOperaQid"
+                      placeholder="Q12418" :disabled="aggiungendoOpera">
+                  </div>
+                  <button type="submit" class="btn-primario" :disabled="aggiungendoOpera || !nuovaOperaQid.trim()"
+                    x-text="aggiungendoOpera ? t(`Aggiungo…`) : t(`Aggiungi l'opera`)"></button>
+                </form>
+
+                <ul class="lastra mt-4 divide-y divide-line">
+                  <template x-for="a in museumArtworks()" :key="a['@id']">
+                    <li class="flex items-center gap-4 px-5 py-3">
+                      <span class="flex-1 text-small font-medium" x-text="a.name || a.qid"></span>
+                      <span class="tabular text-caption text-muted" x-text="a.qid"></span>
+                      <button type="button" class="btn-pericolo" @click="openDeleteArtwork(a)"
+                        :aria-label="t(`Togli dal catalogo {opera}`, { opera: a.name || a.qid })"
+                        x-text="t(`Togli`)"></button>
+                    </li>
+                  </template>
+                </ul>
+                <p x-show="museumArtworks().length === 0" class="vuoto mt-4"
+                  x-text="t(`Questo museo non ha ancora opere.`)"></p>
+
                 <p class="mt-10 text-caption text-muted">
                   <span x-text="t(`Account registrati:`)"></span>
                   <span x-text="accountLine()"></span>

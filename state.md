@@ -69,7 +69,9 @@ Implementing `prelude.md` resolved a number of the items listed below. They are 
 
 Still open from those sections: §7.1 (teleport), §7.6 (UI translation), §7.7
 (`stepStartAt` sync), §7.8 (spatial ordering of custom visits), §9.11 (naming), and all
-of §10.
+of §10. Plus **§7-ter.1 — le miniature delle tessere**: la vetrina serve immagini da 7 a 16
+volte più grandi di come le mostra (3,83 MB per una scorsa). Rimedio misurato e progettato,
+non applicato.
 
 ### 0.2 What the 2026-07-28 pass closed
 
@@ -2305,13 +2307,103 @@ Tre rimedi, tutti fatti:
 passata sui 2120 item costa **0,15 ms** — 0,8 ms per tick, ~8 ms a dieci volte il catalogo.
 Non è il collo di bottiglia, e una cache lì aggiungerebbe invalidazione da sbagliare.
 
-**Quello che resta, ed è il più grosso:** le immagini delle opere sono **65 MB, in media
-319 KB l'una, fino a 1,9 MB**, servite a piena risoluzione dentro tessere larghe poche
-centinaia di pixel. Le griglie hanno già `loading="lazy"` (quattro `img` su sette, e sono
-quelle giuste), quindi si paga solo il visibile — ma è comunque qualche MB per la prima
-schermata. Il rimedio è generare una miniatura accanto all'originale al momento del seed e
-puntarci dalle tessere; taglierebbe circa il 95%. Tocca la pipeline del seed e i 65 MB già
-sul disco, quindi **non è stato fatto**.
+### 7-ter.1 Le miniature delle tessere — DA FARE
+
+**È il pezzo di prestazioni più grosso ancora aperto, e non è stato fatto.** Sta qui e non
+altrove perché è la coda della stessa misura.
+
+Le immagini delle opere sono **65 MB, in media 319 KB l'una, fino a 1,9 MB**. Il punto non è
+il totale ma il rapporto: **una tessera della vetrina è 324×243 e riceve un file da ~960×1200**,
+cioè **da 7 a 16 volte i pixel che potrà mai mostrare**. Scorrere la vetrina fino in fondo
+scarica **13 immagini per 3,83 MB**.
+
+**Le misure che decidono il rimedio** (finestra 1440×900, `dpr` 1):
+
+| dove | quanto è grande davvero | serve a `dpr` 2 |
+| --- | --- | --- |
+| tessera della griglia | 324×243 | ~650 px |
+| opera aperta (`.mat-grande`) | 411×411 | ~825 px |
+
+Quei due numeri sono **soffitti su qualunque schermo**: non li alza un monitor più grande, li
+alza solo la densità dei pixel. Il contenitore è `mx-auto max-w-5xl` (1024 px) in
+`index.html`, quindi su un 4K la pagina resta larga 1024 e il resto è margine — la griglia
+`lg:grid-cols-3` dà `(1024 − 2×20)/3 = 328`, ed è esattamente ciò che si misura.
+
+Ne segue che **il file da 960 non è sprecato sull'opera aperta**: a `dpr` 2 serve ~825 px e
+lui ne ha 1130. Lo spreco è tutto sulle tessere. Quindi **non** basta chiedere immagini più
+piccole a Wikimedia per tutti: si perderebbe nitidezza proprio dove serve.
+
+**Perché il file è 960 anche se il codice chiede 800:** `imageDownloader.ts` aggiunge
+`?width=800`, ma Wikimedia serve **secchielli fissi** e arrotonda per eccesso. Per un ritratto
+tipico: `320 → 330×389` (28 KB), `400 e 500 → 500×589` (60 KB), `640 e 800 → 960×1130`
+(202 KB). Il secchiello da 500 basta e avanza per una tessera anche a `dpr` 2.
+
+**Il rimedio:** scaricare **due secchielli** invece di uno — `Q123.jpg` (960, come ora, per
+l'opera aperta) e `Q123-c.jpg` (500, per le tessere) — un `artworkThumb()` accanto ad
+`artworkImage()`, e le **quattro** `img` con `loading="lazy"` che puntano al piccolo. Serve un
+lavoro in `testers.ts` per le opere già sul disco: sono richieste HTTP, **nessuna chiamata al
+modello**. Costo ~13 MB di disco; la vetrina scorsa passa da **3,83 MB a ~1,1 MB**, e l'opera
+aperta non cambia di un pixel.
+
+**Non è il collo di bottiglia il JavaScript:** `shownArtworks()` si ricalcola ~5 volte per
+tick di Alpine, ma una passata sui 2120 item costa 0,15 ms. Misurato, non stimato.
+
+## 7-quater. Diciassette opere che non erano opere *(2026-08-05)*
+
+Nei musei aggiunti a mano erano finite voci che non sono oggetti di quel museo: un comune
+belga, un lago, un fiume, un distretto russo, un fossile e un micologo. Venivano da una query
+SPARQL che accettava `P276` (luogo) accanto a `P195` (collezione), e `P276` dice anche *dove
+una cosa e' stata*: la Dama di Elche risulta al Louvre perche' ci fu dal 1897 al 1941.
+
+**La regola che le tiene fuori:** la collezione deve risolvere al museo seguendo
+`P195/P361*` — il Louvre non mette `P195 = Q19675` quasi mai, mette il dipartimento
+(`Q3044768`, *dipartimento di pittura*, che e' `P361` del Louvre) — e non deve risolvere a
+**nessun altro** museo. Si scartano inoltre le dichiarazioni `deprecated` e quelle con una
+data di fine (`P582`), che sono esattamente il caso «c'e' stato».
+
+Sostituite tutte, verificando una per una prima di scrivere: tipo (`P31`) che sia un oggetto e
+non un luogo, collezione come sopra, immagine (`P18`) effettivamente scaricabile, e nessun qid
+gia' usato altrove. **I qid devono restare unici fra musei**: l'`@id` di un item e'
+`qid-autore-tono-durata` e non nomina il museo, quindi lo stesso qid in due musei
+collriderebbe. Il controllo ha pescato *Il cuore delle Ande*, gia' presente al Met.
+
+**Le sale sono tematiche, e i nodi no.** Un nodo della mappa e' un punto in una stanza: chi
+prende il posto di un altro ne eredita la sala. Il Met perdeva il Tempio di Dendur
+dall'*Arte Egizia* e lo Shahnameh dall'*Arte Asiatica*, e i sostituti ci cadevano dentro a
+caso — un Renoir fra gli egizi. Quindi i sostituti del Met sono scelti **per la sala che
+occupano**: due paraventi giapponesi in *Arte Asiatica*, Cole ed Eakins nell'*American Wing*,
+la Tomba di Perneb in *Arte Egizia*.
+
+## 7-quinquies. Il curatore mette e toglie opere *(2026-08-05)*
+
+Tre rotte in `routes/artworks.ts`, tutte del solo curatore, piu' un blocco nella schermata
+*Gestione*. Prima il catalogo si cambiava solo modificando il file di configurazione e
+rifacendo il seed.
+
+- `POST /artworks {qid, museo}` — si scrive solo il qid: nome, autore, stile e immagine li
+  da' Wikidata (`populateArtwork`, la stessa del seed), la posizione la mappa. **Non crea
+  descrizioni**, che costano una chiamata al modello l'una: le scrive il seed, che salta le
+  opere gia' presenti, o un autore.
+- `GET /artworks/:qid/impact` — che cosa sparirebbe. Non scrive niente.
+- `DELETE /artworks/:qid` — la cascata.
+
+**Due avvertimenti non bloccano l'inserimento**, perche' nessuno dei due e' un errore certo:
+un qid senza nodo sulla pianta entra lo stesso e si legge nel catalogo, semplicemente non
+compare sulla piantina; e `appartieneAlMuseo` (una `ASK` su `P195/P361*`) dice se Wikidata da'
+l'opera in quella collezione — un `false` puo' essere Wikidata incompleta, e un curatore sa
+cosa ha in casa. Quando la domanda fallisce si risponde `true`: non sapere non e' sapere di no.
+
+**Il duplicato invece blocca (409):** lo stesso qid in due musei collide, perche' l'`@id` di
+una descrizione e' `qid-autore-tono-durata` e il museo non ci compare.
+
+**La cascata e' la stessa di `DELETE /items/:id`, allargata all'opera:** le sue descrizioni,
+le visite che le citano, le righe nelle collezioni di chi le aveva prese. Non usare
+`dbActions.deleteArtwork`, che cancella il solo documento dell'opera: le tappe orfane non
+danno errore, semplicemente non compaiono, e il danno resta invisibile.
+
+**Quanto e' larga la cascata, in pratica:** togliere la prima opera di un percorso porta via
+*tutte* le visite del museo, perche' e' una tappa di ognuna. `impact` esiste per dirlo prima:
+sul Crocifisso degli Uffizi dichiara 20 descrizioni e 22 visite, la guidata compresa.
 
 ## 8. Useless things — code that can be removed or shrunk
 

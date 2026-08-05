@@ -261,15 +261,15 @@
     <circle id="art-3"  class="interactive-node" data-qid="Q783215"  cx="110" cy="180" r="11" />
     <!-- Antichita Egizie -->
     <circle id="art-4"  class="interactive-node" data-qid="Q544315"  cx="340" cy="95"  r="11" />
-    <circle id="art-5"  class="interactive-node" data-qid="Q210161"  cx="460" cy="175" r="11" />
+    <circle id="art-5"  class="interactive-node" data-qid="Q2027662"  cx="460" cy="175" r="11" />
     <!-- Ala Denon -->
     <circle id="art-6"  class="interactive-node" data-qid="Q1282840" cx="610" cy="95"  r="11" />
     <rect   id="art-7"  class="interactive-node" data-qid="Q2610675" x="709" y="159" width="22" height="22" rx="3" />
     <!-- Hall Napoleon -->
-    <circle id="art-8"  class="interactive-node" data-qid="Q2626554" cx="250" cy="300" r="13" />
+    <circle id="art-8"  class="interactive-node" data-qid="Q2354251" cx="250" cy="300" r="13" />
     <!-- Ala Sully -->
     <circle id="art-9"  class="interactive-node" data-qid="Q2653851" cx="90"  cy="430" r="11" />
-    <circle id="art-10" class="interactive-node" data-qid="Q2266515" cx="200" cy="520" r="11" />
+    <circle id="art-10" class="interactive-node" data-qid="Q1516449" cx="200" cy="520" r="11" />
     <circle id="art-11" class="interactive-node" data-qid="Q3228069" cx="320" cy="440" r="11" />
     <!-- Galleria Apollo -->
     <circle id="art-12" class="interactive-node" data-qid="Q6287319" cx="520" cy="450" r="11" />
