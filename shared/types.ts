@@ -130,6 +130,12 @@ export interface Visit {
   price?: number;
   license?: string;
   ofMuseum: string;
+  /**
+   * La copertina, caricata da chi compone. Facoltativa: senza, la tessera resta
+   * il titolo sulla struttura. Non c'e' un `imageUri` come per l'opera, perche'
+   * questa non arriva da Wikidata — la carica l'autore e la copia sta da noi.
+   */
+  imagePath?: string;
   itemListElement: string[];
   /** Sottoinsieme di itemListElement da mostrare solo se resta tempo. */
   optionalItems?: string[];

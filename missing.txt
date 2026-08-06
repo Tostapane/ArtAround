@@ -6,9 +6,7 @@ MANCANTI
 - svg piu' dettagliati e complessi, opere tonde?
 - immagine per le visite
 - adozione mediante unico file di configurazione
-- accesso a navigator e marketplace dalla landing page
 - mettere imagini del museo
-- migliorare il logo
 - superseed, rework dei prezzi
 DA DISCUTERE
 - generalizzare cose nel marketplace

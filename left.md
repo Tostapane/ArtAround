@@ -1,5 +1,98 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-06, la visita su misura non e' roba da autore
+
+Segnalato: un autore poteva farsi comporre una visita a parole, ma quella visita **non si
+salva nel database**, quindi non e' una cosa che un autore possa fare. Ragionamento durevole
+in `state.md` §4.13-bis.
+
+- **Sparita la striscia** «Raccontala a parole» dal compositore quando chi lo apre e' un
+  autore: la sola strada che ce lo portava.
+- ⚠️ **Nascondere l'invito non basta**: l'indirizzo si scrive a mano, e chi ci arrivasse
+  scoprirebbe che la visita e' evaporata **dopo** averla camminata. `applyRoute` rimanda
+  percio' l'autore alla sua casa se chiede `#/sumisura`.
+- ⚠️ **Il curatore non e' nominato**, ed e' voluto: oggi non ha nessuna strada per arrivarci,
+  e una regola scritta per un caso che non esiste e' una riga che nessuno potra' provare. Il
+  giorno che ne avesse una, il ragionamento e' lo stesso ed e' scritto accanto al controllo.
+- **Non toccata la biglietteria del navigator**, che la composizione a parole ce l'ha per
+  conto suo: li' si sta camminando nel museo, e quell'app i ruoli non li conosce.
+
+**Verificato in chromium, cinque controlli**: autore nel compositore → zero inviti; autore che
+scrive `#/sumisura` → torna su `lavori`; visitatore → invito nella home e nel compositore, e
+la schermata si apre normalmente. Zero errori in console.
+
+## ⏸ Ripresa — 2026-08-06, la copertina di una visita
+
+Richiesta: una visita deve poter mostrare un'immagine nel marketplace, facoltativa, e dove
+c'e' va vista come si vedono le opere; senza, resta il fondo colorato di adesso. Ragionamento
+durevole in `state.md` §2 (il campo) e §4.6-bis (la tessera).
+
+- **`Visit.imagePath`**, facoltativo, piu' il campo nel passo 2 del compositore e la tessera
+  che diventa quella di un'opera (dissolvenza, titolo che risale nella coda). Senza immagine
+  **non cambia niente**: titolo sulla struttura, come sempre.
+- **Zero rotte nuove**: si carica con `POST /api/items/image`, la stessa degli item, e il file
+  finisce nella stessa cartella. E' lo stesso gesto e lo stesso file su disco; una seconda
+  rotta identica sarebbe solo un altro posto in cui sbagliare l'elenco dei formati.
+  Stessa cosa per il client: `caricaImmagine()` e `draft.immagine` **esistevano gia'** —
+  l'editor delle descrizioni e il compositore condividono la bozza.
+- ⚠️ **Il campo si scrive sempre, anche vuoto, e vale `null` e non `undefined`**: Mongoose
+  salta i campi `undefined` in un aggiornamento, quindi con `undefined` una copertina non si
+  sarebbe piu' potuta **togliere**. E' il difetto che non si vede provando solo ad aggiungerla.
+- ⚠️ **L'immagine vecchia va tolta dal disco** quando cambia e quando la visita si elimina. La
+  cancellazione legge il documento **prima** di rimuoverlo (`findOneAndDelete` al posto di
+  `deleteOne`): il documento e' l'unico posto che conosce il nome del file.
+- **L'anteprima nel compositore non e' decorazione**: riaprendo una visita gia' pubblicata,
+  senza di quella non si saprebbe che una copertina c'e', e non sapendolo non la si potrebbe
+  togliere.
+
+**Provato in chromium sul giro intero**, con il file che entra dall'input vero
+(`DOM.setFileInputFiles`) e non dall'API: carica → anteprima e bozza; salva → `imagePath` sul
+documento; vetrina → tessera con la figura e senza copertina tipografica; pagina della visita
+→ figura alta 288 px; riapre → anteprima presente; toglie e salva → campo vuoto **e file
+sparito dal disco**; elimina la visita → via anche lei. Zero errori in console, `tsc` verde su
+marketplace e server. **Dato di prova rimosso**: la visita `PROVA copertina` e la sua immagine
+non ci sono piu' (verificato su Mongo e sulla cartella).
+
+⚠️ **Non toccati di proposito**: le righe delle visite in **libreria** e in **lavori**, che
+non mostrano figure nemmeno adesso. Darle vorrebbe dire una seconda forma di riga accanto a
+quella coi bottoni, e la richiesta era la vetrina. Il navigator ignora il campo.
+
+⚠️ **La prova gira su un secondo server** (`PORT=8100`): sulla 8000 ce n'e' gia' uno acceso,
+e il codice nuovo lo vede solo un processo riavviato.
+
+## ⏸ Ripresa — 2026-08-06, il marchio nuovo: l'angolo della sala
+
+Richiesta: il marchio sembrava fatto da una macchina, e si voleva qualcosa di originale —
+«un'illusione ottica? un cappio strano?». Ragionamento durevole in `state.md` §4.2.
+
+- **Il segno e' l'angolo di una sala in assonometria**, con un quadro appeso su ognuna delle
+  tre facce: figura ambigua della famiglia del cubo di Necker, si legge come l'angolo dentro
+  cui si sta e come uno spigolo che sporge in fuori. I quadri sono **doppi** (cornice piu'
+  battuta): e' quel che gli da' profondita', ed e' il costo scelto sapendolo — sotto i 28 px i
+  due rombi si impastano.
+- ⚠️ **I tre spigoli interni vanno ai due vertici alti e a quello in basso.** Nella prima
+  stesura finivano sul vertice in cima e su quello in basso a sinistra: due tratti che
+  **tagliavano le facce** invece di disegnare dove i muri si toccano. Segnalato guardando, non
+  dedotto — l'elenco delle facce e quello degli spigoli devono essere d'accordo e nessuno dei
+  due controlla l'altro, quindi l'errore compila e si vede solo a schermo.
+- ⚠️ **`logo.svg` e' lo stesso disegno, non una seconda versione.** Il marchio di prima aveva
+  un arco **tratteggiato** che alla favicon diventava poltiglia, e per esistere aveva bisogno
+  di due disegni: e' proprio quel difetto ad aver aperto la questione. Qui cambiano solo i
+  colori — fuori da una pagina non c'e' nessun `currentColor` — e a 16 px resta leggibile un
+  cubo con tre macchie chiare.
+- **La geometria la calcola uno script** (`genera2.mjs` nello scratchpad), non la mano: sono
+  una trentina di vertici e mezzo punto di scarto e' esattamente dove l'illusione muore. Nel
+  sorgente finiscono i numeri, non il generatore.
+
+⚠️ **Provata e scartata la scala di Penrose.** Una scala infinita in assonometria non si chiude
+per costruzione: sullo schermo l'altezza accumulata non torna a zero, e il disegno regge solo
+se un angolo **nasconde** il salto dietro la rampa vicina. Senza quell'occlusione esce una
+scala rotta, ed e' quel che ha prodotto il primo generatore.
+
+**Verificato pilotando chromium**: il marchio a 128/64/32/16 px come favicon (fondo struttura,
+spigoli chiari, quadri d'accento), sulla soglia e nel binario a 28 px, nei due temi. Zero
+errori in console.
+
 ## ⏸ Ripresa — 2026-08-06, si apre in italiano, e la lingua si sceglie sulla soglia
 
 Segnalato: aprendo una scheda nuova l'applicazione resta nella lingua di prima, e si vuole

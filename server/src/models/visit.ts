@@ -32,6 +32,7 @@ const visitSchema = new Schema<IVisit>({
   // senza diritti dichiarati.
   license: { type: String, default: DEFAULT_LICENSE },
   ofMuseum: String,
+  imagePath: { type: String },
   itemListElement: [String],
   optionalItems: [String],
   logistics: [Schema.Types.Mixed],

@@ -30,6 +30,12 @@ import { purchasedBy, readableItems } from "../access";
 import { conto } from "../pricing";
 import { AI_LEVEL, CUSTOM_LEVEL } from "../../../shared/constants";
 import { DEFAULT_LICENSE } from "../../../shared/constants";
+// La copertina di una visita si carica con la stessa rotta dell'immagine di un
+// item (`POST /api/items/image`) e finisce nella stessa cartella: e' lo stesso
+// gesto e lo stesso file su disco, e una seconda rotta identica sarebbe solo un
+// altro posto in cui sbagliare il formato ammesso. Di qui serve la cancellazione,
+// perche' una visita eliminata deve portarsi via la sua immagine.
+import { rimuoviImmagine } from "./items";
 
 const router = Router();
 
@@ -321,6 +327,18 @@ router.post("/", async (req, res) => {
       }
     }
 
+    // La copertina e' facoltativa, quindi il campo si scrive SEMPRE: `undefined`
+    // in un aggiornamento Mongoose lo salta, e chi toglie l'immagine da una
+    // visita gia' pubblicata non riuscirebbe piu' a levarla. `null` invece la
+    // cancella. La vecchia, se c'era, si toglie anche dal disco.
+    const immagine =
+      typeof payload.immagine === "string" && payload.immagine.trim() !== ""
+        ? payload.immagine.trim()
+        : null;
+    const precedente = await VisitModel.findOne({ "@id": visitId }).select("imagePath");
+    if (precedente?.imagePath && precedente.imagePath !== immagine)
+      rimuoviImmagine(precedente.imagePath);
+
     await VisitModel.findOneAndUpdate(
       { "@id": visitId },
       {
@@ -332,6 +350,7 @@ router.post("/", async (req, res) => {
         author,
         license: payload.licenza || payload.license || DEFAULT_LICENSE,
         ofMuseum: payload.museumUri || payload.ofMuseum,
+        imagePath: immagine,
         itemListElement: itemIds,
         optionalItems,
         accessKey: accessKey ?? null,
@@ -351,10 +370,13 @@ router.post("/", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await VisitModel.deleteOne({ "@id": id });
-    if (result.deletedCount === 0) {
+    // Si legge prima di cancellare: la copertina sta su disco e il documento e'
+    // l'unico posto che ne conosce il nome.
+    const eliminata = await VisitModel.findOneAndDelete({ "@id": id });
+    if (!eliminata) {
       return res.status(404).json({ error: "Visita non trovata" });
     }
+    rimuoviImmagine(eliminata.imagePath);
     await UserModel.updateMany({}, { $pull: { collezione: id } });
     res.json({ message: "Visita eliminata" });
   } catch (error: any) {

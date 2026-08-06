@@ -635,9 +635,14 @@ corregge lì, in quel passaggio**, invece di lasciarlo passare.
   artwork would have no museum otherwise, and the catalogue filter is one query instead of two.
   ⚠️ `isItem()` therefore distinguishes an item from a visit by **`kind`**, not by `about`.
 - **Visit** (= `ItemList`) — `@id`, `name`, `level`, `duration` (**total** seconds),
-  `price?`, `license?`, `ofMuseum`, `itemListElement` (Item `@id`[]), `optionalItems?`
-  (subset), `logistics`, `author?`, `accessKey?`, `quiz?`.
+  `price?`, `license?`, `ofMuseum`, `imagePath?`, `itemListElement` (Item `@id`[]),
+  `optionalItems?` (subset), `logistics`, `author?`, `accessKey?`, `quiz?`.
   `accessKey` present ⇒ **guided visit**: free, not purchasable, not listed to visitors.
+  ⚠️ **`imagePath` is optional and stays optional** *(2026-08-06)*: a visit has no picture by
+  nature — it is a route, not an object — so without one the tile is the title on the
+  structure, which is how visits have always looked. There is no `imageUri` beside it as
+  there is on an artwork: this one does not come from Wikidata, the author uploads it and the
+  copy is ours.
 - **LogisticNote** — `{after: string | null, text}`. `Visit.logistics` is now
   `(string | LogisticNote)[]`: notes are **anchored to the stop they follow**, so the
   navigator can show "how to get to the next item" at the moment it matters (slide 21).
@@ -1400,6 +1405,29 @@ pass); `prefers-reduced-motion` composes one figure and stops.
 volentieri `HOLD`, che e' attesa e basta, che `MORPH`, che e' la sola parte che si guarda e
 sotto il secondo torna a leggersi come uno scatto.
 
+**Il marchio è l'angolo di una sala** *(rifatto 2026-08-06)*: un angolo in assonometria con
+un quadro appeso su ognuna delle tre facce. È una figura ambigua della famiglia del **cubo di
+Necker** — si legge come l'angolo dentro cui si sta e come uno spigolo che sporge in fuori, e
+le due letture si alternano invece di stare insieme. Dice il pezzo di museo che nessuno
+disegna (non il quadro, la stanza), e i tre quadri dicono che le opere sono più d'una: un
+catalogo, non un'opera sola.
+
+- ⚠️ **I tre spigoli interni vanno dal centro ai due vertici alti e a quello in basso**, e non
+  esiste un'altra terna che funzioni. Puntandoli al vertice in cima o a quello in basso a
+  sinistra — come erano nella prima stesura — si ottengono tratti che **tagliano le facce**
+  invece di disegnare il punto in cui i muri si toccano, e l'ambiguità sparisce, perché quelle
+  righe ancorano la lettura. L'elenco delle facce e quello degli spigoli devono essere
+  d'accordo e **nessuno dei due controlla l'altro**: è un errore che compila, si vede solo
+  guardando.
+- **Ogni quadro è doppio** (cornice più battuta). È quel che gli dà profondità ed è il suo
+  costo, scelto sapendolo: sotto i 28 px i due rombi si impastano.
+- ⚠️ **`logo.svg` è lo STESSO disegno**, non una seconda versione: cambiano solo i colori,
+  perché fuori da una pagina non c'è nessun `currentColor` da seguire. Il marchio di prima —
+  quadro incorniciato più arco tratteggiato — alla favicon diventava poltiglia e per esistere
+  aveva bisogno di **due disegni diversi**, che è il motivo per cui è stato rifatto. Nella
+  favicon la struttura fa da fondo, gli spigoli sono chiari e i quadri prendono l'accento,
+  così a 16 px resta leggibile un cubo con tre macchie chiare.
+
 **Two doors, one login** *(2026-08-06)*: `Entra nel marketplace` and `Entra nell'app da
 museo`. Both land on `accedi` — the navigator lives on another origin and the only way it
 can know who walked in is the handoff ticket minted here, which needs a session first — so
@@ -1529,12 +1557,29 @@ vederle. Sono diventate `artworkCount()` e `artworkFromPrice()` — due metodi e
 perche' portano due colori diversi e una stringa sola puo' averne uno solo. Catalogo
 **499 → 501** chiavi.
 
-⚠️ **La copertina di una visita NON prende la figura della prima tappa**, ed e' stato
-provato prima di scartarlo: le visite di catalogo di un museo sono le stesse opere nello
-stesso ordine e cambia solo il tono, quindi la stessa fotografia usciva su tutte e venti le
-tessere. Una scelta piu' furba non esiste nel dato — quale opera rappresenti un percorso e'
-una domanda di curatela. La copertina resta percio' tipografica, ma sulla **struttura**
-invece che sul grigio: la stessa superficie della soglia, il titolo in carattere display
+**La copertina si puo' caricare** *(2026-08-06)*, e allora la tessera di una visita e' quella
+di un'opera: stessa dissolvenza, stesso titolo che risale nella sua coda. `Visit.imagePath`,
+facoltativo: **senza immagine non cambia niente**, resta il titolo sulla struttura. Le due
+forme convivono nella stessa griglia — verificato con 22 tessere tipografiche e una figurata.
+- Si carica con la **stessa rotta dell'immagine di un item** (`POST /api/items/image`) e
+  finisce nella stessa cartella: e' lo stesso gesto e lo stesso file su disco, e una seconda
+  rotta identica sarebbe solo un altro posto in cui sbagliare l'elenco dei formati ammessi.
+- ⚠️ **Il campo si scrive sempre, anche vuoto** (`null`, non `undefined`): Mongoose salta i
+  campi `undefined` in un aggiornamento, quindi con `undefined` una copertina non si potrebbe
+  piu' **togliere** da una visita che ce l'ha.
+- ⚠️ **L'immagine vecchia si cancella dal disco** quando cambia e quando la visita viene
+  eliminata (`rimuoviImmagine`, la stessa degli item): il documento e' l'unico posto che ne
+  conosce il nome, quindi cancellarlo prima di leggerlo lascia il file li' per sempre.
+- Nel compositore il campo mostra un'**anteprima**: riaprendo una visita gia' pubblicata,
+  senza di quella non ci sarebbe modo di sapere che una copertina c'e' — e non sapendolo non
+  la si potrebbe togliere.
+
+⚠️ **La copertina NON si ricava dalla figura della prima tappa**, ed e' stato provato prima
+di scartarlo: le visite di catalogo di un museo sono le stesse opere nello stesso ordine e
+cambia solo il tono, quindi la stessa fotografia usciva su tutte e venti le tessere. Una
+scelta piu' furba non esiste nel dato — quale opera rappresenti un percorso e' una domanda
+di curatela, ed e' per questo che la si CHIEDE a chi compone invece di indovinarla. Il
+ripiego resta tipografico, sulla **struttura** invece che sul grigio: la stessa superficie della soglia, il titolo in carattere display
 (**8,29:1**), e un filo d'accento che si accende in basso passandoci sopra. Il titolo non
 si ripete piu' sotto la copertina, dove era scritto due volte nella stessa tessera.
 
@@ -1653,6 +1698,15 @@ uno cominci a scegliere le tappe a mano — l'invito non compare in modifica, pe
 manderebbe via da un lavoro già aperto. Nel senso opposto, la riga che avverte che la visita
 non si salva rimanda al compositore, che è il modo per tenerne una. Sono le due metà dello
 stesso atto: comporre scegliendo, o comporre descrivendo.
+
+⚠️ **È una strada da VISITATORE, e all'autore non si offre** *(2026-08-06)*. Una visita su
+misura non si salva; un autore il compositore lo apre per **pubblicare**, quindi quella
+schermata gli prometterebbe un contenuto che non resta. Sparita perciò la striscia dal suo
+compositore, e `applyRoute` lo rimanda a casa se l'indirizzo lo scrive a mano: **nascondere
+il solo invito non basta**, o si scopre che la visita è evaporata dopo averla camminata. Il
+curatore non è nominato nella regola perché oggi non ha nessuna strada per arrivarci; il
+giorno che l'avesse, vale lo stesso ragionamento. Resta invece la composizione a parole
+**nella biglietteria del navigator**, che è l'app in cui si cammina e non conosce ruoli.
 
 **Porta la frase, non la visita.** Una visita su misura non viene scritta nel database
 (§3.3) e le due applicazioni stanno su due origini diverse: non c'è modo di passarsela. Il

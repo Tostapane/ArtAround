@@ -355,6 +355,17 @@ export class AppState {
       this.goTo(this.roleHome());
       return;
     }
+    // La visita su misura NON si salva: vive il tempo in cui la si cammina, e
+    // per questo e' una strada da visitatore. Un autore apre il compositore per
+    // pubblicare, quindi quella schermata gli prometterebbe un contenuto che non
+    // resta. Nascondere il solo invito non basterebbe: l'indirizzo si scrive a
+    // mano, e chi ci arriva scoprirebbe la cosa dopo aver camminato.
+    // Il curatore non e' nominato perche' oggi non ha nessuna strada per
+    // arrivarci: il giorno che ne avesse una, la regola e' la stessa.
+    if (view === "sumisura" && this.currentUserRole === "autore") {
+      this.goTo(this.roleHome());
+      return;
+    }
     const cambiata = this.view !== view || this.param !== param;
     this.view = view;
     this.param = param;
@@ -1958,6 +1969,20 @@ export class AppState {
     return nomi;
   }
 
+  /**
+   * La copertina di una visita, se chi l'ha composta ne ha caricata una.
+   *
+   * Vuoto e' il caso normale, non un difetto: senza immagine la tessera resta il
+   * titolo sulla struttura, che e' come le visite si sono sempre viste. Non si
+   * ripiega sulla figura della prima tappa — provato e scartato, vedi
+   * `state.md` §4.6-bis: le visite di catalogo di un museo sono le stesse opere
+   * nello stesso ordine, quindi uscirebbe la stessa fotografia su tutte.
+   */
+  visitImage(v: any): string {
+    if (!v) return "";
+    return v.imagePath || "";
+  }
+
   /** Il file non si legge qui: lo nomina il server, che risponde con l'indirizzo. */
   async caricaImmagine(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -2501,6 +2526,7 @@ export class AppState {
       options: [...(q.options || ["", "", "", ""])],
       correct: Number(q.correct) || 0,
     }));
+    this.draft.immagine = visit.imagePath || "";
     this.draft.tappe = this.rebuildStops(visit);
     this.goTo("componi");
   }
@@ -2842,6 +2868,9 @@ export class AppState {
       museumUri: this.selectedMuseum
         ? `http://www.wikidata.org/entity/${this.selectedMuseum.qid}`
         : undefined,
+      // Si manda sempre, anche vuota: e' cosi' che si toglie una copertina da
+      // una visita che ce l'aveva.
+      immagine: this.draft.immagine,
       percorso: this.draft.tappe
         .filter((t) => t.tipo === "item" || t.value.trim() !== "")
         .map((t) => ({
