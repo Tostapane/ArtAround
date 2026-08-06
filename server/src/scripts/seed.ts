@@ -48,6 +48,7 @@ import {
   kindById,
 } from "../../../shared/constants";
 import { createSubjectDescription } from "../services/llm";
+import { sortByFlow } from "../services/svgGraph";
 import { LogisticNote } from "../../../shared/types";
 import {
   loadMuseumConfigs,
@@ -312,6 +313,28 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
 }
 
 /**
+ * Le tappe nell'ordine in cui il museo si attraversa.
+ *
+ * Il database restituisce gli item nell'ordine in cui sono stati scritti, che
+ * non e' un ordine: una visita seminata cosi' rimbalza da una sala all'altra e,
+ * da quando le piante hanno i piani, sale e scende le scale a ogni tappa.
+ * L'ordine di percorrenza sta sulla mappa (`data-flow`) ed e' lo stesso che
+ * mette in fila il catalogo: qui si applica alle tappe, che sono item e non
+ * opere, passando per il qid dell'opera di cui l'item parla.
+ */
+function inOrdineDiPercorso<T extends { about?: string }>(
+  items: T[],
+  mapPath: string,
+): T[] {
+  const conQid = items.map((it) => {
+    const uri = it.about || "";
+    const pezzi = uri.split("/");
+    return { item: it, qid: pezzi[pezzi.length - 1] };
+  });
+  return sortByFlow(conQid, mapPath).map((riga) => riga.item);
+}
+
+/**
  * Una visita per ogni combinazione di tono e durata, con dentro tutte le opere
  * del museo per cui quell'item esiste davvero.
  *
@@ -333,12 +356,13 @@ async function seedMuseumVisits(config: MuseumConfig) {
         about: { $in: aboutIds },
       });
       if (items.length === 0) continue;
+      const percorso = inOrdineDiPercorso(items, config.mapPath);
       await populateVisit(
         level,
         duration,
         config.qid,
         uri,
-        items.map((item) => item["@id"]),
+        percorso.map((item) => item["@id"]),
         notes,
       );
     }
@@ -397,7 +421,7 @@ async function seedSpecialVisits(config: MuseumConfig) {
     );
     return;
   }
-  const itemIds = items.map((it) => it["@id"]);
+  const itemIds = inOrdineDiPercorso(items, config.mapPath).map((it) => it["@id"]);
   const durataTotale = duration * itemIds.length;
   const notes = openingNotes(config);
 

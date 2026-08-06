@@ -1,5 +1,114 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-06, le sale vuote degli Uffizi
+
+Richiesta: riempire le sale vuote con almeno due opere ciascuna, opere vere, coi qid
+controllati uno per uno prima di scriverli. Ragionamento durevole in `state.md` §1.1-octies.
+
+- **25 opere nuove**, `art-105`..`art-129`, config da 104 a 129 qid. Quattordici sale
+  passano da zero o una a due o piu': San Pier Scheraggio, Sale 16, 17, 24, 35, 42, 49, 50,
+  51, 74, 75, 92, il Gabinetto dei Disegni e la Collezione Contini Bonacossi.
+- **Controllati contro Wikidata uno per uno**, non a memoria: etichetta, autore, tipo,
+  presenza di `P18`, e l'appartenenza al museo con la STESSA interrogazione del server
+  (`P195/P361* -> Q51252`). Lo script sta nello scratchpad: **33 qid controllati, 25 usati** —
+  4 scartati perche' senza immagine, 2 perche' agli Uffizi ci stanno per `P276` e non per
+  collezione, 1 perche' era un doppione, 1 rimasto in panchina.
+- ⚠️ **Il seed salta le opere senza immagine** (`manager.ts populateArtwork`): un qid senza
+  `P18` si scrive nel config, non da' errore e non arriva mai nel database. Quattro scelte
+  sono state rifatte per questo (soffitto delle Carte Geografiche, Cinghiale, Sileno ebbro,
+  gruppo di Niobe).
+- ⚠️ **Un `data-qid` doppio sposta l'opera nella sala sbagliata in silenzio**: `Q15974356`
+  (Veronese) era gia' `art-92` in Sala 84 e stava per essere messo anche nella Contini
+  Bonacossi. Trovato col controllo incrociato config/mappa, non guardando.
+- ⚠️ **`P18` presente non vuol dire opera giusta.** `Q1841379` (*Gradiva*) passava ogni
+  controllo automatico — immagine, collezione Uffizi — ma la sua stessa descrizione dice
+  «bassorilievo ospitato nei **musei vaticani**» e porta due collezioni. L'elemento confonde
+  l'originale vaticano con la replica: sostituito col *Britannico in toga*, che di collezione
+  ne ha una sola. Il controllo che l'ha visto e' stato **leggere la descrizione**, dopo che
+  il nome del file dell'immagine parlava di un altro rilievo.
+- ⚠️ **Le coppie `(art-N, data-qid)` di prima non sono cambiate** (verificate contro `git show`
+  una per una): `locationId` nel database e' quell'`id`. In Sala 2 le quattro opere si sono
+  spostate di 15 unita' in x per far posto alla quinta — la posizione si puo' cambiare, l'id no.
+- **`data-flow="52"` su San Pier Scheraggio**, che non ne aveva: con delle opere dentro, il
+  collaudo delle piante avverte che finirebbero in fondo all'ordine di percorrenza.
+- ⚠️ **`Q3698238` non e' piu' orfana**: `art-105` in Sala 2. Chiude la decisione lasciata
+  aperta nella ripresa del ridisegno delle piante.
+
+**Verificato**: `testers.ts mappe` pulito su tutte e quattro le piante; ogni nodo nuovo cade
+nella sala voluta (parser vero); e in chromium sul disegno, dove i 25 nodi stanno dentro il
+muro della loro sala e non toccano ne' le scritte dei nomi ne' altri nodi — il primo giro
+diceva che `art-105` toccava le quattro opere della Sala 2, ed e' per questo che la sala e'
+ora su tre colonne.
+
+⚠️ **Il database non ha ancora queste opere**: vanno seminate con
+`npx ts-node src/scripts/seed.ts Q51252`, che salta le 104 che ci sono gia'. Sono ~25 opere
+nuove, cioe' circa mezz'ora di chiamate al modello. Fino ad allora la pianta mostra nodi che
+il catalogo non conosce.
+
+## ⏸ Ripresa — 2026-08-06, le note d'apertura uscivano dallo schermo
+
+Segnalato: le logistiche iniziali del navigator vanno fuori schermo. Ragionamento durevole in
+`state.md` §5.3-octies.
+
+- **La finestra ha un tetto e a scorrere e' l'elenco delle note**: `max-h-[85dvh]` sul riquadro,
+  `min-h-0 overflow-y-auto` sull'elenco, `shrink-0` su titolo e bottoni. Stessa forma del
+  pannello del docente in `GuidedGate.vue`. Applicato anche alla finestra di **fine visita**,
+  che e' lo stesso riquadro con le stesse note.
+- ⚠️ **Traboccava in ALTO, non in basso**: sotto `sm` il riquadro e' appoggiato al fondo
+  (`items-end`), quindi a uscire erano il titolo e le prime note. Misurato a 390x664: finestra
+  863 px, 215 px sopra il bordo, e su un velo `fixed` non c'e' niente da scorrere per
+  raggiungerli.
+- ⚠️ **Senza `min-h-0` il tetto non serve a niente**: un elemento flex non scende sotto il
+  proprio contenuto finche' ha `min-height: auto`.
+- ⚠️ **Il numero delle note non lo decide piu' la visita** (§5.3-septies): sono quelle del museo
+  piu' quelle dell'autore. Agli Uffizi sono cinque e lunghe; gli altri tre musei ne hanno zero
+  nel config, ed e' per questo che il difetto si vede solo li'.
+
+**Verificato pilotando chromium** su quattro riquadri (390x664, 390x500, 740x360, 1280x800) con
+la visita vera degli Uffizi: finestra e bottoni dentro lo schermo, l'ultima nota raggiungibile
+scorrendo, *Continua* premuto davvero (chiude e apre la prima tappa). Zero errori in console,
+`vue-tsc` verde. **Niente scritto sul database**: si e' entrati con `visitatore1` e non si e'
+comprato niente.
+
+## ⏸ Ripresa — 2026-08-06, il catalogo del curatore mostrava descrizioni al posto delle opere
+
+Segnalato: nel filtro del catalogo "Opere" elencava le descrizioni delle opere, non le opere.
+Ragionamento durevole in `state.md` §1.1-septies.
+
+- **Due assi invece di uno**: *Tipo* (Tutto · Opere · Descrizioni · Visite) e *Soggetto*
+  (Tutti · Opere · Autori e stili), che compare solo dove in tabella ci sono descrizioni.
+- **La riga-opera** porta codice Wikidata, numero di descrizioni e l'artista; tono, durata e
+  prezzo dicono `n/d`, e i filtri su quei campi tengono le opere fuori invece di svuotare la
+  tabella. L'azione e' **Rimuovi**, con la scelta sulle visite.
+- ⚠️ **Il vecchio valore `meta` del filtro non esiste piu'**: era `catalogTypeFilter`, ora e'
+  `catalogSubjectFilter`. Chi avesse un collegamento salvato a quella schermata non se ne
+  accorge, perche' il filtro non sta nell'indirizzo.
+
+**Verificato in chromium** contando le righe di ogni combinazione sugli Uffizi: Tutto 2248
+(105 + 2120 + 23), Opere 105, Descrizioni 2120 (2080 su opere, 40 su autori e stili), Visite 23.
+
+## ⏸ Ripresa — 2026-08-06, rimuovere un'opera senza buttare via le visite
+
+Segnalato provando a togliere dal catalogo un'opera che il config non elencava piu': la cascata
+si portava dietro **ventidue** visite degli Uffizi, la guidata compresa. Ragionamento durevole in
+`state.md` §1.1-sexies.
+
+- **`dbActions.rimuoviTappeDalleVisite`**: toglie la tappa e rimette a posto quel che le era
+  appeso — tappe facoltative, note logistiche ancorate (scendono alla tappa valida che le
+  precede), durata, domande del quiz che nominavano l'opera. Sparisce solo la visita che resta
+  **senza tappe**.
+- **La scelta e' del curatore**: `?visite=accorcia|elimina` su `DELETE /api/artworks/:qid` e su
+  `DELETE /api/items/:id`. Nella conferma del marketplace ci sono le due opzioni con l'esito
+  scritto sotto, e si parte da quella che distrugge meno. Il bottone ora dice **Rimuovi**.
+- **`GET .../impact`** dice anche quante visite resterebbero vuote (`svuotate`), non solo quante
+  sono toccate: e' la differenza fra le due strade.
+- ⚠️ **Il dialogo elencava tutti i nomi delle visite** e con ventidue spingeva i bottoni fuori
+  dallo schermo. Ora ne nomina tre e conta le altre, e la finestra scorre.
+
+**Verificato**: due giri su documenti finti (opera + 2 descrizioni + 2 visite) che controllano
+uno per uno nota, durata, quiz, tappe facoltative e visita svuotata, in tutti e due i modi; poi
+il dialogo vero in chromium, aperto e annullato senza toccare niente.
+
 ## ⏸ Ripresa — 2026-08-06, le quattro piante ridisegnate sui musei veri
 
 Richiesta: piante molto piu' ricche e dettagliate, gli Uffizi il piu' possibile fedeli al museo
@@ -27,9 +136,62 @@ una sala, nessun `data-flow` doppio, tutte le sale raggiungibili dall'ingresso (
 che si vedono e non si leggono erano un muro che si allungava fino al varco della sala accanto e
 il nome della sala scritto sotto i nodi delle opere.
 
-⚠️ **Da provare quando il server e' su**: la pianta dentro il navigator (selettore dei piani,
-inquadratura per piano, numeri delle tappe sui dischi). Il server e la base dati erano spenti
-mentre le mappe venivano disegnate, quindi questa parte e' rimasta fuori dalla verifica.
+**Poi e' saltato fuori il vero difetto: le visite seminate non erano in ordine di percorrenza.**
+`sortByFlow` ordinava il catalogo e la visita su misura, ma le visite che scrive il seed
+prendevano le tappe nell'ordine di `ItemModel.find`, cioe' l'ordine di scrittura del database.
+Era cosi' da sempre; con le piante a un piano solo si vedeva poco, con i piani si vedeva subito.
+
+- **`seed.ts`**: `inOrdineDiPercorso` ordina le tappe col `data-flow` della mappa, sia nelle otto
+  visite per museo sia nelle due speciali. Passa dal qid dell'opera, perche' la tappa e' un item.
+- **`testers.ts percorso`**: riallinea le visite gia' nel database senza rigenerare niente.
+  Tocca solo i `@id` che cominciano per `visit-` (il prefisso del seed): `tour-…` e `custom-…`
+  hanno l'ordine che ha scelto un autore. Nel percorso con contenuti opzionali gli opzionali
+  tornano a essere la seconda meta' del cammino, che e' la regola del seed.
+- **Eseguito**: 82 visite riordinate. Verificato leggendo il database e rimappando ogni tappa
+  sulla sua sala: **zero passi all'indietro** e **un solo cambio di piano** per visita (due al
+  Louvre, che di piani ne ha tre).
+
+**E poi il difetto vero del `data-flow`: crescere non vuol dire camminare.** Segnalato guardando
+il Louvre: la tappa 25 sta al secondo piano e la 24 dall'altra parte. I numeri salivano, ma fra
+due numeri consecutivi ci potevano essere cinque sale. Misurato con la distanza sul grafo:
+2 salti sugli Uffizi, 2 sul British, 5 al Louvre, 5 al Metropolitan.
+
+- **Rinumerati i `data-flow`** delle quattro piante: ora ogni passo del percorso e' di **una o
+  due sale** (due = si passa dal corridoio, che e' una sala anche lui). Zero salti su tutte.
+- **Louvre**: la scala che sale sta ora dove il giro del piano di sotto finisce (Caryatides →
+  Grande Galerie, Appartamenti → Pittura francese del Settecento), non piu' in mezzo al piano.
+- ⚠️ **Le opere non si sono spostate**: sono cambiati solo i numeri d'ordine delle sale, quindi
+  le coppie `(id, data-qid)` e le posizioni sulla pianta sono le stesse.
+
+**Un'opera stava nella sala sbagliata perche' la mappa vecchia la chiamava con un altro nome.**
+`Q959174` portava `data-label="Crocifisso con storie della Passione e della Redenzione"`, e su
+quel titolo l'avevo messa nella sala del Duecento: e' invece il *Ritratto d'uomo con medaglia di
+Cosimo il Vecchio* del Botticelli. Etichetta corretta e nodo spostato nelle Sale 11-14. Trovata
+confrontando i `data-label` della pianta coi nomi nel database: su 104 nodi ballavano solo due
+titoli, e l'altro (`Q1569622`) e' la stessa opera detta col nome corto, non un errore.
+
+⚠️ **Nel database c'e' una 105esima opera degli Uffizi**, `Q3698238` (*Crocifisso con storie
+della Passione e della Redenzione*, Maestro della Croce 432), con 20 descrizioni gia' scritte,
+FUORI da `activeArtworks` e senza nodo sulla pianta. Si porta dietro un `locationId` vecchio
+(`art-1`) che oggi punta al nodo del Botticelli. Da decidere: darle un nodo in Sala 2 e
+aggiungerla al config (non costa chiamate al modello, le descrizioni ci sono), oppure toglierla
+con la cascata di `DELETE /api/artworks/:qid`.
+
+**Perche' non ricapiti: il controllo e' un comando.** `testers.ts mappe` collauda le piante
+(nodo fuori sala, ostacolo fuori sala, ingresso mancante, sala irraggiungibile, `data-flow`
+doppio, sala con opere ma senza flusso, e il SALTO fra due tappe consecutive), piu' le opere del
+config che sulla pianta non hanno un nodo. Non tocca il database e non gli serve: gira su una
+copia appena scaricata, prima del seed. `testers.ts stato` lo esegue e in piu' dice quante
+visite seminate si sono allontanate dalla loro mappa, col comando per rimetterle in fila.
+
+⚠️ **Il database e' rimasto indietro, e va riallineato quando decidi tu.** Le visite seminate
+erano state riordinate col `data-flow` di prima: agli Uffizi non cambia niente (le due sale
+scambiate non hanno opere), ma British, Louvre e Metropolitan no. `stato` ne conta **60**. Si
+sistema con `testers.ts percorso` oppure rifacendo il seed, che ormai ordina da solo.
+
+⚠️ **Da provare quando il navigator e' su**: la pianta dentro l'app (selettore dei piani,
+inquadratura per piano, numeri delle tappe sui dischi). Il `getBBox` di ogni gruppo `data-floor`
+e' gia' stato controllato in chromium sul file SVG e inquadra solo il suo piano.
 
 ## ⏸ Ripresa — 2026-08-06, la visita su misura non e' roba da autore
 

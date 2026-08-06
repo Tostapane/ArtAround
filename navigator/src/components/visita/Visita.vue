@@ -20,6 +20,13 @@
  * Il teletrasporto cambia il significato di un tocco sul palcoscenico, quindi lo
  * stato sta qui: si arma da "Dove sono?" e dura un tocco solo, perche' una
  * modalita' e' una cosa in cui si resta intrappolati.
+ *
+ * Le due finestre - la transizione e la fine - hanno un tetto in altezza, e a
+ * scorrere e' l'ELENCO delle note: quelle d'apertura sono le logistiche del museo
+ * piu' quelle della visita, quindi quante siano non lo decide questo file. Perche'
+ * scorra l'elenco e non la finestra, l'elenco vuole `min-h-0` e tutto il resto
+ * `shrink-0`: senza, a uscire dallo schermo sono i bottoni, cioe' la finestra non
+ * si chiude piu'.
  */
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useSensors } from "@/composables/useSensors";
@@ -636,14 +643,14 @@ onUnmounted(() => {
       aria-modal="true"
       aria-labelledby="transizione-titolo"
     >
-      <div class="lastra w-full max-w-md p-6 shadow-l2">
+      <div class="lastra flex max-h-[85dvh] w-full max-w-md flex-col p-6 shadow-l2">
         <p
           id="transizione-titolo"
-          class="text-caption uppercase tracking-wider text-muted"
+          class="shrink-0 text-caption uppercase tracking-wider text-muted"
         >
           {{ transition.target < 0 ? t("Prima di cominciare") : t("Verso la prossima tappa") }}
         </p>
-        <ul class="mt-3 flex flex-col gap-3">
+        <ul class="mt-3 flex min-h-0 flex-col gap-3 overflow-y-auto">
           <li
             v-for="(n, i) in transition.notes"
             :key="i"
@@ -656,7 +663,7 @@ onUnmounted(() => {
             <span>{{ n }}</span>
           </li>
         </ul>
-        <div class="mt-6 flex gap-3">
+        <div class="mt-6 flex shrink-0 gap-3">
           <button
             type="button"
             class="btn-secondario"
@@ -679,14 +686,14 @@ onUnmounted(() => {
       aria-modal="true"
       aria-labelledby="fine-titolo"
     >
-      <div class="lastra w-full max-w-md p-6 shadow-l2">
-        <p class="text-caption uppercase tracking-wider text-muted">
+      <div class="lastra flex max-h-[85dvh] w-full max-w-md flex-col p-6 shadow-l2">
+        <p class="shrink-0 text-caption uppercase tracking-wider text-muted">
           {{ title }}
         </p>
-        <h2 id="fine-titolo" class="mt-1 font-display text-title-1">
+        <h2 id="fine-titolo" class="mt-1 shrink-0 font-display text-title-1">
           {{ t("Visita completata.") }}
         </h2>
-        <p class="mt-2 text-body text-muted">
+        <p class="mt-2 shrink-0 text-body text-muted">
           {{
             navigableStops.length === 1
               ? t("Hai visto l'unica tappa del percorso.")
@@ -694,7 +701,7 @@ onUnmounted(() => {
           }}
         </p>
 
-        <ul v-if="fine.notes.length" class="mt-5 flex flex-col gap-3">
+        <ul v-if="fine.notes.length" class="mt-5 flex min-h-0 flex-col gap-3 overflow-y-auto">
           <li
             v-for="(n, i) in fine.notes"
             :key="i"
@@ -708,7 +715,7 @@ onUnmounted(() => {
           </li>
         </ul>
 
-        <div class="mt-6 flex flex-col gap-2">
+        <div class="mt-6 flex shrink-0 flex-col gap-2">
           <button type="button" class="btn-primario justify-center" @click="tornaAllaHome">
             {{ t("Torna alla home") }}
           </button>

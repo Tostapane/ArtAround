@@ -219,16 +219,16 @@
     <polygon class="foglio" points="50,-800 1250,-800 1250,-100 50,-100" filter="url(#met-ombra)" />
     <g pointer-events="none">
       <rect class="sala sala-atrio" data-room="Balconata della Great Hall" data-flow="14" x="1000" y="-540" width="250" height="260" />
-      <rect class="sala t-notte" data-room="Ala americana - pittura" data-flow="22" x="50" y="-800" width="350" height="260" />
-      <rect class="sala t-verderame" data-room="Stampe, disegni e fotografie" data-flow="21" x="400" y="-800" width="300" height="260" />
-      <rect class="sala t-ottone" data-room="Arte asiatica - Cina" data-flow="20" x="700" y="-800" width="300" height="260" />
-      <rect class="sala t-salvia" data-room="Arte asiatica - Giappone" data-flow="19" x="1000" y="-800" width="250" height="260" />
-      <rect class="sala t-ardesia" data-room="Pittura europea 1250-1600" data-flow="17" x="50" y="-540" width="300" height="260" />
-      <rect class="sala t-notte" data-room="Pittura europea 1600-1800" data-flow="16" x="350" y="-540" width="350" height="260" />
-      <rect class="sala t-verderame" data-room="Pittura europea 1800-1900" data-flow="15" x="700" y="-540" width="300" height="260" />
-      <rect class="sala t-ottone" data-room="Sale degli strumenti musicali" data-flow="18" x="50" y="-280" width="350" height="180" />
-      <rect class="sala t-salvia" data-room="Arte islamica" data-flow="24" x="400" y="-280" width="300" height="180" />
-      <rect class="sala t-ardesia" data-room="Arte moderna e contemporanea" data-flow="23" x="700" y="-280" width="300" height="180" />
+      <rect class="sala t-notte" data-room="Ala americana - pittura" data-flow="18" x="50" y="-800" width="350" height="260" />
+      <rect class="sala t-verderame" data-room="Stampe, disegni e fotografie" data-flow="17" x="400" y="-800" width="300" height="260" />
+      <rect class="sala t-ottone" data-room="Arte asiatica - Cina" data-flow="16" x="700" y="-800" width="300" height="260" />
+      <rect class="sala t-salvia" data-room="Arte asiatica - Giappone" data-flow="15" x="1000" y="-800" width="250" height="260" />
+      <rect class="sala t-ardesia" data-room="Pittura europea 1250-1600" data-flow="19" x="50" y="-540" width="300" height="260" />
+      <rect class="sala t-notte" data-room="Pittura europea 1600-1800" data-flow="20" x="350" y="-540" width="350" height="260" />
+      <rect class="sala t-verderame" data-room="Pittura europea 1800-1900" data-flow="21" x="700" y="-540" width="300" height="260" />
+      <rect class="sala t-ottone" data-room="Sale degli strumenti musicali" data-flow="24" x="50" y="-280" width="350" height="180" />
+      <rect class="sala t-salvia" data-room="Arte islamica" data-flow="23" x="400" y="-280" width="300" height="180" />
+      <rect class="sala t-ardesia" data-room="Arte moderna e contemporanea" data-flow="22" x="700" y="-280" width="300" height="180" />
       <rect class="sala sala-atrio" data-room="Scalone Superiore" data-flow="13" x="1000" y="-280" width="250" height="180" />
     </g>
     <polygon points="50,-800 1250,-800 1250,-100 50,-100" fill="url(#met-griglia)" pointer-events="none" />
@@ -451,17 +451,17 @@
     <polygon class="foglio" points="50,40 1250,40 1250,740 50,740" filter="url(#met-ombra)" />
     <g pointer-events="none">
       <rect class="sala sala-atrio" data-room="Great Hall" data-flow="1" x="1000" y="260" width="250" height="260" />
-      <rect class="sala t-notte" data-room="Ala americana - cortile Engelhard" data-flow="10" x="50" y="40" width="350" height="220" />
-      <rect class="sala t-verderame" data-room="Armi e armature" data-flow="9" x="400" y="40" width="300" height="220" />
-      <rect class="sala t-ottone" data-room="Ala egizia - Tempio di Dendur" data-flow="8" x="700" y="40" width="300" height="220" />
-      <rect class="sala t-salvia" data-room="Sale medievali" data-flow="7" x="1000" y="40" width="250" height="220" />
-      <rect class="sala t-ardesia" data-room="Arti dell'Africa e delle Americhe" data-flow="5" x="50" y="260" width="300" height="260" />
-      <rect class="sala sala-atrio" data-room="Cortile delle sculture europee" data-flow="4" x="350" y="260" width="350" height="260" />
-      <rect class="sala t-notte" data-room="Sale greche e romane" data-flow="2" x="700" y="260" width="300" height="260" />
-      <rect class="sala t-verderame" data-room="Ala Robert Lehman" data-flow="6" x="50" y="520" width="350" height="220" />
-      <rect class="sala sala-servizio" data-room="Caffetteria e bookshop" data-flow="12" x="400" y="520" width="300" height="220" />
-      <rect class="sala t-ottone" data-room="Sale del Vicino Oriente antico" data-flow="3" x="700" y="520" width="300" height="220" />
-      <rect class="sala sala-atrio" data-room="Scalone Principale" data-flow="11" x="1000" y="520" width="250" height="220" />
+      <rect class="sala t-notte" data-room="Ala americana - cortile Engelhard" data-flow="5" x="50" y="40" width="350" height="220" />
+      <rect class="sala t-verderame" data-room="Armi e armature" data-flow="4" x="400" y="40" width="300" height="220" />
+      <rect class="sala t-ottone" data-room="Ala egizia - Tempio di Dendur" data-flow="3" x="700" y="40" width="300" height="220" />
+      <rect class="sala t-salvia" data-room="Sale medievali" data-flow="2" x="1000" y="40" width="250" height="220" />
+      <rect class="sala t-ardesia" data-room="Arti dell'Africa e delle Americhe" data-flow="6" x="50" y="260" width="300" height="260" />
+      <rect class="sala sala-atrio" data-room="Cortile delle sculture europee" data-flow="9" x="350" y="260" width="350" height="260" />
+      <rect class="sala t-notte" data-room="Sale greche e romane" data-flow="10" x="700" y="260" width="300" height="260" />
+      <rect class="sala t-verderame" data-room="Ala Robert Lehman" data-flow="7" x="50" y="520" width="350" height="220" />
+      <rect class="sala sala-servizio" data-room="Caffetteria e bookshop" data-flow="8" x="400" y="520" width="300" height="220" />
+      <rect class="sala t-ottone" data-room="Sale del Vicino Oriente antico" data-flow="11" x="700" y="520" width="300" height="220" />
+      <rect class="sala sala-atrio" data-room="Scalone Principale" data-flow="12" x="1000" y="520" width="250" height="220" />
     </g>
     <polygon points="50,40 1250,40 1250,740 50,740" fill="url(#met-griglia)" pointer-events="none" />
     <g class="muro">

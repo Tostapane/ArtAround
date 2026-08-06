@@ -319,7 +319,7 @@ hand-annotated SVG floor map:
 | `British Museum.json` | `Q6373` | 22 / 20 / 12 / 30 / 5 — **due piani** (§1.1-ter) |
 | `Metropolitan Museum of Art.json` | `Q160236` | 24 / 50 / 12 / 35 / 5 — **due piani** |
 | `Museo del Louvre.json` | `Q19675` | 27 / 25 / 15 / 34 / 6 — **tre piani** |
-| `Galleria degli Uffizi.json` | `Q51252` | 60 / **104** / 19 / 60 / 7 — **tre piani** |
+| `Galleria degli Uffizi.json` | `Q51252` | 60 / **129** / 19 / 60 / 7 — **tre piani** (§1.1-octies) |
 
 Le quattro piante sono state ridisegnate il **2026-08-06** sulla pianta vera di ciascun museo
 (§1.1-quinquies): prima erano schemi a cinque o sei stanze su un piano solo.
@@ -472,6 +472,19 @@ codice deterministico possiede la correttezza, il modello l'interpretazione (§3
 da sapere: se il modello avesse scelto un ordine narrativo (cronologico, o "queste tre preparano
 quella"), il riordino spaziale lo cancella.
 
+⚠️ **Il seed non lo applicava alle visite che scrive lui** *(trovato 2026-08-06)*. `sortByFlow`
+ordinava il catalogo e la visita su misura, ma le visite seminate — otto per museo piu' le due
+speciali — prendevano le tappe nell'ordine in cui `ItemModel.find` restituiva gli item, cioe'
+l'ordine di scrittura del database, che non e' un ordine. Il percorso rimbalzava da una sala
+all'altra, e da quando le piante hanno i piani (§1.1-quinquies) saliva e scendeva le scale a
+ogni tappa: e' cosi' che il difetto si e' visto, dopo mesi in cui era li'. Ora il seed le ordina
+(`inOrdineDiPercorso`, che passa dal qid dell'opera perche' la tappa e' un item), e le visite
+gia' nel database le riallinea `testers.ts percorso` — rifare il seed costerebbe ore di chiamate
+al modello per rigenerare testi che vanno benissimo. Riallineate **82 visite**: ora nessuna
+torna indietro e ognuna cambia piano una volta sola (due al Louvre, che di piani ne ha tre).
+Le visite d'autore (`tour-…`) e quelle su misura (`custom-…`) non si toccano: quell'ordine
+l'ha scelto qualcuno.
+
 Nel marketplace la libreria del compositore segue lo stesso ordine, quindi scegliendo dall'alto
 in basso si ottiene un percorso che non torna indietro. E' sparito il `sort` alfabetico che
 `loadCatalogue` faceva sulle opere appena arrivate: buttava via l'ordine che il server aveva
@@ -481,14 +494,33 @@ I quattro percorsi dichiarati oggi, letti dal grafo:
 
 | museo | sale, nell'ordine |
 | --- | --- |
-| British | Atrio Sud → Great Court → Reading Room → Sala 1 → … → Sala 2 → *(scalone)* → Sale 40-48 → … → Sale 49-51 |
-| Louvre | Hall Napoleon → Salle des Caryatides → … → Salle du Manege → *(Daru)* → Salle Mollien → Salle des Etats → Grande Galerie → … → Scalone Lefuel |
-| Metropolitan | Great Hall → Sale greche e romane → … → Caffetteria → *(scalone)* → Balconata → Pittura europea 1800-1900 → … → Arte islamica |
-| Uffizi | Atrio → Scalone Vasariano → Corridoio di Levante → Sala 2 → … → Tribuna → Corridoio sull'Arno → Corridoio di Ponente → Sala 19 → … → Terrazza → *(Buontalenti)* → Sale Rosse → Caravaggio → … → Uscita e Bookshop |
+| British | Atrio Sud → Great Court → Reading Room → Sale 11-15 → Sale 18-19 → Sala 1 → Sala 2 → Sale 21-23 → Sale 56-59 → Sala 24 → Sale 6-10 → Sala 4 → *(scalone)* → Sale 40-48 → … → Sale 49-51 |
+| Louvre | Hall Napoleon → Khorsabad → Marly → Puget → Egizie → Levante → Manege → Louvre medievale → Arti d'Africa → Michelangelo → Caryatides → *(su)* → Grande Galerie → Salle des Etats → Mollien → Daru → Ottocento francese → … → Appartamenti → *(su)* → Settecento → Pittura del Nord → fiamminga → Pastelli → Scalone Lefuel |
+| Metropolitan | Great Hall → Sale medievali → Egizia → Armi → Ala americana → Arti dell'Africa → Lehman → Caffetteria → Cortile delle sculture → Greche e romane → Vicino Oriente → Scalone → *(su)* → Balconata → Giappone → Cina → Stampe → Ala americana → 1250-1600 → 1600-1800 → 1800-1900 → Arte moderna → Arte islamica → Strumenti musicali |
+| Uffizi | Atrio → Scalone Vasariano → Corridoio di Levante → Sala 2 → … → Tribuna → Corridoio sull'Arno → Corridoio di Ponente → Sala 19 → … → Scala del Buontalenti → Terrazza → *(giu')* → Sale Rosse → Caravaggio → … → Uscita e Bookshop |
 
 Ogni sala compare una volta sola, e il numero e' quello del percorso reale del museo: agli
 Uffizi il senso unico sale al secondo piano, gira la U e scende al primo, e infatti l'ultimo
 `data-flow` e' il bookshop del piano terra, non una sala della galleria.
+
+⚠️ **`data-flow` dichiara un CAMMINO, e crescere non basta** *(trovato 2026-08-06)*. Che i
+numeri salgano dice solo che nessuna sala si visita due volte; se la sala 25 sta dall'altra
+parte dell'edificio rispetto alla 24, il percorso e' comunque sbagliato e il visitatore
+attraversa mezzo museo fra una tappa e l'altra. Il controllo giusto e' sulla DISTANZA nel grafo
+fra due numeri consecutivi: deve essere una sala (porta in comune) o due (si passa dal
+corridoio, che e' una sala anche lui). Alla prima stesura delle piante nuove i salti erano 2 sul
+British, 2 sugli Uffizi, 5 al Louvre e 5 al Metropolitan — al Louvre si arrivava al secondo
+piano dalla scala di Richelieu e la numerazione partiva dalla sala opposta. Ora sono zero su
+tutte e quattro, e al Louvre la scala che sale sta dove il giro del piano di sotto finisce.
+
+**Il controllo e' un comando, non una promessa**: `testers.ts mappe` collauda le piante
+configurate e non tocca il database — anzi, non gli serve nemmeno, cosi' si puo' eseguire su una
+copia appena scaricata, prima del seed, che e' quando aggiungere un museo costa ancora zero.
+Guarda sette cose, e ognuna e' un modo di sbagliare che non da' errore: nodo fuori da ogni sala,
+ostacolo fuori da ogni sala, ingresso mancante, sala irraggiungibile, `data-flow` doppio, sala
+con opere ma senza `data-flow`, e il salto fra due tappe consecutive. In piu' segnala le opere
+del config che sulla pianta non hanno un nodo. `testers.ts stato` lo esegue e, se il database si
+e' allontanato dalla mappa, dice quante visite e con che comando si rimettono in fila.
 
 ### 1.1-quinquies Le quattro piante ridisegnate sui musei veri *(2026-08-06)*
 
@@ -523,6 +555,105 @@ sbagliarne uno. Lo script sta fuori dal repo (e' un attrezzo, non codice del pro
 e' il file di progetto: si modifica quello. Due difetti che ha trovato solo il disegno, non la
 lettura: un varco non filtrato allungava il muro fino al varco della sala accanto, e il nome
 della sala finiva sotto i nodi delle opere quando la sala era piena.
+
+### 1.1-sexies Togliere un'opera non deve buttare via le visite *(2026-08-06)*
+
+Il curatore che rimuove un'opera dal catalogo faceva sparire **tutte** le visite che la
+contenevano: una tappa su cento non si risolveva piu', e la risposta era buttare via anche le
+altre novantanove, comprese quelle scritte da un autore e quelle gia' comprate. Alla Galleria
+degli Uffizi togliere una sola opera portava via **ventidue** percorsi.
+
+Ora la cascata **accorcia**. `dbActions.rimuoviTappeDalleVisite` toglie la tappa e rimette a
+posto tutto quello che a quella tappa era appeso, o si accorcia il percorso e si rompe il resto:
+
+| cosa | perche' |
+| --- | --- |
+| `optionalItems` | le tappe facoltative sono un sottoinsieme delle tappe |
+| `logistics` | le note sono ANCORATE a una tappa (*"dopo questa sala, gira a destra"*): quelle appese a una tappa che se ne va scendono alla tappa valida che le precede, e se non ce n'e' diventano note di apertura |
+| `duration` | e' la somma dei tempi delle tappe |
+| `quiz` | le domande nominano un'opera per esteso: se quell'opera non si vede piu', la domanda chiede di una cosa che la classe non ha visto |
+
+Una visita che resterebbe **senza tappe** sparisce comunque: zero tappe non e' una visita, e
+nemmeno il compositore la accetta.
+
+**La scelta e' del curatore, non del codice.** `DELETE /api/artworks/:qid?visite=accorcia|elimina`
+e lo stesso su `/api/items/:id`: il vecchio comportamento resta disponibile perche' togliere di
+mezzo un percorso costruito attorno a un'opera che non c'e' piu' e' una decisione legittima. La
+conferma nel marketplace mostra le due strade con l'esito scritto sotto ciascuna, e parte da
+quella che distrugge meno. `GET .../impact` dice quante visite si accorcerebbero e quante
+resterebbero vuote, cosi' la scelta si fa sapendo.
+
+Verificato con documenti finti (un'opera, due descrizioni, due visite: una con altre tappe e una
+sola): in modo *accorcia* la prima sopravvive con la nota scesa sulla tappa giusta, la durata
+calata di 60 secondi e la domanda sull'opera tolta sparita, la seconda se ne va; in modo
+*elimina* se ne vanno entrambe. E in chromium, sul dialogo vero del curatore.
+
+### 1.1-septies Il catalogo del curatore elencava descrizioni al posto delle opere *(2026-08-06)*
+
+Nel catalogo del curatore il filtro *Tipo* offriva **Tutto / Opere / Soggetti / Visite**, ma
+"Opere" non elencava le opere: elencava le DESCRIZIONI che parlano di un'opera. Alla Galleria
+degli Uffizi voleva dire venti righe con lo stesso titolo e nessuna riga per la Gioconda: il
+curatore, dalla schermata che si chiama catalogo, il catalogo delle opere non lo vedeva. Le opere
+stavano solo in un elenco a parte dentro *Il museo*, senza cerca ne' filtri.
+
+I due assi erano schiacciati in uno solo. Ora sono due, perche' sono due domande diverse:
+
+| asse | valori | domanda |
+| --- | --- | --- |
+| **Tipo** | Tutto · Opere · Descrizioni · Visite | che cosa e' la riga |
+| **Soggetto** | Tutti · Opere · Autori e stili | di che cosa parla la descrizione (`Item.kind`) |
+
+Il soggetto compare solo dove in tabella ci sono descrizioni: su *Opere* e *Visite* sparisce,
+perche' un filtro che non filtra niente e' un filtro che mente.
+
+Una riga-opera porta quello che le sta attorno: il codice Wikidata, quante descrizioni ne
+parlano, e l'artista nella colonna dell'autore -- che per una descrizione e' invece chi l'ha
+scritta. Sono due significati nella stessa colonna, ed e' voluto: di un'opera interessa chi l'ha
+dipinta. Tono, durata e prezzo di un'opera non esistono e dicono `n/d`, e i filtri su quei tre
+campi tengono le opere fuori invece di mostrarle vuote: chiedere "tono Avanzato" e' una domanda
+sui contenuti. L'azione della riga e' **Rimuovi**, la stessa di §1.1-sexies, con la sua scelta
+sulle visite.
+
+Contato nel browser sugli Uffizi: Tutto 2248 righe (105 opere + 2120 descrizioni + 23 visite),
+Opere 105, Descrizioni 2120, di cui 2080 su opere e 40 su autori e stili.
+
+### 1.1-octies Le sale vuote della Galleria degli Uffizi *(2026-08-06)*
+
+Dopo il ridisegno (§1.1-quinquies) la pianta aveva sessanta sale e centoquattro opere, e le
+opere stavano dove il vecchio schema le aveva lasciate: quattordici sale d'esposizione ne
+avevano una sola o nessuna. Una sala vuota non e' un difetto del grafo — il percorso ci passa
+lo stesso — ma e' una stanza in cui il visitatore entra e non trova niente da sentirsi
+raccontare. Ora ogni sala d'esposizione ne ha almeno due: **25 opere nuove**, da `art-105` a
+`art-129`, e il catalogo passa da 104 a 129.
+
+⚠️ **Il vincolo che ha deciso quali opere si potevano scegliere e' il seed, non il gusto**:
+`manager.ts populateArtwork` **salta l'opera che su Wikidata non ha un'immagine** (`P18`).
+Un qid senza immagine si scrive nel config, non da' nessun errore, e semplicemente non
+compare mai nel database — la sala resta vuota dopo aver seminato. Quattro scelte sono state
+rifatte per questo: il soffitto delle Carte Geografiche, il Cinghiale, il Sileno ebbro e il
+gruppo di Niobe non hanno una `P18`, e al loro posto ci sono opere che ce l'hanno.
+
+⚠️ **Il secondo vincolo e' che un `data-qid` non puo' comparire due volte sulla mappa.**
+`locationsFromMap` cerca l'opera per qid e prende il primo nodo che trova, quindi un doppione
+sposta l'opera nella sala sbagliata senza dire niente. E' successo davvero: il Veronese
+`Q15974356` era gia' `art-92` in Sala 84, ed e' stato sostituito con un'altra opera della
+Collezione Contini Bonacossi.
+
+Le sale che restano senza opere sono quelle che non espongono: corridoi, portici, scaloni,
+guardaroba, atrio, bookshop, terrazza, biblioteca, e le tre sale delle mostre temporanee
+(Aula Magliabechiana, Sala delle Reali Poste, Auditorium Vasariano), che non hanno una
+collezione stabile da elencare.
+
+⚠️ **San Pier Scheraggio ha ora un `data-flow`**, il 52, e prima non ne aveva: appena ha
+ricevuto delle opere il collaudo delle piante ha detto che sarebbero finite in fondo
+all'ordine di percorrenza. Il 52 e' dopo il bookshop perche' e' cosi' che ci si arriva —
+l'antica chiesa si apre sul Portico di Levante, che si attraversa uscendo, e sono due sale di
+distanza, dentro la regola del §1.1-quater.
+
+⚠️ **`Q3698238` non e' piu' orfana.** Era nel database con venti descrizioni gia' scritte, fuori
+da `activeArtworks` e senza nodo, e si portava dietro un `locationId` vecchio (`art-1`) che oggi
+punta a un'altra opera. Ha preso il nodo `art-105` in Sala 2, che e' la sala del Duecento a cui
+appartiene: le sue descrizioni esistono gia', quindi non costa nessuna chiamata al modello.
 
 ### 1.1-bis Concorrenza: dove l'idea regge e dove no
 
@@ -2140,6 +2271,37 @@ e non otto**; un tour del Louvre — museo senza logistiche — mostra la sola n
 e una visita del British, dove non ce n'e' da nessuna parte, non apre nessun riquadro vuoto.
 Piu' il gesto vero segnalato: accesso, scheda della visita, *Inizia la visita*. Zero errori in
 console, tre type-check verdi, dati di prova rimossi.
+
+### 5.3-octies Le note d'apertura uscivano dallo schermo *(2026-08-06)*
+
+Conseguenza diretta di §5.3-septies, e si e' vista appena il numero delle note e' cresciuto:
+quante siano non lo decide piu' la visita, sono le logistiche del **museo** piu' quelle
+dell'autore. Agli Uffizi sono cinque, e sono frasi lunghe (*"L'ingresso e' da Piazzale degli
+Uffizi 6, sotto il porticato di levante…"*) scritte a `text-title-3`. Misurato a 390x664: la
+finestra veniva **863 px in un riquadro da 664**.
+
+⚠️ **Non traboccava in basso, traboccava in ALTO**, ed e' il motivo per cui la segnalazione
+diceva "le logistiche vanno fuori" e non "i bottoni spariscono": sotto `sm` la finestra e'
+appoggiata al fondo (`items-end`), quindi ad uscire sono i 215 px di sopra — il titolo e le
+prime note, che erano cosi' illeggibili e irraggiungibili, perche' su un velo `fixed` non c'e'
+niente da scorrere. Da `sm` in su (`items-center`) sarebbe uscita da tutt'e due i lati.
+
+Ora le due finestre della visita — la transizione e la fine — hanno un tetto (`max-h-[85dvh]`)
+e a scorrere e' **l'elenco**, non la finestra: il titolo resta in cima e i bottoni in fondo,
+sempre visibili. E' la stessa forma che il pannello del docente usa gia' in `GuidedGate.vue`.
+
+⚠️ **L'elenco vuole `min-h-0` e tutto il resto `shrink-0`.** Un elemento flex non scende sotto
+il proprio contenuto finche' ha `min-height: auto`: senza quella riga il tetto non ottiene
+niente e la finestra torna a traboccare. E senza `shrink-0` sugli altri, a stringersi sarebbero
+i bottoni invece dell'elenco.
+
+⚠️ **Non e' un difetto solo da telefono.** A 1280x800 le cinque note fanno 593 px in uno spazio
+da 533: anche li' l'elenco scorre. Si vedeva peggio sul telefono, non solo li'.
+
+**Verificato pilotando chromium** su quattro riquadri (390x664, 390x500, 740x360, 1280x800),
+partendo dalla visita vera degli Uffizi con le sue cinque note: finestra e bottoni dentro lo
+schermo in tutti e quattro, l'ultima nota raggiungibile scorrendo, e *Continua* premuto davvero
+— chiude e porta alla prima tappa. Zero errori in console, `vue-tsc` verde.
 
 ### 5.6 L'interfaccia nella lingua del visitatore *(in corso, 2026-08-04)*
 

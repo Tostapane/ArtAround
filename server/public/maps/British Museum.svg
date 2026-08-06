@@ -404,16 +404,16 @@
     <g pointer-events="none">
       <circle class="sala sala-atrio" data-room="Reading Room" data-flow="3" cx="600" cy="480" r="150" />
       <rect class="sala sala-atrio" data-room="Great Court" data-flow="2" x="340" y="220" width="520" height="520" />
-      <rect class="sala t-notte" data-room="Sale 6-10 - Assiria" data-flow="7" x="40" y="40" width="360" height="180" />
-      <rect class="sala t-verderame" data-room="Sala 4 - Scultura egizia" data-flow="8" x="400" y="40" width="360" height="180" />
-      <rect class="sala t-ottone" data-room="Sala 24 - Vita e morte" data-flow="9" x="760" y="40" width="400" height="180" />
-      <rect class="sala t-salvia" data-room="Sale 11-15 - Grecia arcaica" data-flow="5" x="40" y="220" width="300" height="260" />
-      <rect class="sala t-ardesia" data-room="Sale 18-19 - Il Partenone" data-flow="6" x="40" y="480" width="300" height="260" />
-      <rect class="sala t-notte" data-room="Sale 56-59 - Mesopotamia" data-flow="10" x="860" y="220" width="300" height="260" />
-      <rect class="sala t-verderame" data-room="Sale 21-23 - Grecia e Roma" data-flow="11" x="860" y="480" width="300" height="260" />
-      <rect class="sala t-ottone" data-room="Sala 1 - Illuminismo" data-flow="4" x="40" y="740" width="390" height="180" />
+      <rect class="sala t-notte" data-room="Sale 6-10 - Assiria" data-flow="11" x="40" y="40" width="360" height="180" />
+      <rect class="sala t-verderame" data-room="Sala 4 - Scultura egizia" data-flow="12" x="400" y="40" width="360" height="180" />
+      <rect class="sala t-ottone" data-room="Sala 24 - Vita e morte" data-flow="10" x="760" y="40" width="400" height="180" />
+      <rect class="sala t-salvia" data-room="Sale 11-15 - Grecia arcaica" data-flow="4" x="40" y="220" width="300" height="260" />
+      <rect class="sala t-ardesia" data-room="Sale 18-19 - Il Partenone" data-flow="5" x="40" y="480" width="300" height="260" />
+      <rect class="sala t-notte" data-room="Sale 56-59 - Mesopotamia" data-flow="9" x="860" y="220" width="300" height="260" />
+      <rect class="sala t-verderame" data-room="Sale 21-23 - Grecia e Roma" data-flow="8" x="860" y="480" width="300" height="260" />
+      <rect class="sala t-ottone" data-room="Sala 1 - Illuminismo" data-flow="6" x="40" y="740" width="390" height="180" />
       <rect class="sala sala-atrio" data-room="Atrio Sud e Biglietteria" data-flow="1" x="430" y="740" width="340" height="180" />
-      <rect class="sala t-salvia" data-room="Sala 2 - Collezionare il mondo" data-flow="12" x="770" y="740" width="390" height="180" />
+      <rect class="sala t-salvia" data-room="Sala 2 - Collezionare il mondo" data-flow="7" x="770" y="740" width="390" height="180" />
     </g>
     <polygon points="40,40 1160,40 1160,920 40,920" fill="url(#bm-griglia)" pointer-events="none" />
     <g class="muro">

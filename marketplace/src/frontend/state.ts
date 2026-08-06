@@ -72,9 +72,16 @@ import {
 /** Cio' su cui valgono gli aiutanti comuni (cercare, dire di che museo e', il tono). */
 export type Catalogabile = Content | Artwork;
 
-/** Riga della tabella del catalogo del curatore. */
+/**
+ * Riga della tabella del catalogo del curatore.
+ *
+ * `kind` dice CHE COSA e' la riga, e sono tre cose diverse: l'opera (la
+ * Gioconda), la descrizione che ne parla, la visita che la mette in fila. La
+ * colonna "autore" vuol dire due cose a seconda della riga, ed e' voluto: di
+ * un'opera interessa chi l'ha dipinta, di una descrizione chi l'ha scritta.
+ */
 export interface CatalogRow {
-  kind: "item" | "visita";
+  kind: "opera" | "item" | "visita";
   id: string;
   name: string;
   author: string;
@@ -83,7 +90,10 @@ export interface CatalogRow {
   price: number;
   privato?: boolean;
   guidata?: boolean;
-  raw: Content;
+  /** Solo per le opere: il codice Wikidata e quante descrizioni ne parlano. */
+  qid?: string;
+  descrizioni?: number;
+  raw: any;
 }
 
 /** Cosa sparirebbe eliminando una descrizione: risposta di GET /items/:id/impact. */
@@ -207,7 +217,19 @@ export class AppState {
   worksTypeFilter: "tutti" | "item" | "visite" = "tutti";
 
   catalogSearch: string = "";
-  catalogTypeFilter: "tutti" | "opere" | "meta" | "visite" = "tutti";
+  /**
+   * Che cosa elencare: le OPERE (la Gioconda), le DESCRIZIONI che ne parlano,
+   * le VISITE. Prima "Opere" elencava le descrizioni delle opere, cioe' venti
+   * righe con lo stesso titolo e nessuna riga per l'opera: il curatore non
+   * poteva vedere il proprio catalogo di opere da qui.
+   */
+  catalogTypeFilter: "tutti" | "opere" | "descrizioni" | "visite" = "tutti";
+  /**
+   * Di che cosa parla la descrizione: di un'opera, oppure di un soggetto del
+   * museo (un autore, uno stile, un movimento). E' l'asse `kind` degli item, e
+   * ha senso solo dove ci sono descrizioni in tabella.
+   */
+  catalogSubjectFilter: "tutti" | "opera" | "meta" = "tutti";
   catalogToneFilter: string = "tutti";
   catalogDurationFilter: string = "tutti";
   catalogAuthorFilter: string = "tutti";
@@ -238,6 +260,13 @@ export class AppState {
   aggiungendoOpera = false;
   operaToDelete: any = null;
   operaImpact: any = null;
+  /**
+   * Che fare delle visite che contengono quel che si sta togliendo. E' una
+   * scelta di curatela, non una conseguenza tecnica: accorciarle lascia in piedi
+   * il percorso di qualcun altro, eliminarle lo butta via. Si riparte sempre
+   * dall'opzione che distrugge meno.
+   */
+  visiteScelta: "accorcia" | "elimina" = "accorcia";
   itemToDelete: CatalogRow | null = null;
   itemImpact: ImpactReport | null = null;
 
@@ -1013,7 +1042,7 @@ export class AppState {
         museo: this.museoToWipe.name,
       });
     if (this.operaToDelete)
-      return this.t("Togliere {opera} dal catalogo?", {
+      return this.t("Rimuovere {opera} dal catalogo?", {
         opera: this.operaToDelete.name,
       });
     if (this.itemToDelete) return "Eliminare questa descrizione?";
@@ -1049,11 +1078,10 @@ export class AppState {
         { opera: i.nome, n: i.descrizioni },
       );
       if (visite.length > 0) {
-        const nomi = visite.map((v: any) => `"${v.name}"`).join(", ");
-        testo += this.t(
-          ", e con esse le {n} visite che le contengono ({nomi})",
-          { n: visite.length, nomi },
-        );
+        testo += this.t(", ed è una tappa di {n} visite ({nomi})", {
+          n: visite.length,
+          nomi: this.elencoVisite(visite),
+        });
       }
       testo += ". ";
       if (i.adozioni > 0) {
@@ -1071,12 +1099,11 @@ export class AppState {
 
       let testo = `"${this.itemToDelete.name}" sparirà dal catalogo`;
       if (visite.length > 0) {
-        const nomi = visite.map((v: any) => `"${v.name}"`).join(", ");
         const quali =
           visite.length === 1
-            ? "la visita che la contiene"
-            : `le ${visite.length} visite che la contengono`;
-        testo += `, e con essa ${quali} (${nomi}), perché una tappa che non si risolve non darebbe errore, semplicemente non comparirebbe`;
+            ? "una visita"
+            : `${visite.length} visite`;
+        testo += `, ed è una tappa di ${quali} (${this.elencoVisite(visite)})`;
       }
       testo += ". ";
       if (adozioni > 0) {
@@ -1115,9 +1142,57 @@ export class AppState {
     return `"${nome}" resterà nella tua libreria. Costa € ${totale.toFixed(2)}, il tuo credito è € ${credito}.`;
   }
 
+  /**
+   * I nomi delle visite, ma non tutti: in un museo grande la stessa opera sta
+   * in venti percorsi, e un elenco di venti nomi spinge i bottoni della
+   * conferma fuori dallo schermo. Tre bastano a far capire di che si tratta.
+   */
+  private elencoVisite(visite: { name: string }[]): string {
+    const nomi = visite.slice(0, 3).map((v) => `"${v.name}"`).join(", ");
+    if (visite.length <= 3) return nomi;
+    return this.t("{nomi} e altre {n}", { nomi, n: visite.length - 3 });
+  }
+
+  /** Le visite che contengono quel che si sta togliendo, e quante resterebbero vuote. */
+  visiteInGioco(): { id: string; name: string }[] {
+    if (this.operaToDelete && this.operaImpact) return this.operaImpact.visite || [];
+    if (this.itemToDelete && this.itemImpact) return (this.itemImpact as any).visite || [];
+    return [];
+  }
+
+  visiteSvuotate(): { id: string; name: string }[] {
+    if (this.operaToDelete && this.operaImpact) return this.operaImpact.svuotate || [];
+    if (this.itemToDelete && this.itemImpact) return (this.itemImpact as any).svuotate || [];
+    return [];
+  }
+
+  scegliVisite(modo: "accorcia" | "elimina") {
+    this.visiteScelta = modo;
+  }
+
+  /** Come finisce, detto per esteso sotto le due scelte. */
+  esitoScelta(modo: "accorcia" | "elimina"): string {
+    const quante = this.visiteInGioco().length;
+    const vuote = this.visiteSvuotate().length;
+    if (modo === "elimina") {
+      return quante === 1
+        ? this.t("La visita sparisce, anche dalle librerie di chi l'aveva presa.")
+        : this.t("Tutte e {n} spariscono, anche dalle librerie di chi le aveva prese.", { n: quante });
+    }
+    if (vuote === 0) {
+      return quante === 1
+        ? this.t("La visita perde una tappa e resta percorribile.")
+        : this.t("Le {n} visite perdono una tappa e restano percorribili.", { n: quante });
+    }
+    return this.t(
+      "Le altre perdono una tappa e restano percorribili; {n} resterebbero senza tappe e spariscono comunque.",
+      { n: vuote },
+    );
+  }
+
   confirmVerb(): string {
     if (this.museoToWipe) return this.t("Svuota il museo");
-    if (this.operaToDelete) return this.t("Togli dal catalogo");
+    if (this.operaToDelete) return this.t("Rimuovi dal catalogo");
     if (this.itemToDelete) return "Elimina";
     if (this.visitToDelete) return "Elimina";
     if (this.visitToComplete) return "Sblocca tutto";
@@ -1141,22 +1216,25 @@ export class AppState {
     this.museoToWipe = null;
     this.operaToDelete = null;
     this.operaImpact = null;
+    this.visiteScelta = "accorcia";
   }
 
   async runConfirm() {
     if (this.operaToDelete) {
       const opera = this.operaToDelete;
+      const scelta = this.visiteScelta;
       this.cancelConfirm();
       try {
-        const esito = await ArtAPI.eliminaOpera(opera.qid);
+        const esito = await ArtAPI.eliminaOpera(opera.qid, scelta);
         await this.loadCatalogue();
         await this.loadMuseumState();
+        const accorciate = (esito.visiteAccorciate || []).length;
+        const sparite = (esito.visiteEliminate || []).length;
         this.showToast(
-          this.t("{opera} rimossa: {n} descrizioni e {v} visite.", {
-            opera: esito.nome,
-            n: esito.descrizioni,
-            v: esito.visite.length,
-          }),
+          this.t(
+            "{opera} rimossa: {n} descrizioni, {a} visite accorciate, {v} eliminate.",
+            { opera: esito.nome, n: esito.descrizioni, a: accorciate, v: sparite },
+          ),
           "success",
         );
       } catch (e) {
@@ -1186,15 +1264,17 @@ export class AppState {
 
     if (this.itemToDelete) {
       const row = this.itemToDelete;
+      const scelta = this.visiteScelta;
       this.cancelConfirm();
       try {
-        const esito = await ArtAPI.eliminaItem(row.id);
+        const esito = await ArtAPI.eliminaItem(row.id, scelta);
         const eliminate = esito.visiteEliminate || [];
+        const accorciate = esito.visiteAccorciate || [];
         await this.loadMuseumState();
-        if (eliminate.length > 0) {
-          const quante =
-            eliminate.length === 1 ? "1 visita" : `${eliminate.length} visite`;
-          this.showToast(`Descrizione eliminata, insieme a ${quante}.`);
+        if (eliminate.length > 0 || accorciate.length > 0) {
+          this.showToast(
+            `Descrizione eliminata: ${accorciate.length} visite accorciate, ${eliminate.length} eliminate.`,
+          );
         } else {
           this.showToast("Descrizione eliminata.");
         }
@@ -1287,9 +1367,28 @@ export class AppState {
   }
 
 
-  setCatalogType(tipo: "tutti" | "opere" | "meta" | "visite") {
+  setCatalogType(tipo: "tutti" | "opere" | "descrizioni" | "visite") {
     this.catalogTypeFilter = tipo;
     this.catalogDurationFilter = "tutti";
+    // Il soggetto e' una domanda sulle descrizioni: dove non ce ne sono in
+    // tabella, tenerla accesa filtrerebbe di nascosto.
+    if (tipo === "opere" || tipo === "visite") this.catalogSubjectFilter = "tutti";
+  }
+
+  setCatalogSubject(soggetto: "tutti" | "opera" | "meta") {
+    this.catalogSubjectFilter = soggetto;
+  }
+
+  /** Le descrizioni del museo che parlano di quest'opera. */
+  descrizioniDi(artwork: any): number {
+    const id = artwork["@id"];
+    let quante = 0;
+    for (const it of this.curatedItems) {
+      const about = (it as any).about;
+      const suo = typeof about === "object" && about ? about["@id"] : about;
+      if (suo === id) quante++;
+    }
+    return quante;
   }
 
   /**
@@ -1301,7 +1400,7 @@ export class AppState {
    * italiano in tutte e tredici le lingue, e `residui` non lo poteva vedere.
    */
   catalogDurationOptions(): { value: string; label: string }[] {
-    if (this.catalogTypeFilter === "opere" || this.catalogTypeFilter === "meta") {
+    if (this.catalogTypeFilter === "descrizioni") {
       return secPerArt.map((s) => ({
         value: String(s),
         label: this.t("{n} secondi di lettura", { n: s }),
@@ -1314,6 +1413,28 @@ export class AppState {
       }));
     }
     return [];
+  }
+
+  /** L'etichetta del genere di riga, che ora sono tre. */
+  catalogRowLabel(row: any): string {
+    if (row.kind === "opera") return this.t("Opera");
+    if (row.kind === "visita") return this.t("Visita");
+    return this.t("Descrizione");
+  }
+
+  /** Un'opera non ha un prezzo: a costare sono le descrizioni che ne parlano. */
+  catalogPriceLabel(row: any): string {
+    if (row.kind === "opera") return "n/d";
+    return this.readablePrice(row.price);
+  }
+
+  /** Sotto il titolo di un'opera: il codice e quante descrizioni ne parlano. */
+  catalogRowCaption(row: any): string {
+    if (row.kind !== "opera") return "";
+    const n = row.descrizioni || 0;
+    const quante =
+      n === 1 ? this.t("1 descrizione") : this.t("{n} descrizioni", { n });
+    return `${row.qid} · ${quante}`;
   }
 
   private curatedVisits(): Visit[] {
@@ -1332,6 +1453,7 @@ export class AppState {
   }
 
   durationLabel(row: any): string {
+    if (row.kind === "opera") return "n/d";
     if (row.kind === "item") return `${row.duration} s`;
     return this.readableDuration(row.duration);
   }
@@ -1350,13 +1472,32 @@ export class AppState {
     const cerca = this.catalogSearch.trim().toLowerCase();
     const rows: CatalogRow[] = [];
 
-    if (this.catalogTypeFilter !== "visite") {
+    if (this.catalogTypeFilter === "tutti" || this.catalogTypeFilter === "opere") {
+      for (const a of this.museumArtworks()) {
+        const artista =
+          a.author && typeof a.author === "object" ? a.author.name || "" : "";
+        rows.push({
+          kind: "opera",
+          id: a["@id"],
+          name: a.name || a.qid,
+          author: artista || "n/d",
+          tone: "",
+          duration: 0,
+          price: 0,
+          qid: a.qid,
+          descrizioni: this.descrizioniDi(a),
+          raw: a,
+        });
+      }
+    }
+    if (this.catalogTypeFilter === "tutti" || this.catalogTypeFilter === "descrizioni") {
       for (const it of this.curatedItems) {
         // `kind` e' il genere del contenuto (opera, stile, artista...): la riga
-        // ha gia' un `kind` suo, che dice se e' una descrizione o una visita.
+        // ha gia' un `kind` suo, che dice se e' un'opera, una descrizione o una
+        // visita.
         const soggetto = ((it as any).kind || "opera") !== "opera";
-        if (this.catalogTypeFilter === "opere" && soggetto) continue;
-        if (this.catalogTypeFilter === "meta" && !soggetto) continue;
+        if (this.catalogSubjectFilter === "opera" && soggetto) continue;
+        if (this.catalogSubjectFilter === "meta" && !soggetto) continue;
         rows.push({
           kind: "item",
           id: it["@id"],
@@ -1387,16 +1528,27 @@ export class AppState {
     }
 
     return rows.filter((r) => {
-      if (this.catalogToneFilter !== "tutti" && r.tone !== this.catalogToneFilter)
-        return false;
-      if (
-        this.catalogAuthorFilter !== "tutti" &&
-        r.author !== this.catalogAuthorFilter
-      )
-        return false;
-      if (!this.matchesCatalogDuration(r)) return false;
+      // Tono, autore e durata sono domande sui CONTENUTI: un'opera non ha un
+      // tono ne' un autore di redazione, quindi con uno di quei filtri acceso
+      // non e' che non corrisponde, non e' proprio quello che si sta cercando.
+      const filtriDiContenuto =
+        this.catalogToneFilter !== "tutti" ||
+        this.catalogAuthorFilter !== "tutti" ||
+        this.catalogDurationFilter !== "tutti";
+      if (r.kind === "opera") {
+        if (filtriDiContenuto) return false;
+      } else {
+        if (this.catalogToneFilter !== "tutti" && r.tone !== this.catalogToneFilter)
+          return false;
+        if (
+          this.catalogAuthorFilter !== "tutti" &&
+          r.author !== this.catalogAuthorFilter
+        )
+          return false;
+        if (!this.matchesCatalogDuration(r)) return false;
+      }
       if (!cerca) return true;
-      const dove = `${r.name} ${r.author} ${r.tone}`.toLowerCase();
+      const dove = `${r.name} ${r.author} ${r.tone} ${r.qid || ""}`.toLowerCase();
       return dove.includes(cerca);
     });
   }
@@ -1474,6 +1626,10 @@ export class AppState {
 
   async openDeleteRow(row: any) {
     if (!row) return;
+    if (row.kind === "opera") {
+      await this.openDeleteArtwork(row.raw);
+      return;
+    }
     if (row.kind === "visita") {
       this.visitToDelete = row.raw;
       this.confirmOpen = true;

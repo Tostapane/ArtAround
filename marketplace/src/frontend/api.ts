@@ -289,10 +289,11 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async eliminaItem(id: string): Promise<any> {
-    const response = await call(`/api/items/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
+  async eliminaItem(id: string, visite: 'accorcia' | 'elimina' = 'accorcia'): Promise<any> {
+    const response = await call(
+      `/api/items/${encodeURIComponent(id)}?visite=${visite}`,
+      { method: 'DELETE' },
+    );
     if (!response.ok)
       throw new Error(await readError(response, "Errore durante l'eliminazione"));
     return response.json();
@@ -318,10 +319,11 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async eliminaOpera(qid: string): Promise<any> {
-    const response = await call(`/api/artworks/${encodeURIComponent(qid)}`, {
-      method: 'DELETE',
-    });
+  async eliminaOpera(qid: string, visite: 'accorcia' | 'elimina' = 'accorcia'): Promise<any> {
+    const response = await call(
+      `/api/artworks/${encodeURIComponent(qid)}?visite=${visite}`,
+      { method: 'DELETE' },
+    );
     if (!response.ok)
       throw new Error(await readError(response, "Errore durante la rimozione dell'opera"));
     return response.json();

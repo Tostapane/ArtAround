@@ -38,6 +38,7 @@ import { ItemModel } from "../models/item";
 import { ArtworkModel } from "../models/artwork";
 import { purchasedBy, readableItems, isReadable } from "../access";
 import { VisitModel } from "../models/visit";
+import { rimuoviTappeDalleVisite } from "../dbActions";
 import { UserModel } from "../models/user";
 import { kindById } from "../../../shared/constants";
 import { DEFAULT_LICENSE } from "../../../shared/constants";
@@ -345,6 +346,11 @@ router.post("/", async (req, res) => {
 async function measureImpact(itemId: string) {
   const visits = await VisitModel.find({ itemListElement: itemId });
   const visitIds = visits.map((v) => v["@id"]);
+  // Quelle che, tolta questa tappa, resterebbero senza nessuna: spariscono
+  // comunque, perche' una visita di zero tappe non e' una visita.
+  const svuotate = visits.filter(
+    (v) => (v.itemListElement || []).filter((id) => id !== itemId).length === 0,
+  );
   const adoptions = await UserModel.countDocuments({
     collezione: { $in: [itemId, ...visitIds] },
   });
@@ -356,6 +362,7 @@ async function measureImpact(itemId: string) {
       guidata: Boolean(v.accessKey),
     })),
     visitIds,
+    svuotate: svuotate.map((v) => ({ id: v["@id"], name: v.name })),
     adozioni: adoptions,
   };
 }
@@ -377,6 +384,7 @@ router.get("/:id/impact", async (req, res) => {
       author: item.author,
       educationalLevel: item.educationalLevel,
       visite: impact.visite,
+      svuotate: impact.svuotate,
       adozioni: impact.adozioni,
     });
   } catch (error: any) {
@@ -386,9 +394,11 @@ router.get("/:id/impact", async (req, res) => {
 });
 
 /**
- * DELETE /api/items/:id
- * Ritorna: { visiteEliminate[], adozioniRimosse }. Elimina l'item, le visite che
- * lo citano, e toglie gli uni e le altre da ogni collezione.
+ * DELETE /api/items/:id[?visite=accorcia|elimina]
+ * Ritorna: { visiteAccorciate[], visiteEliminate[], adozioniRimosse }. Elimina
+ * la descrizione; `visite` dice che fare di quelle che la citano: "accorcia"
+ * (predefinito) toglie la tappa e lascia in piedi il percorso, "elimina" le
+ * butta via intere. Una visita che resterebbe senza tappe sparisce comunque.
  */
 router.delete("/:id", async (req, res) => {
   try {
@@ -398,18 +408,28 @@ router.delete("/:id", async (req, res) => {
 
     const impact = await measureImpact(id);
 
-    if (impact.visitIds.length > 0)
-      await VisitModel.deleteMany({ "@id": { $in: impact.visitIds } });
+    let accorciate: { id: string; name: string }[] = [];
+    let sparite: { id: string; name: string }[] = [];
+    if (String(req.query.visite || "") === "elimina") {
+      if (impact.visitIds.length > 0)
+        await VisitModel.deleteMany({ "@id": { $in: impact.visitIds } });
+      sparite = impact.visite.map((v) => ({ id: v.id, name: v.name }));
+    } else {
+      const esito = await rimuoviTappeDalleVisite([id]);
+      accorciate = esito.accorciate;
+      sparite = esito.svuotate;
+    }
     await ItemModel.deleteOne({ "@id": id });
     rimuoviImmagine(item.imagePath);
     await UserModel.updateMany(
       {},
-      { $pull: { collezione: { $in: [id, ...impact.visitIds] } } },
+      { $pull: { collezione: { $in: [id, ...sparite.map((v) => v.id)] } } },
     );
 
     res.json({
       message: "Contenuto eliminato",
-      visiteEliminate: impact.visite,
+      visiteAccorciate: accorciate,
+      visiteEliminate: sparite,
       adozioniRimosse: impact.adozioni,
     });
   } catch (error: any) {

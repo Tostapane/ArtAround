@@ -19,8 +19,10 @@
  * Una tappa che non si risolve non da' errore, semplicemente non compare, quindi
  * il danno resta invisibile fino a quando qualcuno apre quella visita. La
  * cascata sta qui sotto ed e' la stessa di `DELETE /items/:id`, allargata
- * all'opera: prima le sue descrizioni, poi le visite che le citano, poi le righe
- * nelle collezioni di chi le aveva prese.
+ * all'opera: le sue descrizioni spariscono, le visite che le citano si
+ * ACCORCIANO invece di sparire (`dbActions.rimuoviTappeDalleVisite`), e le righe
+ * nelle collezioni di chi le aveva prese se ne vanno con quel che e' sparito
+ * davvero. Una visita se ne va solo se resta senza tappe.
  *
  * Chi aggiunge un'opera scrive solo il suo qid: il resto lo dice Wikidata, e
  * DOVE sta lo dice la mappa. Un qid che sulla pianta non ha un nodo entra lo
@@ -42,6 +44,7 @@ import { purchasedBy, isReadable, withoutText, readableItems } from "../access";
 import { findMuseumConfig } from "../data/museumConfigs";
 import { appartieneAlMuseo } from "../services/wikidata";
 import { locationsFromMap, populateArtwork } from "../manager";
+import { rimuoviTappeDalleVisite } from "../dbActions";
 import { rimuoviImmagine } from "./items";
 
 const router = Router();
@@ -173,17 +176,40 @@ function soloCuratore(req: any, res: any): boolean {
 
 /** Che cosa se ne va insieme all'opera. Non scrive niente: lo usano sia il
  *  preventivo che l'eliminazione, cosi' contano la stessa cosa. */
+/** L'altro modo: le visite che la citano se ne vanno intere. */
+async function eliminaVisiteCitanti(impatto: {
+  visitIds: string[];
+  visits: any[];
+}) {
+  if (impatto.visitIds.length > 0)
+    await VisitModel.deleteMany({ "@id": { $in: impatto.visitIds } });
+  return {
+    accorciate: [] as { id: string; name: string }[],
+    svuotate: impatto.visits.map((v: any) => ({ id: v["@id"], name: v.name })),
+  };
+}
+
+/**
+ * Cosa comporta togliere un'opera: le sue descrizioni, le visite che le citano
+ * e, fra queste, quelle che resterebbero SENZA tappe. Le prime si accorciano,
+ * le seconde spariscono (`rimuoviTappeDalleVisite`), ed e' la differenza che va
+ * detta prima di chiedere conferma.
+ */
 async function impattoOpera(artworkId: string) {
   const items = await ItemModel.find({ about: artworkId }).select("@id imagePath");
   const itemIds = items.map((i: any) => i["@id"]);
+  const daTogliere = new Set(itemIds);
   const visits = await VisitModel.find({ itemListElement: { $in: itemIds } }).select(
-    "@id name author accessKey",
+    "@id name author accessKey itemListElement",
   );
   const visitIds = visits.map((v: any) => v["@id"]);
+  const svuotate = visits.filter((v: any) =>
+    (v.itemListElement || []).every((id: string) => daTogliere.has(id)),
+  );
   const adozioni = await UserModel.countDocuments({
     collezione: { $in: [...itemIds, ...visitIds] },
   });
-  return { items, itemIds, visits, visitIds, adozioni };
+  return { items, itemIds, visits, visitIds, svuotate, adozioni };
 }
 
 /**
@@ -209,6 +235,7 @@ router.get("/:qid/impact", async (req, res) => {
         author: v.author || null,
         guidata: Boolean(v.accessKey),
       })),
+      svuotate: impatto.svuotate.map((v: any) => ({ id: v["@id"], name: v.name })),
       adozioni: impatto.adozioni,
     });
   } catch (error: any) {
@@ -218,9 +245,12 @@ router.get("/:qid/impact", async (req, res) => {
 });
 
 /**
- * DELETE /api/artworks/:qid
- * Ritorna: quante descrizioni, visite e adozioni sono state eliminate.
- * Toglie l'opera dal museo con tutto quello che la raccontava.
+ * DELETE /api/artworks/:qid[?visite=accorcia|elimina]
+ * Ritorna: { descrizioni, visiteAccorciate[], visiteEliminate[], adozioni }.
+ * Toglie l'opera dal museo con le descrizioni che la raccontano. `visite` dice
+ * che fare di quelle che la citano: "accorcia" (predefinito) toglie la tappa e
+ * lascia in piedi il resto del percorso, "elimina" le butta via intere. Una
+ * visita che resterebbe senza tappe sparisce in entrambi i casi.
  */
 router.delete("/:qid", async (req, res) => {
   try {
@@ -231,14 +261,20 @@ router.delete("/:qid", async (req, res) => {
 
     const impatto = await impattoOpera(artwork["@id"]);
 
-    if (impatto.visitIds.length > 0)
-      await VisitModel.deleteMany({ "@id": { $in: impatto.visitIds } });
+    // Che ne e' delle visite che la citano lo decide il curatore, perche' e'
+    // una scelta di curatela e non una conseguenza tecnica: accorciarle (togliere
+    // la tappa e rimettere a posto note, durata e quiz) oppure eliminarle.
+    const esito =
+      String(req.query.visite || "") === "elimina"
+        ? await eliminaVisiteCitanti(impatto)
+        : await rimuoviTappeDalleVisite(impatto.itemIds, [artwork.name]);
     if (impatto.itemIds.length > 0)
       await ItemModel.deleteMany({ "@id": { $in: impatto.itemIds } });
     await ArtworkModel.deleteOne({ qid });
+    const spariti = esito.svuotate.map((v) => v.id);
     await UserModel.updateMany(
       {},
-      { $pull: { collezione: { $in: [...impatto.itemIds, ...impatto.visitIds] } } },
+      { $pull: { collezione: { $in: [...impatto.itemIds, ...spariti] } } },
     );
     // Le immagini caricate a mano appartengono alla descrizione e a nient'altro.
     // Quella dell'opera resta: e' la copia locale di Wikidata, e riscaricarla
@@ -247,13 +283,15 @@ router.delete("/:qid", async (req, res) => {
 
     console.log(
       `[curatore ${sessionUser(req).username}] rimossa l'opera ${artwork.name} (${qid}): ` +
-        `${impatto.itemIds.length} descrizioni, ${impatto.visitIds.length} visite.`,
+        `${impatto.itemIds.length} descrizioni, ${esito.accorciate.length} visite accorciate, ` +
+        `${esito.svuotate.length} rimaste senza tappe.`,
     );
     res.json({
       message: "Opera rimossa dal catalogo",
       nome: artwork.name,
       descrizioni: impatto.itemIds.length,
-      visite: impatto.visits.map((v: any) => ({ id: v["@id"], name: v.name })),
+      visiteAccorciate: esito.accorciate,
+      visiteEliminate: esito.svuotate,
       adozioni: impatto.adozioni,
     });
   } catch (error: any) {
