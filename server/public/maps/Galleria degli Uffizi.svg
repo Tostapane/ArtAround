@@ -1,32 +1,52 @@
-<svg viewBox="0 0 1240 800" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="150">
+<svg viewBox="0 -1360 1500 2000" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="150">
   <!--
-    PIANTA DELLA GALLERIA DEGLI UFFIZI.
+    PIANTA DELLA GALLERIA DEGLI UFFIZI, TRE PIANI.
 
     La struttura dei dati e' quella che services/svgGraph.ts sa leggere e non va
     cambiata: data-room (aree = sale), data-qid (nodi-opera), data-poi (servizi),
-    data-obstacle (ostacoli), data-edge (collegamenti fra sale). Tutto il resto —
-    stile, griglia, battenti delle porte, legenda — e' solo disegno, e il parser
-    lo ignora perche' non ha attributi data-*.
+    data-obstacle (ostacoli), data-edge (collegamenti fra sale), data-floor sul
+    gruppo di ogni piano. Tutto il resto (stile, griglia, battenti delle porte,
+    legenda) e' solo disegno, e il parser lo ignora perche' non ha attributi data-*.
 
-    L'edificio e' a U attorno al piazzale: due bracci lunghi e paralleli uniti
-    dal corridoio sull'Arno. Il percorso e' cronologico e a senso unico — si
-    entra dall'atrio in fondo al braccio superiore, si cammina verso l'Arno fra
-    il Duecento e Leonardo, si scende, e si torna indietro lungo il braccio
-    inferiore dalla Tribuna al Seicento. Per questo atrio e uscita NON sono
-    collegati fra loro: chi cerca l'uscita attraversa la galleria, ed e' quello
-    che il grafo deve dire.
+    L'EDIFICIO. Due bracci lunghi e paralleli attorno al piazzale, uniti in fondo
+    dal braccio sull'Arno: la U e' aperta verso nord, cioe' verso Piazza della
+    Signoria, che qui e' a destra. Il braccio in basso e' quello di levante e
+    porta l'ingresso; quello in alto e' di ponente e finisce sulla terrazza che
+    sta sopra la Loggia dei Lanzi. Ogni braccio e' un corridoio che guarda il
+    piazzale e una fila di sale dietro: e' il motivo per cui da una sala all'altra
+    si passa SEMPRE dal corridoio, e per cui i corridoi sono sale a tutti gli
+    effetti (senza, nessun percorso potrebbe attraversarli).
 
-    data-width-m (larghezza vera del viewBox, in metri) e data-poi="entrance"
-    (dove nasce il sistema di coordinate all'apertura) servono alla
-    localizzazione: la nota estesa sta in "British Museum.svg".
+    IL PERCORSO, che e' quello vero e che i data-flow numerano dall'inizio alla
+    fine: si entra al piano terra, si sale con lo Scalone Vasariano al secondo
+    piano, si percorre il braccio di levante dal Duecento fino alla Tribuna, si
+    attraversa il corridoio sull'Arno, si torna indietro lungo il braccio di
+    ponente fino alla terrazza, si scende con la Scala del Buontalenti al primo
+    piano fra le Sale Rosse e il Caravaggio, e si esce dal bookshop al piano
+    terra. Atrio e bookshop NON sono collegati fra loro: chi cerca l'uscita
+    attraversa la galleria, ed e' quello che il grafo deve dire.
+
+    I PIANI sono impilati in verticale, non affiancati, perche' data-width-m e'
+    la larghezza del viewBox in metri e deve restare la larghezza di UN piano.
+    L'edificio e' lungo 140 metri e largo 48: dieci unita' di disegno valgono un
+    metro. Il collegamento fra un piano e l'altro (il vano scale) sta FUORI dai
+    due gruppi: dentro, allargherebbe il getBBox di quel piano fino all'altro e
+    l'inquadratura per piano del navigator mostrerebbe mezzo edificio vuoto.
+
+    data-width-m e data-poi="entrance" (dove nasce il sistema di coordinate
+    all'apertura) servono alla localizzazione: la nota estesa sta in
+    "British Museum.svg".
 
     Tre regole da rispettare se si sposta qualcosa:
       1. L'ORDINE delle aree conta: vince la PRIMA che contiene il punto, quindi
          una sala contenuta in un'altra va scritta prima di quella che la circonda.
       2. Niente transform sugli elementi con data-*: il parser legge cx/cy oppure
-         x/y/width/height cosi' come sono scritti nel file.
+         x/y/width/height cosi' come sono scritti nel file. Le etichette ruotate
+         possono averlo perche' sono solo disegno.
       3. Il centro di un servizio/ostacolo decide in quale sala ricade: cambiando
          la misura di un quadrato vanno ricalcolati x e y per tenere fermo il centro.
+      4. I nomi delle sale sono unici sui tre piani, altrimenti due omonime
+         diventano una sola sala e con loro un passaggio che nessuno ha disegnato.
 
     data-label sui nodi-opera non serve al disegno: e' il titolo che le
     indicazioni pronunciano, ed e' l'unico modo di ritrovare un'opera fra
@@ -59,15 +79,14 @@
     }
 
     /*
-      Questa pianta e' larga 1240 unita' contro le 800 delle altre tre, perche'
-      ci stanno centoquattro opere invece di tredici. Lasciandola rimpicciolire
-      fino alla larghezza dello schermo, su un telefono ogni nodo verrebbe 6 px:
-      non lo si centra col dito e non ci si legge dentro il numero della tappa.
-      Sotto i 560 px la pianta smette quindi di stringersi e scorre, e cosi' un
-      nodo resta grande sullo schermo quanto quello degli altri musei — e' da li'
-      che viene il numero, non da un gusto: 800 sta a 351 come 1240 sta a 544.
+      Un nodo opera e' un cerchio di raggio 10 su un disegno largo 1500 unita':
+      lasciando rimpicciolire la pianta fino alla larghezza dello schermo, su un
+      telefono verrebbe un paio di pixel, non lo si centra col dito e non ci si
+      legge dentro il numero della tappa. Sotto i 750 px la pianta smette quindi
+      di stringersi e scorre, che e' la stessa proporzione delle altre piante:
+      1500 sta a 750 come 1240 sta a 620.
     */
-    :where(.museum-map) { min-width: 560px; }
+    :where(.museum-map) { min-width: 750px; }
 
     /* Il foglio su cui e' disegnata la pianta */
     :where(.museum-map) .foglio {
@@ -86,7 +105,7 @@
     /*
       Sale: carta appena tinta. Le tinte escono dalla palette e sono diluite
       tanto da leggersi come carta colorata, mai come un comando. Due sale
-      confinanti non si distinguono per la sola TINTA — cambia anche quanto e'
+      confinanti non si distinguono per la sola TINTA: cambia anche quanto e'
       forte la mescolanza, cosi' restano diverse anche in scala di grigi.
     */
     :where(.museum-map) .sala {
@@ -97,34 +116,40 @@
     :where(.museum-map) .t-ottone { --tinta: var(--ottone); --forza: 85%; }
     :where(.museum-map) .t-salvia { --tinta: var(--salvia); --forza: 87%; }
     :where(.museum-map) .t-ardesia { --tinta: var(--ardesia); --forza: 80%; }
-    /* Corridoi e atrii non hanno tinta: sono spazio di passaggio, non collezioni. */
+    /* Corridoi, atrii e servizi non hanno tinta: sono passaggio, non collezione. */
     :where(.museum-map) .sala-atrio {
       fill: color-mix(in oklab, var(--carta) 93%, var(--grafite));
+    }
+    :where(.museum-map) .sala-servizio {
+      fill: color-mix(in oklab, var(--carta) 96%, var(--grafite));
     }
 
     /* Etichette delle sale: maiuscolo spaziato, come su una pianta vera */
     :where(.museum-map) .nome-sala {
       fill: var(--tenue);
-      font-size: 8.5px;
+      font-size: 9px;
       font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      letter-spacing: 0.04em;
       text-anchor: middle;
     }
     :where(.museum-map) .nome-corridoio {
       fill: var(--tenue);
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.16em;
-      text-transform: uppercase;
       text-anchor: middle;
     }
 
     /* Muri pieni e battenti delle porte */
     :where(.museum-map) .muro {
       stroke: var(--linea);
-      stroke-width: 5;
+      stroke-width: 4;
       stroke-linecap: butt;
+      fill: none;
+    }
+    :where(.museum-map) .muro .muro-leggero {
+      stroke-width: 2;
+      opacity: 0.5;
     }
     :where(.museum-map) .porta {
       fill: none;
@@ -142,7 +167,7 @@
     }
 
     /*
-      Opere: dischi (e qualche quadrato dove il pezzo e' una teca o una statua).
+      Opere: dischi (e qualche quadrato dove il pezzo e' una scultura o una teca).
       Questo e' l'aspetto A RIPOSO: quando l'opera e' una tappa della visita in
       corso il navigator la ricolora e ci scrive dentro il numero.
     */
@@ -155,7 +180,7 @@
 
     /*
       Servizi: quadrati arrotondati. La forma, non solo il colore, li separa
-      dalle opere — si riconoscono anche senza distinguere le tinte.
+      dalle opere: si riconoscono anche senza distinguere le tinte.
     */
     :where(.museum-map) .nodo-servizio {
       fill: var(--ardesia);
@@ -168,7 +193,7 @@
       fill: var(--tenue);
       font-size: 9px;
       font-weight: 600;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       text-anchor: middle;
     }
@@ -181,17 +206,22 @@
       paint-order: stroke;
     }
 
-    /* Legenda e titolo, sotto la pianta */
+    /* Titolo del piano e legenda, sotto ciascuna pianta */
     :where(.museum-map) .titolo-mappa {
       fill: var(--grafite);
       font-family: var(--font-display, inherit);
-      font-size: 14px;
+      font-size: 17px;
       font-weight: 600;
       letter-spacing: 0.01em;
     }
+    :where(.museum-map) .sottotitolo-mappa {
+      fill: var(--tenue);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+    }
     :where(.museum-map) .voce-legenda {
       fill: var(--tenue);
-      font-size: 10px;
+      font-size: 11px;
       letter-spacing: 0.04em;
     }
   </style>
@@ -205,372 +235,815 @@
     </filter>
   </defs>
 
-  <!-- Cornice / muro perimetrale: la U attorno al piazzale -->
-  <polygon class="foglio" points="10,10 1230,10 1230,290 190,290 190,430 1230,430 1230,710 10,710" filter="url(#uf-ombra)" />
-
-  <!-- Sale (AREE data-room): otto per braccio, piu' i tre corridoi e i due
-       atrii di testa. Nessuna area si sovrappone a un'altra. -->
-  <g pointer-events="none">
-    <rect class="sala t-ottone" data-room="Duecento e Giotto" data-flow="3" x="955" y="10" width="135" height="195" />
-    <rect class="sala t-verderame" data-room="Trecento Senese" data-flow="4" x="820" y="10" width="135" height="195" />
-    <rect class="sala t-notte" data-room="Gotico Internazionale" data-flow="5" x="685" y="10" width="135" height="195" />
-    <rect class="sala t-ardesia" data-room="Angelico e Filippo Lippi" data-flow="6" x="550" y="10" width="135" height="195" />
-    <rect class="sala t-salvia" data-room="Piero della Francesca" data-flow="7" x="415" y="10" width="135" height="195" />
-    <rect class="sala t-ottone" data-room="Pollaiolo e le Virtu" data-flow="8" x="280" y="10" width="135" height="195" />
-    <rect class="sala t-verderame" data-room="Botticelli" data-flow="9" x="145" y="10" width="135" height="195" />
-    <rect class="sala t-notte" data-room="Leonardo e il Verrocchio" data-flow="10" x="10" y="10" width="135" height="195" />
-    <rect class="sala t-notte" data-room="Tribuna" data-flow="13" x="10" y="515" width="135" height="195" />
-    <rect class="sala t-verderame" data-room="Fiandre e Germania" data-flow="14" x="145" y="515" width="135" height="195" />
-    <rect class="sala t-ottone" data-room="Perugino e Signorelli" data-flow="15" x="280" y="515" width="135" height="195" />
-    <rect class="sala t-salvia" data-room="Bellini Giorgione Mantegna" data-flow="16" x="415" y="515" width="135" height="195" />
-    <rect class="sala t-ardesia" data-room="Michelangelo e Raffaello" data-flow="17" x="550" y="515" width="135" height="195" />
-    <rect class="sala t-notte" data-room="Cinquecento Veneziano" data-flow="18" x="685" y="515" width="135" height="195" />
-    <rect class="sala t-verderame" data-room="Manierismo fiorentino" data-flow="19" x="820" y="515" width="135" height="195" />
-    <rect class="sala t-ottone" data-room="Caravaggio e il Seicento" data-flow="20" x="955" y="515" width="135" height="195" />
-    <rect class="sala sala-atrio" data-room="Corridoio di Ponente" data-flow="2" x="10" y="205" width="1080" height="85" />
-    <rect class="sala sala-atrio" data-room="Corridoio sull'Arno" data-flow="11" x="10" y="290" width="180" height="140" />
-    <rect class="sala sala-atrio" data-room="Corridoio di Levante" data-flow="12" x="10" y="430" width="1080" height="85" />
-    <rect class="sala sala-atrio" data-room="Atrio e Biglietteria" data-flow="1" x="1090" y="10" width="140" height="280" />
-    <rect class="sala sala-atrio" data-room="Uscita e Bookshop" data-flow="21" x="1090" y="430" width="140" height="280" />
-  </g>
-
-  <!-- Griglia leggera sopra le sale -->
-  <polygon points="10,10 1230,10 1230,290 190,290 190,430 1230,430 1230,710 10,710" fill="url(#uf-griglia)" pointer-events="none" />
-
-  <!-- Etichette delle sale -->
-  <g class="nome-sala" pointer-events="none">
-    <text x="1022.5" y="32">Duecento</text>
-    <text x="1022.5" y="43">e Giotto</text>
-    <text x="887.5" y="32">Trecento</text>
-    <text x="887.5" y="43">Senese</text>
-    <text x="752.5" y="32">Gotico</text>
-    <text x="752.5" y="43">Internazionale</text>
-    <text x="617.5" y="32">Angelico e</text>
-    <text x="617.5" y="43">Filippo Lippi</text>
-    <text x="482.5" y="32">Piero della</text>
-    <text x="482.5" y="43">Francesca</text>
-    <text x="347.5" y="32">Pollaiolo</text>
-    <text x="347.5" y="43">e le Virtu</text>
-    <text x="212.5" y="32">Botticelli</text>
-    <text x="77.5" y="32">Leonardo e</text>
-    <text x="77.5" y="43">il Verrocchio</text>
-    <text x="77.5" y="683">Tribuna</text>
-    <text x="212.5" y="683">Fiandre</text>
-    <text x="212.5" y="694">e Germania</text>
-    <text x="347.5" y="683">Perugino</text>
-    <text x="347.5" y="694">e Signorelli</text>
-    <text x="482.5" y="683">Bellini, Giorgione</text>
-    <text x="482.5" y="694">e Mantegna</text>
-    <text x="617.5" y="683">Michelangelo</text>
-    <text x="617.5" y="694">e Raffaello</text>
-    <text x="752.5" y="683">Cinquecento</text>
-    <text x="752.5" y="694">Veneziano</text>
-    <text x="887.5" y="683">Manierismo</text>
-    <text x="887.5" y="694">fiorentino</text>
-    <text x="1022.5" y="683">Caravaggio</text>
-    <text x="1022.5" y="694">e il Seicento</text>
-  </g>
-  <g class="nome-corridoio" pointer-events="none">
-    <text x="640" y="252">Corridoio di Ponente</text>
-    <text x="640" y="477">Corridoio di Levante</text>
-    <text x="100" y="336">Corridoio</text>
-    <text x="100" y="350">sull'Arno</text>
-    <text x="1160" y="30">Atrio</text>
-    <text x="710" y="365">Piazzale degli Uffizi</text>
-  </g>
-
-  <!-- Muri interni: linee con un VARCO = porta fra due sale. -->
-  <g class="muro">
-    <!-- muro fra le sale in alto e il Corridoio di Ponente -->
-    <line x1="10" y1="205" x2="57.5" y2="205" />
-    <line x1="97.5" y1="205" x2="192.5" y2="205" />
-    <line x1="232.5" y1="205" x2="327.5" y2="205" />
-    <line x1="367.5" y1="205" x2="462.5" y2="205" />
-    <line x1="502.5" y1="205" x2="597.5" y2="205" />
-    <line x1="637.5" y1="205" x2="732.5" y2="205" />
-    <line x1="772.5" y1="205" x2="867.5" y2="205" />
-    <line x1="907.5" y1="205" x2="1002.5" y2="205" />
-    <line x1="1042.5" y1="205" x2="1090" y2="205" />
-    <!-- muro fra il Corridoio di Levante e le sale in basso -->
-    <line x1="10" y1="515" x2="57.5" y2="515" />
-    <line x1="97.5" y1="515" x2="192.5" y2="515" />
-    <line x1="232.5" y1="515" x2="327.5" y2="515" />
-    <line x1="367.5" y1="515" x2="462.5" y2="515" />
-    <line x1="502.5" y1="515" x2="597.5" y2="515" />
-    <line x1="637.5" y1="515" x2="732.5" y2="515" />
-    <line x1="772.5" y1="515" x2="867.5" y2="515" />
-    <line x1="907.5" y1="515" x2="1002.5" y2="515" />
-    <line x1="1042.5" y1="515" x2="1090" y2="515" />
-    <!-- divisori fra sale contigue: muri pieni, si passa dal corridoio -->
-    <line x1="145" y1="10" x2="145" y2="205" />
-    <line x1="280" y1="10" x2="280" y2="205" />
-    <line x1="415" y1="10" x2="415" y2="205" />
-    <line x1="550" y1="10" x2="550" y2="205" />
-    <line x1="685" y1="10" x2="685" y2="205" />
-    <line x1="820" y1="10" x2="820" y2="205" />
-    <line x1="955" y1="10" x2="955" y2="205" />
-    <line x1="145" y1="515" x2="145" y2="710" />
-    <line x1="280" y1="515" x2="280" y2="710" />
-    <line x1="415" y1="515" x2="415" y2="710" />
-    <line x1="550" y1="515" x2="550" y2="710" />
-    <line x1="685" y1="515" x2="685" y2="710" />
-    <line x1="820" y1="515" x2="820" y2="710" />
-    <line x1="955" y1="515" x2="955" y2="710" />
-    <!-- testate: l'atrio e l'uscita si aprono ciascuno sul proprio corridoio -->
-    <line x1="1090" y1="10" x2="1090" y2="228" />
-    <line x1="1090" y1="268" x2="1090" y2="290" />
-    <line x1="1090" y1="430" x2="1090" y2="452" />
-    <line x1="1090" y1="492" x2="1090" y2="710" />
-  </g>
-
-  <!-- Battenti: aprono verso la sala, mai verso il corridoio (che e' passaggio) -->
-  <g class="porta">
-    <path d="M1002.5 205 L1002.5 175 A30 30 0 0 1 1042.5 205" />
-    <path d="M867.5 205 L867.5 175 A30 30 0 0 1 907.5 205" />
-    <path d="M732.5 205 L732.5 175 A30 30 0 0 1 772.5 205" />
-    <path d="M597.5 205 L597.5 175 A30 30 0 0 1 637.5 205" />
-    <path d="M462.5 205 L462.5 175 A30 30 0 0 1 502.5 205" />
-    <path d="M327.5 205 L327.5 175 A30 30 0 0 1 367.5 205" />
-    <path d="M192.5 205 L192.5 175 A30 30 0 0 1 232.5 205" />
-    <path d="M57.5 205 L57.5 175 A30 30 0 0 1 97.5 205" />
-    <path d="M57.5 515 L57.5 545 A30 30 0 0 0 97.5 515" />
-    <path d="M192.5 515 L192.5 545 A30 30 0 0 0 232.5 515" />
-    <path d="M327.5 515 L327.5 545 A30 30 0 0 0 367.5 515" />
-    <path d="M462.5 515 L462.5 545 A30 30 0 0 0 502.5 515" />
-    <path d="M597.5 515 L597.5 545 A30 30 0 0 0 637.5 515" />
-    <path d="M732.5 515 L732.5 545 A30 30 0 0 0 772.5 515" />
-    <path d="M867.5 515 L867.5 545 A30 30 0 0 0 907.5 515" />
-    <path d="M1002.5 515 L1002.5 545 A30 30 0 0 0 1042.5 515" />
-    <path d="M1090 228 L1130 228 A40 40 0 0 1 1090 268" />
-    <path d="M1090 452 L1130 452 A40 40 0 0 1 1090 492" />
-  </g>
-
-  <!-- Grafo di navigazione: ogni sala si collega al proprio corridoio, e i tre
-       corridoi si collegano fra loro. Venti archi, nessuna adiacenza dedotta. -->
-  <g class="arco" id="nav-edges">
-    <line data-edge="" x1="1022.5" y1="185" x2="1022.5" y2="235" /> <!-- Duecento e Giotto <-> Ponente -->
-    <line data-edge="" x1="887.5" y1="185" x2="887.5" y2="235" /> <!-- Trecento Senese <-> Ponente -->
-    <line data-edge="" x1="752.5" y1="185" x2="752.5" y2="235" /> <!-- Gotico Internazionale <-> Ponente -->
-    <line data-edge="" x1="617.5" y1="185" x2="617.5" y2="235" /> <!-- Angelico e Filippo Lippi <-> Ponente -->
-    <line data-edge="" x1="482.5" y1="185" x2="482.5" y2="235" /> <!-- Piero della Francesca <-> Ponente -->
-    <line data-edge="" x1="347.5" y1="185" x2="347.5" y2="235" /> <!-- Pollaiolo e le Virtu <-> Ponente -->
-    <line data-edge="" x1="212.5" y1="185" x2="212.5" y2="235" /> <!-- Botticelli <-> Ponente -->
-    <line data-edge="" x1="77.5" y1="185" x2="77.5" y2="235" /> <!-- Leonardo e il Verrocchio <-> Ponente -->
-    <line data-edge="" x1="77.5" y1="535" x2="77.5" y2="485" /> <!-- Tribuna <-> Levante -->
-    <line data-edge="" x1="212.5" y1="535" x2="212.5" y2="485" /> <!-- Fiandre e Germania <-> Levante -->
-    <line data-edge="" x1="347.5" y1="535" x2="347.5" y2="485" /> <!-- Perugino e Signorelli <-> Levante -->
-    <line data-edge="" x1="482.5" y1="535" x2="482.5" y2="485" /> <!-- Bellini Giorgione Mantegna <-> Levante -->
-    <line data-edge="" x1="617.5" y1="535" x2="617.5" y2="485" /> <!-- Michelangelo e Raffaello <-> Levante -->
-    <line data-edge="" x1="752.5" y1="535" x2="752.5" y2="485" /> <!-- Cinquecento Veneziano <-> Levante -->
-    <line data-edge="" x1="887.5" y1="535" x2="887.5" y2="485" /> <!-- Manierismo fiorentino <-> Levante -->
-    <line data-edge="" x1="1022.5" y1="535" x2="1022.5" y2="485" /> <!-- Caravaggio e il Seicento <-> Levante -->
-    <line data-edge="" x1="1070" y1="250" x2="1110" y2="250" /> <!-- Ponente <-> Atrio -->
-    <line data-edge="" x1="1070" y1="470" x2="1110" y2="470" /> <!-- Levante <-> Uscita -->
-    <line data-edge="" x1="100" y1="270" x2="100" y2="320" /> <!-- Ponente <-> Arno -->
-    <line data-edge="" x1="100" y1="400" x2="100" y2="450" /> <!-- Arno <-> Levante -->
-  </g>
-
-  <!-- Nodi-opera: data-qid e' il legame con il catalogo, id="art-N" e' il
-       numero della tappa sulla pianta, data-label il titolo pronunciato. -->
-  <g class="nodo-arte">
-    <!-- Duecento e Giotto -->
-    <circle id="art-1" class="interactive-node" data-qid="Q959174" data-label="Crocifisso con storie della Passione e della Redenzione" cx="985.5" cy="88" r="11" />
-    <circle id="art-2" class="interactive-node" data-qid="Q948745" data-label="Madonna Rucellai" cx="1022.5" cy="88" r="11" />
-    <circle id="art-3" class="interactive-node" data-qid="Q1569622" data-label="Madonna in trono col Bambino fra angeli e profitieren. ˋMaestà di Santa Trinitá" cx="1059.5" cy="88" r="11" />
-    <circle id="art-4" class="interactive-node" data-qid="Q2016193" data-label="Maestà di Ognissanti" cx="1004" cy="132" r="11" />
-    <circle id="art-5" class="interactive-node" data-qid="Q3907498" data-label="Polittico di Badia" cx="1041" cy="132" r="11" />
-    <!-- Trecento Senese -->
-    <circle id="art-6" class="interactive-node" data-qid="Q979440" data-label="Annunciazione tra i santi Ansano e Margherita" cx="850.5" cy="88" r="11" />
-    <circle id="art-7" class="interactive-node" data-qid="Q3910903" data-label="Presentazione al Tempio" cx="887.5" cy="88" r="11" />
-    <circle id="art-8" class="interactive-node" data-qid="Q3974495" data-label="Storie di san Nicola" cx="924.5" cy="88" r="11" />
-    <circle id="art-9" class="interactive-node" data-qid="Q3842761" data-label="Madonna in trono col Bambino e angeli" cx="850.5" cy="132" r="11" />
-    <circle id="art-10" class="interactive-node" data-qid="Q3889230" data-label="Pala della beata Umiltà" cx="887.5" cy="132" r="11" />
-    <circle id="art-11" class="interactive-node" data-qid="Q3999135" data-label="Trittico di san Matteo" cx="924.5" cy="132" r="11" />
-    <!-- Gotico Internazionale -->
-    <circle id="art-12" class="interactive-node" data-qid="Q3797775" data-label="Incoronazione della Vergine" cx="715.5" cy="88" r="11" />
-    <circle id="art-13" class="interactive-node" data-qid="Q3605536" data-label="Adorazione dei Magi" cx="752.5" cy="88" r="11" />
-    <circle id="art-14" class="interactive-node" data-qid="Q1055117" data-label="Adorazione dei Magi" cx="789.5" cy="88" r="11" />
-    <circle id="art-15" class="interactive-node" data-qid="Q3907477" data-label="Polittico Quaratesi" cx="715.5" cy="132" r="11" />
-    <circle id="art-16" class="interactive-node" data-qid="Q3982381" data-label="Tebaide" cx="752.5" cy="132" r="11" />
-    <rect id="art-17" class="interactive-node" data-qid="Q3979950" data-label="tabernacolo dei Linaioli - aperto" x="778.5" y="121" width="22" height="22" rx="3" />
-    <!-- Angelico e Filippo Lippi -->
-    <circle id="art-18" class="interactive-node" data-qid="Q3797771" data-label="Incoronazione della Vergine" cx="580.5" cy="88" r="11" />
-    <circle id="art-19" class="interactive-node" data-qid="Q32381" data-label="Sant'Anna, la Madonna col Bambino e cinque angeli" cx="617.5" cy="88" r="11" />
-    <circle id="art-20" class="interactive-node" data-qid="Q3889196" data-label="Pala Barbadori e predella" cx="654.5" cy="88" r="11" />
-    <circle id="art-21" class="interactive-node" data-qid="Q3797764" data-label="Incoronazione Maringhi" cx="580.5" cy="132" r="11" />
-    <circle id="art-22" class="interactive-node" data-qid="Q1055111" data-label="Lippina" cx="617.5" cy="132" r="11" />
-    <circle id="art-23" class="interactive-node" data-qid="Q3889222" data-label="Pala del Noviziato" cx="654.5" cy="132" r="11" />
-    <!-- Piero della Francesca -->
-    <circle id="art-24" class="interactive-node" data-qid="Q1227359" data-label="I duchi di Urbino Federico da Montefeltro e Battista Sforza" cx="445.5" cy="88" r="11" />
-    <circle id="art-25" class="interactive-node" data-qid="Q3842742" data-label="Madonna di casa Pazzi" cx="482.5" cy="88" r="11" />
-    <circle id="art-26" class="interactive-node" data-qid="Q2350980" data-label="Pala di Santa Lucia de' Magnoli" cx="519.5" cy="88" r="11" />
-    <circle id="art-27" class="interactive-node" data-qid="Q3618168" data-label="Annunciazione" cx="445.5" cy="132" r="11" />
-    <circle id="art-28" class="interactive-node" data-qid="Q3907481" data-label="Polittico dei Dottori della Chiesa" cx="482.5" cy="132" r="11" />
-    <circle id="art-29" class="interactive-node" data-qid="Q3947013" data-label="San Domenico" cx="519.5" cy="132" r="11" />
-    <!-- Pollaiolo e le Virtu -->
-    <circle id="art-30" class="interactive-node" data-qid="Q3937539" data-label="Ritratto di Galeazzo Maria Sforza" cx="310.5" cy="66" r="11" />
-    <circle id="art-31" class="interactive-node" data-qid="Q3658722" data-label="Carità" cx="347.5" cy="66" r="11" />
-    <circle id="art-32" class="interactive-node" data-qid="Q3771744" data-label="Giustizia" cx="384.5" cy="66" r="11" />
-    <circle id="art-33" class="interactive-node" data-qid="Q3924777" data-label="Prudenza" cx="329" cy="110" r="11" />
-    <circle id="art-34" class="interactive-node" data-qid="Q3731236" data-label="Ercole e l'idra" cx="366" cy="110" r="11" />
-    <circle id="art-35" class="interactive-node" data-qid="Q3731227" data-label="Ercole e Anteo" cx="329" cy="154" r="11" />
-    <circle id="art-36" class="interactive-node" data-qid="Q3937782" data-label="Ritratto di donna" cx="366" cy="154" r="11" />
-    <!-- Botticelli -->
-    <circle id="art-37" class="interactive-node" data-qid="Q151047" data-label="Nascita di Venere" cx="175.5" cy="66" r="11" />
-    <circle id="art-38" class="interactive-node" data-qid="Q549847" data-label="Primavera" cx="212.5" cy="66" r="11" />
-    <circle id="art-39" class="interactive-node" data-qid="Q488825" data-label="Adorazione dei Magi" cx="249.5" cy="66" r="11" />
-    <circle id="art-40" class="interactive-node" data-qid="Q2551625" data-label="Madonna del Magnificat" cx="175.5" cy="110" r="11" />
-    <circle id="art-41" class="interactive-node" data-qid="Q1217187" data-label="Calunnia" cx="212.5" cy="110" r="11" />
-    <circle id="art-42" class="interactive-node" data-qid="Q2426058" data-label="Pallade e il centauro" cx="249.5" cy="110" r="11" />
-    <circle id="art-43" class="interactive-node" data-qid="Q2269291" data-label="Madonna della Melagrana" cx="175.5" cy="154" r="11" />
-    <circle id="art-44" class="interactive-node" data-qid="Q2714237" data-label="Annunciazione di Cestello" cx="212.5" cy="154" r="11" />
-    <rect id="art-45" class="interactive-node" data-qid="Q18686031" data-label="Trittico Portinari" x="238.5" y="143" width="22" height="22" rx="3" />
-    <!-- Leonardo e il Verrocchio -->
-    <circle id="art-46" class="interactive-node" data-qid="Q1059211" data-label="Battesimo di Cristo" cx="40.5" cy="88" r="11" />
-    <circle id="art-47" class="interactive-node" data-qid="Q1217213" data-label="Annunciazione" cx="77.5" cy="88" r="11" />
-    <circle id="art-48" class="interactive-node" data-qid="Q1638622" data-label="Adorazione dei Magi" cx="114.5" cy="88" r="11" />
-    <circle id="art-49" class="interactive-node" data-qid="Q3373694" data-label="Paesaggio con fiume" cx="40.5" cy="132" r="11" />
-    <circle id="art-50" class="interactive-node" data-qid="Q3605549" data-label="Adorazione dei pastori" cx="77.5" cy="132" r="11" />
-    <circle id="art-51" class="interactive-node" data-qid="Q3945710" data-label="Salomè con la testa del Battista" cx="114.5" cy="132" r="11" />
-    <!-- Tribuna -->
-    <rect id="art-52" class="interactive-node" data-qid="Q774967" data-label="Venere de' Medici" x="29.5" y="582" width="22" height="22" rx="3" />
-    <circle id="art-53" class="interactive-node" data-qid="Q3625842" data-label="Ritratto di Cosimo I de' Medici" cx="77.5" cy="593" r="11" />
-    <circle id="art-54" class="interactive-node" data-qid="Q1328065" data-label="Ritratto di Eleonora di Toledo col figlio Giovanni de' Medici" cx="114.5" cy="593" r="11" />
-    <circle id="art-55" class="interactive-node" data-qid="Q3937472" data-label="Ritratto di Bia de' Medici" cx="59" cy="637" r="11" />
-    <circle id="art-56" class="interactive-node" data-qid="Q12118453" data-label="Ritratto di Lorenzo Il Magnifico" cx="96" cy="637" r="11" />
-    <!-- Fiandre e Germania -->
-    <circle id="art-57" class="interactive-node" data-qid="Q2604155" data-label="deposizione di Cristo nel sepolcro" cx="175.5" cy="571" r="11" />
-    <circle id="art-58" class="interactive-node" data-qid="Q43284760" data-label="Trittico di Benedetto Portinari" cx="212.5" cy="571" r="11" />
-    <circle id="art-59" class="interactive-node" data-qid="Q4006168" data-label="Uomo con la lettera" cx="249.5" cy="571" r="11" />
-    <circle id="art-60" class="interactive-node" data-qid="Q2628761" data-label="Adorazione dei Magi" cx="175.5" cy="615" r="11" />
-    <circle id="art-61" class="interactive-node" data-qid="Q1988057" data-label="Ritratto di Albrecht Dürer il Vecchio" cx="212.5" cy="615" r="11" />
-    <circle id="art-62" class="interactive-node" data-qid="Q3605055" data-label="Adamo ed Eva" cx="249.5" cy="615" r="11" />
-    <circle id="art-63" class="interactive-node" data-qid="Q3630726" data-label="Autoritratto" cx="194" cy="659" r="11" />
-    <circle id="art-64" class="interactive-node" data-qid="Q3937666" data-label="Ritratto di Sir Richard Southwell" cx="231" cy="659" r="11" />
-    <!-- Perugino e Signorelli -->
-    <circle id="art-65" class="interactive-node" data-qid="Q368788" data-label="Pietà" cx="310.5" cy="571" r="11" />
-    <circle id="art-66" class="interactive-node" data-qid="Q3201606" data-label="Orazione nell'orto" cx="347.5" cy="571" r="11" />
-    <circle id="art-67" class="interactive-node" data-qid="Q945250" data-label="Ritratto di Francesco delle Opere" cx="384.5" cy="571" r="11" />
-    <circle id="art-68" class="interactive-node" data-qid="Q3207989" data-label="Crocifissione con i Santi Girolamo, Francesco, Maria Maddalena, Giovanni Battista e il beato Giovanni Colombini" cx="329" cy="615" r="11" />
-    <circle id="art-69" class="interactive-node" data-qid="Q3698237" data-label="Crocifisso con la Maddalena" cx="366" cy="615" r="11" />
-    <circle id="art-70" class="interactive-node" data-qid="Q3605532" data-label="Adorazione dei Magi" cx="329" cy="659" r="11" />
-    <circle id="art-71" class="interactive-node" data-qid="Q3944518" data-label="Sacra conversazione degli Ingesuati" cx="366" cy="659" r="11" />
-    <!-- Bellini Giorgione Mantegna -->
-    <circle id="art-72" class="interactive-node" data-qid="Q1629015" data-label="Allegoria sacra" cx="445.5" cy="593" r="11" />
-    <circle id="art-73" class="interactive-node" data-qid="Q3685124" data-label="Compianto sul Cristo morto" cx="482.5" cy="593" r="11" />
-    <circle id="art-74" class="interactive-node" data-qid="Q2452374" data-label="Giudizio di Salomone" cx="519.5" cy="593" r="11" />
-    <circle id="art-75" class="interactive-node" data-qid="Q3924389" data-label="Prova di Mosè" cx="445.5" cy="637" r="11" />
-    <circle id="art-76" class="interactive-node" data-qid="Q3210265" data-label="Madonna delle Cave" cx="482.5" cy="637" r="11" />
-    <circle id="art-77" class="interactive-node" data-qid="Q3937495" data-label="Ritratto di Carlo de' Medici" cx="519.5" cy="637" r="11" />
-    <!-- Michelangelo e Raffaello -->
-    <circle id="art-78" class="interactive-node" data-qid="Q1473546" data-label="Tondo Doni" cx="580.5" cy="571" r="11" />
-    <circle id="art-79" class="interactive-node" data-qid="Q2344505" data-label="Madonna del Cardellino" cx="617.5" cy="571" r="11" />
-    <circle id="art-80" class="interactive-node" data-qid="Q555821" data-label="Autoritratto" cx="654.5" cy="571" r="11" />
-    <circle id="art-81" class="interactive-node" data-qid="Q2627028" data-label="Ritratto di Elisabetta Gonzaga" cx="580.5" cy="615" r="11" />
-    <circle id="art-82" class="interactive-node" data-qid="Q2713823" data-label="Ritratto di giovane con la mela" cx="617.5" cy="615" r="11" />
-    <circle id="art-83" class="interactive-node" data-qid="Q2607072" data-label="Ritratto del Perugino" cx="654.5" cy="615" r="11" />
-    <circle id="art-84" class="interactive-node" data-qid="Q1235695" data-label="Madonna delle Arpie" cx="599" cy="659" r="11" />
-    <circle id="art-85" class="interactive-node" data-qid="Q3630715" data-label="Autoritratto" cx="636" cy="659" r="11" />
-    <!-- Cinquecento Veneziano -->
-    <circle id="art-86" class="interactive-node" data-qid="Q727875" data-label="Venere di Urbino" cx="715.5" cy="571" r="11" />
-    <circle id="art-87" class="interactive-node" data-qid="Q2046100" data-label="Flora" cx="752.5" cy="571" r="11" />
-    <circle id="art-88" class="interactive-node" data-qid="Q3937511" data-label="Ritratto di Eleonora Gonzaga della Rovere" cx="789.5" cy="571" r="11" />
-    <circle id="art-89" class="interactive-node" data-qid="Q3937531" data-label="Ritratto di Francesco Maria Della Rovere" cx="734" cy="615" r="11" />
-    <circle id="art-90" class="interactive-node" data-qid="Q11753618" data-label="Leda e il cigno" cx="771" cy="615" r="11" />
-    <circle id="art-91" class="interactive-node" data-qid="Q649875" data-label="Susanna e i vecchioni" cx="734" cy="659" r="11" />
-    <circle id="art-92" class="interactive-node" data-qid="Q15974356" data-label="Ritratto di Iseppo da Porto col figlio Adriano" cx="771" cy="659" r="11" />
-    <!-- Manierismo fiorentino -->
-    <circle id="art-93" class="interactive-node" data-qid="Q867403" data-label="Madonna dal collo lungo" cx="850.5" cy="593" r="11" />
-    <circle id="art-94" class="interactive-node" data-qid="Q3664358" data-label="Cena in Emmaus" cx="887.5" cy="593" r="11" />
-    <circle id="art-95" class="interactive-node" data-qid="Q1863885" data-label="Mosè difende le figlie di Jetro" cx="924.5" cy="593" r="11" />
-    <circle id="art-96" class="interactive-node" data-qid="Q1990128" data-label="Ritratto di Lucrezia Panciatichi" cx="850.5" cy="637" r="11" />
-    <circle id="art-97" class="interactive-node" data-qid="Q3944462" data-label="Sacra Famiglia Panciatichi" cx="887.5" cy="637" r="11" />
-    <circle id="art-98" class="interactive-node" data-qid="Q15974337" data-label="Fucina di Vulcano" cx="924.5" cy="637" r="11" />
-    <!-- Caravaggio e il Seicento -->
-    <circle id="art-99" class="interactive-node" data-qid="Q2293905" data-label="Medusa" cx="985.5" cy="593" r="11" />
-    <circle id="art-100" class="interactive-node" data-qid="Q2011510" data-label="Bacco" cx="1022.5" cy="593" r="11" />
-    <circle id="art-101" class="interactive-node" data-qid="Q2284829" data-label="Sacrificio di Isacco" cx="1059.5" cy="593" r="11" />
-    <circle id="art-102" class="interactive-node" data-qid="Q3769169" data-label="Giuditta che decapita Oloferne" cx="985.5" cy="637" r="11" />
-    <circle id="art-103" class="interactive-node" data-qid="Q29016365" data-label="Santa Caterina di Alessandria" cx="1022.5" cy="637" r="11" />
-    <circle id="art-104" class="interactive-node" data-qid="Q3725832" data-label="Enrico IV alla battaglia d'Ivry" cx="1059.5" cy="637" r="11" />
-  </g>
-
-  <!-- Servizi (POI): data-poi = tipo, data-label = nome mostrato e letto. -->
-  <g id="pois">
-    <rect class="poi-node nodo-servizio" data-poi="entrance" data-label="Ingresso" x="1151" y="241" width="18" height="18" rx="5">
-      <title>Ingresso</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette" x="1151" y="161" width="18" height="18" rx="5">
-      <title>Toilette</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore" x="1151" y="81" width="18" height="18" rx="5">
-      <title>Ascensore</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="exit" data-label="Uscita" x="1151" y="461" width="18" height="18" rx="5">
-      <title>Uscita</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="shop" data-label="Bookshop" x="1151" y="551" width="18" height="18" rx="5">
-      <title>Bookshop</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="bar" data-label="Caffetteria" x="1151" y="641" width="18" height="18" rx="5">
-      <title>Caffetteria</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scalone" x="91" y="351" width="18" height="18" rx="5">
-      <title>Scalone</title>
-    </rect>
-    <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette del Levante" x="291" y="463" width="18" height="18" rx="5">
-      <title>Toilette del Levante</title>
-    </rect>
-    <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza di Ponente" x="51" y="238" width="18" height="18" rx="5">
-      <title>Uscita di emergenza di Ponente</title>
-    </rect>
-    <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza di Levante" x="891" y="463" width="18" height="18" rx="5">
-      <title>Uscita di emergenza di Levante</title>
-    </rect>
-    <g class="nome-servizio" pointer-events="none">
-    <text x="1160" y="274">Ingresso</text>
-    <text x="1160" y="194">Toilette</text>
-    <text x="1160" y="114">Ascensore</text>
-    <text x="1160" y="494">Uscita</text>
-    <text x="1160" y="584">Bookshop</text>
-    <text x="1160" y="674">Caffetteria</text>
-    <text x="100" y="384">Scalone</text>
-    <text x="300" y="496">Toilette</text>
-    <text x="60" y="271">Emergenza</text>
-    <text x="900" y="496">Emergenza</text>
+  <g data-floor="2" data-floor-label="Secondo piano">
+    <!-- Secondo piano: muro perimetrale, la U attorno al piazzale -->
+    <polygon class="foglio" points="50,-1320 1450,-1320 1450,-1150 200,-1150 200,-970 1450,-970 1450,-800 50,-800" filter="url(#uf-ombra)" />
+    <g pointer-events="none">
+      <rect class="sala sala-atrio" data-room="Secondo Corridoio sull'Arno" data-flow="18" x="50" y="-1320" width="150" height="520" />
+      <rect class="sala sala-atrio" data-room="Corridoio di Levante" data-flow="4" x="200" y="-970" width="1130" height="55" />
+      <rect class="sala sala-atrio" data-room="Corridoio di Ponente" data-flow="19" x="200" y="-1205" width="980" height="55" />
+      <rect class="sala t-notte" data-room="Approdo dello Scalone" data-flow="3" x="1330" y="-970" width="120" height="170" />
+      <rect class="sala t-verderame" data-room="Sala 2 - Giotto e il Duecento" data-flow="5" x="1235" y="-915" width="95" height="115" />
+      <rect class="sala t-ottone" data-room="Sala 3 - Simone Martini e i Lorenzetti" data-flow="6" x="1150" y="-915" width="85" height="115" />
+      <rect class="sala t-salvia" data-room="Sala 4 - Trecento fiorentino" data-flow="7" x="1085" y="-915" width="65" height="115" />
+      <rect class="sala t-ardesia" data-room="Sale 5 e 6 - Gotico internazionale" data-flow="8" x="1000" y="-915" width="85" height="115" />
+      <rect class="sala t-notte" data-room="Sala 7 - Beato Angelico e Masaccio" data-flow="9" x="915" y="-915" width="85" height="115" />
+      <rect class="sala t-verderame" data-room="Sala 8 - Filippo Lippi" data-flow="10" x="830" y="-915" width="85" height="115" />
+      <rect class="sala t-ottone" data-room="Sala 9 - Piero della Francesca" data-flow="11" x="730" y="-915" width="100" height="115" />
+      <rect class="sala t-salvia" data-room="Sala 10 - Antonio e Piero del Pollaiolo" data-flow="12" x="630" y="-915" width="100" height="115" />
+      <rect class="sala t-ardesia" data-room="Sale 11-14 - Botticelli" data-flow="13" x="500" y="-915" width="130" height="115" />
+      <rect class="sala t-notte" data-room="Sala 15 - Leonardo" data-flow="14" x="400" y="-915" width="100" height="115" />
+      <rect class="sala t-verderame" data-room="Sala 16 - Carte Geografiche" data-flow="15" x="350" y="-915" width="50" height="115" />
+      <rect class="sala t-ottone" data-room="Sala 17 - Ermafrodito" data-flow="16" x="305" y="-915" width="45" height="115" />
+      <polygon class="sala t-salvia" data-room="Sala 18 - Tribuna" data-flow="17" points="231.5,-915 273.5,-915 305,-883.5 305,-831.5 273.5,-800 231.5,-800 200,-831.5 200,-883.5" />
+      <rect class="sala t-ardesia" data-room="Sala 19 - Perugino e Signorelli" data-flow="20" x="200" y="-1320" width="120" height="115" />
+      <rect class="sala t-notte" data-room="Sala 20 - Durer e Cranach" data-flow="21" x="320" y="-1320" width="95" height="115" />
+      <rect class="sala t-verderame" data-room="Sala 21 - Bellini e Giorgione" data-flow="22" x="415" y="-1320" width="105" height="115" />
+      <rect class="sala t-ottone" data-room="Sala 22 - Fiandre e Germania" data-flow="23" x="520" y="-1320" width="110" height="115" />
+      <rect class="sala t-salvia" data-room="Sala 23 - Mantegna e Correggio" data-flow="24" x="630" y="-1320" width="90" height="115" />
+      <rect class="sala t-ardesia" data-room="Sala 24 - Gabinetto delle Miniature" data-flow="25" x="720" y="-1320" width="70" height="115" />
+      <rect class="sala t-notte" data-room="Sala 35 - Michelangelo e i fiorentini" data-flow="26" x="790" y="-1320" width="95" height="115" />
+      <rect class="sala t-verderame" data-room="Sala 42 - Sala della Niobe" data-flow="27" x="885" y="-1320" width="95" height="115" />
+      <rect class="sala t-ottone" data-room="Sala 83 - Tiziano" data-flow="28" x="980" y="-1320" width="105" height="115" />
+      <rect class="sala t-salvia" data-room="Sala 84 - Tintoretto e Veronese" data-flow="29" x="1085" y="-1320" width="95" height="115" />
+      <rect class="sala t-ardesia" data-room="Scala del Buontalenti" data-flow="31" x="1180" y="-1320" width="120" height="170" />
+      <rect class="sala t-notte" data-room="Terrazza e Caffetteria" data-flow="30" x="1300" y="-1320" width="150" height="170" />
+    </g>
+    <polygon points="50,-1320 1450,-1320 1450,-1150 200,-1150 200,-970 1450,-970 1450,-800 50,-800" fill="url(#uf-griglia)" pointer-events="none" />
+    <g class="muro">
+      <line x1="1330" y1="-970" x2="1330" y2="-960.5" />
+      <line x1="1330" y1="-924.5" x2="1330" y2="-800" />
+      <line x1="1235" y1="-915" x2="1235" y2="-800" />
+      <line x1="1330" y1="-915" x2="1330" y2="-800" />
+      <line x1="1235" y1="-915" x2="1264.5" y2="-915" />
+      <line x1="1300.5" y1="-915" x2="1330" y2="-915" />
+      <line x1="1150" y1="-915" x2="1150" y2="-800" />
+      <line x1="1235" y1="-915" x2="1235" y2="-800" />
+      <line x1="1150" y1="-915" x2="1174.5" y2="-915" />
+      <line x1="1210.5" y1="-915" x2="1235" y2="-915" />
+      <line x1="1085" y1="-915" x2="1085" y2="-800" />
+      <line x1="1150" y1="-915" x2="1150" y2="-800" />
+      <line x1="1085" y1="-915" x2="1099.5" y2="-915" />
+      <line x1="1135.5" y1="-915" x2="1150" y2="-915" />
+      <line x1="1000" y1="-915" x2="1000" y2="-800" />
+      <line x1="1085" y1="-915" x2="1085" y2="-800" />
+      <line x1="1000" y1="-915" x2="1024.5" y2="-915" />
+      <line x1="1060.5" y1="-915" x2="1085" y2="-915" />
+      <line x1="915" y1="-915" x2="915" y2="-800" />
+      <line x1="1000" y1="-915" x2="1000" y2="-800" />
+      <line x1="915" y1="-915" x2="939.5" y2="-915" />
+      <line x1="975.5" y1="-915" x2="1000" y2="-915" />
+      <line x1="830" y1="-915" x2="830" y2="-800" />
+      <line x1="915" y1="-915" x2="915" y2="-800" />
+      <line x1="830" y1="-915" x2="854.5" y2="-915" />
+      <line x1="890.5" y1="-915" x2="915" y2="-915" />
+      <line x1="730" y1="-915" x2="730" y2="-800" />
+      <line x1="830" y1="-915" x2="830" y2="-800" />
+      <line x1="730" y1="-915" x2="762" y2="-915" />
+      <line x1="798" y1="-915" x2="830" y2="-915" />
+      <line x1="630" y1="-915" x2="630" y2="-800" />
+      <line x1="730" y1="-915" x2="730" y2="-800" />
+      <line x1="630" y1="-915" x2="662" y2="-915" />
+      <line x1="698" y1="-915" x2="730" y2="-915" />
+      <line x1="500" y1="-915" x2="500" y2="-800" />
+      <line x1="630" y1="-915" x2="630" y2="-800" />
+      <line x1="500" y1="-915" x2="547" y2="-915" />
+      <line x1="583" y1="-915" x2="630" y2="-915" />
+      <line x1="400" y1="-915" x2="400" y2="-800" />
+      <line x1="500" y1="-915" x2="500" y2="-800" />
+      <line x1="400" y1="-915" x2="432" y2="-915" />
+      <line x1="468" y1="-915" x2="500" y2="-915" />
+      <line x1="350" y1="-915" x2="350" y2="-800" />
+      <line x1="400" y1="-915" x2="400" y2="-800" />
+      <line x1="350" y1="-915" x2="357" y2="-915" />
+      <line x1="393" y1="-915" x2="400" y2="-915" />
+      <line x1="305" y1="-915" x2="305" y2="-800" />
+      <line x1="350" y1="-915" x2="350" y2="-800" />
+      <line x1="305" y1="-915" x2="309.5" y2="-915" />
+      <line x1="345.5" y1="-915" x2="350" y2="-915" />
+      <line x1="200" y1="-915" x2="200" y2="-800" />
+      <line x1="305" y1="-915" x2="305" y2="-800" />
+      <line x1="200" y1="-915" x2="234.5" y2="-915" />
+      <line x1="270.5" y1="-915" x2="305" y2="-915" />
+      <path class="muro-leggero" d="M231.5 -915 L273.5 -915 L305 -883.5 L305 -831.5 L273.5 -800 L231.5 -800 L200 -831.5 L200 -883.5 Z" />
+      <line x1="200" y1="-1320" x2="200" y2="-1205" />
+      <line x1="320" y1="-1320" x2="320" y2="-1205" />
+      <line x1="200" y1="-1205" x2="242" y2="-1205" />
+      <line x1="278" y1="-1205" x2="320" y2="-1205" />
+      <line x1="320" y1="-1320" x2="320" y2="-1205" />
+      <line x1="415" y1="-1320" x2="415" y2="-1205" />
+      <line x1="320" y1="-1205" x2="349.5" y2="-1205" />
+      <line x1="385.5" y1="-1205" x2="415" y2="-1205" />
+      <line x1="415" y1="-1320" x2="415" y2="-1205" />
+      <line x1="520" y1="-1320" x2="520" y2="-1205" />
+      <line x1="415" y1="-1205" x2="449.5" y2="-1205" />
+      <line x1="485.5" y1="-1205" x2="520" y2="-1205" />
+      <line x1="520" y1="-1320" x2="520" y2="-1205" />
+      <line x1="630" y1="-1320" x2="630" y2="-1205" />
+      <line x1="520" y1="-1205" x2="557" y2="-1205" />
+      <line x1="593" y1="-1205" x2="630" y2="-1205" />
+      <line x1="630" y1="-1320" x2="630" y2="-1205" />
+      <line x1="720" y1="-1320" x2="720" y2="-1205" />
+      <line x1="630" y1="-1205" x2="657" y2="-1205" />
+      <line x1="693" y1="-1205" x2="720" y2="-1205" />
+      <line x1="720" y1="-1320" x2="720" y2="-1205" />
+      <line x1="790" y1="-1320" x2="790" y2="-1205" />
+      <line x1="720" y1="-1205" x2="737" y2="-1205" />
+      <line x1="773" y1="-1205" x2="790" y2="-1205" />
+      <line x1="790" y1="-1320" x2="790" y2="-1205" />
+      <line x1="885" y1="-1320" x2="885" y2="-1205" />
+      <line x1="790" y1="-1205" x2="819.5" y2="-1205" />
+      <line x1="855.5" y1="-1205" x2="885" y2="-1205" />
+      <line x1="885" y1="-1320" x2="885" y2="-1205" />
+      <line x1="980" y1="-1320" x2="980" y2="-1205" />
+      <line x1="885" y1="-1205" x2="914.5" y2="-1205" />
+      <line x1="950.5" y1="-1205" x2="980" y2="-1205" />
+      <line x1="980" y1="-1320" x2="980" y2="-1205" />
+      <line x1="1085" y1="-1320" x2="1085" y2="-1205" />
+      <line x1="980" y1="-1205" x2="1014.5" y2="-1205" />
+      <line x1="1050.5" y1="-1205" x2="1085" y2="-1205" />
+      <line x1="1085" y1="-1320" x2="1085" y2="-1205" />
+      <line x1="1180" y1="-1320" x2="1180" y2="-1205" />
+      <line x1="1085" y1="-1205" x2="1114.5" y2="-1205" />
+      <line x1="1150.5" y1="-1205" x2="1180" y2="-1205" />
+      <line x1="1180" y1="-1320" x2="1180" y2="-1195.5" />
+      <line x1="1180" y1="-1159.5" x2="1180" y2="-1150" />
+      <line x1="1300" y1="-1320" x2="1300" y2="-1253" />
+      <line x1="1300" y1="-1217" x2="1300" y2="-1150" />
+      <line x1="1300" y1="-1320" x2="1300" y2="-1253" />
+      <line x1="1300" y1="-1217" x2="1300" y2="-1150" />
+    </g>
+    <g class="porta">
+      <path d="M1330 -960.5 L1350 -960.5 A20 20 0 0 1 1330 -924.5" />
+      <path d="M200 -960.5 L220 -960.5 A20 20 0 0 1 200 -924.5" />
+      <path d="M200 -1195.5 L220 -1195.5 A20 20 0 0 1 200 -1159.5" />
+      <path d="M1180 -1195.5 L1200 -1195.5 A20 20 0 0 1 1180 -1159.5" />
+      <path d="M1300 -1253 L1320 -1253 A20 20 0 0 1 1300 -1217" />
+      <path d="M1264.5 -915 L1264.5 -895 A20 20 0 0 0 1300.5 -915" />
+      <path d="M1174.5 -915 L1174.5 -895 A20 20 0 0 0 1210.5 -915" />
+      <path d="M1099.5 -915 L1099.5 -895 A20 20 0 0 0 1135.5 -915" />
+      <path d="M1024.5 -915 L1024.5 -895 A20 20 0 0 0 1060.5 -915" />
+      <path d="M939.5 -915 L939.5 -895 A20 20 0 0 0 975.5 -915" />
+      <path d="M854.5 -915 L854.5 -895 A20 20 0 0 0 890.5 -915" />
+      <path d="M762 -915 L762 -895 A20 20 0 0 0 798 -915" />
+      <path d="M662 -915 L662 -895 A20 20 0 0 0 698 -915" />
+      <path d="M547 -915 L547 -895 A20 20 0 0 0 583 -915" />
+      <path d="M432 -915 L432 -895 A20 20 0 0 0 468 -915" />
+      <path d="M357 -915 L357 -895 A20 20 0 0 0 393 -915" />
+      <path d="M309.5 -915 L309.5 -895 A20 20 0 0 0 345.5 -915" />
+      <path d="M234.5 -915 L234.5 -895 A20 20 0 0 0 270.5 -915" />
+      <path d="M242 -1205 L242 -1225 A20 20 0 0 1 278 -1205" />
+      <path d="M349.5 -1205 L349.5 -1225 A20 20 0 0 1 385.5 -1205" />
+      <path d="M449.5 -1205 L449.5 -1225 A20 20 0 0 1 485.5 -1205" />
+      <path d="M557 -1205 L557 -1225 A20 20 0 0 1 593 -1205" />
+      <path d="M657 -1205 L657 -1225 A20 20 0 0 1 693 -1205" />
+      <path d="M737 -1205 L737 -1225 A20 20 0 0 1 773 -1205" />
+      <path d="M819.5 -1205 L819.5 -1225 A20 20 0 0 1 855.5 -1205" />
+      <path d="M914.5 -1205 L914.5 -1225 A20 20 0 0 1 950.5 -1205" />
+      <path d="M1014.5 -1205 L1014.5 -1225 A20 20 0 0 1 1050.5 -1205" />
+      <path d="M1114.5 -1205 L1114.5 -1225 A20 20 0 0 1 1150.5 -1205" />
+    </g>
+    <g class="nome-sala" pointer-events="none">
+      <text x="1390" y="-953">APPRODO DELLO</text>
+      <text x="1390" y="-943">SCALONE</text>
+      <text x="1282.5" y="-825">SALA 2</text>
+      <text x="1282.5" y="-815">GIOTTO E IL</text>
+      <text x="1282.5" y="-805">DUECENTO</text>
+      <text x="1192.5" y="-835">SALA 3</text>
+      <text x="1192.5" y="-825">SIMONE</text>
+      <text x="1192.5" y="-815">MARTINI E I</text>
+      <text x="1192.5" y="-805">LORENZETTI</text>
+      <g transform="rotate(-90 1101 -857.5)">
+      <text x="1101" y="-859.5">SALA 4</text>
+      <text x="1101" y="-849.5">TRECENTO FIORENTINO</text>
+      </g>
+      <text x="1042.5" y="-825">SALE 5 E 6</text>
+      <text x="1042.5" y="-815">GOTICO</text>
+      <text x="1042.5" y="-805">INTERNAZIONALE</text>
+      <text x="957.5" y="-835">SALA 7</text>
+      <text x="957.5" y="-825">BEATO</text>
+      <text x="957.5" y="-815">ANGELICO E</text>
+      <text x="957.5" y="-805">MASACCIO</text>
+      <text x="872.5" y="-815">SALA 8</text>
+      <text x="872.5" y="-805">FILIPPO LIPPI</text>
+      <text x="780" y="-825">SALA 9</text>
+      <text x="780" y="-815">PIERO DELLA</text>
+      <text x="780" y="-805">FRANCESCA</text>
+      <text x="680" y="-825">SALA 10</text>
+      <text x="680" y="-815">ANTONIO E PIERO</text>
+      <text x="680" y="-805">DEL POLLAIOLO</text>
+      <text x="565" y="-815">SALE 11-14</text>
+      <text x="565" y="-805">BOTTICELLI</text>
+      <text x="450" y="-815">SALA 15</text>
+      <text x="450" y="-805">LEONARDO</text>
+      <g transform="rotate(-90 375 -857.5)">
+      <text x="375" y="-859.5">SALA 16</text>
+      <text x="375" y="-849.5">CARTE GEOGRAFICHE</text>
+      </g>
+      <g transform="rotate(-90 327.5 -857.5)">
+      <text x="327.5" y="-859.5">SALA 17</text>
+      <text x="327.5" y="-849.5">ERMAFRODITO</text>
+      </g>
+      <text x="252.5" y="-815">SALA 18</text>
+      <text x="252.5" y="-805">TRIBUNA</text>
+      <text x="260" y="-1305">SALA 19</text>
+      <text x="260" y="-1295">PERUGINO E</text>
+      <text x="260" y="-1285">SIGNORELLI</text>
+      <text x="367.5" y="-1305">SALA 20</text>
+      <text x="367.5" y="-1295">DURER E CRANACH</text>
+      <text x="467.5" y="-1305">SALA 21</text>
+      <text x="467.5" y="-1295">BELLINI E</text>
+      <text x="467.5" y="-1285">GIORGIONE</text>
+      <text x="575" y="-1305">SALA 22</text>
+      <text x="575" y="-1295">FIANDRE E GERMANIA</text>
+      <text x="675" y="-1305">SALA 23</text>
+      <text x="675" y="-1295">MANTEGNA E</text>
+      <text x="675" y="-1285">CORREGGIO</text>
+      <g transform="rotate(-90 755 -1262.5)">
+      <text x="755" y="-1269.5">SALA 24</text>
+      <text x="755" y="-1259.5">GABINETTO DELLE</text>
+      <text x="755" y="-1249.5">MINIATURE</text>
+      </g>
+      <text x="837.5" y="-1305">SALA 35</text>
+      <text x="837.5" y="-1295">MICHELANGELO E</text>
+      <text x="837.5" y="-1285">I FIORENTINI</text>
+      <text x="932.5" y="-1305">SALA 42</text>
+      <text x="932.5" y="-1295">SALA DELLA</text>
+      <text x="932.5" y="-1285">NIOBE</text>
+      <text x="1032.5" y="-1305">SALA 83</text>
+      <text x="1032.5" y="-1295">TIZIANO</text>
+      <text x="1132.5" y="-1305">SALA 84</text>
+      <text x="1132.5" y="-1295">TINTORETTO E</text>
+      <text x="1132.5" y="-1285">VERONESE</text>
+      <text x="1240" y="-1303">SCALA DEL</text>
+      <text x="1240" y="-1293">BUONTALENTI</text>
+      <text x="1375" y="-1303">TERRAZZA E CAFFETTERIA</text>
+    </g>
+    <g class="nome-corridoio" pointer-events="none">
+      <g transform="rotate(-90 90 -1060)">
+      <text x="90" y="-1062.5">SECONDO CORRIDOIO</text>
+      <text x="90" y="-1049.5">SULL'ARNO</text>
+      </g>
+      <text x="765" y="-938.5">CORRIDOIO DI LEVANTE</text>
+      <text x="690" y="-1173.5">CORRIDOIO DI PONENTE</text>
+      <text x="825" y="-1056">PIAZZALE DEGLI UFFIZI</text>
+    </g>
+    <g class="arco">
+      <line data-edge="" x1="1310" y1="-942.5" x2="1350" y2="-942.5" />
+      <line data-edge="" x1="180" y1="-942.5" x2="220" y2="-942.5" />
+      <line data-edge="" x1="180" y1="-1177.5" x2="220" y2="-1177.5" />
+      <line data-edge="" x1="1160" y1="-1177.5" x2="1200" y2="-1177.5" />
+      <line data-edge="" x1="1280" y1="-1235" x2="1320" y2="-1235" />
+      <line data-edge="" x1="1282.5" y1="-940" x2="1282.5" y2="-890" />
+      <line data-edge="" x1="1192.5" y1="-940" x2="1192.5" y2="-890" />
+      <line data-edge="" x1="1117.5" y1="-940" x2="1117.5" y2="-890" />
+      <line data-edge="" x1="1042.5" y1="-940" x2="1042.5" y2="-890" />
+      <line data-edge="" x1="957.5" y1="-940" x2="957.5" y2="-890" />
+      <line data-edge="" x1="872.5" y1="-940" x2="872.5" y2="-890" />
+      <line data-edge="" x1="780" y1="-940" x2="780" y2="-890" />
+      <line data-edge="" x1="680" y1="-940" x2="680" y2="-890" />
+      <line data-edge="" x1="565" y1="-940" x2="565" y2="-890" />
+      <line data-edge="" x1="450" y1="-940" x2="450" y2="-890" />
+      <line data-edge="" x1="375" y1="-940" x2="375" y2="-890" />
+      <line data-edge="" x1="327.5" y1="-940" x2="327.5" y2="-890" />
+      <line data-edge="" x1="252.5" y1="-940" x2="252.5" y2="-890" />
+      <line data-edge="" x1="260" y1="-1180" x2="260" y2="-1230" />
+      <line data-edge="" x1="367.5" y1="-1180" x2="367.5" y2="-1230" />
+      <line data-edge="" x1="467.5" y1="-1180" x2="467.5" y2="-1230" />
+      <line data-edge="" x1="575" y1="-1180" x2="575" y2="-1230" />
+      <line data-edge="" x1="675" y1="-1180" x2="675" y2="-1230" />
+      <line data-edge="" x1="755" y1="-1180" x2="755" y2="-1230" />
+      <line data-edge="" x1="837.5" y1="-1180" x2="837.5" y2="-1230" />
+      <line data-edge="" x1="932.5" y1="-1180" x2="932.5" y2="-1230" />
+      <line data-edge="" x1="1032.5" y1="-1180" x2="1032.5" y2="-1230" />
+      <line data-edge="" x1="1132.5" y1="-1180" x2="1132.5" y2="-1230" />
+    </g>
+    <g class="nodo-arte">
+      <!-- Sala 2 - Giotto e il Duecento -->
+      <circle id="art-1" class="interactive-node" data-qid="Q959174" data-label="Crocifisso con storie della Passione e della Redenzione" cx="1267.5" cy="-901" r="10" />
+      <circle id="art-2" class="interactive-node" data-qid="Q948745" data-label="Madonna Rucellai" cx="1297.5" cy="-901" r="10" />
+      <circle id="art-3" class="interactive-node" data-qid="Q1569622" data-label="Maestà di Santa Trinita" cx="1267.5" cy="-876.5" r="10" />
+      <circle id="art-4" class="interactive-node" data-qid="Q2016193" data-label="Maestà di Ognissanti" cx="1297.5" cy="-876.5" r="10" />
+      <circle id="art-5" class="interactive-node" data-qid="Q3907498" data-label="Polittico di Badia" cx="1282.5" cy="-852" r="10" />
+      <!-- Sala 3 - Simone Martini e i Lorenzetti -->
+      <circle id="art-6" class="interactive-node" data-qid="Q979440" data-label="Annunciazione tra i santi Ansano e Margherita" cx="1177.5" cy="-896.5" r="10" />
+      <circle id="art-7" class="interactive-node" data-qid="Q3910903" data-label="Presentazione al Tempio" cx="1207.5" cy="-896.5" r="10" />
+      <circle id="art-8" class="interactive-node" data-qid="Q3974495" data-label="Storie di san Nicola" cx="1177.5" cy="-866.5" r="10" />
+      <circle id="art-10" class="interactive-node" data-qid="Q3889230" data-label="Pala della beata Umiltà" cx="1207.5" cy="-866.5" r="10" />
+      <!-- Sala 4 - Trecento fiorentino -->
+      <circle id="art-9" class="interactive-node" data-qid="Q3842761" data-label="Madonna in trono col Bambino e angeli" cx="1135.5" cy="-872.5" r="10" />
+      <circle id="art-11" class="interactive-node" data-qid="Q3999135" data-label="Trittico di san Matteo" cx="1135.5" cy="-842.5" r="10" />
+      <!-- Sale 5 e 6 - Gotico internazionale -->
+      <circle id="art-12" class="interactive-node" data-qid="Q3797775" data-label="Incoronazione della Vergine" cx="1027.5" cy="-891.5" r="10" />
+      <circle id="art-13" class="interactive-node" data-qid="Q3605536" data-label="Adorazione dei Magi" cx="1057.5" cy="-891.5" r="10" />
+      <circle id="art-14" class="interactive-node" data-qid="Q1055117" data-label="Adorazione dei Magi" cx="1027.5" cy="-861.5" r="10" />
+      <circle id="art-15" class="interactive-node" data-qid="Q3907477" data-label="Polittico Quaratesi" cx="1057.5" cy="-861.5" r="10" />
+      <!-- Sala 7 - Beato Angelico e Masaccio -->
+      <circle id="art-16" class="interactive-node" data-qid="Q3982381" data-label="Tebaide" cx="942.5" cy="-896.5" r="10" />
+      <rect id="art-17" class="interactive-node" data-qid="Q3979950" data-label="tabernacolo dei Linaioli - aperto" x="962.5" y="-906.5" width="20" height="20" rx="3" />
+      <circle id="art-18" class="interactive-node" data-qid="Q3797771" data-label="Incoronazione della Vergine" cx="942.5" cy="-866.5" r="10" />
+      <circle id="art-19" class="interactive-node" data-qid="Q32381" data-label="Sant'Anna, la Madonna col Bambino e cinque angeli" cx="972.5" cy="-866.5" r="10" />
+      <!-- Sala 8 - Filippo Lippi -->
+      <circle id="art-20" class="interactive-node" data-qid="Q3889196" data-label="Pala Barbadori e predella" cx="857.5" cy="-886.5" r="10" />
+      <circle id="art-21" class="interactive-node" data-qid="Q3797764" data-label="Incoronazione Maringhi" cx="887.5" cy="-886.5" r="10" />
+      <circle id="art-22" class="interactive-node" data-qid="Q1055111" data-label="Lippina" cx="857.5" cy="-856.5" r="10" />
+      <circle id="art-23" class="interactive-node" data-qid="Q3889222" data-label="Pala del Noviziato" cx="887.5" cy="-856.5" r="10" />
+      <!-- Sala 9 - Piero della Francesca -->
+      <circle id="art-24" class="interactive-node" data-qid="Q1227359" data-label="I duchi di Urbino Federico da Montefeltro e Battista Sforza" cx="750" cy="-891.5" r="10" />
+      <circle id="art-25" class="interactive-node" data-qid="Q3842742" data-label="Madonna di casa Pazzi" cx="780" cy="-891.5" r="10" />
+      <circle id="art-26" class="interactive-node" data-qid="Q2350980" data-label="Pala di Santa Lucia de' Magnoli" cx="810" cy="-891.5" r="10" />
+      <circle id="art-27" class="interactive-node" data-qid="Q3618168" data-label="Annunciazione" cx="750" cy="-861.5" r="10" />
+      <circle id="art-28" class="interactive-node" data-qid="Q3907481" data-label="Polittico dei Dottori della Chiesa" cx="780" cy="-861.5" r="10" />
+      <circle id="art-29" class="interactive-node" data-qid="Q3947013" data-label="San Domenico" cx="810" cy="-861.5" r="10" />
+      <!-- Sala 10 - Antonio e Piero del Pollaiolo -->
+      <circle id="art-30" class="interactive-node" data-qid="Q3937539" data-label="Ritratto di Galeazzo Maria Sforza" cx="650" cy="-901" r="10" />
+      <circle id="art-31" class="interactive-node" data-qid="Q3658722" data-label="Carità" cx="680" cy="-901" r="10" />
+      <circle id="art-32" class="interactive-node" data-qid="Q3771744" data-label="Giustizia" cx="710" cy="-901" r="10" />
+      <circle id="art-33" class="interactive-node" data-qid="Q3924777" data-label="Prudenza" cx="650" cy="-876.5" r="10" />
+      <circle id="art-34" class="interactive-node" data-qid="Q3731236" data-label="Ercole e l'idra" cx="680" cy="-876.5" r="10" />
+      <circle id="art-35" class="interactive-node" data-qid="Q3731227" data-label="Ercole e Anteo" cx="710" cy="-876.5" r="10" />
+      <circle id="art-36" class="interactive-node" data-qid="Q3937782" data-label="Ritratto di donna" cx="680" cy="-852" r="10" />
+      <!-- Sale 11-14 - Botticelli -->
+      <circle id="art-37" class="interactive-node" data-qid="Q151047" data-label="Nascita di Venere" cx="535" cy="-901" r="10" />
+      <circle id="art-38" class="interactive-node" data-qid="Q549847" data-label="Primavera" cx="565" cy="-901" r="10" />
+      <circle id="art-39" class="interactive-node" data-qid="Q488825" data-label="Adorazione dei Magi" cx="595" cy="-901" r="10" />
+      <circle id="art-40" class="interactive-node" data-qid="Q2551625" data-label="Madonna del Magnificat" cx="535" cy="-871.5" r="10" />
+      <circle id="art-41" class="interactive-node" data-qid="Q1217187" data-label="Calunnia" cx="565" cy="-871.5" r="10" />
+      <circle id="art-42" class="interactive-node" data-qid="Q2426058" data-label="Pallade e il centauro" cx="595" cy="-871.5" r="10" />
+      <circle id="art-43" class="interactive-node" data-qid="Q2269291" data-label="Madonna della Melagrana" cx="535" cy="-842" r="10" />
+      <circle id="art-44" class="interactive-node" data-qid="Q2714237" data-label="Annunciazione di Cestello" cx="565" cy="-842" r="10" />
+      <rect id="art-45" class="interactive-node" data-qid="Q18686031" data-label="Trittico Portinari" x="585" y="-852" width="20" height="20" rx="3" />
+      <!-- Sala 15 - Leonardo -->
+      <circle id="art-46" class="interactive-node" data-qid="Q1059211" data-label="Battesimo di Cristo" cx="420" cy="-886.5" r="10" />
+      <circle id="art-47" class="interactive-node" data-qid="Q1217213" data-label="Annunciazione" cx="450" cy="-886.5" r="10" />
+      <circle id="art-48" class="interactive-node" data-qid="Q1638622" data-label="Adorazione dei Magi" cx="480" cy="-886.5" r="10" />
+      <circle id="art-49" class="interactive-node" data-qid="Q3373694" data-label="Paesaggio con fiume" cx="420" cy="-856.5" r="10" />
+      <circle id="art-50" class="interactive-node" data-qid="Q3605549" data-label="Adorazione dei pastori" cx="450" cy="-856.5" r="10" />
+      <circle id="art-51" class="interactive-node" data-qid="Q3945710" data-label="Salomè con la testa del Battista" cx="480" cy="-856.5" r="10" />
+      <!-- Sala 18 - Tribuna -->
+      <rect id="art-52" class="interactive-node" data-qid="Q774967" data-label="Venere de' Medici" x="242.5" y="-875.5" width="20" height="20" rx="3" />
+      <circle id="art-53" class="interactive-node" data-qid="Q3625842" data-label="Ritratto di Cosimo I de' Medici" cx="226.5" cy="-891.5" r="10" />
+      <circle id="art-54" class="interactive-node" data-qid="Q1328065" data-label="Ritratto di Eleonora di Toledo col figlio Giovanni de' Medici" cx="278.5" cy="-891.5" r="10" />
+      <circle id="art-55" class="interactive-node" data-qid="Q3937472" data-label="Ritratto di Bia de' Medici" cx="226.5" cy="-839.5" r="10" />
+      <circle id="art-56" class="interactive-node" data-qid="Q12118453" data-label="Ritratto di Lorenzo Il Magnifico" cx="278.5" cy="-839.5" r="10" />
+      <!-- Sala 19 - Perugino e Signorelli -->
+      <circle id="art-65" class="interactive-node" data-qid="Q368788" data-label="Pietà" cx="230" cy="-1268" r="10" />
+      <circle id="art-66" class="interactive-node" data-qid="Q3201606" data-label="Orazione nell'orto" cx="260" cy="-1268" r="10" />
+      <circle id="art-67" class="interactive-node" data-qid="Q945250" data-label="Ritratto di Francesco delle Opere" cx="290" cy="-1268" r="10" />
+      <circle id="art-68" class="interactive-node" data-qid="Q3207989" data-label="Crocifissione con i Santi Girolamo, Francesco, Maria Maddalena, Giovanni Battista e il beato Giovanni Colombini" cx="230" cy="-1243.5" r="10" />
+      <circle id="art-69" class="interactive-node" data-qid="Q3698237" data-label="Crocifisso con la Maddalena" cx="260" cy="-1243.5" r="10" />
+      <circle id="art-70" class="interactive-node" data-qid="Q3605532" data-label="Adorazione dei Magi" cx="290" cy="-1243.5" r="10" />
+      <circle id="art-71" class="interactive-node" data-qid="Q3944518" data-label="Sacra conversazione degli Ingesuati" cx="260" cy="-1219" r="10" />
+      <!-- Sala 20 - Durer e Cranach -->
+      <circle id="art-61" class="interactive-node" data-qid="Q1988057" data-label="Ritratto di Albrecht Dürer il Vecchio" cx="352.5" cy="-1263.5" r="10" />
+      <circle id="art-62" class="interactive-node" data-qid="Q3605055" data-label="Adamo ed Eva" cx="382.5" cy="-1263.5" r="10" />
+      <circle id="art-63" class="interactive-node" data-qid="Q3630726" data-label="Autoritratto" cx="367.5" cy="-1233.5" r="10" />
+      <!-- Sala 21 - Bellini e Giorgione -->
+      <circle id="art-72" class="interactive-node" data-qid="Q1629015" data-label="Allegoria sacra" cx="452.5" cy="-1258.5" r="10" />
+      <circle id="art-73" class="interactive-node" data-qid="Q3685124" data-label="Compianto sul Cristo morto" cx="482.5" cy="-1258.5" r="10" />
+      <circle id="art-74" class="interactive-node" data-qid="Q2452374" data-label="Giudizio di Salomone" cx="452.5" cy="-1228.5" r="10" />
+      <circle id="art-75" class="interactive-node" data-qid="Q3924389" data-label="Prova di Mosè" cx="482.5" cy="-1228.5" r="10" />
+      <!-- Sala 22 - Fiandre e Germania -->
+      <circle id="art-57" class="interactive-node" data-qid="Q2604155" data-label="deposizione di Cristo nel sepolcro" cx="545" cy="-1263.5" r="10" />
+      <circle id="art-58" class="interactive-node" data-qid="Q43284760" data-label="Trittico di Benedetto Portinari" cx="575" cy="-1263.5" r="10" />
+      <circle id="art-59" class="interactive-node" data-qid="Q4006168" data-label="Uomo con la lettera" cx="605" cy="-1263.5" r="10" />
+      <circle id="art-60" class="interactive-node" data-qid="Q2628761" data-label="Adorazione dei Magi" cx="560" cy="-1233.5" r="10" />
+      <circle id="art-64" class="interactive-node" data-qid="Q3937666" data-label="Ritratto di Sir Richard Southwell" cx="590" cy="-1233.5" r="10" />
+      <!-- Sala 23 - Mantegna e Correggio -->
+      <circle id="art-76" class="interactive-node" data-qid="Q3210265" data-label="Madonna delle Cave" cx="660" cy="-1243.5" r="10" />
+      <circle id="art-77" class="interactive-node" data-qid="Q3937495" data-label="Ritratto di Carlo de' Medici" cx="690" cy="-1243.5" r="10" />
+      <!-- Sala 35 - Michelangelo e i fiorentini -->
+      <circle id="art-78" class="interactive-node" data-qid="Q1473546" data-label="Tondo Doni" cx="837.5" cy="-1243.5" r="10" />
+      <!-- Sala 83 - Tiziano -->
+      <circle id="art-86" class="interactive-node" data-qid="Q727875" data-label="Venere di Urbino" cx="1017.5" cy="-1263.5" r="10" />
+      <circle id="art-87" class="interactive-node" data-qid="Q2046100" data-label="Flora" cx="1047.5" cy="-1263.5" r="10" />
+      <circle id="art-88" class="interactive-node" data-qid="Q3937511" data-label="Ritratto di Eleonora Gonzaga della Rovere" cx="1017.5" cy="-1233.5" r="10" />
+      <circle id="art-89" class="interactive-node" data-qid="Q3937531" data-label="Ritratto di Francesco Maria Della Rovere" cx="1047.5" cy="-1233.5" r="10" />
+      <!-- Sala 84 - Tintoretto e Veronese -->
+      <circle id="art-90" class="interactive-node" data-qid="Q11753618" data-label="Leda e il cigno" cx="1117.5" cy="-1258.5" r="10" />
+      <circle id="art-91" class="interactive-node" data-qid="Q649875" data-label="Susanna e i vecchioni" cx="1147.5" cy="-1258.5" r="10" />
+      <circle id="art-92" class="interactive-node" data-qid="Q15974356" data-label="Ritratto di Iseppo da Porto col figlio Adriano" cx="1132.5" cy="-1228.5" r="10" />
+    </g>
+    <g class="servizi">
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scalone Vasariano" x="1364" y="-922" width="18" height="18" rx="5"><title>Scalone Vasariano</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore di Levante" x="1404" y="-852" width="18" height="18" rx="5"><title>Ascensore di Levante</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette del Primo Corridoio" x="391" y="-952" width="18" height="18" rx="5"><title>Toilette del Primo Corridoio</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette del Terzo Corridoio" x="391" y="-1187" width="18" height="18" rx="5"><title>Toilette del Terzo Corridoio</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scala del Buontalenti" x="1231" y="-1260" width="18" height="18" rx="5"><title>Scala del Buontalenti</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="bar" data-label="Caffetteria sulla terrazza" x="1378" y="-1260" width="18" height="18" rx="5"><title>Caffetteria sulla terrazza</title></rect>
+      <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza sull'Arno" x="156" y="-1070" width="18" height="18" rx="5"><title>Uscita di emergenza sull'Arno</title></rect>
+      <g class="nome-servizio" pointer-events="none">
+      <text x="1373" y="-893">Scalone</text>
+      <text x="1413" y="-823">Ascensore</text>
+      <text x="400" y="-923">Toilette</text>
+      <text x="400" y="-1158">Toilette</text>
+      <text x="1240" y="-1231">Scala</text>
+      <text x="1387" y="-1231">Caffetteria</text>
+      <text x="165" y="-1041">Emergenza</text>
+      </g>
+    </g>
+    <g class="ostacoli">
+      <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="tre gradini fra il Secondo Corridoio e il Corridoio di Ponente" x="119" y="-1190" width="12" height="12" rx="2"><title>Tre gradini fra il Secondo Corridoio e il Corridoio di Ponente</title></rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="object" data-desc="una statua antica al centro del Corridoio di Levante" x="974" y="-949" width="12" height="12" rx="2"><title>Una statua antica al centro del Corridoio di Levante</title></rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="door" data-desc="la porta stretta della Tribuna" x="210" y="-865" width="12" height="12" rx="2"><title>La porta stretta della Tribuna</title></rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="le sedute al centro delle sale del Botticelli" x="604" y="-820" width="12" height="12" rx="2"><title>Le sedute al centro delle sale del Botticelli</title></rect>
+    </g>
+    <g pointer-events="none">
+      <text class="titolo-mappa" x="50" y="-760">Secondo piano</text>
+      <text class="sottotitolo-mappa" x="50" y="-742">La galleria storica: dal Duecento al Cinquecento veneziano</text>
+      <g class="voce-legenda">
+        <circle class="nodo-arte" cx="700" cy="-764" r="7" />
+        <text x="713" y="-760">Opera</text>
+        <rect class="nodo-servizio" x="790" y="-771" width="14" height="14" rx="4" />
+        <text x="811" y="-760">Servizio</text>
+        <rect class="nodo-servizio nodo-emergenza" x="895" y="-771" width="14" height="14" rx="4" />
+        <text x="916" y="-760">Emergenza</text>
+        <rect class="ostacolo" x="1020" y="-770" width="12" height="12" rx="2" />
+        <text x="1039" y="-760">Ostacolo</text>
+        <path class="porta" d="M1140 -756 L1140 -770 A14 14 0 0 1 1154 -756" />
+        <text x="1161" y="-760">Porta</text>
+      </g>
     </g>
   </g>
 
-  <!-- Ostacoli: data-obstacle = tipo, data-desc = descrizione letta all'utente. -->
-  <g id="obstacles">
-    <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="tre gradini fra il Corridoio sull'Arno e il Corridoio di Levante" x="144" y="409" width="12" height="12" rx="2">
-      <title>Tre gradini fra il Corridoio sull'Arno e il Corridoio di Levante</title>
-    </rect>
-    <rect class="obstacle-marker ostacolo" data-obstacle="object" data-desc="una statua antica al centro del Corridoio di Ponente" x="494" y="241" width="12" height="12" rx="2">
-      <title>Una statua antica al centro del Corridoio di Ponente</title>
-    </rect>
-    <rect class="obstacle-marker ostacolo" data-obstacle="door" data-desc="la porta stretta della sala del Botticelli" x="238" y="184" width="12" height="12" rx="2">
-      <title>La porta stretta della sala del Botticelli</title>
-    </rect>
-    <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="le sedute al centro della Tribuna" x="122" y="694" width="12" height="12" rx="2">
-      <title>Le sedute al centro della Tribuna</title>
-    </rect>
+  <g data-floor="1" data-floor-label="Primo piano">
+    <!-- Primo piano: muro perimetrale, la U attorno al piazzale -->
+    <polygon class="foglio" points="50,-640 1450,-640 1450,-470 200,-470 200,-290 1450,-290 1450,-120 50,-120" filter="url(#uf-ombra)" />
+    <g pointer-events="none">
+      <rect class="sala sala-atrio" data-room="Loggia sull'Arno" data-flow="41" x="50" y="-640" width="150" height="520" />
+      <rect class="sala sala-atrio" data-room="Galleria di Ponente" data-flow="33" x="200" y="-525" width="980" height="55" />
+      <rect class="sala sala-atrio" data-room="Galleria di Levante" data-flow="42" x="200" y="-290" width="770" height="55" />
+      <rect class="sala t-notte" data-room="Pianerottolo del Buontalenti" data-flow="32" x="1180" y="-640" width="120" height="170" />
+      <rect class="sala sala-servizio" data-room="Auditorium Vasariano" x="1300" y="-640" width="150" height="170" />
+      <rect class="sala t-verderame" data-room="Sala 58 - Andrea del Sarto" data-flow="34" x="1040" y="-640" width="140" height="115" />
+      <rect class="sala t-ottone" data-room="Sala 60 - Pontormo e Rosso Fiorentino" data-flow="35" x="910" y="-640" width="130" height="115" />
+      <rect class="sala t-salvia" data-room="Sala 65 - Bronzino" data-flow="36" x="780" y="-640" width="130" height="115" />
+      <rect class="sala t-ardesia" data-room="Sala 66 - Raffaello" data-flow="37" x="630" y="-640" width="150" height="115" />
+      <rect class="sala t-notte" data-room="Sala 74 - Parmigianino" data-flow="38" x="510" y="-640" width="120" height="115" />
+      <rect class="sala t-verderame" data-room="Sala 75 - Vasari e la corte medicea" data-flow="39" x="390" y="-640" width="120" height="115" />
+      <rect class="sala t-ottone" data-room="Gabinetto dei Disegni e delle Stampe" data-flow="40" x="200" y="-640" width="190" height="115" />
+      <rect class="sala t-salvia" data-room="Sala 90 - Caravaggio" data-flow="43" x="200" y="-235" width="140" height="115" />
+      <rect class="sala t-ardesia" data-room="Sala 91 - Artemisia Gentileschi" data-flow="44" x="340" y="-235" width="130" height="115" />
+      <rect class="sala t-notte" data-room="Sala 92 - Il Seicento a Firenze" data-flow="45" x="470" y="-235" width="120" height="115" />
+      <rect class="sala t-verderame" data-room="Sala 49 - Rubens e la pittura fiamminga" data-flow="46" x="590" y="-235" width="130" height="115" />
+      <rect class="sala t-ottone" data-room="Sala 50 - Rembrandt e i Paesi Bassi" data-flow="47" x="720" y="-235" width="125" height="115" />
+      <rect class="sala t-salvia" data-room="Sala 51 - Velazquez e la Spagna" data-flow="48" x="845" y="-235" width="125" height="115" />
+      <rect class="sala t-ardesia" data-room="Vestibolo dell'Uscita" data-flow="50" x="970" y="-290" width="180" height="170" />
+      <rect class="sala t-notte" data-room="Collezione Contini Bonacossi" data-flow="49" x="1150" y="-290" width="300" height="170" />
+    </g>
+    <polygon points="50,-640 1450,-640 1450,-470 200,-470 200,-290 1450,-290 1450,-120 50,-120" fill="url(#uf-griglia)" pointer-events="none" />
+    <g class="muro">
+      <line x1="1180" y1="-640" x2="1180" y2="-515.5" />
+      <line x1="1180" y1="-479.5" x2="1180" y2="-470" />
+      <line x1="1300" y1="-640" x2="1300" y2="-573" />
+      <line x1="1300" y1="-537" x2="1300" y2="-470" />
+      <line x1="1300" y1="-640" x2="1300" y2="-573" />
+      <line x1="1300" y1="-537" x2="1300" y2="-470" />
+      <line x1="1040" y1="-640" x2="1040" y2="-525" />
+      <line x1="1180" y1="-640" x2="1180" y2="-525" />
+      <line x1="1040" y1="-525" x2="1092" y2="-525" />
+      <line x1="1128" y1="-525" x2="1180" y2="-525" />
+      <line x1="910" y1="-640" x2="910" y2="-525" />
+      <line x1="1040" y1="-640" x2="1040" y2="-525" />
+      <line x1="910" y1="-525" x2="957" y2="-525" />
+      <line x1="993" y1="-525" x2="1040" y2="-525" />
+      <line x1="780" y1="-640" x2="780" y2="-525" />
+      <line x1="910" y1="-640" x2="910" y2="-525" />
+      <line x1="780" y1="-525" x2="827" y2="-525" />
+      <line x1="863" y1="-525" x2="910" y2="-525" />
+      <line x1="630" y1="-640" x2="630" y2="-525" />
+      <line x1="780" y1="-640" x2="780" y2="-525" />
+      <line x1="630" y1="-525" x2="687" y2="-525" />
+      <line x1="723" y1="-525" x2="780" y2="-525" />
+      <line x1="510" y1="-640" x2="510" y2="-525" />
+      <line x1="630" y1="-640" x2="630" y2="-525" />
+      <line x1="510" y1="-525" x2="552" y2="-525" />
+      <line x1="588" y1="-525" x2="630" y2="-525" />
+      <line x1="390" y1="-640" x2="390" y2="-525" />
+      <line x1="510" y1="-640" x2="510" y2="-525" />
+      <line x1="390" y1="-525" x2="432" y2="-525" />
+      <line x1="468" y1="-525" x2="510" y2="-525" />
+      <line x1="200" y1="-640" x2="200" y2="-525" />
+      <line x1="390" y1="-640" x2="390" y2="-525" />
+      <line x1="200" y1="-525" x2="277" y2="-525" />
+      <line x1="313" y1="-525" x2="390" y2="-525" />
+      <line x1="200" y1="-235" x2="200" y2="-120" />
+      <line x1="340" y1="-235" x2="340" y2="-120" />
+      <line x1="200" y1="-235" x2="252" y2="-235" />
+      <line x1="288" y1="-235" x2="340" y2="-235" />
+      <line x1="340" y1="-235" x2="340" y2="-120" />
+      <line x1="470" y1="-235" x2="470" y2="-120" />
+      <line x1="340" y1="-235" x2="387" y2="-235" />
+      <line x1="423" y1="-235" x2="470" y2="-235" />
+      <line x1="470" y1="-235" x2="470" y2="-120" />
+      <line x1="590" y1="-235" x2="590" y2="-120" />
+      <line x1="470" y1="-235" x2="512" y2="-235" />
+      <line x1="548" y1="-235" x2="590" y2="-235" />
+      <line x1="590" y1="-235" x2="590" y2="-120" />
+      <line x1="720" y1="-235" x2="720" y2="-120" />
+      <line x1="590" y1="-235" x2="637" y2="-235" />
+      <line x1="673" y1="-235" x2="720" y2="-235" />
+      <line x1="720" y1="-235" x2="720" y2="-120" />
+      <line x1="845" y1="-235" x2="845" y2="-120" />
+      <line x1="720" y1="-235" x2="764.5" y2="-235" />
+      <line x1="800.5" y1="-235" x2="845" y2="-235" />
+      <line x1="845" y1="-235" x2="845" y2="-120" />
+      <line x1="970" y1="-235" x2="970" y2="-120" />
+      <line x1="845" y1="-235" x2="889.5" y2="-235" />
+      <line x1="925.5" y1="-235" x2="970" y2="-235" />
+      <line x1="970" y1="-290" x2="970" y2="-280.5" />
+      <line x1="970" y1="-244.5" x2="970" y2="-120" />
+      <line x1="1150" y1="-290" x2="1150" y2="-223" />
+      <line x1="1150" y1="-187" x2="1150" y2="-120" />
+      <line x1="1150" y1="-290" x2="1150" y2="-223" />
+      <line x1="1150" y1="-187" x2="1150" y2="-120" />
+    </g>
+    <g class="porta">
+      <path d="M1180 -515.5 L1200 -515.5 A20 20 0 0 1 1180 -479.5" />
+      <path d="M1300 -573 L1320 -573 A20 20 0 0 1 1300 -537" />
+      <path d="M200 -515.5 L220 -515.5 A20 20 0 0 1 200 -479.5" />
+      <path d="M200 -280.5 L220 -280.5 A20 20 0 0 1 200 -244.5" />
+      <path d="M970 -280.5 L990 -280.5 A20 20 0 0 1 970 -244.5" />
+      <path d="M1150 -223 L1170 -223 A20 20 0 0 1 1150 -187" />
+      <path d="M1092 -525 L1092 -545 A20 20 0 0 1 1128 -525" />
+      <path d="M957 -525 L957 -545 A20 20 0 0 1 993 -525" />
+      <path d="M827 -525 L827 -545 A20 20 0 0 1 863 -525" />
+      <path d="M687 -525 L687 -545 A20 20 0 0 1 723 -525" />
+      <path d="M552 -525 L552 -545 A20 20 0 0 1 588 -525" />
+      <path d="M432 -525 L432 -545 A20 20 0 0 1 468 -525" />
+      <path d="M277 -525 L277 -545 A20 20 0 0 1 313 -525" />
+      <path d="M252 -235 L252 -215 A20 20 0 0 0 288 -235" />
+      <path d="M387 -235 L387 -215 A20 20 0 0 0 423 -235" />
+      <path d="M512 -235 L512 -215 A20 20 0 0 0 548 -235" />
+      <path d="M637 -235 L637 -215 A20 20 0 0 0 673 -235" />
+      <path d="M764.5 -235 L764.5 -215 A20 20 0 0 0 800.5 -235" />
+      <path d="M889.5 -235 L889.5 -215 A20 20 0 0 0 925.5 -235" />
+    </g>
+    <g class="nome-sala" pointer-events="none">
+      <text x="1240" y="-623">PIANEROTTOLO DEL</text>
+      <text x="1240" y="-613">BUONTALENTI</text>
+      <text x="1375" y="-623">AUDITORIUM VASARIANO</text>
+      <text x="1110" y="-625">SALA 58</text>
+      <text x="1110" y="-615">ANDREA DEL SARTO</text>
+      <text x="975" y="-625">SALA 60</text>
+      <text x="975" y="-615">PONTORMO E ROSSO</text>
+      <text x="975" y="-605">FIORENTINO</text>
+      <text x="845" y="-625">SALA 65</text>
+      <text x="845" y="-615">BRONZINO</text>
+      <text x="705" y="-625">SALA 66</text>
+      <text x="705" y="-615">RAFFAELLO</text>
+      <text x="570" y="-625">SALA 74</text>
+      <text x="570" y="-615">PARMIGIANINO</text>
+      <text x="450" y="-625">SALA 75</text>
+      <text x="450" y="-615">VASARI E LA CORTE</text>
+      <text x="450" y="-605">MEDICEA</text>
+      <text x="295" y="-625">GABINETTO DEI DISEGNI E DELLE</text>
+      <text x="295" y="-615">STAMPE</text>
+      <text x="270" y="-135">SALA 90</text>
+      <text x="270" y="-125">CARAVAGGIO</text>
+      <text x="405" y="-135">SALA 91</text>
+      <text x="405" y="-125">ARTEMISIA GENTILESCHI</text>
+      <text x="530" y="-145">SALA 92</text>
+      <text x="530" y="-135">IL SEICENTO A</text>
+      <text x="530" y="-125">FIRENZE</text>
+      <text x="655" y="-145">SALA 49</text>
+      <text x="655" y="-135">RUBENS E LA PITTURA</text>
+      <text x="655" y="-125">FIAMMINGA</text>
+      <text x="782.5" y="-145">SALA 50</text>
+      <text x="782.5" y="-135">REMBRANDT E I PAESI</text>
+      <text x="782.5" y="-125">BASSI</text>
+      <text x="907.5" y="-135">SALA 51</text>
+      <text x="907.5" y="-125">VELAZQUEZ E LA SPAGNA</text>
+      <text x="1060" y="-273">VESTIBOLO DELL'USCITA</text>
+      <text x="1300" y="-273">COLLEZIONE CONTINI BONACOSSI</text>
+    </g>
+    <g class="nome-corridoio" pointer-events="none">
+      <g transform="rotate(-90 90 -380)">
+      <text x="90" y="-376">LOGGIA SULL'ARNO</text>
+      </g>
+      <text x="690" y="-493.5">GALLERIA DI PONENTE</text>
+      <text x="585" y="-258.5">GALLERIA DI LEVANTE</text>
+      <text x="825" y="-376">PIAZZALE DEGLI UFFIZI</text>
+    </g>
+    <g class="arco">
+      <line data-edge="" x1="1160" y1="-497.5" x2="1200" y2="-497.5" />
+      <line data-edge="" x1="1280" y1="-555" x2="1320" y2="-555" />
+      <line data-edge="" x1="180" y1="-497.5" x2="220" y2="-497.5" />
+      <line data-edge="" x1="180" y1="-262.5" x2="220" y2="-262.5" />
+      <line data-edge="" x1="950" y1="-262.5" x2="990" y2="-262.5" />
+      <line data-edge="" x1="1130" y1="-205" x2="1170" y2="-205" />
+      <line data-edge="" x1="1110" y1="-500" x2="1110" y2="-550" />
+      <line data-edge="" x1="975" y1="-500" x2="975" y2="-550" />
+      <line data-edge="" x1="845" y1="-500" x2="845" y2="-550" />
+      <line data-edge="" x1="705" y1="-500" x2="705" y2="-550" />
+      <line data-edge="" x1="570" y1="-500" x2="570" y2="-550" />
+      <line data-edge="" x1="450" y1="-500" x2="450" y2="-550" />
+      <line data-edge="" x1="295" y1="-500" x2="295" y2="-550" />
+      <line data-edge="" x1="270" y1="-260" x2="270" y2="-210" />
+      <line data-edge="" x1="405" y1="-260" x2="405" y2="-210" />
+      <line data-edge="" x1="530" y1="-260" x2="530" y2="-210" />
+      <line data-edge="" x1="655" y1="-260" x2="655" y2="-210" />
+      <line data-edge="" x1="782.5" y1="-260" x2="782.5" y2="-210" />
+      <line data-edge="" x1="907.5" y1="-260" x2="907.5" y2="-210" />
+    </g>
+    <g class="nodo-arte">
+      <!-- Sala 58 - Andrea del Sarto -->
+      <circle id="art-84" class="interactive-node" data-qid="Q1235695" data-label="Madonna delle Arpie" cx="1095" cy="-568.5" r="10" />
+      <circle id="art-85" class="interactive-node" data-qid="Q3630715" data-label="Autoritratto" cx="1125" cy="-568.5" r="10" />
+      <!-- Sala 60 - Pontormo e Rosso Fiorentino -->
+      <circle id="art-94" class="interactive-node" data-qid="Q3664358" data-label="Cena in Emmaus" cx="960" cy="-563.5" r="10" />
+      <circle id="art-95" class="interactive-node" data-qid="Q1863885" data-label="Mosè difende le figlie di Jetro" cx="990" cy="-563.5" r="10" />
+      <!-- Sala 65 - Bronzino -->
+      <circle id="art-96" class="interactive-node" data-qid="Q1990128" data-label="Ritratto di Lucrezia Panciatichi" cx="830" cy="-568.5" r="10" />
+      <circle id="art-97" class="interactive-node" data-qid="Q3944462" data-label="Sacra Famiglia Panciatichi" cx="860" cy="-568.5" r="10" />
+      <!-- Sala 66 - Raffaello -->
+      <circle id="art-79" class="interactive-node" data-qid="Q2344505" data-label="Madonna del Cardellino" cx="675" cy="-583.5" r="10" />
+      <circle id="art-80" class="interactive-node" data-qid="Q555821" data-label="Autoritratto" cx="705" cy="-583.5" r="10" />
+      <circle id="art-81" class="interactive-node" data-qid="Q2627028" data-label="Ritratto di Elisabetta Gonzaga" cx="735" cy="-583.5" r="10" />
+      <circle id="art-82" class="interactive-node" data-qid="Q2713823" data-label="Ritratto di giovane con la mela" cx="690" cy="-553.5" r="10" />
+      <circle id="art-83" class="interactive-node" data-qid="Q2607072" data-label="Ritratto del Perugino" cx="720" cy="-553.5" r="10" />
+      <!-- Sala 74 - Parmigianino -->
+      <circle id="art-93" class="interactive-node" data-qid="Q867403" data-label="Madonna dal collo lungo" cx="570" cy="-568.5" r="10" />
+      <!-- Sala 75 - Vasari e la corte medicea -->
+      <circle id="art-98" class="interactive-node" data-qid="Q15974337" data-label="Fucina di Vulcano" cx="450" cy="-563.5" r="10" />
+      <!-- Sala 90 - Caravaggio -->
+      <circle id="art-99" class="interactive-node" data-qid="Q2293905" data-label="Medusa" cx="255" cy="-206.5" r="10" />
+      <circle id="art-100" class="interactive-node" data-qid="Q2011510" data-label="Bacco" cx="285" cy="-206.5" r="10" />
+      <circle id="art-101" class="interactive-node" data-qid="Q2284829" data-label="Sacrificio di Isacco" cx="270" cy="-176.5" r="10" />
+      <!-- Sala 91 - Artemisia Gentileschi -->
+      <circle id="art-102" class="interactive-node" data-qid="Q3769169" data-label="Giuditta che decapita Oloferne" cx="390" cy="-191.5" r="10" />
+      <circle id="art-103" class="interactive-node" data-qid="Q29016365" data-label="Santa Caterina di Alessandria" cx="420" cy="-191.5" r="10" />
+      <!-- Sala 49 - Rubens e la pittura fiamminga -->
+      <circle id="art-104" class="interactive-node" data-qid="Q3725832" data-label="Enrico IV alla battaglia d'Ivry" cx="655" cy="-196.5" r="10" />
+    </g>
+    <g class="servizi">
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scala del Buontalenti al primo piano" x="1231" y="-580" width="18" height="18" rx="5"><title>Scala del Buontalenti al primo piano</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette delle Sale Rosse" x="291" y="-507" width="18" height="18" rx="5"><title>Toilette delle Sale Rosse</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scala dell'Uscita" x="1051" y="-260" width="18" height="18" rx="5"><title>Scala dell'Uscita</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore dell'Uscita" x="1051" y="-185" width="18" height="18" rx="5"><title>Ascensore dell'Uscita</title></rect>
+      <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza del primo piano" x="156" y="-390" width="18" height="18" rx="5"><title>Uscita di emergenza del primo piano</title></rect>
+      <g class="nome-servizio" pointer-events="none">
+      <text x="1240" y="-551">Scala</text>
+      <text x="300" y="-478">Toilette</text>
+      <text x="1060" y="-231">Scala</text>
+      <text x="1060" y="-156">Ascensore</text>
+      <text x="165" y="-361">Emergenza</text>
+      </g>
+    </g>
+    <g class="ostacoli">
+      <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="due gradini all'ingresso delle Sale Rosse" x="1094" y="-504" width="12" height="12" rx="2"><title>Due gradini all'ingresso delle Sale Rosse</title></rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="le sedute davanti alle opere di Raffaello" x="754" y="-628" width="12" height="12" rx="2"><title>Le sedute davanti alle opere di Raffaello</title></rect>
+    </g>
+    <g pointer-events="none">
+      <text class="titolo-mappa" x="50" y="-80">Primo piano</text>
+      <text class="sottotitolo-mappa" x="50" y="-62">Le Sale Rosse, il Caravaggio e le Sale Blu</text>
+      <g class="voce-legenda">
+        <circle class="nodo-arte" cx="700" cy="-84" r="7" />
+        <text x="713" y="-80">Opera</text>
+        <rect class="nodo-servizio" x="790" y="-91" width="14" height="14" rx="4" />
+        <text x="811" y="-80">Servizio</text>
+        <rect class="nodo-servizio nodo-emergenza" x="895" y="-91" width="14" height="14" rx="4" />
+        <text x="916" y="-80">Emergenza</text>
+        <rect class="ostacolo" x="1020" y="-90" width="12" height="12" rx="2" />
+        <text x="1039" y="-80">Ostacolo</text>
+        <path class="porta" d="M1140 -76 L1140 -90 A14 14 0 0 1 1154 -76" />
+        <text x="1161" y="-80">Porta</text>
+      </g>
+    </g>
   </g>
 
-  <!-- Titolo e legenda, fuori dall'edificio. Nessun data-*: il parser non li vede. -->
-  <g pointer-events="none">
-    <text class="titolo-mappa" x="10" y="758">Galleria degli Uffizi</text>
-    <g class="voce-legenda">
-      <circle class="nodo-arte" cx="266" cy="754" r="7" />
-      <text x="279" y="758">Opera</text>
-      <rect class="nodo-servizio" x="336" y="747" width="14" height="14" rx="4" />
-      <text x="357" y="758">Servizio</text>
-      <rect class="nodo-servizio nodo-emergenza" x="428" y="747" width="14" height="14" rx="4" />
-      <text x="449" y="758">Emergenza</text>
-      <rect class="ostacolo" x="538" y="748" width="12" height="12" rx="2" />
-      <text x="557" y="758">Ostacolo</text>
-      <path class="porta" d="M638 762 L638 748 A14 14 0 0 1 652 762" />
-      <text x="659" y="758">Porta</text>
+  <g data-floor="0" data-floor-label="Piano terra">
+    <!-- Piano terra: muro perimetrale, la U attorno al piazzale -->
+    <polygon class="foglio" points="50,40 1450,40 1450,210 200,210 200,390 1450,390 1450,560 50,560" filter="url(#uf-ombra)" />
+    <g pointer-events="none">
+      <rect class="sala sala-atrio" data-room="Loggiato sull'Arno" x="50" y="40" width="150" height="520" />
+      <polygon class="sala sala-atrio" data-room="Portico di Ponente" points="200,40 650,40 650,155 1180,155 1180,210 200,210" />
+      <rect class="sala sala-servizio" data-room="Biblioteca degli Uffizi" x="650" y="40" width="250" height="115" />
+      <rect class="sala sala-servizio" data-room="Aula Magliabechiana" x="900" y="40" width="280" height="115" />
+      <rect class="sala sala-servizio" data-room="Sala delle Reali Poste" x="1180" y="40" width="270" height="170" />
+      <polygon class="sala sala-atrio" data-room="Portico di Levante" points="200,410 970,410 970,465 700,465 700,580 200,580" />
+      <rect class="sala sala-servizio" data-room="Guardaroba" x="700" y="445" width="100" height="115" />
+      <rect class="sala sala-servizio" data-room="San Pier Scheraggio" x="800" y="445" width="170" height="115" />
+      <rect class="sala t-notte" data-room="Uscita e Bookshop" data-flow="51" x="970" y="390" width="180" height="170" />
+      <rect class="sala t-verderame" data-room="Atrio e Biglietteria" data-flow="1" x="1150" y="390" width="180" height="170" />
+      <rect class="sala t-ottone" data-room="Scalone Vasariano" data-flow="2" x="1330" y="390" width="120" height="170" />
     </g>
+    <polygon points="50,40 1450,40 1450,210 200,210 200,390 1450,390 1450,560 50,560" fill="url(#uf-griglia)" pointer-events="none" />
+    <g class="muro">
+      <line x1="650" y1="40" x2="650" y2="155" />
+      <line x1="900" y1="40" x2="900" y2="155" />
+      <line x1="650" y1="155" x2="757" y2="155" />
+      <line x1="793" y1="155" x2="900" y2="155" />
+      <line x1="900" y1="40" x2="900" y2="155" />
+      <line x1="1180" y1="40" x2="1180" y2="155" />
+      <line x1="900" y1="155" x2="1022" y2="155" />
+      <line x1="1058" y1="155" x2="1180" y2="155" />
+      <line x1="1180" y1="40" x2="1180" y2="162" />
+      <line x1="1180" y1="198" x2="1180" y2="210" />
+      <line x1="700" y1="445" x2="700" y2="560" />
+      <line x1="800" y1="445" x2="800" y2="560" />
+      <line x1="700" y1="445" x2="800" y2="445" />
+      <line x1="800" y1="445" x2="800" y2="560" />
+      <line x1="970" y1="445" x2="970" y2="560" />
+      <line x1="800" y1="445" x2="970" y2="445" />
+      <line x1="970" y1="390" x2="970" y2="419" />
+      <line x1="970" y1="455" x2="970" y2="560" />
+      <line x1="1150" y1="390" x2="1150" y2="560" />
+      <line x1="1150" y1="390" x2="1150" y2="560" />
+      <line x1="1330" y1="390" x2="1330" y2="457" />
+      <line x1="1330" y1="493" x2="1330" y2="560" />
+      <line x1="1330" y1="390" x2="1330" y2="457" />
+      <line x1="1330" y1="493" x2="1330" y2="560" />
+    </g>
+    <g class="porta">
+      <path d="M1330 457 L1350 457 A20 20 0 0 1 1330 493" />
+      <path d="M970 419 L990 419 A20 20 0 0 1 970 455" />
+      <path d="M867 465 L867 485 A20 20 0 0 0 903 465" />
+      <path d="M732 465 L732 485 A20 20 0 0 0 768 465" />
+      <path d="M200 502 L180 502 A20 20 0 0 0 200 538" />
+      <path d="M200 82 L220 82 A20 20 0 0 1 200 118" />
+      <path d="M757 155 L757 135 A20 20 0 0 1 793 155" />
+      <path d="M1022 155 L1022 135 A20 20 0 0 1 1058 155" />
+      <path d="M1180 162 L1200 162 A20 20 0 0 1 1180 198" />
+    </g>
+    <g class="nome-sala" pointer-events="none">
+      <text x="420" y="103">PORTICO DI PONENTE</text>
+      <text x="775" y="55">BIBLIOTECA DEGLI UFFIZI</text>
+      <text x="1040" y="55">AULA MAGLIABECHIANA</text>
+      <text x="1315" y="57">SALA DELLE REALI POSTE</text>
+      <text x="430" y="525">PORTICO DI LEVANTE</text>
+      <text x="750" y="555">GUARDAROBA</text>
+      <text x="885" y="555">SAN PIER SCHERAGGIO</text>
+      <text x="1060" y="407">USCITA E BOOKSHOP</text>
+      <text x="1240" y="407">ATRIO E BIGLIETTERIA</text>
+      <text x="1390" y="407">SCALONE VASARIANO</text>
+    </g>
+    <g class="nome-corridoio" pointer-events="none">
+      <g transform="rotate(-90 90 300)">
+      <text x="90" y="304">LOGGIATO SULL'ARNO</text>
+      </g>
+      <text x="825" y="304">PIAZZALE DEGLI UFFIZI</text>
+    </g>
+    <g class="arco">
+      <line data-edge="" x1="1310" y1="475" x2="1350" y2="475" />
+      <line data-edge="" x1="950" y1="437" x2="990" y2="437" />
+      <line data-edge="" x1="885" y1="440" x2="885" y2="490" />
+      <line data-edge="" x1="750" y1="440" x2="750" y2="490" />
+      <line data-edge="" x1="220" y1="520" x2="180" y2="520" />
+      <line data-edge="" x1="180" y1="100" x2="220" y2="100" />
+      <line data-edge="" x1="775" y1="180" x2="775" y2="130" />
+      <line data-edge="" x1="1040" y1="180" x2="1040" y2="130" />
+      <line data-edge="" x1="1160" y1="180" x2="1200" y2="180" />
+    </g>
+    <g class="nodo-arte">
+    </g>
+    <g class="servizi">
+      <rect class="poi-node nodo-servizio" data-poi="entrance" data-label="Ingresso" x="1231" y="430" width="18" height="18" rx="5"><title>Ingresso</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="shop" data-label="Bookshop" x="1051" y="425" width="18" height="18" rx="5"><title>Bookshop</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="exit" data-label="Uscita" x="1051" y="505" width="18" height="18" rx="5"><title>Uscita</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scalone del Vasari" x="1381" y="425" width="18" height="18" rx="5"><title>Scalone del Vasari</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore dell'Atrio" x="1381" y="505" width="18" height="18" rx="5"><title>Ascensore dell'Atrio</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette del piano terra" x="591" y="490" width="18" height="18" rx="5"><title>Toilette del piano terra</title></rect>
+      <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza del piano terra" x="156" y="470" width="18" height="18" rx="5"><title>Uscita di emergenza del piano terra</title></rect>
+      <g class="nome-servizio" pointer-events="none">
+      <text x="1240" y="459">Ingresso</text>
+      <text x="1060" y="454">Bookshop</text>
+      <text x="1060" y="534">Uscita</text>
+      <text x="1390" y="454">Scalone</text>
+      <text x="1390" y="534">Ascensore</text>
+      <text x="600" y="519">Toilette</text>
+      <text x="165" y="499">Emergenza</text>
+      </g>
+    </g>
+    <g class="ostacoli">
+      <rect class="obstacle-marker ostacolo" data-obstacle="door" data-desc="i tornelli dell'Atrio, stretti per i passeggini" x="1284" y="530" width="12" height="12" rx="2"><title>I tornelli dell'Atrio, stretti per i passeggini</title></rect>
+    </g>
+    <g pointer-events="none">
+      <text class="titolo-mappa" x="50" y="600">Piano terra</text>
+      <text class="sottotitolo-mappa" x="50" y="618">Ingresso, San Pier Scheraggio e il bookshop</text>
+      <g class="voce-legenda">
+        <circle class="nodo-arte" cx="700" cy="596" r="7" />
+        <text x="713" y="600">Opera</text>
+        <rect class="nodo-servizio" x="790" y="589" width="14" height="14" rx="4" />
+        <text x="811" y="600">Servizio</text>
+        <rect class="nodo-servizio nodo-emergenza" x="895" y="589" width="14" height="14" rx="4" />
+        <text x="916" y="600">Emergenza</text>
+        <rect class="ostacolo" x="1020" y="590" width="12" height="12" rx="2" />
+        <text x="1039" y="600">Ostacolo</text>
+        <path class="porta" d="M1140 604 L1140 590 A14 14 0 0 1 1154 604" />
+        <text x="1161" y="600">Porta</text>
+      </g>
+    </g>
+  </g>
+
+  <!--
+    I due vani scale che uniscono i piani. Stanno FUORI dai gruppi dei piani:
+    dentro, il getBBox del gruppo si allungherebbe fino all'altro piano e
+    l'inquadratura per piano mostrerebbe mezzo disegno vuoto.
+  -->
+  <g class="arco" id="nav-edges-piani">
+    <line data-edge="" x1="1390" y1="440" x2="1390" y2="-890" /> <!-- Scalone Vasariano (terra) <-> Approdo dello Scalone (secondo) -->
+    <line data-edge="" x1="1240" y1="-1245" x2="1240" y2="-565" /> <!-- Scala del Buontalenti (secondo) <-> Pianerottolo (primo) -->
+    <line data-edge="" x1="1060" y1="-235" x2="1060" y2="440" /> <!-- Vestibolo dell'Uscita (primo) <-> Uscita e Bookshop (terra) -->
   </g>
 </svg>

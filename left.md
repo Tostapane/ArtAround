@@ -1,5 +1,36 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-06, le quattro piante ridisegnate sui musei veri
+
+Richiesta: piante molto piu' ricche e dettagliate, gli Uffizi il piu' possibile fedeli al museo
+vero, anche su piu' piani. Ragionamento durevole in `state.md` §1.1-quinquies.
+
+- **Uffizi: 3 piani, 60 sale, 104 opere** con i nomi e i numeri veri (Sala 2 Giotto, Sale 11-14
+  Botticelli, Sala 18 Tribuna disegnata come ottagono, Sale Rosse e Caravaggio al primo piano,
+  San Pier Scheraggio e il bookshop al piano terra). Il senso unico e' nel grafo: lo Scalone
+  Vasariano sale dall'atrio al secondo piano, la Scala del Buontalenti scende al primo e
+  all'uscita, e **atrio e bookshop non sono collegati fra loro**.
+- **British 2 piani / 22 sale, Louvre 3 piani / 27 sale, Metropolitan 2 piani / 24 sale**, ognuno
+  con la sua forma vera: il tamburo della Reading Room dentro il Great Court, la Cour Napoleon
+  aperta a ovest con l'atrio a rombo sotto la piramide, il Met senza corridoi.
+- **Le coppie `(id="art-N", data-qid)` sono identiche a prima** su tutte e quattro: `locationId`
+  nel database e' quell'`id`, e cambiarlo avrebbe spostato ogni opera sul nodo sbagliato **senza
+  dare errore**. Confrontate una per una prima di scrivere.
+- **Aggiornato** `Galleria degli Uffizi.json`: le note logistiche raccontavano il vecchio giro
+  (prima Ponente, caffetteria in fondo a Levante). Ora dicono il giro nuovo, che e' quello vero.
+- ⚠️ **Il seed non va rifatto**: `locationsFromMap` cerca per qid e le coppie non sono cambiate.
+  Cambia invece l'ORDINE del catalogo, perche' i `data-flow` sono nuovi (`sortByFlow`).
+
+**Verificato col parser vero** (`parseSvg` + `computeDirections`, non a occhio): ogni nodo dentro
+una sala, nessun `data-flow` doppio, tutte le sale raggiungibili dall'ingresso (22/22, 24/24,
+27/27, 60/60), percorsi di prova fra piani diversi. E in chromium, per il disegno: i due difetti
+che si vedono e non si leggono erano un muro che si allungava fino al varco della sala accanto e
+il nome della sala scritto sotto i nodi delle opere.
+
+⚠️ **Da provare quando il server e' su**: la pianta dentro il navigator (selettore dei piani,
+inquadratura per piano, numeri delle tappe sui dischi). Il server e la base dati erano spenti
+mentre le mappe venivano disegnate, quindi questa parte e' rimasta fuori dalla verifica.
+
 ## ⏸ Ripresa — 2026-08-06, la visita su misura non e' roba da autore
 
 Segnalato: un autore poteva farsi comporre una visita a parole, ma quella visita **non si

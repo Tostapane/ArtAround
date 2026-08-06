@@ -316,10 +316,13 @@ hand-annotated SVG floor map:
 
 | Config file | qid | rooms / artwork nodes / POIs / edges / obstacles in the SVG |
 | --- | --- | --- |
-| `British Museum.json` | `Q6373` | 5 / 13 / 5 / 4 / 2 |
-| `Metropolitan Museum of Art.json` | `Q160236` | 10 / 13 / 12 / 11 / 4 — **su due piani** (§1.1-ter) |
-| `Museo del Louvre.json` | `Q19675` | 6 / 13 / 6 / 5 / 3 |
-| `Galleria degli Uffizi.json` | `Q51252` | 21 / **104** / 10 / 20 / 4 |
+| `British Museum.json` | `Q6373` | 22 / 20 / 12 / 30 / 5 — **due piani** (§1.1-ter) |
+| `Metropolitan Museum of Art.json` | `Q160236` | 24 / 50 / 12 / 35 / 5 — **due piani** |
+| `Museo del Louvre.json` | `Q19675` | 27 / 25 / 15 / 34 / 6 — **tre piani** |
+| `Galleria degli Uffizi.json` | `Q51252` | 60 / **104** / 19 / 60 / 7 — **tre piani** |
+
+Le quattro piante sono state ridisegnate il **2026-08-06** sulla pianta vera di ciascun museo
+(§1.1-quinquies): prima erano schemi a cinque o sei stanze su un piano solo.
 
 **The config file is an INPUT, and only since 2026-07-31.** Before that the list of museums was
 a TypeScript module (`data/museumContent.ts`) and these JSON files were *written* by the seed
@@ -365,7 +368,7 @@ Two further annotations belong to the **localization module** and are read by th
 not by `svgGraph.ts`:
 
 - `data-width-m` on the `<svg>` root — how many real metres the viewBox width spans
-  (80 / 95 / 110 / 150 on the four maps, deliberately different: a constant hardcoded in the
+  (145 / 150 / 250 / 260 on the four maps, deliberately different: a constant hardcoded in the
   client would otherwise pass unnoticed). It is the only thing tying the drawing to the world; the
   plans are schematic, so the number cannot be derived from what is drawn — the curator
   measures it. Without it the automatic localization does not start, and the app falls back to
@@ -377,7 +380,7 @@ entrance, and the map's up *is* north by definition. That is what makes the modu
 Bologna as well as in Bloomsbury, and it is why no museum's real coordinates appear anywhere.
 
 Everything else in the file is **drawing**, and the parser ignores it because it carries no
-`data-*`: the grid, the door leaves, the room labels, the legend under the plan. The three
+`data-*`: the grid, the door leaves, the room labels, the legend under the plan. The four
 maps carry an inline `<style>` whose rules are all wrapped in `:where(…)` (specificity 0)
 and whose colours come from `shared/theme.css` variables with standalone fallbacks — so the
 map follows the app's light/dark theme, and the classes `Stage.vue` adds at runtime
@@ -392,9 +395,11 @@ and `y` to keep its centre — the centre is what decides its room.
 piano **non e' una dimensione nuova**: il vano scale e' una sala su ciascun piano, le due sono
 collegate da un `data-edge` come due sale confinanti, e la ricerca del cammino sale e scende
 senza sapere che esistono i piani. Non c'e' un ramo "cambio piano" da nessuna parte — c'e' una
-sala in piu'. La Galleria degli Uffizi, il Louvre e il British Museum non dichiarano nessun
-piano e si comportano **esattamente** come prima: `MuseumGraph.floors` resta vuoto e la parola
-"piano" non compare mai.
+sala in piu'. Il meccanismo e' nato col solo Metropolitan a due piani mentre gli altri tre non
+dichiaravano niente: quelle mappe avevano `MuseumGraph.floors` vuoto e la parola "piano" non
+compariva mai. Dal ridisegno del 2026-08-06 (§1.1-quinquies) i piani li dichiarano tutte e
+quattro, e una mappa senza `data-floor` resta comunque valida — e' il caso che il codice
+gestisce per primo.
 
 **Dove sta il numero e dove sta la parola.** `data-floor` e' il numero, e serve a una cosa
 sola: sapere se si **sale** o si **scende**. Il nome lo scrive il curatore in
@@ -476,12 +481,48 @@ I quattro percorsi dichiarati oggi, letti dal grafo:
 
 | museo | sale, nell'ordine |
 | --- | --- |
-| British | Ala Sud → Sala Centrale → Ala Ovest → Ala Nord → Ala Est |
-| Louvre | Hall Napoleon → Denon → Galleria Apollo → Sully → Antichita Egizie → Richelieu |
-| Metropolitan | Great Hall → American Wing → Egizia → Dipinti Europei → Greca e Romana → Asiatica → Galleria Superiore |
-| Uffizi | Duecento e Giotto → … → Botticelli → Leonardo → Tribuna → … → Caravaggio e il Seicento |
+| British | Atrio Sud → Great Court → Reading Room → Sala 1 → … → Sala 2 → *(scalone)* → Sale 40-48 → … → Sale 49-51 |
+| Louvre | Hall Napoleon → Salle des Caryatides → … → Salle du Manege → *(Daru)* → Salle Mollien → Salle des Etats → Grande Galerie → … → Scalone Lefuel |
+| Metropolitan | Great Hall → Sale greche e romane → … → Caffetteria → *(scalone)* → Balconata → Pittura europea 1800-1900 → … → Arte islamica |
+| Uffizi | Atrio → Scalone Vasariano → Corridoio di Levante → Sala 2 → … → Tribuna → Corridoio sull'Arno → Corridoio di Ponente → Sala 19 → … → Terrazza → *(Buontalenti)* → Sale Rosse → Caravaggio → … → Uscita e Bookshop |
 
-Ogni sala compare una volta sola, e il Metropolitan cambia piano una volta sola, in fondo.
+Ogni sala compare una volta sola, e il numero e' quello del percorso reale del museo: agli
+Uffizi il senso unico sale al secondo piano, gira la U e scende al primo, e infatti l'ultimo
+`data-flow` e' il bookshop del piano terra, non una sala della galleria.
+
+### 1.1-quinquies Le quattro piante ridisegnate sui musei veri *(2026-08-06)*
+
+Le piante erano schemi: cinque stanze al British («Ala Nord», «Ala Sud»), sei al Louvre, un
+corridoio unico agli Uffizi con ventuno sale tutte uguali, e centoquattro opere appese a otto
+nomi generici. Funzionavano — il grafo, il flusso e la localizzazione sono gli stessi di prima —
+ma non somigliavano a niente, e la genericita' si dimostra meglio con quattro edifici che hanno
+davvero pianta diversa che con quattro rettangoli.
+
+Ora ogni pianta e' quella del museo, e ognuna esercita una parte diversa del contratto:
+
+| museo | cosa mette alla prova |
+| --- | --- |
+| **Uffizi** (3 piani, 60 sale) | il senso unico: due scale distinte, una che sale dall'atrio al secondo piano e una che scende al primo e all'uscita, e atrio e bookshop **non** collegati fra loro. La Tribuna e' un ottagono (`points`), le sale strette hanno il nome ruotato |
+| **British** (2 piani, 22 sale) | l'area **dentro** un'altra: la Reading Room e' un `circle` dichiarato prima del Great Court che la circonda, e vince perche' viene per prima. Al piano di sopra la corte e' un vuoto tratteggiato che non e' una sala, e le dieci sale si chiudono in cerchio intorno |
+| **Louvre** (3 piani, 27 sale) | il perimetro che **cambia da un piano all'altro**: l'ala Denon si ferma al primo, al secondo il foglio e' una L. L'atrio sotto la piramide e' un rombo isolato in mezzo al cortile, e i suoi tre collegamenti sono gli unici disegnati a mano: passano sotto il cortile, non attraverso un muro in comune |
+| **Metropolitan** (2 piani, 24 sale) | il museo **senza corridoi**: le sale confinano l'una con l'altra e ogni `data-edge` sta su un muro in comune, quindi il percorso passa dentro le stanze |
+
+Cosa **non** e' cambiato, ed e' la parte che contava: le coppie `(id="art-N", data-qid)` sono
+identiche a prima su tutte e quattro le mappe (199 nodi), perche' `locationId` nel database e'
+l'`id` dell'elemento e cambiarlo avrebbe spostato ogni opera sul nodo sbagliato senza un errore.
+Quel che e' cambiato con criterio: le opere sono ora distribuite per reparto (i Vermeer nella
+pittura europea del Metropolitan, la Gioconda nella Salle des Etats, il Botticelli nella sua
+sala), ogni nodo porta un `data-label` col titolo, e i `data-flow` seguono il giro vero.
+
+Verificato col parser vero (`parseSvg` + `computeDirections`) su tutte e quattro: ogni nodo cade
+dentro una sala, nessun `data-flow` doppio, e **tutte** le sale sono raggiungibili dall'ingresso
+— 22/22, 24/24, 27/27, 60/60 — comprese quelle che stanno su un altro piano.
+
+⚠️ Le piante nascono da uno script di geometria: i numeri sono troppi per scriverli a mano senza
+sbagliarne uno. Lo script sta fuori dal repo (e' un attrezzo, non codice del progetto) e l'SVG
+e' il file di progetto: si modifica quello. Due difetti che ha trovato solo il disegno, non la
+lettura: un varco non filtrato allungava il muro fino al varco della sala accanto, e il nome
+della sala finiva sotto i nodi delle opere quando la sala era piena.
 
 ### 1.1-bis Concorrenza: dove l'idea regge e dove no
 

@@ -5,10 +5,11 @@
   "created": "1581",
   "mapPath": "/maps/Galleria degli Uffizi.svg",
   "logistics": [
-    "L'ingresso e' da Piazzale degli Uffizi 6, sotto il porticato: il biglietto va ritirato al banco dell'Atrio anche se e' stato comprato prima.",
-    "Il guardaroba e' gratuito ed e' obbligatorio per zaini e ombrelli; si trova a sinistra dei tornelli.",
-    "La galleria e' a senso unico: si percorre il Corridoio di Ponente fino all'Arno e si torna indietro lungo quello di Levante, quindi conviene non tornare sui propri passi.",
-    "La caffetteria sulla terrazza e' in fondo al Corridoio di Levante, poco prima dell'uscita."
+    "L'ingresso e' da Piazzale degli Uffizi 6, sotto il porticato di levante: il biglietto va ritirato al banco dell'Atrio anche se e' stato comprato prima.",
+    "Il guardaroba e' gratuito ed e' obbligatorio per zaini e ombrelli; si trova al piano terra, lungo il Portico di Levante.",
+    "La visita comincia al secondo piano, in cima allo Scalone Vasariano, e prosegue a senso unico: il Corridoio di Levante fino alla Tribuna e all'Arno, il Corridoio di Ponente al ritorno, poi la Scala del Buontalenti giu' al primo piano fra le Sale Rosse e il Caravaggio.",
+    "La caffetteria e' sulla terrazza in fondo al Corridoio di Ponente, sopra la Loggia dei Lanzi; l'uscita e il bookshop sono al piano terra, alla fine del primo piano.",
+    "Il primo piano si raggiunge solo scendendo dal secondo: dall'Atrio lo Scalone Vasariano porta direttamente alla galleria."
   ],
   "activeArtworks": [
     "Q959174",

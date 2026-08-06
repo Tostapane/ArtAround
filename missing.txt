@@ -2,14 +2,12 @@ MANCANTI
 - perche l'hashtag?
 - rimuovere bullshit e caratteri strani
 - ottimizzazioni
-- gli uffizi hanno tutto gratis
 - svg piu' dettagliati e complessi, opere tonde?
-- immagine per le visite
 - adozione mediante unico file di configurazione
-- mettere imagini del museo
-- superseed, rework dei prezzi
+- mettere imagini per scelta museo e per le visite
+- superseed, rework dei prezzi, - gli uffizi hanno tutto gratis
+- logistics iniziali scrollabili
 DA DISCUTERE
-- generalizzare cose nel marketplace
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
 - testare il nuovo sistema di audio su iphone
@@ -32,8 +30,5 @@ PROBLEMI
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra
 la barra di ricerca con gli item e visite ha i bordi strani se cerchi
-
-
-
 
 

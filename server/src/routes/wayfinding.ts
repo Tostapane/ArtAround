@@ -34,7 +34,7 @@ const router = Router();
  * Due livelli di risposta:
  *  - SEMPLICE (default): comunica solo in quale ZONA si trova la destinazione,
  *    cioe' il nome della sala (data-room) authorata nell'SVG che la contiene
- *    (es. "Ala Nord"). Nessun LLM: e' un valore statico della mappa. Il piano
+ *    (es. "Great Court"). Nessun LLM: e' un valore statico della mappa. Il piano
  *    compare solo quando la destinazione e' su un altro piano, perche' dirlo
  *    quando non cambia sarebbe rumore, e in un museo a un piano solo non
  *    compare mai.
