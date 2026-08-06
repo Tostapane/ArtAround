@@ -29,6 +29,7 @@ import { resolveOrGenerateItem } from "../dbActions";
 import { purchasedBy, readableItems } from "../access";
 import { conto } from "../pricing";
 import { AI_LEVEL, CUSTOM_LEVEL } from "../../../shared/constants";
+import { DEFAULT_LICENSE } from "../../../shared/constants";
 
 const router = Router();
 
@@ -329,7 +330,7 @@ router.post("/", async (req, res) => {
         duration,
         price: accessKey ? 0 : payload.prezzo || payload.price,
         author,
-        license: payload.licenza || payload.license || "Tutti i diritti riservati",
+        license: payload.licenza || payload.license || DEFAULT_LICENSE,
         ofMuseum: payload.museumUri || payload.ofMuseum,
         itemListElement: itemIds,
         optionalItems,

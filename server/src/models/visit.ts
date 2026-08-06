@@ -7,6 +7,7 @@
  */
 import { Schema, model } from "mongoose";
 import { Visit as SharedVisit } from "../../../shared/types";
+import { DEFAULT_LICENSE } from "../../../shared/constants";
 
 /**
  * Interface representing the Visit (ItemList) document in Mongoose.
@@ -25,7 +26,11 @@ const visitSchema = new Schema<IVisit>({
   duration: { type: Number, required: true },
   price: Number,
   author: String,
-  license: String,
+  // Come sull'item: un default sullo schema, perche' non tutte le visite nascono
+  // dalla stessa funzione. Le due speciali del seed (tappe opzionali e guidata)
+  // le scrive `VisitModel.create` per conto suo, e senza questa riga uscivano
+  // senza diritti dichiarati.
+  license: { type: String, default: DEFAULT_LICENSE },
   ofMuseum: String,
   itemListElement: [String],
   optionalItems: [String],

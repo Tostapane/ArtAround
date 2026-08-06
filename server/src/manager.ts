@@ -20,6 +20,7 @@ import { ArtworkModel } from "./models/artwork";
 import { MuseumConfig } from "./data/museumConfigs";
 import { getMuseumGraph } from "./services/svgGraph";
 import { LogisticNote } from "../../shared/types";
+import { DEFAULT_LICENSE } from "../../shared/constants";
 
 /**
  * Da qid dell'opera a id del nodo che la rappresenta sulla pianta
@@ -126,6 +127,7 @@ export async function populateItem(
     author: itemAuthor,
     price: itemPrice,
     text: description,
+    license: DEFAULT_LICENSE,
   });
 }
 
@@ -151,6 +153,7 @@ export async function populateVisit(
     ofMuseum: museumUri,
     itemListElement: items,
     logistics: logist,
+    license: DEFAULT_LICENSE,
   });
 }
 

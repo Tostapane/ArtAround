@@ -33,16 +33,13 @@ const caricate = new Set<string>();
 
 /**
  * Con che lingua aprire. La regola e' quella di `shared/`, la stessa che usa il
- * navigator: quella gia' scelta, poi quella del dispositivo, poi l'italiano.
- * Qui e' il marketplace ad averne piu' bisogno, perche' e' la porta d'ingresso
- * e la sua prima schermata si legge prima di poter scegliere.
+ * navigator: quella gia' scelta, altrimenti l'italiano. Il marketplace e' la
+ * porta d'ingresso, e la sua prima schermata si legge prima di poter scegliere:
+ * per questo il selettore della lingua sta gia' sulla soglia.
  */
 export function linguaIniziale(): string {
   try {
-    return pickLanguage(
-      localStorage.getItem(LANG_KEY),
-      navigator.languages || [navigator.language],
-    ).translate;
+    return pickLanguage(sessionStorage.getItem(LANG_KEY)).translate;
   } catch {
     return SOURCE_LANG;
   }
@@ -50,9 +47,9 @@ export function linguaIniziale(): string {
 
 export function salvaLingua(codice: string) {
   try {
-    localStorage.setItem(LANG_KEY, codice);
+    sessionStorage.setItem(LANG_KEY, codice);
   } catch {
-    // Un browser che nega la memoria locale non deve impedire di leggere.
+    // Un browser che nega la memoria non deve impedire di leggere.
   }
 }
 

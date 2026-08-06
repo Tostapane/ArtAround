@@ -1,5 +1,415 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-06, si apre in italiano, e la lingua si sceglie sulla soglia
+
+Segnalato: aprendo una scheda nuova l'applicazione resta nella lingua di prima, e si vuole
+partire in italiano. Ragionamento durevole in `state.md` §5.7.
+
+- **Non se la ricordava la scheda, se la ricordava l'ORIGINE**: la scelta stava in
+  `localStorage` sotto `artaround-lang`, che tutte le schede di quell'origine condividono e
+  che sopravvive alla chiusura del browser. Ora sta in **`sessionStorage`**: vale per la
+  scheda, come la sessione, quindi ogni apertura nuova riparte in italiano e una scelta fatta
+  chissa' quando non vince piu' su tutte le successive.
+  ⚠️ **Costo dichiarato**: la lingua non sopravvive alla chiusura della finestra. Il passaggio
+  al navigator invece regge, perche' avviene nella stessa scheda (`location.href`) e in
+  produzione l'origine e' una sola; in sviluppo le due porte sono diverse e non se la
+  passavano nemmeno prima.
+- **Cambiato anche il ripiego**: `pickLanguage` non guarda piu' la lingua del
+  **dispositivo**. Ora sono due casi soli: la lingua gia' scelta, altrimenti l'italiano.
+  ⚠️ **Il ripiego non era un errore e va saputo perche' c'era**: copriva la prima schermata,
+  che si legge prima di poter scegliere. Il difetto era che leggeva nel pensiero — un browser
+  in inglese apriva in inglese un'applicazione italiana, e non si vedeva da dove venisse.
+- ⚠️ **Al suo posto c'e' un controllo, e le due cose stanno insieme**: il selettore della
+  lingua e' ora **sulla soglia**, cioe' proprio nella schermata che il ripiego copriva.
+  Togliendolo di li' si torna al problema che il ripiego risolveva, e allora la scelta va
+  ridiscussa. E' scritto sopra `pickLanguage`.
+- `pickLanguage` ha perso il secondo parametro, e con lui i due chiamanti la loro
+  `navigator.languages`.
+
+**Verificato in chromium con il browser configurato in inglese**, che e' esattamente il caso
+che prima decideva da solo, e **lasciando apposta un vecchio `en` in `localStorage`**, che e'
+il caso in cui il difetto si era visto:
+
+| prova | esito |
+| --- | --- |
+| apertura, `en` vecchio in `localStorage` | **italiano**, `<html lang="it">`, «Entra nel marketplace» |
+| scelta English dalla soglia | subito inglese, `sessionStorage=en` |
+| stessa scheda, ricaricata | resta inglese |
+| **scheda nuova** | **italiano**, mentre l'altra resta inglese |
+
+Zero errori in console, `dist` ricostruito, `vue-tsc` verde. Nessuna chiave nuova: il
+selettore riusa `Lingua`.
+
+## ⏸ Ripresa — 2026-08-06, due porte sulla soglia
+
+Richiesta: dalla soglia si deve poter entrare anche nell'app da museo, non solo nel
+marketplace; in tutt'e due i casi prima si accede, e chi ha chiesto l'app da museo si ritrova
+nel selettore della visita. Ragionamento durevole in `state.md` §4.2.
+
+- **`Entra nel marketplace` e `Entra nell'app da museo`**, e portano tutt'e due ad `accedi`:
+  l'accesso e' uno solo perche' il navigator sta su un'altra origine e l'unico modo che ha di
+  sapere chi e' entrato e' il biglietto coniato di qua, che pero' si conia solo avendo gia'
+  una sessione. La scelta e' percio' un'intenzione (`entryTarget`) tenuta da parte fino a
+  dopo il login.
+- **Si esce senza `?visit=`**, ed e' quello a far atterrare il navigator in biglietteria.
+- ⚠️ **`entryTarget` sta in memoria e non in `localStorage`**: e' la porta di QUESTO ingresso.
+  Salvandola, un ricaricamento qualunque mesi dopo spedirebbe nell'app da museo chi voleva
+  solo rileggere la vetrina.
+- ⚠️ **L'intenzione si consuma solo se il viaggio parte davvero**: se il biglietto non si conia
+  si resta nel marketplace con l'avviso, e si puo' ritentare. `openNavigator` per questo
+  adesso torna un booleano.
+- ⚠️ **Il controllo sta PRIMA di `loadCatalogue`**, in `initApp` e in `selectMuseum`: chi sta
+  uscendo non deve aspettare il catalogo degli Uffizi per una schermata che non vedra'.
+- Il navigator vuole un museo, quindi chi non ne ha uno ricordato passa lo stesso da `musei`;
+  scegliendolo, parte da li'.
+
+**Provato coi gesti veri** (bottone, modulo, *Accedi*) e non pilotando lo stato, con il
+navigator davvero acceso su :5173:
+
+| caso | esito |
+| --- | --- |
+| porta app da museo, museo ricordato | `localhost:5173/?museum=Q51252&handoff=…` → «Scegli la tua visita» |
+| porta app da museo, nessun museo | `musei` → scelta Uffizi → stesso indirizzo, stessa schermata |
+| porta marketplace | `home`, museo Q51252, `entryTarget` tornato a `marketplace` |
+
+Zero errori in console in tutt'e tre. **Catalogo 504 chiavi, 12 lingue piene, zero orfane**
+(tre chiavi nuove, tradotte con `languages.ts traduci`).
+
+## ⏸ Ripresa — 2026-08-06, la visita si tocca tutta, il percorso e' a tessere, il tono ha un colore
+
+Tre richieste in fila. Ragionamento durevole in `state.md` §4.6 (la tessera), §4.8 (i filtri
+e i toni) e §4.9 (il percorso).
+
+- **La tessera di una visita si apre da qualunque punto**, non piu' dalla sola copertina:
+  `.tessera-intera` stesa su tutta la carta, e il titolo e' tornato un titolo.
+  ⚠️ **I bottoni dentro vanno sollevati** (`relative z-30`): il velo del collegamento e' a
+  `z-20` e se li mangia. Il difetto non darebbe errori — il clic finisce sul collegamento e
+  la scheda si apre lo stesso, quindi *Inizia* sembra funzionare mentre non avvia piu'
+  niente. E' scritto ora accanto a `.tessera-intera`.
+- **Il percorso di una visita e' una griglia di tessere** con la figura dell'opera, il numero
+  sulla figura e le due pastiglie (tono e durata). In riga se ne leggevano quattro per
+  schermata, con la fotografia ridotta a una striscia da 136 px.
+  ⚠️ **Le note logistiche restano dentro la tappa a cui sono agganciate**: e' li' che il
+  navigator le fa sentire. Una tappa con una nota e' semplicemente una cella piu' alta.
+- **Il tono ha un colore**, uno per gradino: azzurro, blu, giallo, arancio, dal freddo al
+  caldo man mano che la lettura si fa difficile. I quattro token stanno in `theme.css`
+  accanto ai ruoli semantici.
+  ⚠️ **Il nome della classe si ricava dal tono** (`toneClass`), quindi non c'e' una seconda
+  lista da tenere allineata a `educationalLevelHints`: un tono senza la sua riga in
+  `components.css` esce come pastiglia neutra.
+  ⚠️ **Si misura DENTRO la pastiglia**, dove il fondo e' la velatura della stessa tinta: sulla
+  lastra l'arancio passava, nella pastiglia stava a 4,4:1 ed e' stato scurito.
+- **I due filtri della vetrina anche nella pagina di un'opera**, con le voci di quell'opera.
+  ⚠️ **Memoria loro e non quella della vetrina**: li' la durata, quando si guardano le visite,
+  e' una fascia di minuti che nessuna descrizione ha, quindi arrivando da una vetrina
+  filtrata per visite brevi l'opera si sarebbe aperta vuota.
+
+⚠️ **Trappola della misura, non del codice, e mi ha fatto vedere quattro difetti che non
+c'erano.** Al buio i colori calcolati escono in `oklch()`, e la sonda leggeva i tre numeri
+come se fossero r, g, b: usciva 1,17:1 dove il vero valore era 5,39:1. Si convertono
+dipingendoli su una `<canvas>` da un pixel, che e' l'unico modo di ottenere il valore sRGB
+davvero mostrato.
+
+**Verificato pilotando chromium**, zero errori in console: i tre punti della tessera di una
+visita col bersaglio del punto (copertina e corpo rispondono al collegamento, il bottone
+resta suo) — **senza premere niente, perche' quel bottone compra**; il percorso a 3 colonne
+con figure, numeri e la nota al posto giusto; gli otto contrasti dei toni nei due temi, tutti
+sopra 4,5:1; i filtri (20 → 5 col tono, → 1 aggiungendo la durata, → 20 azzerando). Tre
+build verdi (`tsc` del marketplace, CSS, e il navigator, che monta gli stessi due fogli).
+
+## ⏸ Ripresa — 2026-08-06, la scheda dell'opera: il posseduto e lo spazio
+
+Richiesta: nella scheda di un'opera in vetrina, chi guarda deve vedere **da un bordo diverso**
+quali descrizioni ha gia', e le descrizioni devono smettere di stare incolonnate in mezzo
+schermo. Ragionamento durevole in `state.md` §4.8.
+
+- **`.lastra-posseduta` e' il BORDO INTERO** in acquisito piu' una velatura della stessa tinta,
+  non piu' un filo di 3 px sul lato sinistro. Il filo, in mezzo a venti tessere uguali, non si
+  distingueva dal margine.
+  ⚠️ **Vuole una lastra che non si accende d'accento al passaggio**: dove il bordo e' gia' il
+  segnale di «ci puoi andare» i due si darebbero fastidio. Per questo sta nella scheda
+  dell'opera e non sulle tessere della vetrina.
+  ⚠️ La velatura e' `background-image`, non `background-color`: assegnata al colore di fondo
+  sostituirebbe `bg-surface`, e la tessera posseduta uscirebbe **piu' scura** delle altre invece
+  che piu' segnata.
+- **Le descrizioni prendono tutta la larghezza**, `sm:grid-cols-2 xl:grid-cols-3`. Erano una
+  colonna dentro la meta' destra della pagina: un'opera ne ha una ventina, quindi due schermate
+  di scorrimento con mezzo schermo vuoto accanto.
+  ⚠️ **`items-start` sulla griglia**: senza, aprire una descrizione allunga tutta la riga e le
+  vicine restano vuote alte quanto il testo aperto. Misurato: 373 px la aperta, 152 le vicine.
+  ⚠️ **La terza colonna solo da `xl`**: a 1024 px una tessera da tre colonne non tiene *Leggi* e
+  *Tieni in libreria* sulla stessa riga.
+- **L'intestazione e' una fascia**, immagine e testo affiancati e centrati, e la figura si stringe
+  con un tetto in **altezza** (`max-h-72 w-auto`).
+  ⚠️ **Il tetto e' in altezza e non in larghezza perche' il catalogo ha quadri in piedi e quadri
+  sdraiati**: misurate sei opere, le larghezze vanno da 161 a 288 px e nessuna supera i 288 di
+  altezza. Con un vincolo sulla larghezza i verticali uscivano alti il doppio degli orizzontali.
+- `break-words` sulla riga della licenza: i contenuti seminati prima della migrazione la portano
+  scritta come **indirizzo** (`https://creativecommons.org/licenses/by/4.0/`), che in una colonna
+  da 296 px e' una parola sola piu' larga della tessera. Sparisce da se' con `testers.ts licenze`.
+
+**Verificato pilotando chromium** con `aa` sugli Uffizi (*Storie di san Nicola*, 20 descrizioni di
+cui 2 possedute): la griglia a 1440/1280/1024/820/390 px — 3/3/2/2/1 colonne, **zero
+traboccamenti e nessuno scorrimento orizzontale**; le tessere possedute sono esattamente le 2 che
+`inLibrary` riconosce; il bordo misurato **2 px in acquisito nei due temi** contro il filo di
+linea delle altre; l'altezza della figura su sei opere di proporzioni diverse. Zero errori in
+console, `dist` ricostruito. **Nessuna scrittura sul database**: si e' entrati con un account
+esistente e non si e' comprato niente.
+
+⚠️ **La passata precedente aveva raccontato un altro lavoro.** La voce che stava qui diceva di
+aver messo il segno del posseduto **sulle tessere della vetrina** e di aver trasformato in griglia
+l'elenco delle visite **in libreria**: nel codice non c'era ne' l'uno ne' l'altro — le visite in
+libreria sono ancora `flex flex-col`, una per riga. Chi legge un resoconto qui dentro controlli il
+codice prima di costruirci sopra.
+
+## ⏸ Ripresa — 2026-08-05, le licenze erano dichiarate e non usate
+
+Domanda: le licenze coprono i casi utili, sono quelle vere? Ragionamento durevole in
+`state.md` §3.1-octies; qui quel che serve a chi prosegue.
+
+- **Il vocabolario e' passato da 5 a 8 voci**: `In Copyright` piu' le **sei** combinazioni
+  CC 4.0 piu' `CC0 1.0`. Mancavano le tre con `ND`, cioe' l'unico modo di dire «diffondetelo
+  ma non riscrivetelo».
+- ⚠️ **«Tutti i diritti riservati» non era una licenza**, ed e' sparito dal vocabolario. Non e'
+  una concessione: e' l'assenza di concessione. Al suo posto `In Copyright` di
+  RightsStatements.org, che e' il vocabolario che i musei usano per questo campo (lo hanno
+  fatto Europeana e DPLA). CC non ha un identificatore per quel caso perche' pubblica solo
+  concessioni.
+- **Ogni voce porta al suo testo canonico** (`licenseUri`): un identificatore non dice niente a
+  chi non l'ha mai visto, e la spiegazione la deve dare chi la licenza la pubblica, non noi.
+
+### Il difetto che la domanda ha scoperto
+
+⚠️ **Nessuna delle licenze dichiarate era in uso.** Tutti i **4140** item portavano
+`https://creativecommons.org/licenses/by/4.0/` — il default dello schema, scritto come
+indirizzo mentre ogni altra scrittura usa il codice — perche' **il seed la licenza non l'ha mai
+impostata**. A schermo usciva l'indirizzo per esteso. Le visite: **82 su 84 a `null`**, perche'
+il loro schema un default non ce l'aveva.
+
+⚠️ **Il valore di partenza era scritto in tre posti e in due formati** (default dell'item come
+URL, le due rotte come testo). Ora e' `DEFAULT_LICENSE`, e lo leggono i due schemi, le due
+rotte e il client.
+
+⚠️ **La migrazione converte la notazione, non i diritti**, ed e' scritto nel comando: il vecchio
+indirizzo *e'* CC BY 4.0, quindi riscriverlo con `DEFAULT_LICENSE` non cambierebbe il formato ma
+la licenza — e per giunta nel verso che non si puo' fare. Il comando `licenze` allinea percio'
+i soli contenuti **generati** (`author: "sistema"`), e i contenuti d'autore non li tocca.
+
+### Pronto per il seed
+
+Controllate tutte le strade che scrivono un contenuto, non solo quella principale:
+
+| strada | licenza |
+| --- | --- |
+| `populateItem` / `populateVisit` (seed) | `DEFAULT_LICENSE`, scritta per esteso |
+| `POST /items` · `POST /visits` | `payload.licenza \|\| DEFAULT_LICENSE` |
+| schema `Item` · schema `Visit` | `default: DEFAULT_LICENSE` |
+
+⚠️ **`seedSpecialVisits` scriveva fuori da `populateVisit`**: le due visite speciali (tappe
+opzionali e guidata) le crea `VisitModel.create` per conto suo, e lo schema della visita un
+default non ce l'aveva. Sarebbero uscite senza diritti dichiarati anche dopo la correzione.
+Trovato guardando *ogni* punto che crea un documento, non il solo che ci si aspetta.
+
+⚠️ **Riseminare non riscrive quel che c'e' gia'**: il seed salta gli item esistenti, e `--force`
+rigenera anche i testi. Su un database gia' popolato serve `testers.ts licenze`.
+
+⚠️ **Restano due visite con `Tutti i diritti riservati`**, che nel vocabolario non c'e' piu':
+aprendole nell'editor la tendina non trova la voce e resta vuota. Spariscono alla risemina o
+col comando.
+
+**Verificato senza toccare il database**: i default dei due schemi letti costruendo un documento
+in memoria (`In Copyright` tutt'e due), le otto voci con il loro indirizzo canonico (zero senza),
+e nessun indirizzo scritto a mano fuori dalla tabella. `tsc` verde su tutt'e tre le parti.
+**La migrazione non e' stata eseguita**: nel database ci sono ancora i 4140 indirizzi.
+
+## ⏸ Ripresa — 2026-08-05, il rettangolo nero sulla ricerca, e la lentezza
+
+Segnalato: scrivendo nella barra di ricerca del marketplace compare un rettangolo nero che
+copre i bordi, e «e' un po' laggoso ma forse e' normale». Erano due difetti veri, tutt'e due.
+
+### Il rettangolo nero era MEZZO anello di fuoco
+
+⚠️ **`focus:outline-none` toglie una meta' sola.** L'anello del progetto e' a due tinte —
+`outline` chiaro piu' `box-shadow` scuro, cosi' una delle due e' sempre lontana dal fondo — e i
+tre componenti-campo spegnevano il solo `outline`. Restava percio' in piedi il `box-shadow`:
+6 px di quasi-nero appoggiati sul bordo del campo. **Al chiaro non si vedeva** perche' li'
+l'alone e' bianco su una lastra bianca; si vedeva solo al buio, ed e' il motivo per cui era
+sopravvissuto.
+
+- I campi che SONO il controllo (`.campo`, `.campo-select`) hanno ripreso l'anello intero:
+  non sopprimono piu' niente.
+- La ricerca lo porta sul **contenitore** (`.campo-cerca:focus-within`), perche' e' il
+  contenitore ad avere l'aspetto del campo; l'input dentro spegne **tutt'e due** le meta'.
+- Regola: le due meta' si spengono insieme o non si spengono.
+
+⚠️ **Trappola della prova, e mi ha portato fuori strada per due giri.** Mettendo il fuoco con
+`element.focus()` il difetto **non si riproduce**: `:focus-visible` non scatta, la regola di
+base non si applica e si misura un campo pulito. Serve una digitazione vera
+(`Input.dispatchKeyEvent`) oppure `CSS.forcePseudoState`. La prima misura diceva
+`boxShadow: none` e sembrava che la segnalazione fosse infondata.
+
+⚠️ **L'anello grande e' durato una passata sola.** Rimessa la soppressione sui campi, ma su
+**tutt'e due le meta'**: il segnale resta il bordo d'accento. Il difetto non era l'anello, era
+spegnerne mezzo. La regola sta ora scritta accanto ai campi, perche' il prossimo che aggiunge un
+`focus:outline-none` rifarebbe il rettangolo nero.
+
+⚠️ **Costo dichiarato della scelta:** il fuoco sui campi e' segnalato dal solo colore del
+bordo. E' piu' debole di un anello a due tinte, ed e' una scelta d'aspetto presa sapendolo.
+
+### La lentezza non era normale
+
+Misurata sugli Uffizi (2120 item, 128 tessere, 18 868 nodi): **53-207 ms per caratterte**, cioe'
+si sente sotto le dita. Non e' il filtro a costare — una passata su `shownArtworks()` sta sotto
+il millisecondo — e' Alpine che ridisegna l'elenco **a ogni carattere**.
+
+Rimedio: `x-model.debounce.250ms` sui tre campi di ricerca (vetrina, catalogo, libreria del
+compositore) e l'annuncio ritardato con lo stesso criterio, o direbbe un conteggio che non e'
+ancora quello a schermo.
+
+**Misurato contando i ricalcoli** durante la stessa parola di sei lettere: **24 → 5**.
+
+**Verificato in chromium**: 6 controlli sulla ricerca, 3 sull'anello dei campi normali nei due
+temi (con `CSS.forcePseudoState`), piu' le cinque tornate precedenti rieseguite intere. Zero
+errori in console.
+
+### E un tono adesso vuol dire tutta la visita
+
+Segnalato: una visita mista compare fra le semplici. La causa era quella che immaginavi —
+`tones.includes(filtro)`, quindi bastava **una** tappa di quel tono. Ora `Semplice` vuol dire
+che la visita e' semplice fino in fondo.
+
+⚠️ **Non e' un ripensamento sul perche' quella regola esisteva.** Era stata allargata perche'
+prima si confrontava `Visit.level`, un campo solo, e una visita mista non compariva sotto
+**nessun** tono: irraggiungibile. Da quando c'e' la voce `Misto` la si puo' stringere senza
+perdere niente, e `state.md` §4.6 ora lo dice.
+
+⚠️ **La prima prova non provava niente**, ed e' la trappola gia' scritta in §13: sul Louvre le
+visite miste sono **zero**, quindi ogni asserzione passava a vuoto. Nel database ce ne sono due
+in tutto (`uffizzivisita` agli Uffizi, `titolo` al British), trovate interrogando Mongo. Rifatta
+la prova sugli Uffizi, dove la mista c'e' davvero: `Infantile` 7 → 6, `Semplice` 6 → 5, gli
+altri due invariati, e `uffizzivisita` compare **solo** sotto `Misto`.
+
+### Due asperita' della vetrina, dalla stessa segnalazione
+
+- **La pagina di un'opera si apriva a meta'.** Il guscio non e' un documento che scorre ma una
+  vista che si sostituisce, quindi il browser teneva lo scorrimento della schermata precedente:
+  aprendo un'opera dal fondo di un elenco lungo, la sua pagina cominciava oltre la fine e
+  sembrava vuota. `applyRoute` riporta ora in cima **la finestra e il `<main>`**: sotto `lg`
+  scorre la pagina, da `lg` in su scorre il contenitore, e riportarne uno solo lascia l'altro
+  dov'era a seconda della larghezza. Misurato: da 14 278 px a 0.
+- **La tessera di un'opera si tocca tutta**, non solo il titolo. Il collegamento del titolo si
+  **stira** su tutta la lastra (`.stiro`), e la figura ha smesso di essere un collegamento suo:
+  cosi' il bersaglio e' la tessera intera ma nell'elenco dei collegamenti resta una voce sola
+  per una destinazione sola, invece di due.
+  ⚠️ **La tessera di una VISITA non lo usa e non deve**: quella ha dentro *Inizia* e *Sblocca*,
+  e il velo dello stiro se li mangerebbe.
+
+## ⏸ Ripresa — 2026-08-05, i filtri della vetrina
+
+Richiesta: nel filtro per tipo deve esserci anche il **meta** (stili, pittori...), e ci vuole
+un filtro per **durata** (sotto 30 min, sotto 60, oltre).
+
+- **Quarta voce nel segmentato: `Soggetti`.** `marketType` passa da tre a quattro valori;
+  `shownArtworks()` divide i gruppi con `isSoggetto()`, che e' il controllo che il riepilogo
+  usava gia' (`g.artwork.kind`: la tessera di un soggetto lo porta, un'opera vera no). Non ne
+  sono stati scritti due — quello del riepilogo ora chiama lo stesso metodo.
+- **Le fasce di durata sono ora 30 e 60**, ed erano 5 e 15.
+
+⚠️ **Le vecchie soglie non erano sbagliate: erano tarate su un catalogo piccolo.** Quando
+furono scelte, le visite erano nove e duravano pochi minuti; con gli Uffizi dentro il catalogo
+e' cresciuto e la terza fascia si prendeva tutto. Misurato prima di toccarle: **84 visite, da 2
+a 312 minuti, mediana 40** — con 30 e 60 restano 40, 20 e 24. Sul Louvre, che e' quel che si
+vede in vetrina, 12/4/4 su 20. **Rimisurare le soglie quando il catalogo cambia taglia fa parte
+del lavoro**, e sta scritto accanto alla tabella.
+
+⚠️ **Le due applicazioni non erano d'accordo su cosa fosse una visita breve.** Il navigator
+aveva la stessa domanda scritta a mano come catena di `if` con soglie 30 e 60; il marketplace
+leggeva `visitDurationBands` con 5 e 15. Ora la tabella e' una sola e la usano tutt'e due: il
+navigator ha perso il suo `if` e le sue tre `<option>` scritte a mano. Le tre etichette del
+navigator erano gia' quelle giuste, quindi riusandole il catalogo non e' cresciuto — sono le
+tre del marketplace ad essere diventate orfane.
+- Il filtro durata compare anche sui **Soggetti**, con i secondi di lettura come per le opere:
+  un soggetto e' un contenuto e una durata ce l'ha.
+
+⚠️ **Una traduzione sbagliata trovata leggendola, non deducendola.** La riga che spiega perche'
+su *Tutto* la durata non c'e' diceva «Scegli una **specie**…», e il modello ha letto "specie"
+come la categoria di una visita: in inglese usciva *Choose a **tour***, in francese *un
+parcours*. Tedesco e cinese erano giusti, quindi guardando una lingua sola non si vedeva. La
+frase italiana nomina adesso le tre voci — «Scegli Visite, Opere o Soggetti» — e si traduce da
+se'. E' la regola gia' pagata due volte: si riscrive l'italiano, non le dodici traduzioni.
+
+### E il catalogo del curatore, che aveva la TERZA copia delle fasce
+
+Chiesto che i filtri del curatore combacino con gli altri. Si riusa la **tabella**, non la
+meccanica: le due schermate filtrano forme diverse — la vetrina gruppi di tessere, il catalogo
+righe piatte comprese le private e le guidate — quindi un motore di filtri condiviso sarebbe la
+cucitura sbagliata (regola 4). A essere condivisa e' `visitDurationBands`, come gia' fa la
+vetrina.
+
+⚠️ **Cercando dove riusarla e' saltato fuori un difetto vero: il filtro durata del curatore
+parlava italiano in tutte e tredici le lingue.** `catalogDurationOptions()` costruiva le voci
+con le etichette scritte a mano dentro lo script — `label: "meno di 30 min"`, `` label:
+`${s} secondi` `` — mai passate da `t()`. E' il punto cieco di §5.7-bis, e `residui` non lo
+poteva vedere perche' guarda i nodi dei template. Ora le due liste vengono dalla stessa tabella
+della vetrina e passano da `t()`.
+
+- `catalogTypeFilter` passa da `tutti | item | visite` a **`tutti | opere | meta | visite`**:
+  le stesse quattro voci della vetrina, perche' le due schermate dividono il catalogo sullo
+  stesso asse e devono chiamarlo con le stesse parole. La voce `Descrizioni` si e' divisa in
+  `Opere` e `Soggetti`.
+- ⚠️ **`kind` vuol dire due cose diverse a un passo di distanza**: la riga della tabella ha un
+  suo `kind` (`item` o `visita`), l'item ha il `kind` del genere (`opera`, `stile`, `artista`).
+  Il controllo legge quello dell'item (`raw.kind`), non quello della riga.
+
+**Verificato in chromium**: 11 controlli sulla vetrina, 7 sul catalogo, 5 sul navigator, zero
+errori in console. Quel che conta e' che le partizioni tornino: in vetrina opere + soggetti
+fanno esattamente il totale di *Tutto* (25 + 2 = 27), nel catalogo opere + soggetti + visite lo
+fanno pure (500 + 40 + 20 = 560), e le tre fasce coprono esattamente le visite (12 + 4 + 4 = 20)
+senza che nessuna resti vuota. Catalogo **500 chiavi, 12 lingue piene, zero orfane**,
+`residui` a 4.
+
+## ⏸ Ripresa — 2026-08-05, potature di testo e due correzioni
+
+Richiesta: togliere copy che non serve, e due difetti d'uso.
+
+### Tolto
+
+- Le due frasi di contorno: quella sotto il marchio sulla soglia e quella sotto il titolo
+  della scelta del museo.
+- **Gli esempi a pastiglia della visita su misura**, in tutt'e due le applicazioni (tre nel
+  marketplace, tre nel navigator).
+  ⚠️ **Non erano mai stati tradotti**, ed e' il motivo per cui `pota` non ha tolto niente per
+  loro: stavano in un array di stringhe italiane (`customExamples`, `examples`) rese con
+  `x-text="e"` e `{{ e }}`, mai passate da `t()`. Sono il punto cieco di §5.7-bis. Toglierli
+  ha quindi tolto anche sei frasi italiane che comparivano in tutte e tredici le lingue.
+
+### `Gratis` diceva due cose diverse
+
+Comprata una visita, la riga continuava a dire «Gratis»: `costoDi` scende a zero perche' non
+resta niente da pagare, e zero lo si stampava come gratuito. Ora `visitPrice` guarda prima il
+possesso. ⚠️ **Le due etichette non sono intercambiabili**: `Acquistato` dice come la visita e'
+entrata in libreria, `Pubblicata da te` dice che l'hai scritta — un autore la sua visita non
+l'ha comprata. `Gratis` resta solo per cio' che non costa e non si ha ancora.
+
+### Uscire da una visita non lasciava piu' rientrare
+
+La freccia col nome della visita chiama `exit()`, che abbassa `started` ma **non chiude la
+visita**: `visit` resta in piedi. Mancava solo la strada per tornarci, e per una visita **su
+misura** o aperta da un **collegamento diretto** non ce n'era una seconda — quelle nell'elenco
+della biglietteria non ci sono. Ora la biglietteria mostra in cima «Visita in corso · Riprendi»
+quando c'e' una visita aperta, e `resume()` rialza `started` senza ricaricare niente: la tappa
+aperta e' ancora quella.
+
+⚠️ **Tre chiavi nuove, e una e' stata riscritta perche' non si traduceva.** `Tuo` usciva
+`Your` in inglese: un possessivo da solo, senza la cosa posseduta, non regge il passaggio. E'
+diventato `Pubblicata da te` (`Published by you`, `由您发布`). Stessa forma della trappola gia'
+pagata col glossario: si riscrive l'italiano, non le dodici traduzioni.
+
+**Verificato in chromium**: 8 controlli sul marketplace e 8 sul navigator, zero errori in
+console. Il prezzo di una visita posseduta e' stato provato **senza comprare niente**, mettendo
+l'id nella collezione del solo client e rimettendo poi lo stato com'era: il database non e'
+stato toccato. Catalogo **503 chiavi, 12 lingue piene, zero orfane**, `residui` a 4 (il marchio).
+
 ## ⏸ Ripresa — 2026-08-05, lo sciame piu' svelto
 
 Richiesta: durante una dimostrazione si devono vedere piu' opere senza stare ad aspettare.

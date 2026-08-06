@@ -39,6 +39,8 @@ import {
 } from "../../../shared/types.js";
 import {
   licenses,
+  licenseUri,
+  DEFAULT_LICENSE,
   educationalLevels,
   educationalLevelHints,
   durationMinutes,
@@ -194,7 +196,7 @@ export class AppState {
 
   // --- Ricerca e filtri -----------------------------------------------------
   marketSearch: string = "";
-  marketType: "tutti" | "visite" | "opere" = "tutti";
+  marketType: "tutti" | "visite" | "opere" | "meta" = "tutti";
   marketLevelFilter: string = "tutti";
   marketDurationFilter: string = "tutti";
 
@@ -205,7 +207,7 @@ export class AppState {
   worksTypeFilter: "tutti" | "item" | "visite" = "tutti";
 
   catalogSearch: string = "";
-  catalogTypeFilter: "tutti" | "item" | "visite" = "tutti";
+  catalogTypeFilter: "tutti" | "opere" | "meta" | "visite" = "tutti";
   catalogToneFilter: string = "tutti";
   catalogDurationFilter: string = "tutti";
   catalogAuthorFilter: string = "tutti";
@@ -353,9 +355,31 @@ export class AppState {
       this.goTo(this.roleHome());
       return;
     }
+    const cambiata = this.view !== view || this.param !== param;
     this.view = view;
     this.param = param;
+    if (cambiata) this.inCima();
     this.announceView();
+  }
+
+  /**
+   * Ogni schermata comincia dall'alto.
+   *
+   * Senza, il browser tiene lo scorrimento della schermata precedente: aprendo
+   * un'opera dal fondo di un elenco lungo la sua pagina si apriva a meta', o
+   * oltre la fine, e sembrava vuota. Il guscio non e' un documento che scorre
+   * ma una vista che si sostituisce, quindi lo scorrimento non e' suo e va
+   * riportato a zero a mano.
+   *
+   * Si riporta la finestra E il contenitore del contenuto: sotto `lg` scorre la
+   * pagina, da `lg` in su scorre il <main>, e riportarne uno solo lascia
+   * l'altro dov'era a seconda della larghezza.
+   */
+  private inCima() {
+    if (typeof window === "undefined") return;
+    window.scrollTo(0, 0);
+    const main = document.getElementById("contenuto");
+    if (main) main.scrollTop = 0;
   }
 
   goTo(view: View, param?: string) {
@@ -507,6 +531,10 @@ export class AppState {
         if (trovato) this.selectedMuseum = trovato;
         else if (this.museums.length === 1) this.selectedMuseum = this.museums[0];
       }
+      // Prima del catalogo, non dopo: chi sta andando nell'app da museo esce da
+      // qui, e il catalogo di un museo grande sono secondi spesi per una
+      // schermata che non vedra'.
+      if (await this.goToNavigatorIfAsked()) return;
       if (this.selectedMuseum) await this.loadCatalogue();
 
       this.goTo(this.selectedMuseum ? this.roleHome() : "musei");
@@ -676,6 +704,9 @@ export class AppState {
     this.sales = [];
     this.editingId = null;
     this.roleChoice = null;
+    // La porta scelta vale per l'ingresso in corso: chi esce torna sulla soglia
+    // e la sceglie di nuovo.
+    this.entryTarget = "marketplace";
     this.guidedSession = null;
     this.passkeyInput = "";
     this.customRequest = "";
@@ -709,6 +740,9 @@ export class AppState {
   async selectMuseum(m: Museum) {
     this.selectedMuseum = m;
     localStorage.setItem("artaround-museo", m.qid);
+    // Chi e' entrato per l'app da museo passa di qui solo perche' il museo
+    // mancava: appena c'e', se ne va. Il catalogo non gli serve.
+    if (await this.goToNavigatorIfAsked()) return;
     this.loading = true;
     try {
       await this.loadCatalogue();
@@ -906,8 +940,25 @@ export class AppState {
    * vuole sapere quanto gli costa usarla adesso, cioe' `totale`, che il server
    * calcola sulla sua collezione ed e' la stessa cifra del bottone di sblocco e
    * dell'addebito.
+   *
+   * Una volta che la visita e' tua, pero', il prezzo non e' piu' l'informazione:
+   * `costoDi` scende a zero perche' non resta niente da pagare, e senza questo
+   * controllo la riga direbbe "Gratis", che qui significherebbe due cose
+   * diverse. "Gratis" resta quindi solo per cio' che non costa e non si ha
+   * ancora; quel che si e' preso lo dice il possesso. E chi l'ha scritta non
+   * l'ha comprata: dirle "Acquistato" sarebbe falso.
+   *
+   * Le due etichette non sono intercambiabili e non vanno unite: "Acquistato"
+   * dice come la visita e' entrata nella tua libreria, "Pubblicata da te" dice
+   * che l'hai scritta tu. Un autore la sua visita non l'ha comprata, e un
+   * visitatore che ne ha comprata una non l'ha pubblicata.
    */
   visitPrice(v: any): string {
+    if (this.inLibrary(v)) {
+      if (v && v.author && v.author === this.currentUser)
+        return this.t("Pubblicata da te");
+      return this.t("Acquistato");
+    }
     return this.readablePrice(this.costoDi(v));
   }
 
@@ -1225,21 +1276,31 @@ export class AppState {
   }
 
 
-  setCatalogType(tipo: "tutti" | "item" | "visite") {
+  setCatalogType(tipo: "tutti" | "opere" | "meta" | "visite") {
     this.catalogTypeFilter = tipo;
     this.catalogDurationFilter = "tutti";
   }
 
+  /**
+   * Le stesse voci della vetrina, e per la stessa ragione: le due schermate
+   * dividono il catalogo sullo stesso asse, quindi devono chiamarlo con le
+   * stesse parole. Le fasce arrivano da `visitDurationBands`, che e' la sola
+   * tabella: qui erano riscritte a mano, con le etichette in italiano DENTRO lo
+   * script e mai passate da `t()` -- cioe' il filtro del curatore parlava
+   * italiano in tutte e tredici le lingue, e `residui` non lo poteva vedere.
+   */
   catalogDurationOptions(): { value: string; label: string }[] {
-    if (this.catalogTypeFilter === "item") {
-      return secPerArt.map((s) => ({ value: String(s), label: `${s} secondi` }));
+    if (this.catalogTypeFilter === "opere" || this.catalogTypeFilter === "meta") {
+      return secPerArt.map((s) => ({
+        value: String(s),
+        label: this.t("{n} secondi di lettura", { n: s }),
+      }));
     }
     if (this.catalogTypeFilter === "visite") {
-      return [
-        { value: "breve", label: "meno di 30 min" },
-        { value: "media", label: "da 30 a 60 min" },
-        { value: "lunga", label: "oltre 60 min" },
-      ];
+      return visitDurationBands.map((b) => ({
+        value: b.value,
+        label: this.t(b.label),
+      }));
     }
     return [];
   }
@@ -1267,11 +1328,11 @@ export class AppState {
   private matchesCatalogDuration(row: any): boolean {
     if (this.catalogDurationFilter === "tutti") return true;
     if (row.kind === "item") return String(row.duration) === this.catalogDurationFilter;
-    const min = Math.round(row.duration / 60);
-    if (this.catalogDurationFilter === "breve") return min < 30;
-    if (this.catalogDurationFilter === "media") return min >= 30 && min <= 60;
-    if (this.catalogDurationFilter === "lunga") return min > 60;
-    return true;
+    const banda = visitDurationBands.find(
+      (b) => b.value === this.catalogDurationFilter,
+    );
+    if (!banda) return true;
+    return banda.test(durationMinutes(row.duration));
   }
 
   catalogRows(): CatalogRow[] {
@@ -1280,6 +1341,11 @@ export class AppState {
 
     if (this.catalogTypeFilter !== "visite") {
       for (const it of this.curatedItems) {
+        // `kind` e' il genere del contenuto (opera, stile, artista...): la riga
+        // ha gia' un `kind` suo, che dice se e' una descrizione o una visita.
+        const soggetto = ((it as any).kind || "opera") !== "opera";
+        if (this.catalogTypeFilter === "opere" && soggetto) continue;
+        if (this.catalogTypeFilter === "meta" && !soggetto) continue;
         rows.push({
           kind: "item",
           id: it["@id"],
@@ -1293,7 +1359,7 @@ export class AppState {
         });
       }
     }
-    if (this.catalogTypeFilter !== "item") {
+    if (this.catalogTypeFilter === "tutti" || this.catalogTypeFilter === "visite") {
       for (const v of this.curatedVisits()) {
         rows.push({
           kind: "visita",
@@ -1530,13 +1596,24 @@ export class AppState {
     return parts.join(" · ");
   }
 
-  setMarketType(tipo: "tutti" | "visite" | "opere") {
+  setMarketType(tipo: "tutti" | "visite" | "opere" | "meta") {
     this.marketType = tipo;
     this.marketDurationFilter = "tutti";
   }
 
+  /**
+   * Un gruppo parla di un'opera o di un soggetto che opera non e' (uno stile, un
+   * artista, un periodo). La differenza la porta gia' `soggettoDi`, che per un
+   * soggetto costruisce una tessera con dentro il `kind`: un'opera vera quel
+   * campo non ce l'ha. E' lo stesso controllo che conta le due specie nel
+   * riepilogo, e resta uno solo perche' due divergerebbero.
+   */
+  private isSoggetto(g: any): boolean {
+    return !!(g && g.artwork && g.artwork.kind);
+  }
+
   marketDurationOptions(): { value: string; label: string }[] {
-    if (this.marketType === "opere") {
+    if (this.marketType === "opere" || this.marketType === "meta") {
       return secPerArt.map((s) => ({
         value: String(s),
         label: this.t("{n} secondi di lettura", { n: s }),
@@ -1582,14 +1659,27 @@ export class AppState {
     return "";
   }
 
+  /**
+   * Un tono filtra le visite che sono TUTTE di quel tono.
+   *
+   * Prima bastava che una tappa lo fosse, e una visita mista compariva percio'
+   * sotto "Semplice" pur non essendo semplice: un filtro che restituisce cose
+   * che quel tono non hanno dice il falso. Chi cerca un percorso semplice lo
+   * vuole semplice fino in fondo.
+   *
+   * Non nasconde niente: le miste hanno la loro voce, `Misto`, ed e' il motivo
+   * per cui questa regola si puo' stringere. Quando le si confrontava con
+   * `Visit.level` -- un campo solo -- non comparivano sotto nessun tono, e
+   * quello si' che le rendeva irraggiungibili.
+   */
   private matchesMarketLevel(tones: string[]): boolean {
     if (this.marketLevelFilter === "tutti") return true;
     if (this.marketLevelFilter === "misto") return tones.length > 1;
-    return tones.includes(this.marketLevelFilter);
+    return tones.length === 1 && tones[0] === this.marketLevelFilter;
   }
 
   shownVisits(): Visit[] {
-    if (this.marketType === "opere") return [];
+    if (this.marketType === "opere" || this.marketType === "meta") return [];
     return this.visits.filter((v) => {
       if (!this.belongsToMuseum(v)) return false;
       if (!this.visibleInMarket(v)) return false;
@@ -1663,12 +1753,19 @@ export class AppState {
         i.educationalLevel !== this.marketLevelFilter
       )
         return false;
-      if (this.marketType === "opere" && this.marketDurationFilter !== "tutti") {
+      if (
+        (this.marketType === "opere" || this.marketType === "meta") &&
+        this.marketDurationFilter !== "tutti"
+      ) {
         if (String(i.timeRequired) !== this.marketDurationFilter) return false;
       }
       return true;
     });
-    const groups = this.groupByArtwork(items);
+    let groups = this.groupByArtwork(items);
+    if (this.marketType === "opere")
+      groups = groups.filter((g) => !this.isSoggetto(g));
+    if (this.marketType === "meta")
+      groups = groups.filter((g) => this.isSoggetto(g));
     if (!this.marketSearch.trim()) return groups;
     return groups.filter((g) => this.matchesSearch(g.artwork, this.marketSearch));
   }
@@ -1677,7 +1774,7 @@ export class AppState {
     const v = this.shownVisits().length;
     const gruppi = this.shownArtworks();
     // "15 opere" conterebbe anche i soggetti che opere non sono.
-    const soggetti = gruppi.filter((g) => g.artwork.kind).length;
+    const soggetti = gruppi.filter((g) => this.isSoggetto(g)).length;
     const opere = gruppi.length - soggetti;
     const pezzi: string[] = [];
     if (this.marketType !== "opere") {
@@ -1760,6 +1857,87 @@ export class AppState {
         educationalLevels.indexOf(a.educationalLevel) -
         educationalLevels.indexOf(b.educationalLevel),
     );
+  }
+
+  // --- I filtri della pagina di un'opera ------------------------------------
+
+  /**
+   * Gli stessi due filtri della vetrina (tono e durata), ma con una memoria
+   * loro.
+   *
+   * ⚠️ Non si riusa `marketLevelFilter`/`marketDurationFilter`, e la ragione e'
+   * che le due schermate filtrano cose diverse: la durata della vetrina, quando
+   * si guardano le visite, e' una fascia di minuti (`breve`, `media`...), che
+   * qui non corrisponde a nessuna descrizione. Arrivando da una vetrina filtrata
+   * per visite brevi, l'opera si sarebbe aperta vuota.
+   *
+   * Le voci invece vengono dalle descrizioni di QUESTA opera, non dal
+   * vocabolario intero: un menu che offre un tono di cui qui non c'e' niente
+   * promette venti descrizioni e ne mostra zero.
+   */
+  artworkLevelFilter: string = "tutti";
+  artworkDurationFilter: string = "tutti";
+
+  artworkLevels(): string[] {
+    const presenti = new Set<string>();
+    for (const i of this.artworkItems()) presenti.add(i.educationalLevel);
+    return educationalLevels.filter((l) => presenti.has(l));
+  }
+
+  /** `timeRequired` sono secondi in stringa: il confronto si fa li'. */
+  artworkDurations(): number[] {
+    const presenti = new Set<string>();
+    for (const i of this.artworkItems()) presenti.add(String(i.timeRequired));
+    return secPerArt.filter((s) => presenti.has(String(s)));
+  }
+
+  shownArtworkItems(): Item[] {
+    return this.artworkItems().filter((i: any) => {
+      if (
+        this.artworkLevelFilter !== "tutti" &&
+        i.educationalLevel !== this.artworkLevelFilter
+      )
+        return false;
+      if (
+        this.artworkDurationFilter !== "tutti" &&
+        String(i.timeRequired) !== this.artworkDurationFilter
+      )
+        return false;
+      return true;
+    });
+  }
+
+  /** Quante se ne vedono adesso: le stesse due chiavi delle tessere in vetrina. */
+  artworkItemsCount(): string {
+    const n = this.shownArtworkItems().length;
+    if (n === 1) return this.t("1 descrizione");
+    return this.t("{n} descrizioni", { n });
+  }
+
+  artworkFiltered(): boolean {
+    return (
+      this.artworkLevelFilter !== "tutti" ||
+      this.artworkDurationFilter !== "tutti"
+    );
+  }
+
+  resetArtworkFilters() {
+    this.artworkLevelFilter = "tutti";
+    this.artworkDurationFilter = "tutti";
+  }
+
+  /**
+   * La classe della pastiglia di un tono.
+   *
+   * Il nome si ricava dal tono invece di stare in una tabella: i toni li
+   * dichiara `educationalLevelHints`, e un elenco parallelo qui sarebbe la
+   * seconda copia da tenere allineata. Un tono senza la sua riga in
+   * `components.css` esce come pastiglia neutra, che e' leggibile: il nome del
+   * tono e' dentro la pastiglia, il colore lo conferma soltanto.
+   */
+  toneClass(livello: string | undefined): string {
+    if (!livello) return "";
+    return "pastiglia-tono-" + livello.toLowerCase();
   }
 
   /**
@@ -2050,15 +2228,62 @@ export class AppState {
    * E' l'unico modo che il navigator ha di sapere chi e' entrato: sta su
    * un'altra origine e questa memoria non la vede.
    */
-  async openNavigator(url: string) {
-    if (!url || url === "#") return;
+  async openNavigator(url: string): Promise<boolean> {
+    if (!url || url === "#") return false;
     try {
       const ticket = await ArtAPI.newHandoff();
       const separatore = url.includes("?") ? "&" : "?";
       window.location.href = `${url}${separatore}handoff=${encodeURIComponent(ticket)}`;
+      return true;
     } catch (e) {
       this.showToast((e as Error).message, "error");
+      return false;
     }
+  }
+
+  // --- Da quale porta si e' entrati -----------------------------------------
+
+  /**
+   * Sulla soglia si sceglie gia' DOVE si sta andando, marketplace o app da
+   * museo, ma l'accesso resta uno solo: il navigator sta su un'altra origine e
+   * l'unico modo che ha di sapere chi e' entrato e' il biglietto coniato di
+   * qua, che si puo' coniare solo da chi ha gia' una sessione. La scelta e'
+   * percio' un'intenzione da tenere da parte fino a dopo il login, non una
+   * seconda strada d'ingresso.
+   *
+   * ⚠️ Vive in memoria e NON in `localStorage`: e' la porta di questo ingresso.
+   * Salvandola, un ricaricamento qualunque mesi dopo spedirebbe nell'app da
+   * museo chi voleva solo rileggere la vetrina.
+   */
+  entryTarget: "marketplace" | "navigator" = "marketplace";
+
+  enterFrom(target: "marketplace" | "navigator") {
+    this.entryTarget = target;
+    this.goTo("accedi");
+  }
+
+  /**
+   * Se si era chiesta l'app da museo, ci si va: senza `?visit=`, cosi' si
+   * atterra nella biglietteria e la visita si sceglie li'.
+   *
+   * Vuole un museo, perche' il navigator carica il suo (`?museum=`): quando non
+   * ce n'e' uno ricordato si passa lo stesso dalla scelta del museo, ed e' da
+   * li' che questa viene richiamata.
+   *
+   * ⚠️ L'intenzione si consuma solo quando il viaggio parte davvero. Se il
+   * biglietto non si conia -- server giu', sessione appena scaduta -- si resta
+   * nel marketplace con l'avviso, e il tentativo si potra' rifare; azzerarla
+   * prima vorrebbe dire restare in vetrina senza sapere perche'.
+   */
+  private async goToNavigatorIfAsked(): Promise<boolean> {
+    if (this.entryTarget !== "navigator") return false;
+    if (!this.selectedMuseum) return false;
+    const url =
+      `${this.navigatorBase()}/` +
+      `?museum=${encodeURIComponent(this.selectedMuseum.qid)}`;
+    const partito = await this.openNavigator(url);
+    if (partito) this.entryTarget = "marketplace";
+    return partito;
   }
 
   // --- Visita su misura -----------------------------------------------------
@@ -2416,6 +2641,26 @@ export class AppState {
   }
 
   /**
+   * Il tono e i secondi di una tappa, presi a parte.
+   *
+   * `itemDetail` li unisce in una frase sola, che va bene in una riga stretta;
+   * dove invece la tappa e' una tessera i due sono due pastiglie -- una colorata
+   * dal tono, l'altra neutra -- e una stringa unica non si puo' dividere in due
+   * colori.
+   */
+  itemTone(id: string): string {
+    const item = this.findItem(id);
+    if (!item || !isItem(item)) return "";
+    return item.educationalLevel || "";
+  }
+
+  itemSeconds(id: string): string {
+    const item = this.findItem(id);
+    if (!item || !isItem(item)) return "";
+    return item.timeRequired || "";
+  }
+
+  /**
    * La figura di una tappa: l'opera che la descrizione racconta, oppure
    * l'immagine caricata dall'autore quando il soggetto un'opera non e'.
    * Torna vuota se non c'e' ne' l'una ne' l'altra, e va bene: la riga tiene lo
@@ -2588,10 +2833,12 @@ export class AppState {
       quiz: quizPayload,
       prezzo:
         guidata || this.currentUserRole !== "autore" ? 0 : this.draft.price,
+      // Una visita composta da un visitatore non e' pubblicata da lui: resta
+      // chiusa, come qualunque contenuto per cui nessuno ha scelto altro.
       licenza:
         this.currentUserRole === "autore"
           ? this.draft.license
-          : "Tutti i diritti riservati",
+          : DEFAULT_LICENSE,
       museumUri: this.selectedMuseum
         ? `http://www.wikidata.org/entity/${this.selectedMuseum.qid}`
         : undefined,
@@ -2649,6 +2896,21 @@ export class AppState {
   readableRevenue(r: any): string {
     if (!r.price || Number(r.price) === 0) return "n/d";
     return `€ ${(r.ricavo || 0).toFixed(2)}`;
+  }
+
+  /**
+   * L'indirizzo dove sta scritto per esteso che cosa concede una licenza.
+   *
+   * `In Copyright` e `CC BY-NC-ND 4.0` sono identificatori: dicono tutto a chi
+   * gia' li conosce e niente a chi non li ha mai visti. Il collegamento e' quel
+   * che li rende leggibili, e porta al testo di chi la licenza la pubblica --
+   * RightsStatements.org o Creative Commons -- non a una nostra parafrasi.
+   * Vuoto per un valore che non riconosciamo: meglio nessun collegamento che uno
+   * che promette di spiegare e non spiega.
+   */
+  licenseHref(nome: string | undefined): string {
+    if (!nome) return "";
+    return licenseUri[nome] || "";
   }
 
   readablePrice(p: number | undefined): string {

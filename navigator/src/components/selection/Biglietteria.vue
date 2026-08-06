@@ -20,23 +20,24 @@
 import { ref, watch, computed } from "vue";
 import LanguageSelector from "./LanguageSelector.vue";
 import { getVisitsByMuseum, createCustomVisit } from "@/api";
-import { museum } from "@/state";
+import { museum, visit } from "@/state";
 import { museumTitle, mediaOrigin } from "@/config";
 import { useTheme } from "@/composables/useTheme";
-import { durationMinutes } from "../../../../shared/constants";
+import { durationMinutes, visitDurationBands } from "../../../../shared/constants";
 import { t } from "@/i18n";
 import type { Visit, Artwork, Item } from "../../../../shared/types";
 
 const emit = defineEmits<{
   start: [visit: Visit];
   customStart: [payload: { visit: Visit; content: { artwork: Artwork; item: Item }[] }];
+  resume: [];
 }>();
 
 const visits = ref<Visit[]>([]);
 const loading = ref(true);
 
 const levelFilter = ref("tutti");
-const durationFilter = ref<"tutti" | "breve" | "media" | "lunga">("tutti");
+const durationFilter = ref("tutti");
 
 watch(
   museum,
@@ -59,19 +60,17 @@ const availableLevels = computed(() => [
   ...new Set(visits.value.map((v) => v.level).filter(Boolean)),
 ]);
 
-function minutes(v: Visit): number {
-  return Math.round((Number(v.duration) || 0) / 60);
-}
-
+// Le fasce arrivano da `shared/constants.ts` e non sono riscritte qui: erano
+// una catena di `if` con le sue soglie, e il marketplace ne aveva altre, quindi
+// "visita breve" voleva dire due cose diverse nelle due applicazioni.
 const filteredVisits = computed(() =>
   visits.value.filter((v) => {
     if (levelFilter.value !== "tutti" && v.level !== levelFilter.value)
       return false;
     if (durationFilter.value === "tutti") return true;
-    const m = minutes(v);
-    if (durationFilter.value === "breve") return m < 30;
-    if (durationFilter.value === "media") return m >= 30 && m <= 60;
-    return m > 60;
+    const banda = visitDurationBands.find((b) => b.value === durationFilter.value);
+    if (!banda) return true;
+    return banda.test(durationMinutes(v.duration));
   }),
 );
 
@@ -113,12 +112,6 @@ const themeLabel = computed(() =>
 const customRequest = ref("");
 const creating = ref(false);
 const customError = ref("");
-
-const examples = [
-  "Ho solo mezz'ora, mostrami le cose più importanti",
-  "Siamo due adulti e due bambini di 5 e 8 anni",
-  "Abbiamo già visto questo museo: stupiscici con dettagli insoliti",
-];
 
 async function createCustom() {
   const m = museum.value;
@@ -174,6 +167,25 @@ async function createCustom() {
       {{ t("Scegli la tua visita.") }}
     </h1>
 
+    <!-- RIENTRO: uscire da una visita non la chiude, la lascia dov'era. Senza
+         questa riga non c'era nessuna strada per tornarci, e per una visita su
+         misura o aperta da un collegamento diretto nemmeno una seconda strada:
+         quelle nell'elenco qui sotto non ci sono. -->
+    <button
+      v-if="visit"
+      type="button"
+      class="lastra filo-accento mt-6 flex w-full items-center gap-4 p-4 text-left"
+      @click="emit('resume')"
+    >
+      <span class="min-w-0 flex-1">
+        <span class="block text-caption uppercase tracking-wider text-muted">
+          {{ t("Visita in corso") }}
+        </span>
+        <span class="mt-0.5 block truncate font-display text-title-3">{{ visit.name }}</span>
+      </span>
+      <span class="pastiglia pastiglia-accento shrink-0">{{ t("Riprendi") }}</span>
+    </button>
+
     <!-- La lingua sta con i filtri e non sopra di loro: e' un controllo della
          stessa taglia, e a schermo intero occupava piu' spazio del titolo. Il
          valore ("Italiano", "中文") si legge da se', quindi l'etichetta resta
@@ -193,9 +205,9 @@ async function createCustom() {
         <label for="f-durata" class="sr-only">{{ t("Filtra per durata") }}</label>
         <select id="f-durata" v-model="durationFilter" class="campo-select">
           <option value="tutti">{{ t("Ogni durata") }}</option>
-          <option value="breve">{{ t("Meno di 30 min") }}</option>
-          <option value="media">{{ t("Da 30 a 60 min") }}</option>
-          <option value="lunga">{{ t("Più di 60 min") }}</option>
+          <option v-for="b in visitDurationBands" :key="b.value" :value="b.value">
+            {{ t(b.label) }}
+          </option>
         </select>
       </div>
       <button v-if="hasActiveFilters" type="button" class="btn-fantasma" @click="clearFilters">
@@ -255,18 +267,6 @@ async function createCustom() {
       <p class="mt-1 text-small text-muted">
         {{ t("Descrivi il tempo che hai, con chi sei, cosa ti interessa.") }}
       </p>
-
-      <div class="mt-4 flex flex-wrap gap-2">
-        <button
-          v-for="e in examples"
-          :key="e"
-          type="button"
-          class="pastiglia-bottone normal-case"
-          @click="customRequest = e"
-        >
-          {{ e }}
-        </button>
-      </div>
 
       <label for="su-misura-testo" class="sr-only">
         {{ t("Descrizione della visita che desideri") }}

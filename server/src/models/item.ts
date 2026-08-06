@@ -14,6 +14,7 @@
  */
 import { Schema, model } from "mongoose";
 import { Item as SharedItem } from "../../../shared/types";
+import { DEFAULT_LICENSE } from "../../../shared/constants";
 
 export interface IItem extends Omit<SharedItem, "about"> {
   "@context": string;
@@ -35,7 +36,7 @@ const itemSchema = new Schema<IItem>({
   author: { type: String, required: true },
   license: {
     type: String,
-    default: "https://creativecommons.org/licenses/by/4.0/",
+    default: DEFAULT_LICENSE,
   },
   price: { type: Number, default: 0 },
   text: String,

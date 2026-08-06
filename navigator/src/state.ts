@@ -99,15 +99,12 @@ export function setPosizioneAttiva(value: boolean) {
 // ============================================================================
 
 /**
- * Quella gia' scelta, poi quella del dispositivo, poi l'italiano. La regola sta
- * in `shared/` perche' se la pone anche il marketplace, e una risposta diversa
- * nelle due applicazioni vorrebbe dire aprirle in due lingue diverse.
+ * Quella gia' scelta, altrimenti l'italiano. La regola sta in `shared/` perche'
+ * se la pone anche il marketplace, e una risposta diversa nelle due
+ * applicazioni vorrebbe dire aprirle in due lingue diverse.
  */
 export const language = ref<Language>(
-  pickLanguage(
-    localStorage.getItem(LANG_KEY),
-    navigator.languages || [navigator.language],
-  ),
+  pickLanguage(sessionStorage.getItem(LANG_KEY)),
 );
 
 /**
@@ -122,7 +119,7 @@ setLocale(language.value.translate);
 
 export function setLanguage(lang: Language) {
   language.value = lang;
-  localStorage.setItem(LANG_KEY, lang.translate);
+  sessionStorage.setItem(LANG_KEY, lang.translate);
   setLocale(lang.translate);
 }
 

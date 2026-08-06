@@ -189,6 +189,19 @@ function exit() {
   announce(t("Scelta della visita"));
 }
 
+/**
+ * Si rientra nella visita da cui si era usciti. Uscire non la chiude: `visit`
+ * resta in piedi, quindi qui non c'e' niente da ricaricare e la tappa aperta e'
+ * ancora quella. Serve soprattutto alle visite che nell'elenco non ci sono --
+ * quella su misura, che nel database non esiste, e quella aperta da un
+ * collegamento diretto.
+ */
+function resume() {
+  if (!visit.value) return;
+  started.value = true;
+  announce(t("Visita ripresa: {nome}", { nome: visit.value.name }));
+}
+
 const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
 </script>
 
@@ -222,6 +235,7 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
         class="min-h-0 flex-1 overflow-y-auto"
         @start="onStart"
         @customStart="onCustomStart"
+        @resume="resume"
       />
 
       <!-- Fase 2: la visita -->

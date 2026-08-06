@@ -1113,6 +1113,57 @@ volte: il server ci dimensiona la descrizione da generare, il marketplace ci giu
 scritto sta nella durata dichiarata. Sono lo stesso cambio fra durata e lunghezza visto dai due
 lati; separate, si sarebbero messe d'accordo su «60 secondi di lettura» in due modi diversi.
 
+### 3.1-octies Con che diritti esce un contenuto *(2026-08-05)*
+
+Domanda arrivata cosi': «le licenze che abbiamo coprono i casi utili? sono quelle vere? io
+sono abituato a GNU, MIT, GPL». Le tre risposte, perche' sono tre cose diverse.
+
+**Non sono licenze da software, e non devono esserlo.** MIT, GPL e Apache sono scritte per il
+codice sorgente: parlano di codice oggetto, di collegamento, di distribuzione dei sorgenti. Su
+un testo divulgativo non dicono niente di sensato, e Creative Commons lo sconsiglia
+esplicitamente in tutt'e due i versi. Qui si licenzia quel che l'autore **scrive** — il testo di
+una descrizione, il percorso di una visita — non le immagini delle opere, che arrivano da
+Wikimedia con la licenza loro.
+
+⚠️ **«Tutti i diritti riservati» NON e' una licenza, ed e' l'errore che il vocabolario faceva.**
+Non e' una cosa che si concede: e' l'assenza di concessione, cioe' lo stato in cui il diritto
+d'autore mette un'opera da se'. La frase in se' e' un residuo della Convenzione di Buenos Aires
+del 1910 e non ha effetto legale da circa il 2000. Creative Commons non ha un identificatore per
+quel caso perche' CC pubblica solo **concessioni**. Il vocabolario che il mondo dei musei usa
+per dirlo e' **RightsStatements.org**, fatto da Europeana e DPLA proprio per questo campo: la
+voce e' `In Copyright`. Sta accanto alle CC perche' risponde alla stessa domanda — che cosa
+posso farci — ed e' come lo tiene Europeana, in un campo solo.
+
+**Le otto voci**, e perche' otto: `In Copyright`, le **sei** combinazioni CC 4.0 e `CC0 1.0`.
+Le tre condizioni CC sono indipendenti (`SA` stessa licenza, `NC` non commerciale, `ND` nessuna
+opera derivata) e prima ne mancavano tre, tutte quelle con `ND`: un autore non poteva chiedere
+«diffondetelo, ma non cambiate le mie parole», che per un testo di museo e' una richiesta
+comune.
+
+⚠️ **Sono IDENTIFICATORI e non si traducono**, come il marchio e gli id dei comandi vocali.
+`In Copyright` e' un nome proprio, non una frase inglese. Siccome pero' un identificatore non
+dice niente a chi non l'ha mai visto, a schermo ognuno **porta al suo testo canonico**
+(`licenseUri` in `shared/constants.ts`): a rightsstatements.org o a creativecommons.org, non a
+una parafrasi nostra.
+
+**Il difetto che la domanda ha scoperto.** Nessuna delle licenze del vocabolario era in uso:
+tutti i **4140** item del database portavano
+`https://creativecommons.org/licenses/by/4.0/`, cioe' il *default dello schema Mongoose*,
+scritto per giunta come indirizzo mentre ogni altra scrittura usa il codice. Il seed la licenza
+non l'ha mai impostata, quindi ereditavano tutti quel default, e la pagina dell'opera stampava
+l'indirizzo per esteso. Le visite stavano peggio: **82 su 84 con `license: null`**, perche' lo
+schema della visita un default non ce l'aveva affatto.
+
+**Adesso c'e' un valore solo, `DEFAULT_LICENSE`,** ed e' `In Copyright` — il piu' restrittivo,
+perche' un diritto non si cede per distrazione e nell'altro verso il danno e' irreparabile (una
+CC concessa non si revoca a chi l'ha ricevuta). Lo leggono i due schemi, le due rotte che
+scrivono e il client: prima erano tre copie della stessa stringa in formati diversi.
+
+⚠️ **Riseminare NON riscrive quel che c'e' gia'**: il seed salta gli item esistenti, e `--force`
+rigenererebbe anche tutti i testi (circa 8 chiamate al modello per opera). Per un database gia'
+popolato c'e' `npx ts-node src/scripts/testers.ts licenze`, che tocca **solo** i contenuti
+generati (`author: "sistema"`) e non sfiora la scelta di un autore.
+
 ### 3.2 The four LLM uses (slide 31) — all present
 
 1. **Create items for undescribed objects / missing level or length** —
@@ -1349,10 +1400,26 @@ pass); `prefers-reduced-motion` composes one figure and stops.
 volentieri `HOLD`, che e' attesa e basta, che `MORPH`, che e' la sola parte che si guarda e
 sotto il secondo torna a leggersi come uno scatto.
 
-Two doors: `Entra` and `Guarda com'è fatta una visita` (opens the navigator with no account —
-free visits only). Nothing is asked before something is shown. Since 2026-07-28 the screen
-carries **no university strapline and no theme toggle** — the toggle did nothing visible
-here, `bg-structure` being the same in both themes.
+**Two doors, one login** *(2026-08-06)*: `Entra nel marketplace` and `Entra nell'app da
+museo`. Both land on `accedi` — the navigator lives on another origin and the only way it
+can know who walked in is the handoff ticket minted here, which needs a session first — so
+the choice is an *intention* held in `entryTarget` until the login succeeds, and then:
+- marketplace → nothing changes, `roleHome()` as always;
+- navigator → straight out to `?museum=<qid>` **with no `visit=`**, which is what makes the
+  navigator land in the biglietteria, i.e. the tour picker.
+
+⚠️ `entryTarget` lives in memory and **not** in `localStorage`: it is the door of *this*
+entry, and saving it would mean some reload months later throwing into the museum app
+somebody who only wanted to reread the vetrina. It is also consumed only when the trip
+actually starts — if the ticket cannot be minted, you stay in the marketplace with the
+warning and can try again.
+
+⚠️ The navigator needs a museum, so a visitor with none remembered still passes through
+`musei` first; picking one leaves for the navigator from there, without loading a catalogue
+nobody is going to look at.
+
+Since 2026-07-28 the screen carries **no university strapline and no theme toggle** — the
+toggle did nothing visible here, `bg-structure` being the same in both themes.
 
 ### 4.3 `accedi` / `registrati`
 
@@ -1406,7 +1473,15 @@ non esiste.
 | --- | --- |
 | Fasce di durata `< 30` / `30-60` / `> 60` min: **tutte e 9 le visite cadevano nella prima**, cioe' due opzioni su tre restituivano zero e la terza tutto | soglie tarate su quel che `Visit.duration` misura davvero, cioe' minuti di **lettura**: `meno di 5 min` · `da 5 a 15 min` · `oltre 15 min`. Stanno in **una tabella sola** (`VISIT_DURATION_BANDS`), etichetta e predicato nella stessa riga cosi' non possono dire due cose diverse; il confronto e' `banda.test(min)`. Quando la durata contera' anche il cammino fra le sale si rialzano quei tre numeri e non serve toccare altro |
 | `availableLevels()` accodava qualunque valore trovato, quindi **`Personalizzata` compariva come quinto livello** (§7.3 lo aveva previsto) e sceglierlo dava una visita sola | solo i quattro toni veri: `Personalizzata` e `Su misura` sono etichette di *provenienza*, non livelli |
-| Il livello confrontava `Visit.level`, un campo solo — una visita composta a mano che mescola i toni non si trovava sotto nessuno di essi | si confrontano i **toni delle tappe** (`visitTones`), piu' la voce **`Misto`** per i percorsi che ne hanno piu' d'uno. Una visita a due toni si trova sotto `Misto` **e** sotto ciascuno dei due |
+| Il livello confrontava `Visit.level`, un campo solo — una visita composta a mano che mescola i toni non si trovava sotto nessuno di essi | si confrontano i **toni delle tappe** (`visitTones`), piu' la voce **`Misto`** per i percorsi che ne hanno piu' d'uno |
+
+⚠️ **Un tono filtra le visite che sono TUTTE di quel tono** *(stretto il 2026-08-05)*. Fino ad
+allora bastava che **una** tappa lo fosse, quindi `uffizzivisita` — Semplice piu' Infantile —
+compariva sotto *Semplice* pur non essendo semplice, ed e' cosi' che e' stata segnalata. Un
+filtro che restituisce cose che quel tono non hanno dice il falso. Stringere non nasconde
+niente, perche' `Misto` c'e': era il confronto con `Visit.level` a renderle irraggiungibili, e
+quello e' stato tolto prima. Misurato sugli Uffizi: `Infantile` 7 → 6, `Semplice` 6 → 5, gli
+altri due invariati, e la mista resta raggiungibile sotto `Misto`.
 | La durata era un filtro solo per due grandezze diverse | **contestuale**, come nel catalogo del curatore (§4.15): minuti per le visite, i due secondi veri (`secPerArt`) per le descrizioni, e su *Tutto* non compare, con una riga che dice perche' |
 
 I due indirizzi vecchi **rispondono ancora** e arrivano con la specie gia' scelta:
@@ -1463,11 +1538,64 @@ invece che sul grigio: la stessa superficie della soglia, il titolo in carattere
 (**8,29:1**), e un filo d'accento che si accende in basso passandoci sopra. Il titolo non
 si ripete piu' sotto la copertina, dove era scritto due volte nella stessa tessera.
 
+⚠️ **La tessera di una visita si tocca tutta** *(2026-08-06)*, non piu' la sola copertina:
+il collegamento e' `.tessera-intera`, un `<a>` steso su tutta la carta, e la copertina e'
+tornata a essere un titolo. I comandi che stanno dentro — *Inizia*, *Sblocca*, *Completa* —
+vanno percio' tirati **sopra** il velo con `relative z-30`, o il clic li attraversa. Il
+difetto sarebbe muto: il colpo finirebbe sul collegamento e la scheda si aprirebbe lo
+stesso, quindi *Inizia* sembrerebbe funzionare mentre non fa piu' partire niente.
+
 ### 4.8 `opera/<qid>` · 4.9 `visita/<id>` — pages, not modals
 
-**`opera`** — two columns: matted image + painter/style left; the descriptions as a list of
-plaques right, each with tone, length, author, licence, price and one action. Owned rows
-**expand in place** (`x-collapse`) to reveal the text: no navigation, no overlay.
+**`opera`** — a **header band** (image + title + painter/style, side by side) over the
+descriptions, which take the **full width** of the screen as a grid (`sm:grid-cols-2
+xl:grid-cols-3`), each plaque with tone, length, author, licence, price and one action. Owned
+rows **expand in place** (`x-collapse`) to reveal the text: no navigation, no overlay.
+
+⚠️ **Layout rules that are load-bearing here** *(2026-08-06)*. The descriptions were a single
+column inside the right half of a two-column page: an artwork carries ~20 of them, so it
+scrolled for two screens with half the screen empty beside it. Three things keep the current
+shape working, and each fixes a defect that was visible on screen:
+- the figure is capped by **height** (`max-h-72 w-auto`), not width — the catalogue holds both
+  landscape and portrait paintings, and a width cap leaves the portrait ones twice as tall as
+  the rest (measured across six works: 161-288 px wide, none taller than 288);
+- the grid is **`items-start`**, or opening one description stretches its whole row and the
+  neighbouring plaques stand empty and tall beside it;
+- the third column only arrives at **`xl`**, where a plaque is still wide enough to hold
+  *Leggi* and *Tieni in libreria* on one line.
+
+**What you already own is marked by the border**, `.lastra-posseduta`: the whole outline in
+**acquisito** plus a veil of the same hue. It goes here because this is the one screen where
+owned and not-owned sit side by side; it needs a plaque whose border is not already an
+accent-coloured hover signal, and the colour never carries the fact alone — the words *Nella
+tua libreria* sit beside it.
+
+**The two filters of the vetrina, on this page too** *(2026-08-06)* — tone and length, with
+their own memory (`artworkLevelFilter` / `artworkDurationFilter`) and their options taken
+from *this* artwork's descriptions. ⚠️ They deliberately do **not** reuse
+`marketLevelFilter`/`marketDurationFilter`: in the vetrina the length filter is a band of
+*minutes* when tours are shown (`breve`, `media`…), which matches no description, so
+arriving from a vetrina filtered to short tours would open the artwork empty. The menus
+appear only when there is more than one value to separate, and the count under the title is
+the **shown** one, so it answers the filter.
+
+**The tone is a colour**, one per step: `.pastiglia-tono-*`, driven by `toneClass()`, which
+*derives* the class name from the tone instead of keeping a second list beside
+`educationalLevelHints` — a tone with no rule in `components.css` comes out as a neutral
+plaque, which is the right fallback because the word is inside the plaque anyway. The scale
+runs cold-to-warm as the reading gets harder (light blue, blue, yellow, orange) and lives in
+`theme.css` next to the four semantic roles. ⚠️ **Measured inside the plaque, not on the
+plate**: the background there is the tone's own veil, which lifts the floor. Light theme
+4.82 / 6.42 / 4.92 / 5.56, dark 5.24 / 4.80 / 5.39 / 4.97 — the orange had to be darkened to
+get there. The same class is used everywhere a tone is shown (composer library, curator's
+catalogue), or the same fact would have two colours.
+
+**`visita`** — the **percorso is a grid of cards** *(2026-08-06)*, the same shape the
+artworks have in the vetrina: a tour is made of artworks, and as rows they showed four per
+screen with the picture squeezed into a 136 px strip. It stays an `<ol>` and each card
+carries its number on the figure, because a grid reads by rows and would not otherwise say
+which stop is first. ⚠️ **The logistics notes stay inside the stop they are anchored to** —
+that is where the navigator plays them — so a stop with a note is simply a taller cell.
 **`visita`** — metadata, the strongest action first, the access key when guided, and the
 **percorso** as a numbered list with the **logistics notes rendered between the stops they
 belong to**; the ones anchored to nothing (`after: null`) **open** the list rather than
@@ -2069,18 +2197,34 @@ ancora `"avvio"`, che non e' nessuna schermata.
 Corollario per chi cambia il caricamento: **non esiste un modo di far partire Alpine piu'
 tardi.** `deferLoadingAlpine` e' di Alpine 2 e nella versione vendorizzata non c'e'.
 
-**Con che lingua si apre lo decide `shared/constants.ts`.** `pickLanguage(saved, preferite)`
-e `LANG_KEY` stanno accanto ai tipi perche' se lo chiedono tutt'e due le applicazioni, e due
-risposte diverse vorrebbero dire aprirle in due lingue diverse. E' una funzione pura: memoria
-e dispositivo glieli passa chi chiama, che li legge in posti diversi. Il marketplace la
-proponeva dal dispositivo **da mai**, ed e' la porta d'ingresso: la schermata che si legge
-prima di poter scegliere era proprio quella che non guardava.
+**Con che lingua si apre lo decide `shared/constants.ts`.** `pickLanguage(saved)` e
+`LANG_KEY` stanno accanto ai tipi perche' se lo chiedono tutt'e due le applicazioni, e due
+risposte diverse vorrebbero dire aprirle in due lingue diverse. E' una funzione pura: la
+memoria gliela passa chi chiama, che la legge in posti diversi.
 
-⚠️ **La lingua sopravvive alla chiusura della finestra e la sessione no**, ed e' voluto:
-la prima e' una preferenza e sta in `localStorage`, sotto la stessa chiave del navigator,
-quindi si sceglie una volta per tutt'e due; la seconda muore con la scheda. Il prezzo di
-volerla per scheda sarebbe perdere la scelta condivisa, visto che in sviluppo le due
-applicazioni stanno su due origini diverse.
+**Due casi soli: la lingua gia' scelta, altrimenti l'italiano** *(2026-08-06)*.
+
+⚠️ **Il ripiego sulla lingua del DISPOSITIVO e' stato tolto**, e va saputo perche' c'era:
+copriva la prima schermata, che si legge prima di poter scegliere. Il difetto era che
+leggeva nel pensiero — un browser configurato in inglese apriva in inglese un'applicazione
+italiana, senza che nessuno l'avesse chiesto e senza che si vedesse da dove venisse; e in
+sviluppo lo faceva anche a chi stava solo ricaricando. Al suo posto c'e' un **controllo**: il
+selettore della lingua sta ora **sulla soglia**, cioe' esattamente nella schermata che il
+ripiego voleva coprire, e chi non legge l'italiano lo trova senza dover entrare. Le due cose
+sono legate: togliendo quel selettore dalla soglia si torna al problema che il ripiego
+risolveva.
+
+⚠️ **La lingua vale per la SCHEDA** (`sessionStorage`, `LANG_KEY`), come la sessione: ogni
+apertura nuova riparte in italiano, e quel che si sceglie dura finche' quella scheda resta
+aperta. In `localStorage` — dov'era fino al 2026-08-06 — una scelta fatta una volta vinceva
+su ogni apertura successiva, anche mesi dopo, perche' a ricordarla non era la scheda ma
+l'**origine**: aprirne una nuova ridava l'inglese scelto chissa' quando, e l'unico modo di
+tornare indietro era cancellare una chiave a mano.
+
+Il costo dichiarato: la scelta **non si porta piu' dietro la chiusura della finestra**. Non
+costa invece il passaggio al navigator, che avviene nella stessa scheda (`location.href`),
+quindi in produzione — unica origine — la lingua lo raggiunge come prima; in sviluppo le due
+applicazioni stanno su due porte e non se la passavano nemmeno con `localStorage`.
 
 **La libreria e' la stessa, e non e' un dettaglio.** `vue-i18n` qui non ci puo' stare
 (vuole Vue, e la slide 37 vieta un framework nel marketplace), ed e' il motivo per cui il

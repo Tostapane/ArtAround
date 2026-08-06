@@ -88,13 +88,77 @@ export function kindById(id: string): ItemKind | null {
   return null;
 }
 
+/**
+ * Con che diritti un autore pubblica quel che ha SCRITTO lui: il testo di una
+ * descrizione, il percorso di una visita. Non riguarda le immagini delle opere,
+ * che arrivano da Wikimedia con la licenza loro.
+ *
+ * Non sono licenze da software (MIT, GPL, Apache). Quelle sono scritte per il
+ * codice sorgente -- parlano di codice oggetto, di collegamento, di
+ * distribuzione dei sorgenti -- e su un testo divulgativo non dicono niente di
+ * sensato; Creative Commons lo sconsiglia esplicitamente in tutt'e due i versi.
+ *
+ * ⚠️ La prima voce NON e' una licenza, ed e' il motivo per cui e' scritta cosi'.
+ * "Tutti i diritti riservati" non e' una cosa che si concede: e' l'assenza di
+ * concessione, cioe' lo stato in cui il diritto d'autore mette un'opera da se'.
+ * Serviva pero' un valore dichiarabile e leggibile da una macchina, e quello
+ * che il mondo dei musei usa e' `In Copyright` di RightsStatements.org, il
+ * vocabolario che Europeana e DPLA hanno fatto per questo campo. Sta accanto
+ * alle CC perche' e' la stessa domanda -- "che cosa posso farci?" -- e Europeana
+ * le tiene infatti nello stesso campo.
+ *
+ * Le sei combinazioni CC 4.0 ci sono tutte: le tre condizioni sono indipendenti
+ * e ognuna dice una cosa che le altre non sanno dire.
+ *   BY    attribuzione, sempre presente nella 4.0
+ *   SA    chi rimescola ridistribuisce con la stessa licenza
+ *   NC    non commerciale
+ *   ND    nessuna opera derivata: si diffonde, non si riscrive
+ * Senza le tre voci ND un autore non poteva chiedere "diffondetelo, ma non
+ * cambiate le mie parole", che per un testo di museo e' una richiesta comune.
+ *
+ * In coda CC0, che e' l'estremo opposto della prima voce: la rinuncia a tutto.
+ *
+ * ⚠️ Sono IDENTIFICATORI e non si traducono, come il marchio e come gli id dei
+ * comandi vocali. `In Copyright` e' un nome proprio, non una frase inglese.
+ */
 export const licenses = [
-  "Tutti i diritti riservati",
+  "In Copyright",
   "CC BY 4.0",
   "CC BY-SA 4.0",
   "CC BY-NC 4.0",
-  "CC0 (Pubblico dominio)",
+  "CC BY-ND 4.0",
+  "CC BY-NC-SA 4.0",
+  "CC BY-NC-ND 4.0",
+  "CC0 1.0",
 ];
+
+/**
+ * L'indirizzo canonico di ogni voce: e' li' che sta il testo che vale, e nessuno
+ * dei due vocabolari e' nostro. Serve a chi vuole leggere che cosa ha davvero
+ * accettato, e a un domani in cui questi dati uscissero verso Europeana, che il
+ * campo lo vuole proprio come URI.
+ */
+export const licenseUri: Record<string, string> = {
+  "In Copyright": "http://rightsstatements.org/vocab/InC/1.0/",
+  "CC BY 4.0": "https://creativecommons.org/licenses/by/4.0/",
+  "CC BY-SA 4.0": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "CC BY-NC 4.0": "https://creativecommons.org/licenses/by-nc/4.0/",
+  "CC BY-ND 4.0": "https://creativecommons.org/licenses/by-nd/4.0/",
+  "CC BY-NC-SA 4.0": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "CC BY-NC-ND 4.0": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+  "CC0 1.0": "https://creativecommons.org/publicdomain/zero/1.0/",
+};
+
+/**
+ * Il valore di chi non ne ha scelto uno: i contenuti generati dal seed e
+ * qualunque scrittura che arrivi senza il campo.
+ *
+ * E' il piu' restrittivo di proposito. Un diritto non si cede per distrazione:
+ * chi non ha detto niente non ha detto "prendete pure". Nell'altro verso il
+ * danno sarebbe irreparabile, perche' una CC concessa non si revoca a chi l'ha
+ * gia' ricevuta.
+ */
+export const DEFAULT_LICENSE = "In Copyright";
 
 // ============================================================================
 //                                  Lingue
@@ -143,48 +207,45 @@ export const languages: Language[] = [
  * La chiave sta qui perche' le due applicazioni devono leggerla e scriverla
  * uguale: sceglierla nel marketplace e ritrovarla nel navigator e' una scelta
  * sola, non due. Scritta in tutt'e due i file, prima o poi ne diventa due.
+ *
+ * ⚠️ Sta in `sessionStorage` e NON in `localStorage`, ed e' la differenza fra
+ * "questa volta" e "per sempre": la lingua vale finche' la scheda resta aperta,
+ * quindi ogni apertura nuova riparte in italiano. In `localStorage` una scelta
+ * fatta una volta vinceva su ogni apertura successiva, anche mesi dopo, e
+ * l'unico modo di tornare indietro era cancellare una chiave a mano.
+ *
+ * Il passaggio al navigator avviene nella stessa scheda (`location.href`),
+ * quindi in produzione -- unica origine -- la scelta lo raggiunge lo stesso. In
+ * sviluppo le due applicazioni stanno su due porte diverse e non se la
+ * passavano nemmeno prima.
  */
 export const LANG_KEY = "artaround-lang";
 
 /**
- * La lingua con cui aprire: quella gia' scelta, poi quella del dispositivo,
- * poi l'italiano.
+ * La lingua con cui aprire: quella gia' SCELTA, altrimenti l'italiano.
  *
- * Serve perche' la prima schermata si legge PRIMA di poter scegliere: aprendo
- * sempre in italiano, a un visitatore cinese si chiede di riconoscere la frase
- * «Lingua dei contenuti» per arrivare a 中文. Il suo dispositivo quella
- * risposta ce l'ha gia'.
+ * Solo due casi, e la sola cosa che li distingue e' se qualcuno ha scelto: si
+ * apre nella lingua del progetto finche' non lo fa qualcuno, e da quel momento
+ * in quella scelta, in ogni scheda e anche dopo aver chiuso il browser.
  *
- * `preferite` sono le lingue del dispositivo in ordine di gradimento
- * (`navigator.languages`). Si prova prima il codice intero e poi la sola
- * radice, perche' un dispositivo dice `en-GB` o `pt-PT` dove il nostro elenco
- * ha `en` e `pt`, e all'incontrario dice `zh` dove noi abbiamo solo `zh-CN`.
- * Una radice che porta a piu' lingue prende la prima dell'elenco.
+ * ⚠️ Prima veniva provata anche la lingua del DISPOSITIVO (`navigator.languages`),
+ * fra le due. Era pensata per la prima schermata, che si legge prima di poter
+ * scegliere, ma leggeva nel pensiero: un browser configurato in inglese apriva
+ * in inglese un'applicazione italiana, senza che nessuno l'avesse chiesto e
+ * senza che si vedesse perche'. Il ripiego e' ora un CONTROLLO: il selettore
+ * della lingua sta sulla soglia, cioe' proprio nella schermata che il ripiego
+ * voleva coprire, e chi non legge l'italiano lo trova li' senza dover entrare.
+ * Se un giorno quel selettore sparisse dalla soglia, questa scelta andrebbe
+ * ridiscussa insieme a lui.
  *
- * La funzione non tocca la memoria e non guarda il dispositivo da se': i due
- * valori glieli passa chi chiama. Cosi' la stessa regola vale nel navigator e
- * nel marketplace, che quei due valori li prendono in posti diversi.
- *
- * Quella del dispositivo NON si salva: e' un ripiego, non una scelta, e
- * scrivendola le due cose diventerebbero indistinguibili.
+ * La funzione non tocca la memoria: il valore glielo passa chi chiama, perche'
+ * il navigator e il marketplace lo leggono in posti diversi. Serve comunque a
+ * tutt'e due, perche' un codice rimasto in memoria puo' non essere piu' fra le
+ * lingue configurate, e quello si scarta qui.
  */
-export function pickLanguage(
-  saved: string | null,
-  preferite: readonly string[],
-): Language {
+export function pickLanguage(saved: string | null): Language {
   for (const l of languages) {
     if (l.translate === saved) return l;
-  }
-  for (const p of preferite) {
-    if (!p) continue;
-    const codice = p.toLowerCase();
-    for (const l of languages) {
-      if (l.translate.toLowerCase() === codice) return l;
-    }
-    const radice = codice.split("-")[0];
-    for (const l of languages) {
-      if (l.translate.toLowerCase().split("-")[0] === radice) return l;
-    }
   }
   const prima = languages[0];
   if (!prima) throw new Error("Nessuna lingua configurata");
@@ -294,19 +355,31 @@ export const assignedLevels = [CUSTOM_LEVEL, AI_LEVEL];
  * che e' quel che `Visit.duration` somma; quando contera' anche il cammino fra
  * le sale, i tre numeri qui vanno rialzati e non serve toccare altro.
  *
- * Stanno qui e non nel marketplace, che e' il solo a usarle, perche' le tre
- * etichette sono chiavi di traduzione lette come `t(b.label)`: l'estrattore
- * raccoglie le chiavi calcolate da questo file, e altrove resterebbero fuori
- * dal catalogo senza che niente lo segnali.
+ * Stanno qui perche' le usano TUTT'E DUE le applicazioni, e finche' erano solo
+ * del marketplace le due non erano d'accordo: il navigator aveva la stessa
+ * domanda scritta come catena di `if` con soglie 30 e 60, il marketplace 5 e 15,
+ * quindi "visita breve" voleva dire due cose diverse nelle due meta' dello
+ * stesso prodotto.
+ *
+ * Le tre etichette sono anche chiavi di traduzione, lette come `t(b.label)`:
+ * l'estrattore raccoglie le chiavi calcolate da questo file, e altrove
+ * resterebbero fuori dal catalogo senza che niente lo segnali.
+ *
+ * Le soglie sono tarate sul catalogo vero e non a occhio: sulle 84 visite in
+ * database stanno 40 sotto la mezz'ora, 20 in mezzo e 24 oltre l'ora, cioe' le
+ * tre voci restituiscono tutte qualcosa. Le soglie di prima (5 e 15) erano
+ * giuste quando le visite erano nove e lunghe pochi minuti; con gli Uffizi
+ * dentro, la terza voce si prendeva tutto. Rimisurare quando il catalogo
+ * cambia taglia fa parte del lavoro.
  */
 export const visitDurationBands: {
   value: string;
   label: string;
   test: (min: number) => boolean;
 }[] = [
-  { value: "corta", label: "meno di 5 min", test: (m) => m < 5 },
-  { value: "media", label: "da 5 a 15 min", test: (m) => m >= 5 && m <= 15 },
-  { value: "lunga", label: "oltre 15 min", test: (m) => m > 15 },
+  { value: "breve", label: "Meno di 30 min", test: (m) => m < 30 },
+  { value: "media", label: "Da 30 a 60 min", test: (m) => m >= 30 && m <= 60 },
+  { value: "lunga", label: "Più di 60 min", test: (m) => m > 60 },
 ];
 
 /** I minuti che si mostrano: l'arrotondamento sta qui e non in chi disegna. */

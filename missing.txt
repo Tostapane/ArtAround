@@ -1,27 +1,17 @@
 MANCANTI
-- PS. mi turbano ancora le opere un po rotonde e un po quadrate.
-- generalizzare cose nel marketplace
 - perche l'hashtag?
 - rimuovere bullshit e caratteri strani
 - ottimizzazioni
-- visualizzare foto dell'item dal marketplace
-- trovare i meta-item nel marketplace
-- la barra di ricerca del marketplace e' laggy
-- una visita mista viene mostrata nei semplici (lo contiente?)
-- stuiole: unknown
 - gli uffizi hanno tutto gratis
-- queste licenze hanno senso?
-- aggiungere un filtro per durata nel marketplace
-- su sfondo chiaro le schede degli item rimangono chiare e si confondono con il bordo
-- e se volessi mostrare all'inizio altre opere oltre quelle di adesso?
-- cliccare su  gli item di un artwork ti apre la pagina in fondo alla lista
-- the image should fade behing the name in the marketplace, in order to not leave an awful border
-- svg piu' dettagliati e complessi
-- in the componi part, same thing, the fading would be appreciated instead of a small square
+- svg piu' dettagliati e complessi, opere tonde?
 - immagine per le visite
-- aumenta velocita animazione
 - adozione mediante unico file di configurazione
+- accesso a navigator e marketplace dalla landing page
+- mettere imagini del museo
+- migliorare il logo
+- superseed, rework dei prezzi
 DA DISCUTERE
+- generalizzare cose nel marketplace
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
 - testare il nuovo sistema di audio su iphone
@@ -45,9 +35,6 @@ da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede 
 fuori dalla finestra
 la barra di ricerca con gli item e visite ha i bordi strani se cerchi
 
-domande 
-1) when the user logs in is supposed to choose one of the museums, right now its inside the last museum he used
-2) i tried the second museum and once i ended the visit i did not re enter the home, i was in the landing page
 
 
 

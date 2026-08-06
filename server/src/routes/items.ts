@@ -40,6 +40,7 @@ import { purchasedBy, readableItems, isReadable } from "../access";
 import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
 import { kindById } from "../../../shared/constants";
+import { DEFAULT_LICENSE } from "../../../shared/constants";
 
 const router = Router();
 
@@ -326,7 +327,7 @@ router.post("/", async (req, res) => {
         educationalLevel: desc.tono,
         author,
         price: privato ? 0 : payload.prezzo,
-        license: payload.licenza || "Tutti i diritti riservati",
+        license: payload.licenza || DEFAULT_LICENSE,
         text: desc.testo,
         visibility: privato ? "privato" : "pubblico",
       });

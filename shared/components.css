@@ -143,7 +143,21 @@
   .campo {
     @apply mt-1.5 block min-h-11 w-full rounded-t-plate border-0 border-b-2 border-line-strong
            bg-surface-2 px-3 py-2.5 text-body text-text
-           placeholder:text-muted focus:border-accent focus:outline-none;
+           placeholder:text-muted focus:border-accent;
+  }
+  /*
+    I campi si segnalano col bordo d'accento e non con l'anello a due tinte, che
+    su un campo largo diventa una cornice pesante. Le due meta' dell'anello
+    vanno pero' spente INSIEME: `outline: none` da solo lascia in piedi il
+    `box-shadow`, cioe' 6 px di quasi-nero appoggiati sul bordo -- invisibili al
+    chiaro, dove l'alone e' bianco su lastra bianca, e un rettangolo nero al
+    buio. E' il difetto che si vedeva scrivendo nella ricerca.
+  */
+  .campo:focus,
+  .campo-select:focus,
+  .campo-cerca input:focus {
+    outline: none;
+    box-shadow: none;
   }
   .campo:disabled {
     @apply cursor-not-allowed opacity-60;
@@ -162,7 +176,7 @@
   .campo-select {
     @apply min-h-11 appearance-none rounded-plate border border-line-strong bg-surface
            py-2 pl-3 pr-9 text-small font-medium text-text
-           focus:border-accent focus:outline-none;
+           focus:border-accent;
     background-image:
       linear-gradient(45deg, transparent 50%, currentColor 50%),
       linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -195,6 +209,8 @@
   .etichetta-impostazione {
     @apply block text-caption uppercase tracking-wider text-muted;
   }
+  /* Il bordo d'accento sta sul CONTENITORE, che e' quel che ha l'aspetto del
+     campo: l'input dentro non ha bordo suo e non deve disegnare niente. */
   .campo-cerca {
     @apply flex min-h-11 flex-1 items-center gap-2 rounded-plate border border-line-strong
            bg-surface px-3 focus-within:border-accent;
@@ -251,6 +267,57 @@
     background-color: var(--accent-velo);
   }
 
+  /*
+    Il collegamento che copre la TESSERA INTERA, figura compresa.
+
+    E' un `<a>` vero messo come ultimo figlio della tessera, non uno pseudo
+    elemento appeso al titolo: un `::after` si posiziona rispetto al primo
+    antenato posizionato, e nella tessera di un'opera quello e' il blocco del
+    testo -- che ha `relative` per risalire sopra la dissolvenza. Il velo
+    copriva percio' il solo testo, e la fotografia restava fuori: un modo
+    silenzioso di rendere la tessera MENO cliccabile di quando la figura era un
+    collegamento suo.
+
+    Il nome accessibile lo porta lui, quindi il titolo non e' piu' un
+    collegamento: una destinazione sola, una voce sola nell'elenco dei
+    collegamenti.
+
+    ⚠️ Il velo copre tutto quel che gli sta sotto, comandi compresi. Una tessera
+    che ne ha -- quella di una visita ha *Inizia* e *Sblocca* -- deve tirarli
+    sopra con `relative z-30`, o smettono di rispondere e restano solo da
+    guardare. Il difetto non da' errori: il clic finisce sul collegamento e la
+    scheda si apre lo stesso, quindi sembra funzionare.
+  */
+  .tessera-intera {
+    @apply absolute inset-0 z-20 rounded-card;
+  }
+
+  /*
+    Quel che si POSSIEDE gia', dove sta in mezzo a quel che non si possiede: il
+    BORDO INTERO della lastra in ACQUISITO, piu' una velatura della stessa
+    tinta. E' il ruolo che il foglio dei token assegna proprio a "posseduto",
+    quindi il colore dice la stessa cosa che dice la parola sulla tessera.
+
+    Il bordo e' tutt'e quattro i lati perche' questa e' la differenza che si
+    deve vedere scorrendo venti tessere uguali senza leggerle: un filo su un
+    lato solo, a un metro di distanza, non si distingue dal margine. Il colore
+    non porta comunque l'informazione da solo -- accanto c'e' sempre la parola
+    (Nella tua libreria, Acquistato, Pubblicata da te).
+
+    La velatura si posa SOPRA il fondo della lastra come immagine, invece di
+    sostituire `bg-surface`: assegnandola a `background-color` la tessera
+    posseduta perderebbe la superficie e resterebbe salvia sul muro, cioe' piu'
+    scura delle altre invece che piu' segnata.
+
+    ⚠️ Va su una lastra che NON si accende d'accento al passaggio: dove il bordo
+    e' gia' un segnale di "ci puoi andare" i due si darebbero fastidio, e li' il
+    possesso va detto in un altro modo.
+  */
+  .lastra-posseduta {
+    @apply border-2 border-sage;
+    background-image: linear-gradient(var(--sage-velo), var(--sage-velo));
+  }
+
   /* --- Pastiglie: informazione, mai un'azione ----------------------------
      Il fondo e' la VELATURA del ruolo, cioe' la stessa tinta del testo al 12%
      su trasparente. Due conseguenze volute: la pastiglia dice il suo ruolo
@@ -287,6 +354,50 @@
   .pastiglia-accento {
     @apply border-accent/35 text-accent;
     background-color: var(--accent-velo);
+  }
+  /*
+    IL TONO, un colore per gradino. La pagina di un'opera mette in fila venti
+    descrizioni che differiscono solo per tono e durata: con una tinta sola per
+    tutte, sapere quali sono per bambini vuol dire leggere venti parole.
+
+    ⚠️ Il nome della classe si RICAVA dal tono (`toneClass`), non da una tabella:
+    un tono nuovo in `educationalLevelHints` compare da solo, e finche' nessuno
+    gli scrive qui la sua riga resta una pastiglia neutra -- che e' il ripiego
+    giusto, perche' l'informazione la porta la parola dentro. Cambiando qui i
+    nomi si scollegano in silenzio: si toccano insieme.
+  */
+  .pastiglia-tono-infantile {
+    @apply border-tono-infantile/35 text-tono-infantile;
+    background-color: var(--tono-infantile-velo);
+  }
+  .pastiglia-tono-semplice {
+    @apply border-tono-semplice/35 text-tono-semplice;
+    background-color: var(--tono-semplice-velo);
+  }
+  .pastiglia-tono-medio {
+    @apply border-tono-medio/35 text-tono-medio;
+    background-color: var(--tono-medio-velo);
+  }
+  .pastiglia-tono-avanzato {
+    @apply border-tono-avanzato/35 text-tono-avanzato;
+    background-color: var(--tono-avanzato-velo);
+  }
+  /*
+    La DURATA. Sta accanto al tono, che e' ametista, e prima era testo nudo: due
+    metadati della stessa riga, uno vestito e l'altro no.
+
+    Non prende una tinta semantica sua, e il motivo va saputo prima di
+    cambiarlo: le quattro sono assegnate (valore, categoria, acquisito,
+    allarme) e la durata non e' nessuna delle quattro. Darle l'ottone la
+    farebbe leggere come un prezzo -- che sta due posti piu' in la' nella stessa
+    riga -- e darle l'accento direbbe che si puo' cliccare. Prende quindi la
+    forma della pastiglia e resta neutra: si distingue dal tono per il colore
+    che NON ha, ed e' l'unico modo di distinguerla senza mentire su che cosa
+    sia. Chi volesse una tinta vera deve aggiungere un quinto ruolo alla
+    sorgente, e rifare le due misure di `theme.css`.
+  */
+  .pastiglia-durata {
+    @apply border-line-strong/40 text-text;
   }
 
   /* Cifre che rappresentano un valore: prezzi, ricavi, credito. */

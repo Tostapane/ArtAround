@@ -165,6 +165,24 @@
       <div class="sciame-velo" aria-hidden="true"></div>
 
       <div class="relative flex min-h-[100dvh] flex-col justify-between p-6 sm:p-10 lg:p-16">
+        <!-- LA LINGUA SI SCEGLIE QUI, prima di entrare. E' la schermata che si
+             legge per prima, e l'applicazione apre sempre in italiano finche'
+             nessuno ha scelto: senza questo campo, chi l'italiano non lo legge
+             dovrebbe accedere per trovare il selettore nel binario. I nomi sono
+             scritti ciascuno nella propria lingua, cosi' si riconoscono senza
+             dover prima leggere l'italiano. -->
+        <div class="flex justify-end">
+          <div class="w-44">
+            <label for="lingua-soglia" class="sr-only" x-text="t('Lingua')"></label>
+            <select id="lingua-soglia" class="campo-select campo-select-struttura w-full"
+              :value="lingua" @change="cambiaLingua($event.target.value)">
+              <template x-for="l in lingueDisponibili" :key="l.translate">
+                <option :value="l.translate" x-text="l.name"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
         <div class="my-auto max-w-4xl py-16">
           <svg class="marchio mb-8 text-accent" viewBox="0 0 64 64" role="img" :aria-label="t(`ArtAround`)">
             <use href="#ico-marchio" />
@@ -173,9 +191,16 @@
             ART<br>AROUND<span class="text-accent">.</span>
           </h1>
           <p class="measure mt-8 text-title-3 text-on-structure/85" x-text="t(`Prepara, scopri e vivi la visita di un museo, alla tua maniera. Scegli un percorso già pronto, componi il tuo, o fatti guidare.`)"></p>
+          <!-- DUE PORTE, un accesso solo: la scelta e' dove si va DOPO aver
+               detto chi si e', perche' il navigator sta su un'altra origine e
+               l'unico modo che ha di sapere chi e' entrato e' il biglietto che
+               si conia di qua. -->
           <div class="mt-10 flex flex-col gap-3 sm:flex-row">
-            <button type="button" @click="goTo('accedi')" class="btn-primario text-title-3" x-text="t(`Entra`)"></button>
+            <button type="button" @click="enterFrom('marketplace')" class="btn-primario text-title-3" x-text="t(`Entra nel marketplace`)"></button>
+            <button type="button" @click="enterFrom('navigator')" class="btn-fantasma-chiaro text-title-3" x-text="t(`Entra nell'app da museo`)"></button>
           </div>
+          <p class="measure mt-4 text-small text-on-structure/70"
+            x-text="t(`L'app da museo è quella che si usa camminando: dopo l'accesso si sceglie la visita.`)"></p>
         </div>
 
       </div>
@@ -186,7 +211,13 @@
         <button type="button" @click="goTo('soglia')" class="btn-fantasma mb-8 -ml-3">
           <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> <span x-text="t(`Indietro`)"></span>
         </button>
-        <h1 class="mb-8 font-display text-title-1" x-text="t(`Accedi`)"></h1>
+        <h1 class="font-display text-title-1" :class="entryTarget === 'navigator' ? 'mb-2' : 'mb-8'"
+          x-text="t(`Accedi`)"></h1>
+        <!-- Chi ha scelto l'app da museo se lo deve ritrovare scritto: dopo
+             l'accesso si esce da qui, e un salto non annunciato sembra un
+             errore. -->
+        <p class="mb-8 text-small text-muted" x-show="entryTarget === 'navigator'"
+          x-text="t(`L'app da museo è quella che si usa camminando: dopo l'accesso si sceglie la visita.`)"></p>
 
         <template x-if="roleChoice">
           <div class="lastra p-6">
@@ -518,13 +549,13 @@
               <div class="campo-cerca">
                 <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
                 <label for="cerca-vetrina" class="sr-only" x-text="t(`Cerca in vetrina`)"></label>
-                <input id="cerca-vetrina" type="search" x-model="marketSearch"
+                <input id="cerca-vetrina" type="search" x-model.debounce.250ms="marketSearch"
                   :placeholder="t(`Cerca una visita, un'opera, un pittore…`)"
-                  @input="announce(marketSummary())">
+                  @input.debounce.300ms="announce(marketSummary())">
               </div>
               <div class="flex flex-wrap gap-3">
                 <div class="segmenti" role="group" :aria-label="t(`Che cosa mostrare`)">
-                  <template x-for="f in [{v:'tutti',label:t(`Tutto`)},{v:'visite',label:t(`Visite`)},{v:'opere',label:t(`Opere`)}]" :key="f.v">
+                  <template x-for="f in [{v:'tutti',label:t(`Tutto`)},{v:'visite',label:t(`Visite`)},{v:'opere',label:t(`Opere`)},{v:'meta',label:t(`Soggetti`)}]" :key="f.v">
                     <button type="button" class="segmento" :class="marketType === f.v ? 'segmento-attivo' : ''"
                       :aria-pressed="marketType === f.v" @click="setMarketType(f.v)" x-text="f.label"></button>
                   </template>
@@ -551,7 +582,7 @@
 
             <!-- La durata di una visita sta in minuti, quella di una descrizione in
                  secondi: un filtro solo per tutt'e due sarebbe una trappola. -->
-            <p x-show="marketType === 'tutti'" class="mt-2 text-caption text-muted" x-text="t(`Scegli Visite o Opere per filtrare anche per durata.`)"></p>
+            <p x-show="marketType === 'tutti'" class="mt-2 text-caption text-muted" x-text="t(`Scegli Visite, Opere o Soggetti per filtrare anche per durata.`)"></p>
 
             <!-- ---------- LE VISITE ---------- -->
             <section x-show="shownVisits().length > 0" class="mt-10" aria-labelledby="vetrina-visite">
@@ -559,13 +590,13 @@
                 class="font-display text-title-2" x-text="t(`Visite`)"></h2>
               <div class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 <template x-for="v in shownVisits()" :key="v['@id']">
-                  <article class="lastra group flex flex-col overflow-hidden transition-colors hover:border-accent">
+                  <article class="lastra group relative flex flex-col overflow-hidden transition-colors hover:border-accent">
                     <!-- La copertina E' il titolo: ripeterlo sotto lo diceva due
-                         volte nella stessa tessera. -->
-                    <h3>
-                      <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="copertina filo-accento" :aria-label="'Apri la scheda di ' + v.name">
-                        <span x-text="v.name"></span>
-                      </a>
+                         volte nella stessa tessera. Non e' piu' lei il
+                         collegamento -- lo e' la tessera intera, qui sotto --
+                         quindi resta un titolo e basta. -->
+                    <h3 class="copertina filo-accento">
+                      <span x-text="v.name"></span>
                     </h3>
                     <div class="flex flex-1 flex-col p-5">
                       <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
@@ -574,22 +605,32 @@
                       </p>
                       <div class="mt-5 flex items-center justify-between gap-3 border-t border-line pt-4">
                         <span class="valore font-display text-title-3" x-text="visitPrice(v)"></span>
+                        <!-- I comandi si tirano SOPRA il velo del collegamento
+                             (z-30 contro z-20), o se li mangerebbe: e' la ragione
+                             per cui la tessera di una visita non poteva usarlo
+                             prima che i suoi bottoni fossero sollevati. -->
                         <template x-if="visitUsable(v)">
-                          <button type="button" @click="openNavigator(navigatorUrl(v))" class="btn-primario" :aria-label="t(`Inizia la visita {nome}`, { nome: v.name })">
+                          <button type="button" @click="openNavigator(navigatorUrl(v))" class="btn-primario relative z-30" :aria-label="t(`Inizia la visita {nome}`, { nome: v.name })">
                             <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-avvia" /></svg> <span x-text="t(`Inizia`)"></span>
                           </button>
                         </template>
                         <template x-if="!visitUsable(v) && inLibrary(v)">
-                          <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario" x-text="t(`Completa`)"></a>
+                          <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario relative z-30" x-text="t(`Completa`)"></a>
                         </template>
                         <template x-if="!inLibrary(v) && canBuy()">
-                          <button type="button" @click="buy(v)" class="btn-primario" :aria-label="'Sblocca ' + v.name" x-text="t(`Sblocca`)"></button>
+                          <button type="button" @click="buy(v)" class="btn-primario relative z-30" :aria-label="'Sblocca ' + v.name" x-text="t(`Sblocca`)"></button>
                         </template>
                         <template x-if="!inLibrary(v) && !canBuy()">
-                          <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario" x-text="t(`Apri`)"></a>
+                          <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario relative z-30" x-text="t(`Apri`)"></a>
                         </template>
                       </div>
                     </div>
+                    <!-- Ultimo figlio della tessera: la copre tutta, copertina
+                         compresa, cosi' si apre la scheda toccandola in
+                         qualunque punto e non solo sul titolo. -->
+                    <a :href="'#/visita/' + encodeURIComponent(v['@id'])"
+                      class="tessera-intera"
+                      :aria-label="t(`Apri {nome}`, { nome: v.name })"></a>
                   </article>
                 </template>
               </div>
@@ -601,21 +642,20 @@
                 class="font-display text-title-2" x-text="t(`Opere e soggetti`)"></h2>
               <div class="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 <template x-for="g in shownArtworks()" :key="g.artwork['@id']">
-                  <article class="lastra group flex flex-col overflow-hidden transition-colors hover:border-accent"
+                  <article class="lastra group relative flex flex-col overflow-hidden transition-colors hover:border-accent"
                     x-data="{ rotta: false }">
-                    <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])" class="dissolvenza"
-                      :aria-label="'Apri la scheda dell\'opera ' + (g.artwork.name || 'senza titolo')">
+                    <!-- La figura non e' piu' un collegamento suo: a portare alla
+                         scheda e' il titolo, stirato su tutta la tessera. -->
+                    <span class="dissolvenza">
                       <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true"
                         :alt="'Immagine dell\'opera: ' + (g.artwork.name || '')" loading="lazy"
                         class="group-hover:scale-[1.04]">
-                    </a>
+                    </span>
                     <!-- Il testo risale dentro la coda della dissolvenza: il titolo
                          raggiunge l'immagine invece di essere annunciato sotto di lei. -->
                     <div class="relative -mt-16 flex flex-1 flex-col p-5">
-                      <h3 class="font-display text-title-3 leading-tight">
-                        <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])" class="link-scuro"
-                          x-text="g.artwork.name || 'Senza titolo'"></a>
-                      </h3>
+                      <h3 class="font-display text-title-3 leading-tight"
+                        x-text="g.artwork.name || 'Senza titolo'"></h3>
                       <p class="mt-1 text-small text-muted" x-text="g.artwork.author ? g.artwork.author.name : ''"></p>
                       <p class="mt-auto flex flex-wrap items-baseline gap-x-2 pt-4 text-caption uppercase tracking-wider">
                         <span class="tabular text-slate" x-text="artworkCount(g)"></span>
@@ -623,6 +663,10 @@
                         <span class="valore" x-text="artworkFromPrice(g)"></span>
                       </p>
                     </div>
+                    <!-- Ultimo figlio della tessera: copre tutto, figura compresa. -->
+                    <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
+                      class="tessera-intera"
+                      :aria-label="t(`Apri {nome}`, { nome: g.artwork.name || 'senza titolo' })"></a>
                   </article>
                 </template>
               </div>
@@ -641,13 +685,35 @@
               <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> <span x-text="t(`Torna alle opere`)"></span>
             </a>
             <template x-if="currentArtwork()">
-              <div class="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-                <div>
-                  <img x-show="artworkImage(currentArtwork()) && !rotta" class="figura shadow-l1"
+              <div>
+              <!-- L'INTESTAZIONE E' UNA FASCIA, non due colonne alte uguali: il
+                   quadro sta a sinistra con la sua altezza, il testo gli si
+                   affianca al centro. In due colonne l'immagine dettava
+                   l'altezza e sotto le tre righe di scheda restava mezzo
+                   schermo vuoto. -->
+              <div class="flex flex-col gap-6 sm:flex-row sm:items-center">
+                <!-- La figura si stringe con un'ALTEZZA massima, non con una
+                     larghezza: il catalogo ha quadri sdraiati e quadri in piedi,
+                     e un vincolo sulla larghezza lascia il verticale alto il
+                     doppio dell'orizzontale. Col tetto in altezza tutte le opere
+                     occupano la stessa fascia, qualunque proporzione abbiano. -->
+                <div class="sm:w-64 sm:shrink-0 lg:w-72">
+                  <img x-show="artworkImage(currentArtwork()) && !rotta" class="figura w-auto max-h-72 max-w-full shadow-l1"
                     :src="artworkImage(currentArtwork())" @error="rotta = true"
                     :alt="'Immagine dell\'opera: ' + (currentArtwork().name || '')">
                   <p x-show="!artworkImage(currentArtwork()) || rotta" class="senza-figura" x-text="currentArtwork().name"></p>
-                  <dl class="mt-5 flex flex-col gap-2 text-small">
+                </div>
+
+                <div class="min-w-0">
+                  <h1 class="font-display text-title-1 leading-tight" x-text="currentArtwork().name"></h1>
+                  <!-- Il conto e' quello MOSTRATO, non quello totale: e' la
+                       risposta al filtro appena scelto. -->
+                  <p class="tabular mt-2 text-small text-muted" role="status"
+                    x-text="artworkItemsCount()"></p>
+                  <!-- Le voci della scheda stanno in RIGA e vanno a capo da
+                       sole: sono due o tre parole ciascuna, e incolonnate
+                       lasciavano vuota tutta la larghezza che avevano. -->
+                  <dl class="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-small">
                     <div class="flex gap-2" x-show="currentArtwork().kind">
                       <dt class="text-muted" x-text="t(`Genere`)"></dt>
                       <dd x-text="kindName(currentArtwork().kind)"></dd>
@@ -674,75 +740,122 @@
                       </dd>
                     </div>
                   </dl>
-                </div>
 
-                <div>
-                  <h1 class="font-display text-title-1 leading-tight" x-text="currentArtwork().name"></h1>
-                  <p class="mt-2 text-small text-muted">
-                    <span class="tabular" x-text="artworkItems().length"></span>
-                    <span x-text="artworkItems().length === 1 ? ' descrizione disponibile' : ' descrizioni disponibili'"></span>
-                  </p>
-
-                  <ul class="mt-6 flex flex-col gap-3">
-                    <template x-for="it in artworkItems()" :key="it['@id']">
-                      <li class="lastra p-4">
-                        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-                          <span class="pastiglia pastiglia-ametista" x-text="it.educationalLevel"></span>
-                          <span class="tabular text-caption text-muted" x-text="it.timeRequired + 's di lettura'"></span>
-                          <span class="text-caption text-muted" x-text="'di ' + (it.author || 'n/d')"></span>
-                          <span x-show="it.visibility === 'privato'" class="pastiglia pastiglia-ametista" x-text="t(`Privato`)"></span>
-                          <span class="valore ml-auto font-display text-title-3" x-text="readablePrice(it.price)"></span>
-                        </div>
-
-                        <div class="mt-4 flex flex-wrap items-center gap-2">
-                          <!-- Si legge quel che si PUO' leggere (canRead), non quel che
-                               si e' preso (inLibrary): una descrizione gratuita il server
-                               la manda comunque, e nasconderla dietro "Ottieni" era
-                               chiedere di prendere per avere quel che si aveva gia'. -->
-                          <template x-if="canRead(it)">
-                            <button type="button" @click="toggleItem(it['@id'])" class="btn-secondario"
-                              :aria-expanded="openItems.includes(it['@id'])"
-                              :aria-label="toggleDescriptionLabel(it)">
-                              <span x-text="openItems.includes(it['@id']) ? 'Chiudi' : 'Leggi'"></span>
-                              <svg class="h-4 w-4" aria-hidden="true"><use :href="openItems.includes(it['@id']) ? '#ico-su' : '#ico-giu'" /></svg>
-                            </button>
-                          </template>
-                          <template x-if="!canRead(it) && canBuy()">
-                            <button type="button" @click="buy(it)" class="btn-primario"
-                              :aria-label="'Sblocca la descrizione ' + it.educationalLevel + ' di ' + currentArtwork().name" x-text="t(`Sblocca`)"></button>
-                          </template>
-                          <!-- Tenerla e' un'altra cosa dal leggerla: la libreria e' quel
-                               che ti sei preso, e ci si arriva anche da gratis. -->
-                          <template x-if="canRead(it) && !inLibrary(it) && canBuy()">
-                            <button type="button" @click="buy(it)" class="btn-secondario"
-                              :aria-label="'Tieni in libreria la descrizione ' + it.educationalLevel + ' di ' + currentArtwork().name" x-text="t(`Tieni in libreria`)"></button>
-                          </template>
-                          <template x-if="currentUserRole === 'autore' && it.author === currentUser">
-                            <button type="button" @click="editItem(it)" class="btn-secondario">
-                              <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> <span x-text="t(`Modifica`)"></span>
-                            </button>
-                          </template>
-                          <span x-show="inLibrary(it)" class="inline-flex items-center gap-1 text-caption text-sage">
-                            <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-check" /></svg> <span x-text="t(`Nella tua libreria`)"></span>
-                          </span>
-                        </div>
-
-                        <div x-show="openItems.includes(it['@id'])" x-collapse class="mt-4 border-t border-line pt-4">
-                          <p class="measure text-body" x-text="it.text"></p>
-                          <p class="mt-3 text-caption uppercase tracking-wider text-muted">
-                            <span x-text="t(`Licenza: {nome}`, { nome: it.license || 'n/d' })"></span>
-                          </p>
-                        </div>
-                      </li>
-                    </template>
-                  </ul>
-
-                  <div x-show="artworkItems().length === 0" class="vuoto mt-6">
-                    <p x-text="t(`Quest'opera non ha ancora descrizioni.`)"></p>
-                    <button x-show="currentUserRole === 'autore'" type="button" class="btn-primario mt-4"
-                      @click="openNewItem(); draft.selectedArtworkUri = currentArtwork()['@id']" x-text="t(`Scrivine una`)"></button>
+                  <!-- I DUE FILTRI della vetrina, con le voci di quest'opera.
+                       Le tendine compaiono solo se c'e' davvero qualcosa da
+                       separare: su un'opera con un tono solo sarebbero due menu
+                       da una voce. -->
+                  <div class="mt-6 flex flex-wrap items-center gap-3">
+                    <div x-show="artworkLevels().length > 1">
+                      <label for="f-liv-opera" class="sr-only" x-text="t(`Filtra per livello`)"></label>
+                      <select id="f-liv-opera" x-model="artworkLevelFilter" class="campo-select">
+                        <option value="tutti" x-text="t(`Ogni livello`)"></option>
+                        <template x-for="liv in artworkLevels()" :key="liv">
+                          <option :value="liv" x-text="t(liv)"></option>
+                        </template>
+                      </select>
+                    </div>
+                    <div x-show="artworkDurations().length > 1">
+                      <label for="f-dur-opera" class="sr-only" x-text="t(`Filtra per durata`)"></label>
+                      <select id="f-dur-opera" x-model="artworkDurationFilter" class="campo-select">
+                        <option value="tutti" x-text="t(`Ogni durata`)"></option>
+                        <template x-for="s in artworkDurations()" :key="s">
+                          <option :value="String(s)" x-text="t(`{n} secondi di lettura`, { n: s })"></option>
+                        </template>
+                      </select>
+                    </div>
+                    <button type="button" x-show="artworkFiltered()" class="btn-fantasma"
+                      @click="resetArtworkFilters()" x-text="t(`Azzera i filtri`)"></button>
                   </div>
                 </div>
+              </div>
+
+              <!-- Le descrizioni prendono tutta la larghezza della schermata, e
+                   sono la stessa griglia della vetrina: un'opera ne ha una
+                   ventina, e in colonna sola si scorreva per due schermate con
+                   mezzo schermo vuoto accanto. La terza colonna arriva solo da
+                   `xl`, dove una tessera resta abbastanza larga da tenere i due
+                   bottoni sulla stessa riga.
+
+                   `items-start` perche' aprendo una descrizione la griglia
+                   allungherebbe tutta la riga: le vicine resterebbero vuote
+                   alte quanto il testo appena aperto. -->
+              <ul class="mt-10 grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <template x-for="it in shownArtworkItems()" :key="it['@id']">
+                  <li class="lastra p-4" :class="inLibrary(it) ? 'lastra-posseduta' : ''">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <span class="pastiglia" :class="toneClass(it.educationalLevel)" x-text="t(it.educationalLevel)"></span>
+                      <span class="pastiglia pastiglia-durata tabular"
+                        x-text="t(`{n} secondi di lettura`, { n: it.timeRequired })"></span>
+                      <span class="text-caption text-muted"
+                        x-text="t(`Curatore: {nome}`, { nome: it.author || 'n/d' })"></span>
+                      <span x-show="it.visibility === 'privato'" class="pastiglia pastiglia-ametista" x-text="t(`Privato`)"></span>
+                      <span class="valore ml-auto font-display text-title-3" x-text="readablePrice(it.price)"></span>
+                    </div>
+  
+                    <div class="mt-4 flex flex-wrap items-center gap-2">
+                      <!-- Si legge quel che si PUO' leggere (canRead), non quel che
+                           si e' preso (inLibrary): una descrizione gratuita il server
+                           la manda comunque, e nasconderla dietro "Ottieni" era
+                           chiedere di prendere per avere quel che si aveva gia'. -->
+                      <template x-if="canRead(it)">
+                        <button type="button" @click="toggleItem(it['@id'])" class="btn-secondario"
+                          :aria-expanded="openItems.includes(it['@id'])"
+                          :aria-label="toggleDescriptionLabel(it)">
+                          <span x-text="openItems.includes(it['@id']) ? 'Chiudi' : 'Leggi'"></span>
+                          <svg class="h-4 w-4" aria-hidden="true"><use :href="openItems.includes(it['@id']) ? '#ico-su' : '#ico-giu'" /></svg>
+                        </button>
+                      </template>
+                      <template x-if="!canRead(it) && canBuy()">
+                        <button type="button" @click="buy(it)" class="btn-primario"
+                          :aria-label="'Sblocca la descrizione ' + it.educationalLevel + ' di ' + currentArtwork().name" x-text="t(`Sblocca`)"></button>
+                      </template>
+                      <!-- Tenerla e' un'altra cosa dal leggerla: la libreria e' quel
+                           che ti sei preso, e ci si arriva anche da gratis. -->
+                      <template x-if="canRead(it) && !inLibrary(it) && canBuy()">
+                        <button type="button" @click="buy(it)" class="btn-secondario"
+                          :aria-label="'Tieni in libreria la descrizione ' + it.educationalLevel + ' di ' + currentArtwork().name" x-text="t(`Tieni in libreria`)"></button>
+                      </template>
+                      <template x-if="currentUserRole === 'autore' && it.author === currentUser">
+                        <button type="button" @click="editItem(it)" class="btn-secondario">
+                          <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> <span x-text="t(`Modifica`)"></span>
+                        </button>
+                      </template>
+                      <span x-show="inLibrary(it)" class="inline-flex items-center gap-1 text-caption text-sage">
+                        <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-check" /></svg> <span x-text="t(`Nella tua libreria`)"></span>
+                      </span>
+                    </div>
+  
+                    <div x-show="openItems.includes(it['@id'])" x-collapse class="mt-4 border-t border-line pt-4">
+                      <p class="measure text-body" x-text="it.text"></p>
+                      <!-- `break-words`: i contenuti seminati prima della
+                           migrazione portano la licenza scritta come indirizzo,
+                           che in una colonna da 300 px e' una parola sola piu'
+                           larga della tessera. -->
+                      <p class="mt-3 break-words text-caption uppercase tracking-wider text-muted">
+                        <span x-show="!licenseHref(it.license)" x-text="t(`Licenza: {nome}`, { nome: it.license || 'n/d' })"></span>
+                        <a x-show="licenseHref(it.license)" :href="licenseHref(it.license)"
+                          target="_blank" rel="noopener noreferrer" class="link-scuro"
+                          x-text="t(`Licenza: {nome}`, { nome: it.license })"></a>
+                      </p>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+
+              <!-- Due vuoti diversi: un'opera senza descrizioni chiede di
+                   scriverne una, un filtro che non trova niente chiede di
+                   togliere il filtro. -->
+              <div x-show="artworkItems().length === 0" class="vuoto mt-6">
+                <p x-text="t(`Quest'opera non ha ancora descrizioni.`)"></p>
+                <button x-show="currentUserRole === 'autore'" type="button" class="btn-primario mt-4"
+                  @click="openNewItem(); draft.selectedArtworkUri = currentArtwork()['@id']" x-text="t(`Scrivine una`)"></button>
+              </div>
+              <div x-show="artworkItems().length > 0 && shownArtworkItems().length === 0" class="vuoto mt-6">
+                <p x-text="t(`Nessuna descrizione disponibile.`)"></p>
+                <button type="button" class="btn-secondario mt-4"
+                  @click="resetArtworkFilters()" x-text="t(`Azzera i filtri`)"></button>
+              </div>
               </div>
             </template>
             <div x-show="!currentArtwork()" class="vuoto"><p x-text="t(`Opera non trovata.`)"></p></div>
@@ -761,7 +874,10 @@
                     <p class="tabular mt-2 text-small text-muted" x-text="visitSummary(currentVisit())"></p>
                     <p class="mt-1 text-caption uppercase tracking-wider text-muted">
                       <span x-text="t(`Curatore: {nome}`, { nome: currentVisit().author || 'n/d' })"></span> ·
-                      <span x-text="t(`Licenza: {nome}`, { nome: currentVisit().license || 'n/d' })"></span>
+                      <span x-show="!licenseHref(currentVisit().license)" x-text="t(`Licenza: {nome}`, { nome: currentVisit().license || 'n/d' })"></span>
+                      <a x-show="licenseHref(currentVisit().license)" :href="licenseHref(currentVisit().license)"
+                        target="_blank" rel="noopener noreferrer" class="link-scuro"
+                        x-text="t(`Licenza: {nome}`, { nome: currentVisit().license })"></a>
                     </p>
                   </div>
                   <span class="valore font-display text-title-1" x-text="visitPrice(currentVisit())"></span>
@@ -838,20 +954,37 @@
                   </ul>
                 </template>
 
-                <ol class="mt-4 flex flex-col gap-2">
+                <!-- IL PERCORSO E' UNA GRIGLIA DI TESSERE, la stessa forma con
+                     cui le opere si vedono in vetrina: una visita e' fatta di
+                     opere, e in riga se ne leggevano quattro per schermata con
+                     la figura ridotta a una striscia di 136 px.
+
+                     L'ordine resta quello del percorso -- e' un <ol>, e il
+                     numero sta sulla figura -- perche' una griglia si legge per
+                     righe e da sola non direbbe qual e' la prima tappa.
+
+                     Le note logistiche restano DENTRO la tappa a cui sono
+                     agganciate: e' li' che il navigator le fa sentire, e
+                     staccarle da lei vorrebbe dire perdere il punto del percorso
+                     in cui valgono. -->
+                <ol class="mt-4 grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   <template x-for="tappa in visitStops(currentVisit())" :key="tappa.id">
                     <li>
-                      <div class="lastra riga-figurata">
-                        <span class="figura-riga">
+                      <div class="lastra flex flex-col overflow-hidden">
+                        <span class="dissolvenza">
                           <img x-show="itemImage(tappa.id)" :src="itemImage(tappa.id)" alt="" loading="lazy">
                           <span class="numero-tappa" x-text="String(tappa.numero).padStart(2,'0')"></span>
                         </span>
-                        <div class="riga-corpo flex items-center gap-4">
-                          <div class="min-w-0 flex-1">
-                            <p class="font-medium" x-text="tappa.nome"></p>
-                            <p class="text-caption text-muted" x-text="itemDetail(tappa.id)"></p>
-                          </div>
-                          <span x-show="tappa.opzionale" class="pastiglia pastiglia-ametista" x-text="t(`Opzionale`)"></span>
+                        <!-- Il testo risale nella coda della dissolvenza, come
+                             nella tessera di un'opera. -->
+                        <div class="relative -mt-12 flex flex-1 flex-col p-4">
+                          <p class="font-display text-title-3 leading-tight" x-text="tappa.nome"></p>
+                          <p class="mt-3 flex flex-wrap items-center gap-2">
+                            <span x-show="itemTone(tappa.id)" class="pastiglia" :class="toneClass(itemTone(tappa.id))" x-text="t(itemTone(tappa.id))"></span>
+                            <span x-show="itemSeconds(tappa.id)" class="pastiglia pastiglia-durata tabular"
+                              x-text="t(`{n} secondi di lettura`, { n: itemSeconds(tappa.id) })"></span>
+                            <span x-show="tappa.opzionale" class="pastiglia pastiglia-accento" x-text="t(`Opzionale`)"></span>
+                          </p>
                         </div>
                       </div>
                       <template x-for="note in notesAfter(currentVisit(), tappa.id)">
@@ -1358,7 +1491,7 @@
                     <div class="campo-cerca">
                       <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true"><use href="#ico-cerca" /></svg>
                       <label for="cerca-ed" class="sr-only" x-text="t(`Cerca nella libreria`)"></label>
-                      <input id="cerca-ed" type="search" x-model="editorSearch" :placeholder="t(`Cerca un'opera…`)">
+                      <input id="cerca-ed" type="search" x-model.debounce.250ms="editorSearch" :placeholder="t(`Cerca un'opera…`)">
                     </div>
                     <div x-show="currentUserRole === 'visitatore'" role="radiogroup" :aria-label="t(`Filtra la libreria`)" class="segmenti">
                       <template x-for="f in editorFilterOptions()" :key="f.v">
@@ -1389,7 +1522,7 @@
                           <template x-for="it in g.items" :key="it['@id']">
                             <li class="flex items-center gap-3">
                               <span class="min-w-0 flex-1">
-                                <span class="pastiglia pastiglia-ametista" x-text="it.educationalLevel"></span>
+                                <span class="pastiglia" :class="toneClass(it.educationalLevel)" x-text="t(it.educationalLevel)"></span>
                                 <span class="tabular ml-2 text-caption text-muted" x-text="it.timeRequired + 's · '"></span><span class="valore text-caption" x-text="readablePrice(it.price)"></span>
                               </span>
                               <button type="button" @click="addStop('item', it['@id'])" :disabled="itemInVisit(it['@id'])"
@@ -1679,7 +1812,7 @@
             <div class="mt-6 flex flex-wrap items-end gap-4">
               <div class="min-w-[16rem] flex-1">
                 <label for="cerca-catalogo" class="etichetta" x-text="t(`Cerca`)"></label>
-                <input id="cerca-catalogo" type="search" class="campo" x-model="catalogSearch"
+                <input id="cerca-catalogo" type="search" class="campo" x-model.debounce.250ms="catalogSearch"
                   :placeholder="t(`Titolo, autore o tono`)">
               </div>
               <div>
@@ -1687,8 +1820,10 @@
                 <div class="segmenti" role="group" aria-labelledby="tipo-catalogo-label">
                   <button type="button" class="segmento" :class="catalogTypeFilter === 'tutti' ? 'segmento-attivo' : ''"
                     :aria-pressed="catalogTypeFilter === 'tutti'" @click="setCatalogType('tutti')" x-text="t(`Tutto`)"></button>
-                  <button type="button" class="segmento" :class="catalogTypeFilter === 'item' ? 'segmento-attivo' : ''"
-                    :aria-pressed="catalogTypeFilter === 'item'" @click="setCatalogType('item')" x-text="t(`Descrizioni`)"></button>
+                  <button type="button" class="segmento" :class="catalogTypeFilter === 'opere' ? 'segmento-attivo' : ''"
+                    :aria-pressed="catalogTypeFilter === 'opere'" @click="setCatalogType('opere')" x-text="t(`Opere`)"></button>
+                  <button type="button" class="segmento" :class="catalogTypeFilter === 'meta' ? 'segmento-attivo' : ''"
+                    :aria-pressed="catalogTypeFilter === 'meta'" @click="setCatalogType('meta')" x-text="t(`Soggetti`)"></button>
                   <button type="button" class="segmento" :class="catalogTypeFilter === 'visite' ? 'segmento-attivo' : ''"
                     :aria-pressed="catalogTypeFilter === 'visite'" @click="setCatalogType('visite')" x-text="t(`Visite`)"></button>
                 </div>
@@ -1722,7 +1857,7 @@
               </div>
             </div>
             <p x-show="catalogTypeFilter === 'tutti'" class="mt-2 text-caption text-muted">
-              <span x-text="t(`Scegli Descrizioni o Visite per filtrare anche per durata.`)"></span>
+              <span x-text="t(`Scegli Visite, Opere o Soggetti per filtrare anche per durata.`)"></span>
             </p>
 
             <p class="mt-4 text-small text-muted" role="status">
@@ -1757,7 +1892,7 @@
                       </td>
                       <td class="px-4 py-3 text-muted" x-text="r.author"></td>
                       <td class="px-4 py-3">
-                        <span x-show="r.tone" class="pastiglia pastiglia-ametista" x-text="r.tone"></span>
+                        <span x-show="r.tone" class="pastiglia" :class="toneClass(r.tone)" x-text="t(r.tone)"></span>
                         <span x-show="!r.tone" class="text-muted">n/d</span>
                       </td>
                       <td class="tabular px-4 py-3 text-right" x-text="durationLabel(r)"></td>

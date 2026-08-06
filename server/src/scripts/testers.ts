@@ -22,7 +22,11 @@ import { VisitModel } from "../models/visit";
 import { ArtworkModel } from "../models/artwork";
 import { MuseumModel } from "../models/museum";
 import { UserModel } from "../models/user";
-import { educationalLevels, formatDuration } from "../../../shared/constants";
+import {
+  DEFAULT_LICENSE,
+  educationalLevels,
+  formatDuration,
+} from "../../../shared/constants";
 import { UserRole } from "../../../shared/types";
 
 const TONE_MAP: Record<string, string> = {
@@ -282,6 +286,39 @@ async function migrateUnknowns() {
   );
 }
 
+/**
+ * Allinea la licenza dei contenuti GENERATI a `DEFAULT_LICENSE`.
+ *
+ * Serve perche' il seed la licenza non l'ha mai scritta: gli item nati prima di
+ * questa correzione portano il vecchio default dello schema, che era per giunta
+ * un indirizzo (`https://creativecommons.org/licenses/by/4.0/`) mentre tutto il
+ * resto del sistema usa il codice. A schermo usciva l'indirizzo per esteso.
+ *
+ * Tocca SOLO quel che ha scritto il museo (`author: "sistema"`). I contenuti di
+ * un autore non si toccano: la sua licenza l'ha scelta lui, e cambiargliela
+ * sotto i piedi e' l'unica cosa che questo comando non deve poter fare.
+ *
+ * ⚠️ Non serve dopo un seed nuovo -- da adesso la licenza la scrive il seed --
+ * ma serve su un database gia' popolato, perche' il seed **salta gli item che
+ * esistono gia'**: riseminare senza `--force` non la riscriverebbe, e con
+ * `--force` rigenererebbe anche tutti i testi, cioe' ore di chiamate al modello
+ * per cambiare un campo.
+ */
+async function migrateLicenses() {
+  const generati = { author: "sistema" };
+  const prima = await ItemModel.distinct("license", generati);
+  const r = await ItemModel.updateMany(
+    { ...generati, license: { $ne: DEFAULT_LICENSE } },
+    { $set: { license: DEFAULT_LICENSE } },
+  );
+  console.log(`Contenuti generati riallineati: ${r.modifiedCount}`);
+  console.log(`  prima: ${prima.map((l) => JSON.stringify(l)).join(" | ")}`);
+  console.log(`  ora:   ${JSON.stringify(DEFAULT_LICENSE)}`);
+
+  const altrui = await ItemModel.distinct("license", { author: { $ne: "sistema" } });
+  console.log(`Licenze dei contenuti d'autore, non toccate: ${altrui.length === 0 ? "(nessun contenuto d'autore)" : altrui.join(" | ")}`);
+}
+
 const COMMANDS: Record<string, () => Promise<void>> = {
   stato,
   toni: migrateTones,
@@ -289,6 +326,7 @@ const COMMANDS: Record<string, () => Promise<void>> = {
   logistica: migrateLogistics,
   generi: migrateKinds,
   buchi: migrateUnknowns,
+  licenze: migrateLicenses,
   account: requiredAccounts,
   async tutto() {
     await migrateTones();

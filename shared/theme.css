@@ -27,6 +27,21 @@
 
   Ogni ruolo ha anche la sua VELATURA (--*-velo): la stessa tinta al 12% su
   trasparente, per i fondi. Vedi la derivazione piu' sotto.
+
+  A parte c'e' la SCALA DEI TONI (--tono-*), che non e' un quinto ruolo ma una
+  progressione: azzurro, blu, giallo, arancio, cioe' dal freddo al caldo man mano
+  che la descrizione si fa piu' difficile. Serve dove i toni compaiono tutti
+  insieme -- la pagina di un'opera ne mostra venti in fila -- e li' una tinta
+  sola per tutti costringe a leggere ogni parola per sapere che cos'e'.
+  Il colore non porta comunque l'informazione da solo: dentro la pastiglia c'e'
+  sempre il nome del tono.
+
+  ⚠️ Due vicinanze da conoscere prima di ritoccarle: il GIALLO del Medio sta
+  vicino all'ottone del valore, e l'ARANCIO dell'Avanzato al minio dell'allarme.
+  Reggono perche' una pastiglia non e' mai ne' un prezzo ne' un errore -- i
+  prezzi sono cifre in `.valore`, gli errori stanno in `.avviso` -- ma chi
+  spostasse queste due tinte verso l'ottone o verso il rosso romperebbe proprio
+  quella distinzione.
 */
 
 /* ---------------------------------------------------------------------------
@@ -87,6 +102,10 @@
   --color-slate-velo: var(--slate-velo);
   --color-sage-velo: var(--sage-velo);
   --color-danger-velo: var(--danger-velo);
+  --color-tono-infantile: var(--tono-infantile);
+  --color-tono-semplice: var(--tono-semplice);
+  --color-tono-medio: var(--tono-medio);
+  --color-tono-avanzato: var(--tono-avanzato);
   --color-vetro: var(--vetro);
 
   /* Caratteri: uno scaricato (display), gli altri di sistema (zero byte, resa
@@ -130,9 +149,10 @@
 /* ===========================================================================
    LA SORGENTE: le uniche righe da toccare per cambiare l'aspetto.
 
-   Nove colori. Tutto il resto del sistema, cioe' i venti token di ogni tema e
-   il tema scuro compreso, si ricava da questi con `color-mix`: non c'e' niente
-   da riallineare a mano e non esiste un valore che possa restare indietro.
+   Nove colori, piu' i quattro gradini della scala dei toni. Tutto il resto del
+   sistema, cioe' i token di ogni tema e il tema scuro compreso, si ricava da
+   questi con `color-mix`: non c'e' niente da riallineare a mano e non esiste un
+   valore che possa restare indietro.
 
    I nove non sono una tavolozza a caso: sono i RUOLI dell'interfaccia.
      lastra      il foglio su cui si legge
@@ -155,6 +175,11 @@
    Contrasti: `inchiostro` va scuro (AA vuole 4.5:1 sul muro, e qui si sta molto
    sopra), `accento` e i tre semantici vanno scelti abbastanza scuri da reggere
    come TESTO sulla lastra. La derivazione al buio li schiarisce da se'.
+
+   ⚠️ I quattro toni si misurano DENTRO LA LORO PASTIGLIA, non sulla lastra: li'
+   il fondo e' la velatura della loro stessa tinta, che alza il fondo e abbassa
+   il rapporto. L'arancio dell'Avanzato e' stato scurito proprio per quello --
+   sulla lastra passava, dentro la pastiglia stava a 4.4:1.
    =========================================================================== */
 /* In uso: "Sala e Deposito, accesa". Le altre provate stanno in coda al file,
    commentate: si scambiano i due blocchi e basta.
@@ -187,6 +212,13 @@
   --categoria: #624db7;
   --acquisito: #196d29;
   --allarme: #ad322a;
+  /* La scala dei toni: un gradino per ogni voce di `educationalLevelHints`, e
+     nello stesso ordine. Sono scelte perche' si distinguano fra loro a corpo
+     caption, non perche' significhino qualcosa da sole. */
+  --infantile: #0d6e91;
+  --semplice: #3a45b4;
+  --medio: #7c6200;
+  --avanzato: #99420f;
 }
 
 /* ---------------------------------------------------------------------------
@@ -232,6 +264,14 @@
   --slate-velo: color-mix(in oklab, var(--slate) 12%, transparent);
   --sage-velo: color-mix(in oklab, var(--sage) 12%, transparent);
   --danger-velo: color-mix(in oklab, var(--danger) 12%, transparent);
+  --tono-infantile: var(--infantile);
+  --tono-semplice: var(--semplice);
+  --tono-medio: var(--medio);
+  --tono-avanzato: var(--avanzato);
+  --tono-infantile-velo: color-mix(in oklab, var(--tono-infantile) 12%, transparent);
+  --tono-semplice-velo: color-mix(in oklab, var(--tono-semplice) 12%, transparent);
+  --tono-medio-velo: color-mix(in oklab, var(--tono-medio) 12%, transparent);
+  --tono-avanzato-velo: color-mix(in oklab, var(--tono-avanzato) 12%, transparent);
   /* Il VETRO: la superficie di una barra che sta sopra a roba che scorre. Si
      ricava dal fondo della pagina e non dalla lastra, perche' e' li' che sta.
      Non e' decorazione: una barra incollata deve nascondere quel che le passa
@@ -311,6 +351,14 @@
   --slate-velo: color-mix(in oklab, var(--slate) 18%, transparent);
   --sage-velo: color-mix(in oklab, var(--sage) 18%, transparent);
   --danger-velo: color-mix(in oklab, var(--danger) 18%, transparent);
+  --tono-infantile: color-mix(in oklab, var(--infantile) 46%, var(--lastra));
+  --tono-semplice: color-mix(in oklab, var(--semplice) 46%, var(--lastra));
+  --tono-medio: color-mix(in oklab, var(--medio) 46%, var(--lastra));
+  --tono-avanzato: color-mix(in oklab, var(--avanzato) 46%, var(--lastra));
+  --tono-infantile-velo: color-mix(in oklab, var(--tono-infantile) 18%, transparent);
+  --tono-semplice-velo: color-mix(in oklab, var(--tono-semplice) 18%, transparent);
+  --tono-medio-velo: color-mix(in oklab, var(--tono-medio) 18%, transparent);
+  --tono-avanzato-velo: color-mix(in oklab, var(--tono-avanzato) 18%, transparent);
   --vetro: color-mix(in oklab, var(--bg) 72%, transparent);
   --vetro-fondo: var(--bg);
   --focus-ink: var(--lastra);
@@ -353,6 +401,12 @@
        misura si fa li', non sulla lastra, o si tara sul caso facile. */
     --slate: oklch(from var(--categoria) 0.8 c h);
     --sage: oklch(from var(--acquisito) 0.78 c h);
+    /* La scala dei toni sale allo stesso gradino delle altre due, e per lo
+       stesso motivo: si legge a corpo caption dentro una pastiglia. */
+    --tono-infantile: oklch(from var(--infantile) 0.8 c h);
+    --tono-semplice: oklch(from var(--semplice) 0.8 c h);
+    --tono-medio: oklch(from var(--medio) 0.82 c h);
+    --tono-avanzato: oklch(from var(--avanzato) 0.8 c h);
   }
 }
 
