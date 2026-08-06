@@ -6,6 +6,7 @@
  */
 
 import { state } from "./state.js";
+import { percorsoMiniatura } from "../../../shared/constants.js";
 
 // ============================================================================
 //                                  Stato
@@ -224,7 +225,13 @@ export function swarm() {
         ).filter((a: any) => a && a.imagePath);
 
         for (const artwork of figures) {
-          const shape = await this.shapeFromImage(artwork.imagePath);
+          // La miniatura, non l'originale: di qualunque figura arrivi qui resta
+          // una griglia di luminosita' larga SAMPLE_W (240), quindi i 960 px del
+          // file grande sono pixel scaricati per essere buttati. Ed e' la prima
+          // schermata, cioe' quella che si paga anche solo passando di qua.
+          const shape = await this.shapeFromImage(
+            percorsoMiniatura(artwork.imagePath),
+          );
           if (!shape) continue;
           this.shapes.push(shape);
           // SOLO la prima: da li' in poi comanda il tempo delle fasi. Senza

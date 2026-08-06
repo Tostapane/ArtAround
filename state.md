@@ -69,9 +69,7 @@ Implementing `prelude.md` resolved a number of the items listed below. They are 
 
 Still open from those sections: §7.1 (teleport), §7.6 (UI translation), §7.7
 (`stepStartAt` sync), §7.8 (spatial ordering of custom visits), §9.11 (naming), and all
-of §10. Plus **§7-ter.1 — le miniature delle tessere**: la vetrina serve immagini da 7 a 16
-volte più grandi di come le mostra (3,83 MB per una scorsa). Rimedio misurato e progettato,
-non applicato.
+of §10. ~~Plus §7-ter.1 — le miniature delle tessere~~ — **CHIUSO 2026-08-07** (§7-ter.1).
 
 ### 0.2 What the 2026-07-28 pass closed
 
@@ -2866,10 +2864,16 @@ Tre rimedi, tutti fatti:
 passata sui 2120 item costa **0,15 ms** — 0,8 ms per tick, ~8 ms a dieci volte il catalogo.
 Non è il collo di bottiglia, e una cache lì aggiungerebbe invalidazione da sbagliare.
 
-### 7-ter.1 Le miniature delle tessere — DA FARE
+### 7-ter.1 Le miniature delle tessere — FATTO *(2026-08-07)*
 
-**È il pezzo di prestazioni più grosso ancora aperto, e non è stato fatto.** Sta qui e non
-altrove perché è la coda della stessa misura.
+Riaperto perché **sul telefono si sentiva**: l'applicazione, aperta da un altro dispositivo
+sulla rete di casa, era «really really slow, ma non sempre». Non era la porta occupata e non
+era il server — le rotte rispondono in 4-11 ms e il catalogo compresso pesa 52 KB. Erano le
+figure, e il «non sempre» era la cache: `/images` è `immutable, 30d`, quindi il secondo giro
+è istantaneo e il primo no.
+
+Sotto, la misura che aveva deciso il rimedio; in fondo, che cosa è stato fatto e quanto ha
+reso.
 
 Le immagini delle opere sono **65 MB, in media 319 KB l'una, fino a 1,9 MB**. Il punto non è
 il totale ma il rapporto: **una tessera della vetrina è 324×243 e riceve un file da ~960×1200**,
@@ -2897,15 +2901,65 @@ piccole a Wikimedia per tutti: si perderebbe nitidezza proprio dove serve.
 tipico: `320 → 330×389` (28 KB), `400 e 500 → 500×589` (60 KB), `640 e 800 → 960×1130`
 (202 KB). Il secchiello da 500 basta e avanza per una tessera anche a `dpr` 2.
 
-**Il rimedio:** scaricare **due secchielli** invece di uno — `Q123.jpg` (960, come ora, per
-l'opera aperta) e `Q123-c.jpg` (500, per le tessere) — un `artworkThumb()` accanto ad
-`artworkImage()`, e le **quattro** `img` con `loading="lazy"` che puntano al piccolo. Serve un
-lavoro in `testers.ts` per le opere già sul disco: sono richieste HTTP, **nessuna chiamata al
-modello**. Costo ~13 MB di disco; la vetrina scorsa passa da **3,83 MB a ~1,1 MB**, e l'opera
-aperta non cambia di un pixel.
-
 **Non è il collo di bottiglia il JavaScript:** `shownArtworks()` si ricalcola ~5 volte per
 tick di Alpine, ma una passata sui 2120 item costa 0,15 ms. Misurato, non stimato.
+
+#### Che cosa è stato fatto
+
+**Due secchielli invece di uno:** `Q123.jpg` (960, come prima, per l'opera aperta) e
+`Q123-c.jpg` (500, per le tessere). Il nome della miniatura lo calcola `percorsoMiniatura` in
+`shared/constants.ts`, cioè in un posto solo, perché è un **accordo** fra chi i due file li
+scrive (`imageDownloader.ts`) e chi li chiede (la vetrina): due programmi diversi che devono
+chiamare lo stesso file con lo stesso nome.
+
+⚠️ **Il ridimensionamento non lo facciamo noi, ed è la ragione per cui non serve una
+libreria.** Wikimedia serve secchielli fissi: misurato su un Duccio, `?width=500` dà
+500×817 (148 KB), mentre `600`, `700` e `800` danno **tutti** il file da 960×1568 (469 KB).
+Non esiste una taglia intermedia: o 500 o l'originale. Un `sharp` sul server sarebbe una
+dipendenza nativa da compilare sul docker del dipartimento, e servirebbe comunque una cache
+su disco — cioè due file, come adesso, più il codice per farli.
+
+⚠️ **La miniatura si scrive SEMPRE, e se non si può scaricare è una copia dell'originale.**
+Il client il nome lo calcola e basta: chiedere al server se il file c'è vorrebbe dire una
+richiesta in più per tessera, cioè il contrario di quel che le miniature servono a fare. Vale
+quindi l'invariante *«ogni file in /images/artworks/ ha il suo `-c`»*, e la copia è il ripiego
+che la tiene in piedi quando la rete non collabora. È servita davvero: al primo giro **5
+opere su 198** hanno preso la copia, perché 198 richieste di fila fanno scattare il **429**
+di Wikimedia (i ritentativi non bastano: troppo alta è la cadenza, non il picco). Da lì la
+pausa di mezzo secondo in `testers.ts miniature`, e il fatto che una copia si **riconosce**
+dalla dimensione identica all'originale e si riprova al giro dopo — altrimenti quelle poche
+tessere resterebbero pesanti per sempre e nessuno saprebbe quali.
+
+⚠️ **Lo spreco più grosso non era in vetrina: era lo SFONDO della soglia.** Il retino riduce
+ogni figura a una griglia di luminosità larga `SAMPLE_W = 240`, e le scaricava da 960: sei
+figure per **1708 KB**, sulla prima schermata, cioè quella che si paga anche solo passando di
+qua. Ora sono **462 KB** (−73%), e a 240 px di campionamento la miniatura è ancora il doppio
+di quel che serve.
+
+**Le figure caricate da un autore restano intere.** Stanno in `/images/items/`, non vengono
+da Wikimedia e non hanno un secchiello più piccolo da chiedere: `percorsoMiniatura` le
+riconosce dalla cartella e le lascia stare.
+
+**Misurato pilotando chromium a 390×844 con densità 3** (un telefono vero), cache vuota:
+
+| | prima | dopo |
+| --- | --- | --- |
+| sfondo della soglia (6 figure) | 1708 KB | **462 KB** |
+| vetrina scorsa (11 figure) | 319 KB a figura, la media della cartella | **100 KB a figura**, 1106 KB in tutto |
+| le 198 figure sul disco | 61 MB | 19 MB di miniature (+20 MB di disco) |
+
+Zero originali chiesti dalle tessere, zero 404, zero errori in console. La tessera misurata:
+casella 356×267, sorgente `Q3698238-c.jpg` da 500×589.
+
+⚠️ **Il costo, detto per intero.** A 390 px la vetrina è a **una colonna**, quindi la tessera
+è larga 356 px: su uno schermo a densità 3 servirebbero ~1068 px e la miniatura ne ha 500
+(1,4 px per px di CSS). Confrontate a schermo fianco a fianco, la miniatura è **appena** più
+morbida nei tratteggi d'oro, e la differenza si vede solo mettendole vicine. Non esiste una
+via di mezzo da comprare (vedi i secchielli qui sopra), e **la scheda dell'opera non cambia di
+un pixel**: continua a ricevere il file da 960.
+
+⚠️ **Due file sul disco non hanno miniatura, ed è giusto così**: `Q151952` e `Q724954` non
+sono nel database: sono avanzi di un seed vecchio, e nessuna tessera li chiede.
 
 ## 7-quater. Diciassette opere che non erano opere *(2026-08-05)*
 

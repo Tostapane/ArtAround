@@ -6,10 +6,9 @@ MANCANTI
 - adozione mediante unico file di configurazione
 - mettere imagini per scelta museo e per le visite
 - superseed, rework dei prezzi, - gli uffizi hanno tutto gratis
-- ok now there are some blank rooms, i want you to put at least 2 artworks in the empty rooms. for each museum.
-  just make sure to insert the right qids, i will run the seed in the future.
-  check if all the qids are actually what you expect them to be.
 MOBILE
+- componi visita e' completamente inutilizzabile, diventa praticamtne desktop mode
+  hard reload?`
 - da mobile i pallini devono essere piu piccoli
 - ti fa entrare dando per scontata la scelta del museo
 - light mode selettore navigator

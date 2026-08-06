@@ -253,6 +253,44 @@ export function pickLanguage(saved: string | null): Language {
 }
 
 // ============================================================================
+//                               Le miniature
+// ============================================================================
+
+/** Solo le figure delle opere hanno una miniatura: le scrive il seed. */
+const CARTELLA_OPERE = "/images/artworks/";
+
+/**
+ * Il nome della miniatura di una figura: `Q123.jpg` -> `Q123-c.jpg`.
+ *
+ * Una tessera della vetrina e' larga 324 px e riceveva un file da 960: da 7 a 16
+ * volte i pixel che potra' mai mostrare, e su un telefono, dove la tessera sta
+ * sotto i 200 px, molti di piu'. La miniatura e' un secondo file accanto
+ * all'originale, che resta intatto per la scheda dell'opera.
+ *
+ * Sta qui, e non da una parte sola, perche' e' un ACCORDO fra chi i due file li
+ * scrive (`server/src/services/imageDownloader.ts`) e chi li chiede (la vetrina
+ * del marketplace): sono due programmi diversi che devono chiamare lo stesso
+ * file con lo stesso nome, e il giorno che il nome cambia deve cambiare per
+ * tutt'e due insieme.
+ *
+ * ⚠️ Il client non puo' chiedere al server se la miniatura esiste — sarebbe una
+ * richiesta in piu' per ogni tessera, cioe' il contrario di quel che si sta
+ * facendo. Vale percio' l'invariante che `imageDownloader` mantiene: **ogni file
+ * in /images/artworks/ ha il suo `-c`**, anche quando la miniatura vera non si
+ * e' potuta avere, e in quel caso `-c` e' una copia dell'originale.
+ *
+ * ⚠️ Le figure caricate da un autore stanno in /images/items/ e restano intere:
+ * non vengono da Wikimedia, quindi non c'e' nessun secchiello piu' piccolo da
+ * chiedere, e sono l'unica figura che quell'opera abbia.
+ */
+export function percorsoMiniatura(figura: string): string {
+  if (!figura.startsWith(CARTELLA_OPERE)) return figura;
+  const punto = figura.lastIndexOf(".");
+  if (punto < 0) return figura;
+  return `${figura.slice(0, punto)}-c${figura.slice(punto)}`;
+}
+
+// ============================================================================
 //                          Vocabolario controllato
 // ============================================================================
 

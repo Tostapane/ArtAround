@@ -1,5 +1,46 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-07, le miniature: il telefono scaricava figure da 960 px
+
+Segnalato: aprendo l'applicazione da un telefono sulla rete di casa (`ip:8000`) è «really
+really slow, ma non sempre», col sospetto di una porta occupata. Ragionamento durevole in
+`state.md` §7-ter.1.
+
+- **Non era la porta** e non era il server: un solo processo in ascolto sulla 8000, uno sulla
+  5173, le rotte rispondono in 4-11 ms e il catalogo compresso pesa 52 KB. Erano le **figure**,
+  e il «non sempre» era la cache — `/images` è `immutable, 30d`, quindi il primo giro è lento e
+  il secondo istantaneo.
+- **Due secchielli invece di uno**: `Q123.jpg` (960, l'opera aperta) e `Q123-c.jpg` (500, le
+  tessere). Il nome lo calcola `percorsoMiniatura` in `shared/constants.ts`, perché è un
+  accordo fra chi scrive i file e chi li chiede.
+- ⚠️ **Non esiste una taglia intermedia da comprare**: misurato su un Duccio, `?width=500` dà
+  500×817 (148 KB) mentre `600`, `700` e `800` danno **tutti** il file da 960 (469 KB). O 500
+  o l'originale.
+- ⚠️ **Lo spreco più grosso era lo SFONDO della soglia, non la vetrina**: il retino campiona
+  a 240 px e scaricava figure da 960 — 6 figure per 1708 KB sulla prima schermata. Ora 462 KB.
+- ⚠️ **La miniatura si scrive sempre, e in mancanza è una copia dell'originale**: il client il
+  nome lo calcola e non può chiedere se il file c'è. Al primo giro **5 opere su 198** hanno
+  preso la copia, perché 198 richieste di fila fanno scattare il **429** di Wikimedia. Da lì la
+  pausa di mezzo secondo, e il riconoscimento della copia dalla dimensione identica
+  all'originale, che la fa riprovare al giro dopo.
+- ⚠️ **Falso positivo dichiarato**: se l'originale è già più stretto di 500 px, Wikimedia
+  risponde col file stesso e la miniatura è identica per davvero. Sono **3 su 198**, e costano
+  una richiesta inutile a ogni giro del comando. Distinguerle vorrebbe dire leggere la
+  larghezza, cioè la libreria d'immagini che tutto questo esiste per non avere.
+- **`testers.ts miniature`** riempie le opere già sul disco: richieste HTTP, **nessuna chiamata
+  al modello**. Eseguito: **198 miniature**, una per ogni opera del database. I due file senza
+  (`Q151952`, `Q724954`) sono orfani di un seed vecchio: nel database non ci sono.
+
+**Verificato pilotando chromium a 390×844 densità 3**, cache vuota, entrando con
+`visitatore1` e senza comprare niente: la vetrina scorsa fino in fondo chiede **11 figure,
+tutte miniature, 1106 KB, zero originali, zero 404, zero errori in console**; la prima tessera
+è una casella 356×267 servita da un file 500×589. Miniatura e originale confrontati a schermo
+nella stessa casella: la differenza si vede solo mettendoli vicini. `tsc` verde su server e
+marketplace, `vue-tsc` verde sul navigator, `dist` ricostruito.
+
+⚠️ **Il navigator non è stato toccato**: mostra le figure grandi, dove servono grandi. Se un
+giorno anche lì comparisse una griglia di anteprime, `percorsoMiniatura` è già condivisa.
+
 ## ⏸ Ripresa — 2026-08-06, le sale vuote degli Uffizi
 
 Richiesta: riempire le sale vuote con almeno due opere ciascuna, opere vere, coi qid

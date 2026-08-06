@@ -49,6 +49,7 @@ import {
   itemKinds,
   kindById,
   languages,
+  percorsoMiniatura,
   SOURCE_LANG,
   WORDS_PER_MINUTE,
 } from "../../../shared/constants.js";
@@ -2378,6 +2379,20 @@ export class AppState {
   artworkImage(about: any): string {
     if (!about || typeof about !== "object") return "";
     return about.imagePath || about.imageUri || "";
+  }
+
+  /**
+   * La stessa figura in piccolo, per le tessere e le righe d'elenco: la',
+   * l'originale da 960 px e' fino a sedici volte i pixel che la casella mostra,
+   * e su un telefono e' tutto peso speso sulla rete e non sullo schermo. Chi
+   * la figura la mostra grande — la scheda di un'opera, l'anteprima
+   * dell'editor — continua a chiamare `artworkImage`.
+   *
+   * Il nome si calcola (`percorsoMiniatura`), non si chiede: e' un accordo con
+   * il server, che accanto a ogni originale scrive sempre il suo `-c`.
+   */
+  miniatura(figura: string): string {
+    return percorsoMiniatura(figura);
   }
 
   private navigatorBase(): string {

@@ -683,7 +683,7 @@
                     <!-- La figura non e' piu' un collegamento suo: a portare alla
                          scheda e' il titolo, stirato su tutta la tessera. -->
                     <span class="dissolvenza">
-                      <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true"
+                      <img x-show="artworkImage(g.artwork) && !rotta" :src="miniatura(artworkImage(g.artwork))" @error="rotta = true"
                         :alt="'Immagine dell\'opera: ' + (g.artwork.name || '')" loading="lazy"
                         class="group-hover:scale-[1.04]">
                     </span>
@@ -1014,7 +1014,7 @@
                     <li>
                       <div class="lastra flex flex-col overflow-hidden">
                         <span class="dissolvenza">
-                          <img x-show="itemImage(tappa.id)" :src="itemImage(tappa.id)" alt="" loading="lazy">
+                          <img x-show="itemImage(tappa.id)" :src="miniatura(itemImage(tappa.id))" alt="" loading="lazy">
                           <span class="numero-tappa" x-text="String(tappa.numero).padStart(2,'0')"></span>
                         </span>
                         <!-- Il testo risale nella coda della dissolvenza, come
@@ -1120,7 +1120,7 @@
                 <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
                   class="lastra riga-figurata filo-accento" x-data="{ rotta: false }">
                   <span class="figura-riga">
-                    <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
+                    <img x-show="artworkImage(g.artwork) && !rotta" :src="miniatura(artworkImage(g.artwork))" @error="rotta = true" alt="" loading="lazy">
                   </span>
                   <span class="riga-corpo self-center">
                     <span class="block truncate font-medium" x-text="g.artwork.name"></span>
@@ -1204,7 +1204,7 @@
                     <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
                       class="lastra riga-figurata filo-accento" x-data="{ rotta: false }">
                       <span class="figura-riga">
-                        <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
+                        <img x-show="artworkImage(g.artwork) && !rotta" :src="miniatura(artworkImage(g.artwork))" @error="rotta = true" alt="" loading="lazy">
                       </span>
                       <span class="riga-corpo self-center">
                         <span class="block truncate font-medium" x-text="g.artwork.name"></span>
@@ -1457,7 +1457,7 @@
                         <!-- La tappa porta la sua opera, la nota logistica no: non e' una
                              tappa, e la riga lo dice prima di essere letta. -->
                         <span x-show="stop.tipo === 'item'" class="figura-riga figura-riga-corta">
-                          <img x-show="itemImage(stop.value)" :src="itemImage(stop.value)" alt="" loading="lazy">
+                          <img x-show="itemImage(stop.value)" :src="miniatura(itemImage(stop.value))" alt="" loading="lazy">
                           <span class="numero-tappa" x-text="String(stopNumber(index)).padStart(2,'0')"></span>
                         </span>
                         <span x-show="stop.tipo === 'logistica'" class="flex w-12 shrink-0 items-center justify-center self-stretch">
@@ -1552,7 +1552,7 @@
                         <button type="button" @click="aperta = !aperta" :aria-expanded="aperta"
                           class="riga-figurata filo-accento w-full text-left">
                           <span class="figura-riga">
-                            <img x-show="artworkImage(g.artwork) && !rotta" :src="artworkImage(g.artwork)" @error="rotta = true" alt="" loading="lazy">
+                            <img x-show="artworkImage(g.artwork) && !rotta" :src="miniatura(artworkImage(g.artwork))" @error="rotta = true" alt="" loading="lazy">
                           </span>
                           <span class="riga-corpo flex items-center gap-3">
                             <span class="min-w-0 flex-1">

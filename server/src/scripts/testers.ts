@@ -13,6 +13,7 @@
  *   npx ts-node src/scripts/testers.ts generi
  *   npx ts-node src/scripts/testers.ts mappe
  *   npx ts-node src/scripts/testers.ts percorso
+ *   npx ts-node src/scripts/testers.ts miniature
  *   npx ts-node src/scripts/testers.ts buchi
  *   npx ts-node src/scripts/testers.ts tutto
  */
@@ -26,6 +27,10 @@ import { MuseumModel } from "../models/museum";
 import { UserModel } from "../models/user";
 import { sortByFlow, getMuseumGraph, MuseumGraph } from "../services/svgGraph";
 import { loadMuseumConfigs } from "../data/museumConfigs";
+import {
+  scriviMiniatura,
+  EsitoMiniatura,
+} from "../services/imageDownloader";
 import {
   DEFAULT_LICENSE,
   educationalLevels,
@@ -571,6 +576,54 @@ async function migrateVisitOrder() {
   );
 }
 
+/**
+ * Duecento richieste di fila fanno scattare il limite per i bot di Wikimedia
+ * (429), e i ritentativi non bastano perche' a essere troppo alta e' la cadenza,
+ * non il singolo picco. Mezzo secondo fra una figura e l'altra tiene il giro
+ * sotto i due minuti e non se ne lamenta nessuno.
+ */
+const PAUSA_WIKIMEDIA_MS = 500;
+
+function pausa(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Scrive le miniature che mancano alle opere gia' sul disco.
+ *
+ * Le figure sono state scaricate per mesi in un formato solo, quindi una
+ * tessera larga 324 px riceveva l'originale da 960: da 7 a 16 volte i pixel che
+ * puo' mostrare, e su un telefono molti di piu'. Da oggi il seed scrive la
+ * coppia (`imageDownloader`), ma i file gia' scritti restano soli — e il client
+ * la miniatura la NOMINA senza chiedere se c'e', quindi senza questo giro
+ * quelle tessere resterebbero vuote.
+ *
+ * Costa richieste HTTP a Wikimedia e nessuna chiamata al modello: minuti, non
+ * le ore di un seed. Ed e' ripetibile: chi la miniatura ce l'ha si salta.
+ */
+async function migrateThumbs() {
+  const opere = await ArtworkModel.find({
+    imagePath: { $regex: "^/images/artworks/" },
+  });
+  const conti: Record<EsitoMiniatura, number> = {
+    scaricata: 0,
+    copiata: 0,
+    "gia c'era": 0,
+    "senza originale": 0,
+  };
+  for (const opera of opere) {
+    const nomeFile = (opera.imagePath || "").split("/").pop() || "";
+    const esito = await scriviMiniatura(opera.imageUri || "", nomeFile);
+    conti[esito]++;
+    if (esito === "scaricata") await pausa(PAUSA_WIKIMEDIA_MS);
+  }
+  console.log(
+    `Miniature su ${opere.length} opere: ${conti.scaricata} scaricate, ` +
+      `${conti.copiata} copiate dall'originale, ${conti["gia c'era"]} gia' presenti, ` +
+      `${conti["senza originale"]} senza il file originale.`,
+  );
+}
+
 const COMMANDS: Record<string, () => Promise<void>> = {
   stato,
   toni: migrateTones,
@@ -582,6 +635,7 @@ const COMMANDS: Record<string, () => Promise<void>> = {
   account: requiredAccounts,
   mappe: checkMaps,
   percorso: migrateVisitOrder,
+  miniature: migrateThumbs,
   async tutto() {
     await migrateTones();
     await renameVisits();
@@ -589,6 +643,7 @@ const COMMANDS: Record<string, () => Promise<void>> = {
     await migrateKinds();
     await migrateUnknowns();
     await migrateVisitOrder();
+    await migrateThumbs();
     await requiredAccounts();
     await checkMaps();
     await stato();
