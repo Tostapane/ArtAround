@@ -249,15 +249,15 @@ rompersi: senza biglietto non ha sessione, e ogni rotta ne pretende una. Si entr
 marketplace. Per lo stesso motivo e' sparita la porta anonima della soglia («Guarda com'e'
 fatta una visita»): senza account il navigator non ha con che parlare.
 
-⚠️ **Quattro rotte restano aperte, e non per dimenticanza**: `/api/config` e
-`/api/users/{login,register,redeem}` vengono prima di avere un account; `/api/qr` sta dentro un
-`<img>` e `/api/museums/:qid/qrcodes` si apre come pagina, quindi a chiederle e' il browser e
-non il nostro codice — **a una navigazione non si puo' attaccare un'intestazione**. Non ci si
-perde niente: un QR e' un indirizzo, e quel foglio nasce per essere appeso al muro. Nessun
-testo a pagamento passa di li'.
+⚠️ **Tre rotte restano aperte, e non per dimenticanza**: `/api/config` e
+`/api/users/{login,register,redeem}` vengono prima di avere un account;
+`/api/museums/:qid/qrcodes` si apre come pagina, quindi a chiederla e' il browser e non il
+nostro codice — **a una navigazione non si puo' attaccare un'intestazione**. Non ci si perde
+niente: quel foglio nasce per essere appeso al muro e nessun testo a pagamento passa di li'.
 
-⚠️ **Resta vero che il QR non porta identita'**, ed e' ora l'unico modo che ha di comportarsi:
-chi lo inquadra da un altro telefono entra dal marketplace con le sue credenziali.
+⚠️ **Il QR di un'opera non porta identita'**, ed e' ora l'unico modo che ha di comportarsi:
+chi lo inquadra da un altro telefono entra dal marketplace con le sue credenziali. E' anche il
+motivo per cui il QR di una *visita* non esiste piu' (§4.9).
 
 ⚠️ **La soglia prende le sue figure da `/api/config`**, non dal catalogo: e' la schermata di
 chi non e' entrato. Ci passano sei `{qid, imagePath}` e nessun testo, e la pagina ne esce piu'
@@ -1133,8 +1133,8 @@ risolvere: e' il prezzo dei moduli non impacchettati, uno per file sorgente.
 ### 3.1 Route inventory (all under `/api`)
 
 > **Tutte pretendono una sessione**, tranne `/config`, `/users/{login,register,redeem}`,
-> `/health`, `/qr` e `/museums/:qid/qrcodes` — le ultime due perche' a chiederle e' il browser
-> e non il nostro codice. Chi chiede lo dice `Authorization: Bearer …`, mai un parametro.
+> `/health` e `/museums/:qid/qrcodes` — l'ultima perche' a chiederla e' il browser e non il
+> nostro codice. Chi chiede lo dice `Authorization: Bearer …`, mai un parametro.
 
 | Endpoint | Purpose | Consumed by |
 | --- | --- | --- |
@@ -1418,6 +1418,31 @@ volte: il server ci dimensiona la descrizione da generare, il marketplace ci giu
 scritto sta nella durata dichiarata. Sono lo stesso cambio fra durata e lunghezza visto dai due
 lati; separate, si sarebbero messe d'accordo su «60 secondi di lettura» in due modi diversi.
 
+### 3.1-nonies Una visita senza tappe non si crea *(2026-08-07)*
+
+Il controllo del §3.1-sexies contava gli **id ricevuti**, non gli item **trovati**: un percorso
+di identificatori che nel catalogo non esistono passava, e usciva una visita con la durata a
+zero e un `itemListElement` che non si risolve. E' il difetto piu' silenzioso della famiglia,
+perche' una tappa che non si risolve **non da' errore da nessuna parte**: semplicemente non
+compare, quindi la visita si apre vuota. E' lo stesso danno per cui la cancellazione di
+un'opera *accorcia* le visite invece di lasciarci dentro un buco (§1.1-sexies).
+
+Adesso `POST /visits` fa due cose in fila, e la seconda e' quella che mancava:
+
+| | |
+| --- | --- |
+| gli id vuoti si tolgono prima di contare | una tappa senza id non e' una tappa, e cosi' cade nel messaggio giusto («almeno una tappa») invece di far cercare nel catalogo un item che si chiama stringa vuota |
+| gli id che non risolvono sono un **400** che li nomina | contare `itemIds` invece di `items` e' la differenza fra «me l'hai chiesto» e «esiste» |
+
+⚠️ **Vale identico per l'autore e per il visitatore**, ed e' il motivo per cui il controllo sta
+sul server e non nel compositore: le due strade sono la stessa rotta, e il compositore la sua
+precheck ce l'aveva gia' (`visitIssues()` → «almeno una tappa»). Un controllo solo nel client
+lo scavalca chiunque scriva la richiesta a mano — provato, prima creava la visita.
+
+La terza strada, la visita su misura, era gia' chiusa per conto suo: `POST /visits/custom`
+risponde **502** se il modello non ha prodotto nemmeno una tappa risolvibile, e comunque non
+scrive niente nel database.
+
 ### 3.1-octies Con che diritti esce un contenuto *(2026-08-05)*
 
 Domanda arrivata cosi': «le licenze che abbiamo coprono i casi utili? sono quelle vere? io
@@ -1662,8 +1687,30 @@ Single `x-data="appData()"` root over the `AppState` singleton
 screen has an address, the back button works, and a reload keeps its place. Alpine, its
 focus and collapse plugins are **served locally** from `public/vendor/`.
 
+⚠️ **Il cancelletto c'e' anche in laboratorio, e la ragione e' che il marketplace e' servito
+come file statici.** `index.html` arriva da un `express.static` montato sulla radice: risponde
+`/` e nient'altro, quindi `/vetrina` e' un **404** (provato: 404 su `/vetrina`, `/libreria`,
+`/opera/Q12418`; 200 solo su `/`). L'indirizzo dopo il `#` invece non viaggia — il browser non
+lo manda al server — percio' funziona identico in sviluppo, dietro nginx e sotto
+`site2526XX.tw.cs.unibo.it`, che e' una radice come la nostra. Toglierlo non e' impossibile ma
+si paga altrove: vuol dire `history.pushState` piu' una rotta *catch-all* che rimanda
+`index.html`, e quella catch-all deve stare **dopo** e **fuori** da `/api`, `/images`, `/maps`,
+`/dist`, `/i18n` e `/navigator`, o si mangia il navigator e le immagini. E' un blocco in piu'
+da tenere allineato a mano ogni volta che nasce un montaggio statico, in cambio di un carattere
+nell'indirizzo. Resta il cancelletto.
+
 ### 4.1 Chrome
 
+- ⚠️ **Sotto `lg` il binario e' una RIGA di icone, e restarlo dipende da due righe di CSS**
+  *(2026-08-07)*. Le voci sono colonne affiancate, quindi un'etichetta che va a capo alza
+  l'icona della sua voce: con `justify-center` le quattro icone dell'autore stavano a due
+  altezze diverse (misurato a 390 px: *I miei contenuti* e *Crea descrizione* a due righe e
+  8,4 px piu' in alto delle altre due). Sono ancorate in cima (`justify-start`), cosi' la riga
+  resta una riga qualunque sia la lunghezza della parola — e in tredici lingue non si puo'
+  sapere quale voce andra' a capo. La seconda riga e' `text-center`: la casella dell'etichetta
+  e' larga quanto la voce, quindi senza allineamento la prima riga si appoggia a sinistra e non
+  sta sotto l'icona. Da `lg` la voce torna una riga in un binario verticale, quindi
+  `lg:flex-row` e `lg:text-left`.
 - **No top header.** A **left rail** (`bg-structure`) holds the wordmark, the museum
   switcher, 3–4 role-scoped destinations with `aria-current`, the wallet, the user and the
   theme toggle. Il visitatore ne ha **tre** da quando `visite` e `opere` sono una
@@ -2001,12 +2048,34 @@ belong to**; the ones anchored to nothing (`after: null`) **open** the list rath
 trailing it, because that is where the navigator plays them. Quiz shown with the correct
 answer marked (author's view).
 
+⚠️ **Una visita NON ha un QR, e la ragione va saputa perche' l'idea torna** *(tolto
+2026-08-07)*. La pagina mostrava «Portala sul telefono»: un QR del `navigatorUrl(v)`, cioe'
+`…/?museum=<qid>&visit=<@id>`, disegnato da una rotta `GET /api/qr?text=` che esisteva solo per
+questo. Non era il QR di un'**opera** — quelli li stampa il curatore e stanno appesi al muro
+(§4.14) — era il QR di un **collegamento**, e serviva a dire che a un certo punto si cambia
+dispositivo.
+
+Non funzionava piu' da quando l'identita' e' un biglietto e non un parametro nell'indirizzo
+(§"Le sessioni"): quel collegamento non porta identita' — per scelta, perche' finisce su uno
+schermo che chiunque puo' fotografare — ma il navigator adesso pretende una sessione, e quella
+arriva solo dal biglietto coniato qui. Chi inquadrava atterrava su *«Apri l'app da museo dal
+marketplace»*. Le slide non lo chiedono, quindi si e' tolto invece di ripararlo: con lui sono
+spariti `visitQrUrl()`, la rotta `/api/qr`, l'import di `qrcode` in `index.ts` e tre chiavi di
+traduzione. **Chi volesse rimetterlo deve prima rispondere a questa domanda**: quale biglietto
+regge di stare in una fotografia? Non quello da dieci minuti che si consuma — inquadrato un
+quarto d'ora dopo e' morto — e non la sessione lunga, che stampata in un indirizzo vale come
+una password. Il cambio di dispositivo resta detto dal solo «Inizia la visita», che apre il
+navigator coniando il biglietto sul momento.
+
 ### 4.10 `libreria` (visitor) / 4.11 `lavori` (author)
 
 Same component, different sets, each titled with *what it contains*. `libreria` groups
 **Visite first** (they're actionable) then Descrizioni. `lavori` shows only the author's own
-production, with adoption counts, the guided visit's key, `Sala d'attesa`, and a
-**`Stampa i QR delle opere`** link (previously a URL only we knew about).
+production, with adoption counts, the guided visit's key and `Sala d'attesa`.
+
+⚠️ **Il foglio dei QR non sta piu' qui** *(2026-08-07)*: e' passato a `gestione` (§4.14). I
+codici si appendono ai muri del museo, quindi quando si ristampano e che cosa ci sta scritto e'
+una scelta di chi risponde del **museo**; un autore ci pubblica dentro, non ne arreda le sale.
 
 ### 4.12 `nuovo` — item editor
 
@@ -2115,6 +2184,15 @@ serve davvero: **la copertura**. Una barra per tono, «quante opere hanno almeno
 descrizione in quel tono»: non è una statistica, è lavoro da assegnare a un autore, e un tono
 fermo a zero si colora d'allarme perché vuol dire che nel museo quel tono non esiste. Sotto,
 l'elenco delle opere senza nessuna descrizione, e in coda il totale degli account registrati.
+In testa, accanto al titolo, **`Stampa i QR delle opere`** — il foglio da ritagliare e appendere
+accanto alle opere, che fino al 2026-08-07 stava nell'area dell'autore (§4.10).
+
+⚠️ **La rotta `GET /api/museums/:qid/qrcodes` resta APERTA, e la prerogativa e' del solo
+binario.** Quel foglio si apre come pagina, quindi a chiederlo e' il browser e non il nostro
+codice, e a una navigazione non si puo' attaccare un'intestazione (§3.1): non ha una sessione
+da leggere, quindi non puo' sapere chi lo sta chiedendo. Chiuderlo davvero vorrebbe dire
+scaricare il foglio con `fetch` e aprirlo da un blob, cioe' rifare una navigazione a mano per
+un documento che nasce **per essere appeso al muro** e non contiene nessun testo a pagamento.
 
 **`catalogo`** — una tabella di tutto quel che esiste nel museo, **descrizioni private e
 visite guidate comprese**, che negli altri elenchi non compaiono per costruzione. Colonne:

@@ -34,13 +34,27 @@
 }
 
 @layer components {
-  /* --- Voci del binario -------------------------------------------------- */
+  /* --- Voci del binario --------------------------------------------------
+     Sotto lg il binario e' una barra in basso e le voci sono colonne affiancate:
+     l'icona sta in cima e l'etichetta sotto, centrata. Le due righe che sembrano
+     rifiniture tengono in piedi la barra come RIGA di icone:
+
+     - `justify-start` invece di `justify-center`: un'etichetta che va a capo
+       alza l'icona della sua voce, quindi con le voci centrate le icone stanno
+       ad altezze diverse a seconda di quanto e' lunga la parola. Ancorate in
+       cima, la riga di icone resta una riga in qualunque lingua.
+     - `text-center`: la casella dell'etichetta e' larga quanto la voce, quindi
+       senza allineamento la prima riga si appoggia a sinistra e non sta sotto
+       l'icona.
+
+     Da lg la voce e' una riga in un binario verticale e le due tornano a
+     `flex-row` / testo a sinistra. */
   .voce-binario {
-    @apply relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-2 py-2
-           text-caption font-medium text-on-structure/70 transition-colors
+    @apply relative flex min-h-14 flex-1 flex-col items-center justify-start gap-1 px-2 py-2
+           text-center text-caption font-medium text-on-structure/70 transition-colors
            hover:text-on-structure
-           lg:min-h-11 lg:flex-none lg:flex-row lg:justify-start lg:gap-3 lg:rounded-plate
-           lg:px-3 lg:text-small;
+           lg:min-h-11 lg:flex-none lg:flex-row lg:items-center lg:gap-3 lg:rounded-plate
+           lg:px-3 lg:text-left lg:text-small;
   }
   .voce-attiva {
     @apply text-on-structure lg:bg-on-structure/10;

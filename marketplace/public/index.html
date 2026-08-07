@@ -1012,19 +1012,6 @@
                   <span x-text="missingItemsNote()"></span>
                 </p>
 
-                <template x-if="visitUsable(currentVisit())">
-                  <div class="lastra mt-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-                    <img :src="visitQrUrl(currentVisit())" width="132" height="132"
-                      class="h-33 w-33 shrink-0 rounded-plate bg-white p-2"
-                      :alt="'Codice QR per aprire «' + currentVisit().name + '» sul telefono'">
-                    <div class="min-w-0">
-                      <h2 class="font-display text-title-3" x-text="t(`Portala sul telefono`)"></h2>
-                      <p class="mt-1 text-small text-muted" x-text="t(`Inquadra il codice con la fotocamera: la visita si apre nell'app da museo. Tienila aperta mentre cammini.`)"></p>
-                      <button type="button" @click="openNavigator(navigatorUrl(currentVisit()))" class="link mt-2 inline-block text-small" x-text="t(`Oppure aprila qui`)"></button>
-                    </div>
-                  </div>
-                </template>
-
                 <template x-if="currentVisit().accessKey">
                   <div class="lastra mt-6 border-l-4 border-l-accent p-5">
                     <p class="text-caption uppercase tracking-wider text-muted" x-text="t(`Parola chiave`)"></p>
@@ -1187,15 +1174,8 @@
           </section>
 
           <section x-show="view === 'lavori'">
-            <div class="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h1 class="font-display text-title-1" x-text="t(`I miei contenuti`)"></h1>
-                <p class="mt-1 text-small text-muted"><span x-text="t(`Quello che hai pubblicato in {museo}.`, { museo: selectedMuseum ? selectedMuseum.name : '' })"></span></p>
-              </div>
-              <a :href="qrSheetUrl()" target="_blank" rel="noopener" class="btn-secondario">
-                <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-qr" /></svg> <span x-text="t(`Stampa i QR delle opere`)"></span>
-              </a>
-            </div>
+            <h1 class="font-display text-title-1" x-text="t(`I miei contenuti`)"></h1>
+            <p class="mt-1 text-small text-muted"><span x-text="t(`Quello che hai pubblicato in {museo}.`, { museo: selectedMuseum ? selectedMuseum.name : '' })"></span></p>
 
             <div class="barra mt-6">
               <div class="campo-cerca">
@@ -1857,8 +1837,19 @@
 
           <!-- ---------- GESTIONE DEL MUSEO ---------- -->
           <section x-show="view === 'gestione'">
-            <h1 class="font-display text-title-1" x-text="t(`Gestione del museo`)"></h1>
-            <p class="mt-1 text-small text-muted" x-text="selectedMuseum ? selectedMuseum.name : ''"></p>
+            <div class="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h1 class="font-display text-title-1" x-text="t(`Gestione del museo`)"></h1>
+                <p class="mt-1 text-small text-muted" x-text="selectedMuseum ? selectedMuseum.name : ''"></p>
+              </div>
+              <!-- Il foglio dei QR e' del CURATORE: i codici si appendono ai muri
+                   del museo, quindi decidere che cosa ci sta scritto e quando si
+                   ristampa e' una scelta di chi risponde del museo, non di chi ci
+                   pubblica dentro. Un autore scrive descrizioni, non arreda le sale. -->
+              <a :href="qrSheetUrl()" target="_blank" rel="noopener" class="btn-secondario">
+                <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-qr" /></svg> <span x-text="t(`Stampa i QR delle opere`)"></span>
+              </a>
+            </div>
 
             <template x-if="overview">
               <div>

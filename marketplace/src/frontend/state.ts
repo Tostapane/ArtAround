@@ -2592,10 +2592,6 @@ export class AppState {
     );
   }
 
-  visitQrUrl(v: any): string {
-    return `/api/qr?text=${encodeURIComponent(this.navigatorUrl(v))}`;
-  }
-
   qrSheetUrl(): string {
     if (!this.selectedMuseum) return "#";
     return `/api/museums/${encodeURIComponent(this.selectedMuseum.qid)}/qrcodes`;

@@ -9,12 +9,12 @@
  * che sia la 8000, e perche' cosi' si possono tenere due istanze accese insieme.
  *
  * Si entra da un account: ogni rotta sotto /api pretende una sessione, tranne
- * quattro che non possono averne una. Le prime due perche' vengono prima di
- * avere un account (`/config`, `/users/{login,register}`), le altre due perche'
- * a chiederle non e' il nostro codice ma il browser: `/qr` sta dentro un `img` e
- * il foglio `/museums/:qid/qrcodes` si apre come pagina, e a una navigazione non
- * si puo' attaccare un'intestazione. Da li' non passa nessun testo a pagamento:
- * un QR e' un indirizzo, e quel foglio nasce per essere appeso al muro.
+ * tre che non possono averne una. Le prime due perche' vengono prima di avere un
+ * account (`/config`, `/users/{login,register,redeem}`); la terza perche' a
+ * chiederla non e' il nostro codice ma il browser — il foglio
+ * `/museums/:qid/qrcodes` si apre come pagina, e a una navigazione non si puo'
+ * attaccare un'intestazione. Di li' non passa nessun testo a pagamento: quel
+ * foglio nasce per essere appeso al muro.
  */
 import { MONGO_URI } from "./env";
 import express from "express";
@@ -23,7 +23,6 @@ import path from "path";
 import fs from "fs";
 import cors from "cors";
 import compression from "compression";
-import QRCode from "qrcode";
 
 import { resolveSession, requireSession } from "./session";
 import artworkRoutes from "./routes/artworks";
@@ -171,21 +170,6 @@ async function thresholdFigures(): Promise<
     return [];
   }
 }
-
-app.get("/api/qr", async (req, res) => {
-  try {
-    const text = String(req.query.text || "");
-    if (!text) return res.status(400).json({ error: "Parametro 'text' richiesto" });
-    const svg = await QRCode.toString(text, {
-      type: "svg",
-      margin: 1,
-      errorCorrectionLevel: "M",
-    });
-    res.type("image/svg+xml").set("Cache-Control", "no-store").send(svg);
-  } catch {
-    res.status(500).json({ error: "Errore nella generazione del QR" });
-  }
-});
 
 /**
  * GET /api/config

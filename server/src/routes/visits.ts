@@ -215,12 +215,16 @@ router.post("/", async (req, res) => {
   try {
     const payload = req.body;
 
-    const itemIds: string[] =
+    // Una tappa senza id non e' una tappa: si toglie qui, cosi' cade nel
+    // controllo che chiede almeno una tappa invece di andare a cercare nel
+    // catalogo un item che si chiama stringa vuota.
+    const itemIds: string[] = (
       payload.percorso
         ?.filter((t: any) => t.tipo === "item")
         .map((t: any) => t.id_item) ||
       payload.itemListElement ||
-      [];
+      []
+    ).filter((id: any) => typeof id === "string" && id.trim() !== "");
 
     const optionalItems: string[] =
       payload.percorso
@@ -268,6 +272,21 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
     if (itemIds.length === 0)
       return res.status(400).json({ error: "La visita deve avere almeno una tappa." });
+    // Le tappe si contano sugli item TROVATI, non sugli id ricevuti: un id che
+    // non esiste non da' errore da nessuna parte, semplicemente non compare, e
+    // una visita fatta di tappe che non si risolvono si apre vuota. E' lo stesso
+    // danno silenzioso per cui la cancellazione di un'opera accorcia le visite
+    // invece di lasciarci dentro un buco.
+    const trovati = new Set(items.map((it: any) => String(it["@id"])));
+    const assenti = itemIds.filter((id) => !trovati.has(id));
+    if (assenti.length > 0)
+      return res.status(400).json({
+        error:
+          "Queste tappe non esistono nel catalogo: " +
+          assenti.slice(0, 3).join(", ") +
+          (assenti.length > 3 ? ` e altre ${assenti.length - 3}` : "") +
+          ".",
+      });
 
     // --- Visita GUIDATA (con parola chiave) ---
     const accessKey: string | undefined =

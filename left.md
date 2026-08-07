@@ -1,5 +1,103 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-07, la visita vuota, il binario, il foglio dei QR, e due domande
+
+Cinque punti: tre correzioni e due domande. Ragionamento durevole in `state.md` §3.1-nonies
+(la visita vuota), §4.1 (il binario e il cancelletto), §4.10/§4.14 (il foglio dei QR) e §4.9
+(il QR di una visita).
+
+### 1. Una visita senza tappe non si crea, e il buco non era dove sembrava
+
+Il client la rifiutava gia' (`visitIssues()` → «almeno una tappa») e il server pure — ma il
+server contava gli **id ricevuti**, non gli item **trovati**. Provato contro il server vivo,
+per l'autore e per il visitatore, che sono la stessa rotta:
+
+| payload | prima | ora |
+| --- | --- | --- |
+| `percorso: []`, solo logistiche, niente percorso | 400 | 400 |
+| una tappa con un `id_item` che non esiste | **201, visita creata** | 400 che nomina l'id |
+| una tappa vera piu' una fantasma | **201** | 400 |
+| `itemListElement` di soli id inventati | **201** | 400 |
+| `id_item: ""` | **201** | 400 «almeno una tappa» |
+| due tappe vere | 201 | 201 |
+
+- ⚠️ **Una tappa che non si risolve non da' errore, semplicemente non compare**: la visita
+  usciva con durata zero e si apriva vuota. E' lo stesso danno silenzioso per cui la
+  cancellazione di un'opera accorcia le visite (§1.1-sexies).
+- ⚠️ **Gli id vuoti si tolgono PRIMA di contare**, o il messaggio diventa «non esiste nel
+  catalogo: » con la stringa vuota al posto del nome.
+- La terza strada era gia' chiusa: `/visits/custom` risponde 502 e non scrive niente.
+- **Niente lasciato nel database**: 84 visite prima e dopo, zero residui `PROVA-`.
+
+### 2. Il binario sul telefono: le icone non erano una riga
+
+Segnalato da autore. Misurato a 390 px: *I miei contenuti* e *Crea descrizione* vanno a capo,
+quindi le loro icone stavano **8,4 px piu' in alto** delle altre due, e la prima riga di ogni
+etichetta si appoggiava a sinistra invece di stare sotto l'icona.
+
+- `justify-center` → `justify-start` (icone ancorate in cima) e `text-center` sull'etichetta.
+- ⚠️ **Non si risolve accorciando le parole**: quale voce vada a capo dipende dalla lingua, e
+  ce ne sono tredici. Ancorare l'icona e' l'unica forma che regge senza sapere la parola.
+- Dopo: quattro icone a `y=774,4`, tutte centrate sulla voce; da `lg` il testo torna a
+  sinistra e il binario resta verticale.
+
+### 3. Il foglio dei QR e' del curatore
+
+Spostato da `lavori` (autore) alla testata di `gestione` (curatore).
+⚠️ **La rotta resta aperta e non e' una svista**: il foglio si apre come pagina, quindi a
+chiederlo e' il browser e a una navigazione non si attacca un'intestazione. La prerogativa e'
+quindi del binario, non del server; chiuderla davvero vorrebbe dire scaricarlo con `fetch` e
+aprirlo da un blob, per un documento che nasce per essere appeso al muro.
+
+### 4. Il QR di una visita era rotto, ed e' stato TOLTO
+
+«Portala sul telefono» sulla pagina di una visita: il QR di `…/?museum=&visit=`. Non era il QR
+di un'opera — era il QR di un **collegamento**, e serviva a dire che a un certo punto si cambia
+dispositivo.
+⚠️ **Non funzionava dal 2026-08-03**: il collegamento non porta identita' (per scelta: e' un
+codice fotografabile) e il navigator adesso pretende una sessione. Verificato aprendo quel
+preciso indirizzo con `sessionStorage` vuoto: si atterrava su *«Apri l'app da museo dal
+marketplace»*. Le slide non lo chiedono, quindi e' sparito invece di essere riparato.
+
+Tolto per intero, non solo dallo schermo — un pannello nascosto avrebbe lasciato in piedi una
+rotta che nessuno chiama:
+
+| | |
+| --- | --- |
+| `marketplace/public/index.html` | il riquadro «Portala sul telefono» |
+| `state.ts` | `visitQrUrl()` |
+| `server/src/index.ts` | la rotta `GET /api/qr` e l'import di `qrcode` (`routes/museums.ts` ha il suo, per il foglio del curatore) |
+| `shared/i18n/*.json` | 3 chiavi, tolte a mano dai 12 cataloghi |
+
+- ⚠️ **Il foglio dei QR delle OPERE non c'entra e resta**: e' un'altra rotta
+  (`/museums/:qid/qrcodes`), un altro QR (il qid dell'opera, non un collegamento) e una
+  richiesta delle slide.
+- ⚠️ **Le chiavi sono state tolte a mano, non con `pota`**: il catalogo aveva gia' 14 orfane e
+  21 traduzioni mancanti **prima** di questa passata (contato con `git stash`: 513 chiavi /
+  492 tradotte / 14 orfane, contro 510 / 489 / 14 adesso). `pota` ne avrebbe cancellate 204 in
+  un colpo, che e' un altro lavoro. **La deriva pre-esistente resta aperta**: serve un giro
+  `residui` → `traduci` → `pota` → `stato` quando si decide di farlo.
+- Verificato in browser forzando il ramo `visitUsable` (senza scrivere niente nel database):
+  *Inizia la visita* c'e' ed e' visibile, nessuna `img` verso `/api/qr`, nessuna traccia del
+  testo. Sulle rotte: `/api/qr` ora **404**, `/museums/Q51252/qrcodes` ancora **200**.
+
+### 5. Il cancelletto resta
+
+`/vetrina` e' 404 sul nostro server (provato; risponde solo `/`), perche' il marketplace e'
+`express.static` sulla radice. Il cancelletto non viaggia verso il server, quindi in
+laboratorio si comporta identico. Toglierlo = `pushState` piu' una catch-all da tenere fuori
+da `/api`, `/images`, `/maps`, `/dist`, `/i18n` e `/navigator`.
+
+**Verificato pilotando chromium** a 390x844 densita' 3 e a 1440x900, nei due ruoli piu' il
+curatore: binario misurato prima e dopo, l'autore che non trova piu' il foglio dei QR, il
+curatore che ce l'ha in testa a *Gestione*, e la scansione del QR di una visita da una scheda
+senza sessione. **Zero errori in console**, `tsc` verde su server e marketplace, `dist`
+ricostruito. Le prove sulle rotte girano su un **secondo server** (`PORT=8100`): sulla 8000
+c'e' il tuo, che vede il codice vecchio finche' non lo riavvii.
+
+⚠️ **Il server sulla 8000 va riavviato** perche' il rifiuto della visita vuota entri in vigore:
+gira in docker e `ts-node` non ricarica da solo.
+
 ## ⏸ Ripresa — 2026-08-07, quattro segnalazioni: l'attesa, il compositore, il vetro, l'iride
 
 Quattro cose in fila. Ragionamento durevole in `state.md` §4.2-bis (l'attesa e i nodi),
