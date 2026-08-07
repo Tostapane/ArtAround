@@ -28,6 +28,7 @@ import { onMounted, ref, computed } from "vue";
 import Biglietteria from "./components/selection/Biglietteria.vue";
 import Visita from "./components/visita/Visita.vue";
 import GuidedGate from "./components/GuidedGate.vue";
+import Attesa from "./components/Attesa.vue";
 import {
   buildStops,
   loadMuseum,
@@ -52,7 +53,12 @@ const { message, announce } = useAnnouncer();
 
 const pronto = ref(false);
 const erroreAvvio = ref("");
-const testoAvvio = ref(t("Apertura del museo…"));
+// I due messaggi d'avvio tengono la CHIAVE, non la frase tradotta: il
+// catalogo della lingua arriva a parte (vedi `i18n.ts`) e potrebbe non
+// esserci ancora quando queste righe passano, che passano una volta sola.
+// Tradurli nel legame invece che qui li rende anche l'unica cosa giusta
+// quando la lingua cambia a schermo acceso.
+const testoAvvio = ref("Apertura del museo…");
 const started = ref(false);
 const choice = ref<string>("");
 
@@ -66,9 +72,8 @@ onMounted(async () => {
   // fallirebbe per conto suo e la persona resterebbe davanti a una pianta che
   // non risponde piu'. Si dice invece dove si rientra, che e' il marketplace.
   onSessionExpired(() => {
-    erroreAvvio.value = t(
-      "La sessione è scaduta. Torna al marketplace ed entra di nuovo col tuo profilo.",
-    );
+    erroreAvvio.value =
+      "La sessione è scaduta. Torna al marketplace ed entra di nuovo col tuo profilo.";
     pronto.value = true;
   });
 
@@ -92,7 +97,7 @@ onMounted(async () => {
   }
   if (!hasSession()) {
     erroreAvvio.value =
-      t("Apri l'app da museo dal marketplace: è lì che si entra col proprio profilo.");
+      "Apri l'app da museo dal marketplace: è lì che si entra col proprio profilo.";
     pronto.value = true;
     return;
   }
@@ -109,7 +114,7 @@ onMounted(async () => {
     } catch (err) {
       console.error("Impossibile agganciare la visita guidata", err);
       erroreAvvio.value =
-        t("Non è stato possibile entrare nella visita guidata. Chiedi al docente di riaprire la sala d'attesa.");
+        "Non è stato possibile entrare nella visita guidata. Chiedi al docente di riaprire la sala d'attesa.";
     }
   }
   if (role === "docente" && guidedVisitParam) {
@@ -119,7 +124,7 @@ onMounted(async () => {
       return;
     } catch (err) {
       console.error("Impossibile avviare la visita guidata", err);
-      erroreAvvio.value = t("Non è stato possibile aprire la sala d'attesa.");
+      erroreAvvio.value = "Non è stato possibile aprire la sala d'attesa.";
     }
   }
 
@@ -142,7 +147,7 @@ onMounted(async () => {
   const qid = museumParam || museumQid();
   if (!qid) {
     erroreAvvio.value =
-      t("Nessun museo configurato. Il curatore deve indicarlo in config.json.");
+      "Nessun museo configurato. Il curatore deve indicarlo in config.json.";
     pronto.value = true;
     return;
   }
@@ -150,14 +155,14 @@ onMounted(async () => {
 
   const richiesta = (params.get("custom") || "").trim();
   if (richiesta !== "") {
-    testoAvvio.value = t("Stiamo componendo la tua visita…");
+    testoAvvio.value = "Stiamo componendo la tua visita…";
     try {
       const risultato = await createCustomVisit(qid, richiesta);
       onCustomStart(risultato);
     } catch (err) {
       console.error("Impossibile comporre la visita su misura", err);
       erroreAvvio.value =
-        t("Non è stato possibile comporre la visita. Torna al marketplace e riprova, magari descrivendola con altre parole.");
+        "Non è stato possibile comporre la visita. Torna al marketplace e riprova, magari descrivendola con altre parole.";
     }
   }
 
@@ -211,7 +216,7 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
 
     <main id="contenuto" tabindex="-1" class="flex min-h-0 flex-1 flex-col">
       <div v-if="!pronto" class="flex flex-1 items-center justify-center p-8">
-        <p class="text-small text-muted" role="status">{{ testoAvvio }}</p>
+        <Attesa :testo="t(testoAvvio)" />
       </div>
 
       <!-- L'avviso viene prima della visita guidata: una sessione scaduta
@@ -222,7 +227,7 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
         class="flex flex-1 items-center justify-center p-8"
       >
         <div class="lastra max-w-md p-6 text-center">
-          <p class="text-body">{{ erroreAvvio }}</p>
+          <p class="text-body">{{ t(erroreAvvio) }}</p>
         </div>
       </div>
 

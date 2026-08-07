@@ -88,6 +88,10 @@ export function swarm() {
     /** Ritardo di partenza di ogni punto, in frazione della fase. */
     delay: new Float32Array(0),
     count: 0,
+    /** Raggio vero di un punto, in pixel: lo ricalcola `build()` a ogni
+     *  ridimensionamento. Parte dal massimo perche' `draw()` puo' correre
+     *  prima, sulla nuvola che vaga. */
+    dot: 1.6,
 
     shapes: [] as Shape[],
     shapeIndex: -1,
@@ -126,10 +130,19 @@ export function swarm() {
      *  lunghezza. Oltre un quinto le scie si incrociano e si legge come
      *  turbolenza; sotto un ventesimo non si distingue da una retta. */
     BOW: 0.16,
-    /** Raggio e opacita' massimi di un punto. Il fondo Notte non e' nero ma un
-     *  blu medio (#284b63): a mezza opacita' i punti ci si sciolgono dentro e
-     *  il quadro resta un'ombra. Serve quasi tutta l'opacita' per staccare. */
+    /** Raggio MASSIMO e opacita' massima di un punto. Il fondo Notte non e'
+     *  nero ma un blu medio (#284b63): a mezza opacita' i punti ci si
+     *  sciolgono dentro e il quadro resta un'ombra. Serve quasi tutta
+     *  l'opacita' per staccare.
+     *
+     *  Il raggio vero lo calcola `build()` (campo `dot`) e su una viewport
+     *  stretta e' piu' piccolo: il retino da' sempre `SAMPLE_W` colonne di
+     *  punti, ma la figura in cui vanno stampate e' larga la meta', quindi le
+     *  celle cadono piu' vicine di quanto il punto e' largo e il quadro si
+     *  impasta. Il minimo tiene il punto sopra il pixel: sotto, resta solo la
+     *  sfumatura del bordo e la nuvola sbiadisce. */
     DOT: 1.6,
+    DOT_MIN: 0.75,
     ALPHA: 1,
     /** Ampiezza della sfumatura ai bordi, in frazione del lato minore. */
     EDGE: 0.06,
@@ -137,9 +150,17 @@ export function swarm() {
     MARGIN: 0.84,
     /** Risoluzione con cui si campiona una sorgente. */
     SAMPLE_W: 240,
-    /** Punti che un retino cerca di produrre da una fotografia. Sotto i
-     *  seimila una faccia non si riconosce piu': e' il numero che decide se il
-     *  fondale e' un quadro o una macchia. */
+    /** Punti che un retino cerca di produrre da una fotografia, al MASSIMO.
+     *  Sotto i seimila una faccia non si riconosce piu': e' il numero che
+     *  decide se il fondale e' un quadro o una macchia.
+     *
+     *  Il tetto vero e' il numero di particelle, e la ragione sta in
+     *  `nextShape`: i bersagli si assegnano per indice (`k * total / count`),
+     *  quindi con piu' punti che particelle ne resta fuori uno ogni tot — su un
+     *  telefono, dove le particelle sono seimila, un terzo del quadro non
+     *  veniva stampato affatto. Meglio un retino piu' rado, dove la diffusione
+     *  dell'errore ridistribuisce il tono su quel che resta, che uno fitto
+     *  stampato coi buchi. */
     TONES: 9000,
 
     start(this: any, canvas: HTMLCanvasElement) {
@@ -333,7 +354,13 @@ export function swarm() {
       // Si scala perche' il totale valga il numero di punti voluto: un quadro
       // chiaro e uno scuro devono dare la stessa quantita' di sciame, altrimenti
       // il fondale cambia densita' a ogni figura.
-      const scale = this.TONES / Math.max(1, sum);
+      // Mai piu' punti che particelle: il perche' sta su `TONES`. `build()` ha
+      // gia' fissato `count` quando si arriva qui, perche' il primo giro
+      // dell'osservatore precede il caricamento delle figure; il ripiego serve
+      // solo se un giorno l'ordine cambiasse.
+      const voluti =
+        this.count > 0 ? Math.min(this.TONES, this.count) : this.TONES;
+      const scale = voluti / Math.max(1, sum);
       for (let i = 0; i < ink.length; i++) ink[i] = Math.min(1, ink[i] * scale);
 
       const keep: number[] = [];
@@ -378,6 +405,18 @@ export function swarm() {
       const wanted = Math.round((canvas.width * canvas.height) / 110);
       this.count = Math.max(6000, Math.min(13000, wanted));
 
+      // IL PUNTO SEGUE LA CELLA DEL RETINO, non lo schermo. `halftone` campiona
+      // ogni sorgente su `SAMPLE_W` colonne qualunque sia la viewport, quindi
+      // la distanza fra due punti a schermo e' la larghezza della figura divisa
+      // per quelle colonne: su un telefono la figura sta in mezza larghezza e
+      // le celle cadono a un pixel e mezzo l'una dall'altra, dove un raggio di
+      // 1,6 le fa sovrapporre tutte. Si stima sul riquadro disponibile e non
+      // sulla figura vera perche' qui non si sa ancora quale arrivera' — e la
+      // sua proporzione la puo' solo rimpicciolire, mai allargare.
+      const { cx, cy, roomW, roomH } = this.bounds();
+      const cella = (Math.min(roomW, roomH) * this.MARGIN) / this.SAMPLE_W;
+      this.dot = Math.max(this.DOT_MIN, Math.min(this.DOT, cella * 0.62));
+
       this.px = new Float32Array(this.count);
       this.py = new Float32Array(this.count);
       this.vx = new Float32Array(this.count);
@@ -392,7 +431,6 @@ export function swarm() {
       // campo: cosi' l'attesa fra il primo fotogramma e il primo quadro e' una
       // nuvola che si condensa al posto giusto, e il testo non si ritrova la
       // grana addosso per un secondo.
-      const { cx, cy, roomW, roomH } = this.bounds();
       for (let i = 0; i < this.count; i++) {
         this.px[i] = cx + (Math.random() - 0.5) * roomW;
         this.py[i] = cy + (Math.random() - 0.5) * roomH;
@@ -503,13 +541,20 @@ export function swarm() {
     bounds(this: any) {
       const canvas = this.canvas as HTMLCanvasElement;
       const wide = canvas.width >= 1024;
+      // Fascia libera in cima, e solo su schermo stretto: li' c'e' il selettore
+      // della lingua, e a viewport stretta la figura sale proprio sopra di lui.
+      // Non basta guardare dove finisce la figura composta: fra un'opera e
+      // l'altra i punti nascono sparsi su TUTTO il riquadro (`build`), quindi il
+      // campo se li ritrovava addosso comunque. Togliendo la fascia dal
+      // riquadro, non c'e' nessun momento in cui un punto ci finisce sopra.
+      const libero = wide ? 0 : 96;
       const cx = canvas.width * (wide ? 0.7 : 0.5);
-      const cy = canvas.height * (wide ? 0.5 : 0.37);
+      const cy = libero + (canvas.height - libero) * (wide ? 0.5 : 0.37);
       return {
         cx,
         cy,
         roomW: 2 * Math.min(cx, canvas.width - cx),
-        roomH: 2 * Math.min(cy, canvas.height - cy),
+        roomH: 2 * Math.min(cy - libero, canvas.height - cy),
       };
     },
 
@@ -701,7 +746,7 @@ export function swarm() {
 
       const w = canvas.width;
       const h = canvas.height;
-      const radius = this.DOT as number;
+      const radius = this.dot as number;
       // Fascia entro cui i punti si spengono avvicinandosi al bordo: la nuvola
       // sfuma nel buio invece di finire tagliata di netto contro il margine.
       const margin = Math.min(w, h) * this.EDGE;

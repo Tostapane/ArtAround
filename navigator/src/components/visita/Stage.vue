@@ -441,9 +441,12 @@ const optionalCount = computed(() => {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <!-- Due modi pari di navigare la stessa visita -->
+    <!-- Due modi pari di navigare la stessa visita.
+         Sul telefono questo controllo non c'e': li' Mappa ed Elenco sono due
+         schede del guscio (`Visita.vue`), e ripeterle qui vorrebbe dire due
+         comandi diversi che fanno la stessa cosa a due dita di distanza. -->
     <div class="flex shrink-0 items-center gap-2 px-3 py-2">
-      <div class="segmenti" role="radiogroup" :aria-label="t('Come vedere la visita')">
+      <div class="segmenti hidden lg:inline-flex" role="radiogroup" :aria-label="t('Come vedere la visita')">
         <button
           type="button"
           role="radio"

@@ -21,6 +21,20 @@
  *
  * Chiedi e Orientati sono separati perche' rispondono sistemi diversi: l'LLM per
  * l'opera, il grafo della mappa per l'edificio.
+ *
+ * SUL TELEFONO LE DUE META' SI DIVIDONO, e `sezione` dice quale delle due si sta
+ * guardando: la scheda intera in 55dvh voleva dire due centimetri di testo
+ * dell'opera sopra due colonne di pastiglie, cioe' nessuna delle due leggibile.
+ * Sono percio' due schede del guscio (`Visita.vue`), e qui restano due blocchi
+ * che si accendono e si spengono. Da `lg` in su NON cambia niente: la colonna e'
+ * alta quanto lo schermo e le due meta' ci stanno insieme, che e' il motivo per
+ * cui questo pannello e' sempre aperto. Ogni blocco porta quindi la sua regola
+ * scritta due volte — `hidden` per il telefono e `lg:` per rimetterlo — e non un
+ * `matchMedia`: la larghezza la sa gia' il foglio di stile.
+ *
+ * La barra della voce e dell'avanzamento non si spegne mai: e' il comando, non il
+ * contenuto, e cercarlo cambiando scheda vorrebbe dire perdere "Prossimo" proprio
+ * mentre si sta leggendo la risposta a una domanda.
  */
 import { computed, ref, watch } from "vue";
 import Pannello from "./Pannello.vue";
@@ -50,6 +64,9 @@ const props = defineProps<{
   target: string;
   /** Se esiste una tappa successiva verso cui si possa chiedere la strada. */
   canAskNext: boolean;
+  /** Quale meta' si sta guardando sul telefono: `opera` o `domande`. Da `lg` in
+   *  su non decide niente, perche' li' si vedono tutt'e due. */
+  sezione: string;
 }>();
 
 const emit = defineEmits<{
@@ -97,12 +114,14 @@ const stile = computed(() => {
 <template>
   <section
     :aria-label="t(`Scheda dell'opera e comandi`)"
-    class="flex h-[55dvh] shrink-0 flex-col border-t border-line bg-surface
-           lg:h-auto lg:w-[26rem] lg:border-l lg:border-t-0"
-    style="padding-bottom: env(safe-area-inset-bottom)"
+    class="flex min-h-0 flex-1 flex-col bg-surface
+           lg:h-auto lg:w-[26rem] lg:flex-none lg:border-l lg:border-line"
   >
     <!-- LINGUA -->
-    <div class="flex shrink-0 items-center gap-3 border-b border-line px-3 py-2">
+    <div
+      class="shrink-0 items-center gap-3 border-b border-line px-3 py-2 lg:flex"
+      :class="sezione === 'opera' ? 'flex' : 'hidden'"
+    >
       <span class="etichetta-impostazione shrink-0" aria-hidden="true">
         {{ t("Lingua") }}
       </span>
@@ -114,7 +133,14 @@ const stile = computed(() => {
     </div>
 
     <!-- OPERA -->
-    <div ref="opera" class="min-h-0 basis-0 overflow-y-auto" :class="richiesta ? 'grow-[2]' : 'grow-[3]'">
+    <div
+      ref="opera"
+      class="min-h-0 basis-0 overflow-y-auto lg:block"
+      :class="[
+        richiesta ? 'grow-[2]' : 'grow-[3]',
+        sezione === 'opera' ? 'block' : 'hidden',
+      ]"
+    >
       <template v-if="content">
         <!-- Sul telefono l'intestazione e' una didascalia da museo, con l'opera
              a sinistra del titolo, perche' la colonna e' bassa e una foto a piena
@@ -257,8 +283,11 @@ const stile = computed(() => {
 
     <!-- CHIEDI / ORIENTATI -->
     <div
-      class="min-h-0 basis-0 overflow-y-auto border-t border-line p-3"
-      :class="richiesta ? 'grow-[3]' : 'grow-[2]'"
+      class="min-h-0 basis-0 overflow-y-auto border-t border-line p-3 lg:block"
+      :class="[
+        richiesta ? 'grow-[3]' : 'grow-[2]',
+        sezione === 'domande' ? 'block' : 'hidden',
+      ]"
     >
       <Pannello
         :about="riferimento"

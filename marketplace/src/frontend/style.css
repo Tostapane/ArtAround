@@ -104,7 +104,7 @@
   .tessera-iride {
     @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-card;
     background-image: var(--iride);
-    color: var(--on-accent);
+    color: var(--on-iride);
   }
   /* Il filo va disegnato, non messo come bordo: `border-image` non convive con
      il raggio della lastra e squadrerebbe l'angolo. */
@@ -120,7 +120,7 @@
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-plate px-4
            text-small font-semibold transition-opacity hover:opacity-90;
     background-image: var(--iride);
-    color: var(--on-accent);
+    color: var(--on-iride);
   }
 }
 

@@ -19,6 +19,7 @@
  */
 import { ref, watch, computed } from "vue";
 import LanguageSelector from "./LanguageSelector.vue";
+import Attesa from "../Attesa.vue";
 import { getVisitsByMuseum, createCustomVisit } from "@/api";
 import { museum, visit } from "@/state";
 import { museumTitle, mediaOrigin } from "@/config";
@@ -77,6 +78,50 @@ const filteredVisits = computed(() =>
 const hasActiveFilters = computed(
   () => levelFilter.value !== "tutti" || durationFilter.value !== "tutti",
 );
+
+/**
+ * LA VISITA IN CORSO STA IN CIMA, e si riconosce dal fondo.
+ *
+ * I titoli seminati di un museo si somigliano tutti — "Visita Infantile · 15s
+ * per opera", "Visita Infantile · 30s per opera" — quindi in mezzo a venti righe
+ * uguali quella che si sta gia' percorrendo era irriconoscibile, e sceglierla di
+ * nuovo la faceva ripartire invece di riprenderla. Qui la riga cambia di segno e
+ * di gesto insieme: fondo alla velatura d'accento, la pastiglia "Riprendi" al
+ * posto della freccia, e il clic emette `resume`.
+ *
+ * L'ordine non e' un `sort`: si stacca l'elemento e lo si rimette davanti. Un
+ * comparatore avrebbe riordinato anche tutto il resto, e l'ordine in cui le
+ * visite arrivano dal server e' quello del percorso del museo.
+ */
+const currentId = computed(() => (visit.value ? visit.value["@id"] : ""));
+
+function isCurrent(v: Visit): boolean {
+  return currentId.value !== "" && v["@id"] === currentId.value;
+}
+
+const orderedVisits = computed(() => {
+  const resto = filteredVisits.value.filter((v) => !isCurrent(v));
+  const corrente = filteredVisits.value.find((v) => isCurrent(v));
+  if (!corrente) return resto;
+  return [corrente, ...resto];
+});
+
+/** In corso: si riprende. Le altre si avviano. */
+function apri(v: Visit) {
+  if (isCurrent(v)) emit("resume");
+  else emit("start", v);
+}
+
+/**
+ * Il riquadro di rientro serve solo alla visita che l'elenco NON puo' mostrare:
+ * una su misura, che nel database non esiste, o una aperta da un collegamento
+ * diretto. Quando invece e' li' dentro, la sua riga dice gia' tutto, e due
+ * strade per lo stesso gesto a due centimetri di distanza sono una in piu'.
+ */
+const resumeFuoriElenco = computed(() => {
+  if (!visit.value) return false;
+  return !visits.value.some((v) => v["@id"] === currentId.value);
+});
 
 function clearFilters() {
   levelFilter.value = "tutti";
@@ -172,7 +217,7 @@ async function createCustom() {
          misura o aperta da un collegamento diretto nemmeno una seconda strada:
          quelle nell'elenco qui sotto non ci sono. -->
     <button
-      v-if="visit"
+      v-if="resumeFuoriElenco && visit"
       type="button"
       class="lastra filo-accento mt-6 flex w-full items-center gap-4 p-4 text-left"
       @click="emit('resume')"
@@ -215,30 +260,43 @@ async function createCustom() {
       </button>
     </div>
 
-    <p class="mt-4 text-small text-muted" role="status">
-      <span v-if="loading">{{ t("Caricamento delle visite…") }}</span>
-      <span v-else>
-        {{
-          filteredVisits.length === 1
-            ? t("1 visita disponibile")
-            : t("{n} visite disponibili", { n: filteredVisits.length })
-        }}
-      </span>
+    <Attesa v-if="loading" :testo="t('Caricamento delle visite…')" />
+
+    <p v-else class="mt-4 text-small text-muted" role="status">
+      {{
+        filteredVisits.length === 1
+          ? t("1 visita disponibile")
+          : t("{n} visite disponibili", { n: filteredVisits.length })
+      }}
     </p>
 
-    <!-- L'elenco -->
-    <ul v-if="filteredVisits.length" class="mt-4 flex flex-col gap-3">
-      <li v-for="v in filteredVisits" :key="v['@id']">
+    <!-- L'elenco. Quella in corso sta in cima e ha un fondo suo: e' l'unica
+         riga che non avvia niente ma RIPRENDE, e in mezzo a venti titoli che si
+         somigliano ("Visita Infantile · 15s per opera") non c'era modo di
+         riconoscerla. -->
+    <ul v-if="!loading && orderedVisits.length" class="mt-4 flex flex-col gap-3">
+      <li v-for="v in orderedVisits" :key="v['@id']">
         <button
           type="button"
           class="lastra filo-accento flex w-full items-center gap-4 p-5 text-left"
-          @click="emit('start', v)"
+          :class="isCurrent(v) ? 'border-accent bg-accent-velo' : ''"
+          @click="apri(v)"
         >
           <span class="min-w-0 flex-1">
+            <span
+              v-if="isCurrent(v)"
+              class="block text-caption uppercase tracking-wider text-accent"
+            >
+              {{ t("Visita in corso") }}
+            </span>
             <span class="block font-display text-title-2 leading-tight">{{ v.name }}</span>
             <span class="tabular mt-1 block text-small text-muted">{{ summary(v) }}</span>
           </span>
+          <span v-if="isCurrent(v)" class="pastiglia pastiglia-accento shrink-0">
+            {{ t("Riprendi") }}
+          </span>
           <svg
+            v-if="!isCurrent(v)"
             class="h-6 w-6 shrink-0 text-accent"
             fill="none"
             stroke="currentColor"

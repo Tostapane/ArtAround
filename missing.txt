@@ -6,19 +6,13 @@ MANCANTI
 - adozione mediante unico file di configurazione
 - mettere imagini per scelta museo e per le visite
 - superseed, rework dei prezzi, - gli uffizi hanno tutto gratis
+http://localhost:8000/#/componi da autore le cose da selezionare rendono la pagina lunghissima
 MOBILE
-- componi visita e' completamente inutilizzabile, diventa praticamtne desktop mode
-  hard reload?`
-- da mobile i pallini devono essere piu piccoli
+- hard reload?
+- rendere impossibile creare visite senza alcun item
 - ti fa entrare dando per scontata la scelta del museo
 - light mode selettore navigator
-- da mobile i tasti scorrono verso l;alto separandosi dalla card, marketplace betrina
-- cliccare su opere o altro nella vetrina ti clicca la card dietro
-- aprendo una visita mi sta facendo il eftch di solo alcune immagini
-- e' tutto estremamente lento, ho ottenuto un failed to fetch
-- nel navigator, la scheda deve esere alternata alla mappa o alla lista.  tere diverse sezioni nella scheda ci deve essere la sezione visita
-e la sezione domande, al momento nessuna delle due risulta leggibile.
-n questo modo non e\ viabile la situazione. come si implementa una cosa del genere? 
+- simbolo di caricamento?
 DA DISCUTERE
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 

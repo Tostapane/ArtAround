@@ -69,14 +69,42 @@
          profondita' ed e' anche il suo costo, dichiarato scegliendolo -- sotto
          i 28 px i due rombi si impastano. -->
     <symbol id="ico-marchio" viewBox="0 0 64 64">
+      <!-- Il marchio intero e' la somma delle sue quattro parti, e non le
+           ridisegna: sono `<use>` annidati, che e' quel che tiene UNA sola copia
+           della geometria pur potendo montare ogni pezzo da solo.
+           Perche' i pezzi esistano separati, vedi `.marchio-attesa` in
+           `shared/components.css`: l'attesa li monta come quattro `<svg>`
+           sovrapposti, perche' quelli il compositore li sa muovere da solo. -->
+      <use href="#marchio-cubo" />
+      <use href="#marchio-quadro-destra" />
+      <use href="#marchio-quadro-sinistra" />
+      <use href="#marchio-quadro-alto" />
+    </symbol>
+
+    <!-- LE QUATTRO PARTI. Divise per FACCIA e non per tipo di tratto: ogni
+         quadro e' cornice piu' battuta e si stacca lungo la normale della sua
+         faccia, quindi e' quello che si muove insieme. -->
+    <symbol id="marchio-cubo" viewBox="0 0 64 64">
       <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
         <path d="M32 7 L53.65 19.5 L53.65 44.5 L32 57 L10.35 44.5 L10.35 19.5 Z" />
         <path d="M32 32 L53.65 19.5 M32 32 L10.35 19.5 M32 32 L32 57" />
+      </g>
+    </symbol>
+    <symbol id="marchio-quadro-destra" viewBox="0 0 64 64">
+      <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
         <path d="M47.8 29.63 L47.8 41.13 L37.85 46.88 L37.85 35.38 Z" />
-        <path d="M26.15 35.38 L26.15 46.88 L16.2 41.13 L16.2 29.63 Z" />
-        <path d="M32 13.75 L41.96 19.5 L32 25.25 L22.04 19.5 Z" />
         <path d="M45.56 33.51 L45.56 39.83 L40.09 42.99 L40.09 36.67 Z" />
+      </g>
+    </symbol>
+    <symbol id="marchio-quadro-sinistra" viewBox="0 0 64 64">
+      <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M26.15 35.38 L26.15 46.88 L16.2 41.13 L16.2 29.63 Z" />
         <path d="M23.91 36.67 L23.91 42.99 L18.44 39.83 L18.44 33.51 Z" />
+      </g>
+    </symbol>
+    <symbol id="marchio-quadro-alto" viewBox="0 0 64 64">
+      <g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M32 13.75 L41.96 19.5 L32 25.25 L22.04 19.5 Z" />
         <path d="M32 16.34 L37.48 19.5 L32 22.66 L26.52 19.5 Z" />
       </g>
     </symbol>
@@ -191,7 +219,8 @@
              nessuno ha scelto: senza questo campo, chi l'italiano non lo legge
              dovrebbe accedere per trovare il selettore nel binario. I nomi sono
              scritti ciascuno nella propria lingua, cosi' si riconoscono senza
-             dover prima leggere l'italiano. -->
+             dover prima leggere l'italiano. Resta in cima anche sul telefono:
+             e' lo sciame a scansarsi, vedi `bounds()` in `app.ts`. -->
         <div class="flex justify-start">
           <div class="w-44">
             <label for="lingua-soglia" class="sr-only" x-text="t('Lingua')"></label>
@@ -326,18 +355,39 @@
 
     <div x-show="guscioMontato()" class="lg:flex">
 
-      <!-- Barra compatta (solo telefono) -->
-      <header class="sticky top-0 z-30 flex h-[var(--app-bar)] items-center justify-between gap-3 border-b border-line bg-structure px-4 text-on-structure lg:hidden">
-        <button type="button" @click="goHome()" class="font-display text-title-3">ArtAround<span class="text-accent">.</span></button>
-        <div class="flex items-center gap-2">
-          <span x-show="currentUserRole === 'visitatore'" class="tabular text-small" x-text="'€ ' + wallet.toFixed(2)"
+      <!-- Barra compatta (solo telefono).
+           Il livello e' quello del guscio, sopra i comandi delle tessere: quelli
+           stanno a `z-30` per sollevarsi sopra il velo di `.tessera-intera`, e a
+           parita' vincevano per ordine nel documento, cioe' Sblocca passava
+           sopra credito, tema e uscita. Vale anche per il binario qui sotto, che
+           in basso se li ritrova addosso allo stesso modo. -->
+      <header class="sticky top-0 z-40 flex h-[var(--app-bar)] items-center justify-between gap-3 border-b border-line bg-structure px-4 text-on-structure lg:hidden">
+        <!-- Il MARCHIO al posto della parola: il piede del binario, dove la
+             lingua sta da sempre, e' `lg:block`, quindi su un telefono il campo
+             non c'era proprio e si poteva scegliere la lingua solo sulla soglia,
+             cioe' prima di entrare e mai piu'. Qui la riga e' larga 390 px e la
+             parola scritta per esteso non lasciava lo spazio: il segno dice la
+             stessa cosa, e come bersaglio passa da 91x25 a 44x44. -->
+        <button type="button" @click="goHome()" :aria-label="t('Home')"
+          class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-on-structure/10">
+          <svg class="h-7 w-7 text-accent" viewBox="0 0 64 64" aria-hidden="true"><use href="#ico-marchio" /></svg>
+        </button>
+        <div class="flex min-w-0 items-center gap-2">
+          <label for="lingua-barra" class="sr-only" x-text="t('Lingua')"></label>
+          <select id="lingua-barra" class="campo-select campo-select-struttura w-28 shrink"
+            :value="lingua" @change="cambiaLingua($event.target.value)">
+            <template x-for="l in lingueDisponibili" :key="l.translate">
+              <option :value="l.translate" x-text="l.name"></option>
+            </template>
+          </select>
+          <span x-show="currentUserRole === 'visitatore'" class="tabular shrink-0 text-small" x-text="'€ ' + wallet.toFixed(2)"
             :aria-label="t(`Credito disponibile: {n} euro`, { n: wallet.toFixed(2) })"></span>
           <button type="button" x-data="themeToggle()" @click="toggle()" :aria-pressed="dark" :aria-label="label()"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10">
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10">
             <svg class="h-5 w-5" aria-hidden="true"><use :href="dark ? '#ico-sole' : '#ico-luna'" /></svg>
           </button>
           <button type="button" @click="logout()" :aria-label="t(`Esci dal profilo`)"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10">
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10">
             <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-esci" /></svg>
           </button>
         </div>
@@ -345,7 +395,7 @@
 
       <!-- BINARIO -->
       <nav id="binario" tabindex="-1" :aria-label="t(`Navigazione principale`)"
-        class="fixed bottom-0 left-0 right-0 z-30 border-t border-line bg-structure text-on-structure
+        class="fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-structure text-on-structure
                lg:sticky lg:top-0 lg:h-[100dvh] lg:w-64 lg:shrink-0 lg:border-r lg:border-t-0">
         <div class="flex h-full flex-col">
 
@@ -1441,8 +1491,19 @@
                   class="segmento" :class="editorPane === 'libreria' ? 'segmento-attivo' : ''" x-text="t(`Libreria`)"></button>
               </div>
 
+              <!-- `min-w-0` SUI DUE PANNELLI, e non e' una rifinitura: senza, il
+                   compositore allarga la pagina oltre lo schermo del telefono.
+                   Un elemento di griglia ha `min-width: auto`, cioe' non scende
+                   sotto il proprio contenuto minimo: la libreria ne chiede 617
+                   px, la traccia si allarga fino a li' e il documento diventa
+                   largo 634 su una viewport di 390 — da cui la pagina che si
+                   rimpicciolisce e sembra "in versione desktop". Da `lg` in su
+                   il difetto non si vedeva perche' li' le tracce sono gia'
+                   dichiarate `minmax(0, …)`, che e' la stessa cosa detta per
+                   le colonne. Si vede solo col pannello APERTO: da nascosto
+                   (`display:none`) un pannello non misura niente. -->
               <div class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                <div x-show="editorPane === 'percorso'" class="lg:!block">
+                <div x-show="editorPane === 'percorso'" class="min-w-0 lg:!block">
                   <label for="v-titolo" class="etichetta" x-text="t(`Titolo della visita`)"></label>
                   <input id="v-titolo" type="text" x-model="draft.titolo" class="campo" :placeholder="t(`I capolavori in mezz'ora`)">
 
@@ -1464,8 +1525,13 @@
                           <svg class="h-5 w-5 text-muted" aria-hidden="true"><use href="#ico-nota" /></svg>
                         </span>
 
-                        <div class="riga-corpo flex items-center gap-3">
-                          <div class="min-w-0 flex-1">
+                        <!-- I comandi vanno A CAPO quando la riga e' stretta: la
+                             pastiglia Opzionale piu' le tre iconcine tengono
+                             ~200 px, e sul telefono al titolo dell'opera ne
+                             restavano una novantina, cioe' due righe tagliate a
+                             meta' parola. Da `sm` in su tornano di fianco. -->
+                        <div class="riga-corpo flex flex-wrap items-center gap-3">
+                          <div class="min-w-0 grow basis-full sm:basis-0">
                           <template x-if="stop.tipo === 'item'">
                             <div>
                               <p class="line-clamp-2 font-medium" x-text="itemName(stop.value)"></p>
@@ -1530,7 +1596,7 @@
                 </div>
 
                 <!-- La libreria da cui si pesca -->
-                <div x-show="editorPane === 'libreria'" class="lg:!block lg:border-l lg:border-line lg:pl-8">
+                <div x-show="editorPane === 'libreria'" class="min-w-0 lg:!block lg:border-l lg:border-line lg:pl-8">
                   <h2 class="font-display text-title-3" x-text="t(`La libreria`)"></h2>
                   <div class="mt-3 flex flex-col gap-3">
                     <div class="campo-cerca">
@@ -1546,9 +1612,23 @@
                     </div>
                   </div>
 
-                  <ul class="mt-4 flex flex-col gap-2">
+                  <!-- La libreria SCORRE PER CONTO SUO, ma solo da `lg`. Sono i
+                       gruppi di tutte le opere del museo — agli Uffizi 105 — e
+                       in fila nella pagina la fanno lunga ottomila pixel:
+                       accanto c'e' il percorso che si sta componendo, e per
+                       tornarci si risalivano dieci schermate. Il tetto e' in
+                       `vh` perche' quel che deve restare a schermo e' il
+                       percorso, non un numero di righe.
+                       Sotto `lg` i due pannelli sono due schede e a schermo ce
+                       n'e' uno solo: li' il tetto non servirebbe a niente e
+                       lascerebbe un riquadro di 250 px stretto fra i filtri e
+                       la barra di salvataggio, che e' incollata in fondo. -->
+                  <ul class="mt-4 flex flex-col gap-2 lg:max-h-[70vh] lg:overflow-y-auto lg:pr-1">
                     <template x-for="g in editorLibrary()" :key="g.artwork['@id']">
-                      <li class="lastra overflow-hidden" x-data="{ aperta: false, rotta: false }">
+                      <!-- `shrink-0`: dentro una colonna flex che ha un tetto e
+                           scorre, le righe si SCHIACCIANO per starci — 107
+                           gruppi diventavano 107 filetti da quattro pixel. -->
+                      <li class="lastra shrink-0 overflow-hidden" x-data="{ aperta: false, rotta: false }">
                         <button type="button" @click="aperta = !aperta" :aria-expanded="aperta"
                           class="riga-figurata filo-accento w-full text-left">
                           <span class="figura-riga">
@@ -1563,7 +1643,19 @@
                             <svg class="h-4 w-4 shrink-0 text-muted" aria-hidden="true"><use :href="aperta ? '#ico-su' : '#ico-giu'" /></svg>
                           </span>
                         </button>
-                        <ul x-show="aperta" x-collapse class="flex flex-col gap-2 border-t border-line p-3">
+                        <!-- `x-if` E NON `x-show`, ed e' la differenza fra
+                             un'apertura svelta e una lenta: con `x-show` le
+                             voci si costruiscono comunque, tutte, e restano
+                             nascoste. Agli Uffizi sono 105 gruppi da 20
+                             descrizioni, cioe' sedicimila elementi montati in
+                             un compito solo mentre il museo si apre — l'80%
+                             di tutto quel che il marketplace tiene in pagina,
+                             per una schermata che nessuno ha ancora aperto.
+                             Il prezzo dichiarato: niente `x-collapse`, che
+                             vuole un elemento gia' in pagina da misurare, e
+                             quindi il gruppo si apre di scatto. -->
+                        <template x-if="aperta">
+                        <ul class="flex flex-col gap-2 border-t border-line p-3">
                           <template x-for="it in g.items" :key="it['@id']">
                             <li class="flex items-center gap-3">
                               <span class="min-w-0 flex-1">
@@ -1578,6 +1670,7 @@
                             </li>
                           </template>
                         </ul>
+                        </template>
                       </li>
                     </template>
                   </ul>
@@ -2028,6 +2121,31 @@
             x-text="confirmVerb()"></button>
         </div>
       </div>
+    </div>
+
+    <!-- L'ATTESA. Copre l'accesso, l'apertura di un museo (il catalogo degli
+         Uffizi sono secondi su un telefono) e il passaggio al navigator, che
+         e' il piu' lungo dei tre perche' e' un caricamento di pagina. Il
+         marchio si scompone: il movimento sta in `shared/components.css`, e qui
+         si accende solo perche' `.marchio-attesa` eredita `--marchio-moto`.
+         La frase non e' decorazione: ad animazioni ridotte il marchio resta
+         fermo, ed e' l'unica cosa che resta a dire che si sta aspettando.
+
+         ⚠️ Il fondo e' PIENO e non velato. Sotto ci sono le ventimila caselle
+         che Alpine sta costruendo, e un velo trasparente obbliga a ridisegnarle
+         e a fonderle in ogni fotogramma dell'animazione: e' lavoro che compete
+         col marchio proprio mentre gira. Pieno, quel che sta sotto si puo'
+         saltare. Il velo del navigator (`Visita.vue`) e' pieno per lo stesso
+         motivo. -->
+    <div x-show="loading" x-cloak class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-bg"
+      role="status" aria-live="polite">
+      <span class="marchio-attesa h-20 w-20 text-accent" aria-hidden="true">
+        <svg class="marchio-cubo" viewBox="0 0 64 64"><use href="#marchio-cubo" /></svg>
+        <svg class="marchio-quadro-destra" viewBox="0 0 64 64"><use href="#marchio-quadro-destra" /></svg>
+        <svg class="marchio-quadro-sinistra" viewBox="0 0 64 64"><use href="#marchio-quadro-sinistra" /></svg>
+        <svg class="marchio-quadro-alto" viewBox="0 0 64 64"><use href="#marchio-quadro-alto" /></svg>
+      </span>
+      <p class="text-small text-muted" x-text="t(`Apertura del museo…`)"></p>
     </div>
 
     <div x-show="toast" x-transition class="fixed bottom-24 left-1/2 z-50 w-[min(28rem,90vw)] -translate-x-1/2 md:bottom-6 md:left-auto md:right-6 md:translate-x-0">

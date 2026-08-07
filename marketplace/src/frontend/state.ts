@@ -307,6 +307,21 @@ export class AppState {
    * dopo l'attesa.
    */
   lingua: string = SOURCE_LANG;
+
+  /**
+   * Se `i18next` e' in piedi. Si legge dentro `t()` per la sua REATTIVITA', e
+   * copre il buco che l'assegnazione di `lingua` lascia scoperto: quando la
+   * lingua scelta e' l'italiano, `start()` le riassegna il valore che ha gia' e
+   * Alpine non ridisegna niente, perche' non e' cambiato niente.
+   *
+   * Finche' e' falsa `traduci` restituisce la chiave cosi' com'e', segnaposto
+   * compresi, ed e' la condizione in cui Alpine costruisce TUTTE le viste — la
+   * prima passata avviene mentre `start()` e' fermo sul suo primo `await`. In
+   * italiano non si nota, perche' le chiavi sono le frasi italiane; si nota
+   * dove la chiave ha un segnaposto, e infatti a schermo restavano
+   * `Percorso ({n})` e `{n} tappe`.
+   */
+  catalogoPronto = false;
   lingueDisponibili = languages;
 
   licenseOptions: string[] = licenses;
@@ -505,11 +520,47 @@ export class AppState {
    * non esiste, quindi in italiano la chiave stessa e' il messaggio.
    */
   t(chiave: string, parametri?: Record<string, unknown>): string {
+    // Prima che `i18next` sia in piedi la chiave e' gia' quel che `traduci`
+    // risponderebbe. La si legge qui perche' cosi' il legame DIPENDE da
+    // `catalogoPronto`, e quando diventa vera Alpine ridisegna: vedi il campo.
+    if (!this.catalogoPronto) return chiave;
     return traduci(chiave, this.lingua, parametri);
+  }
+
+  /**
+   * Aspetta un fotogramma DIPINTO. Si usa alle due estremita' di ogni attesa, e
+   * per due motivi diversi.
+   *
+   * In coda: si spegne l'attesa dopo che la schermata nuova e' a schermo, non
+   * appena i dati sono arrivati. Fra le due cose c'e' il pezzo piu' lungo di
+   * tutta l'apertura: assegnare il catalogo fa ridisegnare Alpine, e per la
+   * Galleria degli Uffizi vuol dire costruire ventimila nodi in un compito solo
+   * — misurati 17,8 s con la CPU rallentata di quattro. Spegnendo l'attesa
+   * prima, il velo sparisce all'inizio di quel compito: lo schermo resta quello
+   * di prima per dei secondi, e poi salta alla schermata nuova.
+   *
+   * In testa: si aspetta prima di cominciare il lavoro. Il marchio dell'attesa
+   * si muove sul COMPOSITORE, che e' un altro filo e continua a girare anche
+   * mentre questo e' occupato — ma solo se il filo principale ha fatto in tempo
+   * a consegnarglielo, cioe' se ha dipinto almeno un fotogramma col velo a
+   * schermo. Accendere il velo e occupare il filo nello stesso compito lascia
+   * l'animazione ferma al primo fotogramma per tutta l'attesa, e alla fine
+   * salta di colpo al punto in cui il suo orologio e' arrivato. Misurato
+   * bloccando il filo per 3 s: senza il fotogramma in mezzo il compositore ne
+   * disegna ZERO, con il fotogramma ne disegna 104.
+   *
+   * Due fotogrammi e non uno: il primo scatta PRIMA del disegno, il secondo
+   * quando il disegno e' passato.
+   */
+  private afterPaint(): Promise<void> {
+    return new Promise((risolvi) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => risolvi()));
+    });
   }
 
   async cambiaLingua(codice: string) {
     await preparaLingua(codice);
+    this.catalogoPronto = true;
     salvaLingua(codice);
     this.lingua = codice;
     document.documentElement.lang = codice;
@@ -522,6 +573,7 @@ export class AppState {
     // schermo, perche' `view` vale ancora "avvio".
     const scelta = linguaIniziale();
     await preparaLingua(scelta);
+    this.catalogoPronto = true;
     this.lingua = scelta;
     document.documentElement.lang = scelta;
     onSessionExpired(() => this.sessionLost());
@@ -563,14 +615,23 @@ export class AppState {
    */
   async initApp() {
     this.loading = true;
+    await this.afterPaint(); // il velo va DIPINTO prima: vedi `afterPaint`
     try {
       this.museums = await ArtAPI.fetchMuseums();
 
-      if (!this.selectedMuseum) {
-        const ricordato = localStorage.getItem("artaround-museo");
-        const trovato = this.museums.find((m) => m.qid === ricordato);
-        if (trovato) this.selectedMuseum = trovato;
-        else if (this.museums.length === 1) this.selectedMuseum = this.museums[0];
+      // IL MUSEO SI SCEGLIE A OGNI INGRESSO, e non si ricorda. Stava in
+      // `localStorage`, che e' di tutta l'ORIGINE e non della scheda: aprendo il
+      // marketplace in una seconda scheda ci si ritrovava dentro il museo scelto
+      // nella prima, senza che nessuno l'avesse chiesto in quella. Ricordarlo
+      // nella scheda non basterebbe: la scelta del museo e' la prima domanda che
+      // le slide vogliono (pannello a scelta multipla, slide 20), e una risposta
+      // data ieri non e' la risposta di oggi.
+      //
+      // Un museo solo resta l'unico caso in cui non si chiede: li' non c'e'
+      // niente da scegliere, e una schermata con una carta sola non e' una
+      // domanda.
+      if (!this.selectedMuseum && this.museums.length === 1) {
+        this.selectedMuseum = this.museums[0];
       }
       // Prima del catalogo, non dopo: chi sta andando nell'app da museo esce da
       // qui, e il catalogo di un museo grande sono secondi spesi per una
@@ -579,6 +640,9 @@ export class AppState {
       if (this.selectedMuseum) await this.loadCatalogue();
 
       this.goTo(this.selectedMuseum ? this.roleHome() : "musei");
+      // Il velo resta finche' la schermata non e' davvero a schermo: vedi
+      // `afterPaint`.
+      await this.afterPaint();
     } catch (e) {
       console.error("Errore durante l'inizializzazione dei dati:", e);
       this.showToast(
@@ -656,6 +720,11 @@ export class AppState {
     const { username, password } = this.loginForm;
     if (!username || !password)
       return this.showToast("Inserisci username e password.", "error");
+    // L'attesa comincia da qui e non da `initApp`: fra il tocco su Accedi e la
+    // risposta del server c'e' una richiesta di rete, e in laboratorio non e'
+    // istantanea. Senza segno, la schermata sembra non aver ricevuto il tocco.
+    this.loading = true;
+    await this.afterPaint(); // il velo va DIPINTO prima: vedi `afterPaint`
     try {
       const esito = await ArtAPI.login(username, password);
       if ((esito as any).scelta) {
@@ -665,6 +734,8 @@ export class AppState {
       await this.enterAs(esito as any);
     } catch (e) {
       this.showToast((e as Error).message, "error");
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -762,7 +833,6 @@ export class AppState {
     this.worksTypeFilter = "tutti";
     this.editorFilter = "tutti";
     this.draft = this.emptyDraft();
-    localStorage.removeItem("artaround-museo");
     this.goTo("soglia");
   }
 
@@ -780,19 +850,21 @@ export class AppState {
 
   async selectMuseum(m: Museum) {
     this.selectedMuseum = m;
-    localStorage.setItem("artaround-museo", m.qid);
     // Chi e' entrato per l'app da museo passa di qui solo perche' il museo
     // mancava: appena c'e', se ne va. Il catalogo non gli serve.
     if (await this.goToNavigatorIfAsked()) return;
     this.loading = true;
+    await this.afterPaint(); // il velo va DIPINTO prima: vedi `afterPaint`
     try {
       await this.loadCatalogue();
     } catch (e) {
       this.showToast((e as Error).message, "error");
-    } finally {
-      this.loading = false;
     }
+    // `goTo` PRIMA di spegnere l'attesa: e' il cambio di vista a far costruire
+    // ad Alpine le tessere del museo nuovo, ed e' quello che si deve aspettare.
     this.goTo(this.roleHome());
+    await this.afterPaint();
+    this.loading = false;
   }
 
   changeMuseum() {
@@ -2426,12 +2498,20 @@ export class AppState {
    */
   async openNavigator(url: string): Promise<boolean> {
     if (!url || url === "#") return false;
+    // L'attesa NON si spegne quando il viaggio parte: da li' in poi comanda il
+    // browser, che tiene a schermo questa pagina finche' l'altra non risponde.
+    // Spegnendola si tornerebbe a una schermata immobile proprio nel momento
+    // piu' lungo del passaggio. Si spegne solo se il biglietto non si conia,
+    // perche' allora si resta qui.
+    this.loading = true;
+    await this.afterPaint(); // il velo va DIPINTO prima: vedi `afterPaint`
     try {
       const ticket = await ArtAPI.newHandoff();
       const separatore = url.includes("?") ? "&" : "?";
       window.location.href = `${url}${separatore}handoff=${encodeURIComponent(ticket)}`;
       return true;
     } catch (e) {
+      this.loading = false;
       this.showToast((e as Error).message, "error");
       return false;
     }

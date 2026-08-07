@@ -1,5 +1,128 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-07, quattro segnalazioni: l'attesa, il compositore, il vetro, l'iride
+
+Quattro cose in fila. Ragionamento durevole in `state.md` §4.2-bis (l'attesa e i nodi),
+§4.13 (il compositore), §4.1 (la barra) e §2.2 (l'iride).
+
+### 1. L'attesa: il compito lungo era il COMPOSITORE, non la vetrina
+
+La passata precedente aveva concluso «restano 20 378 elementi, sono le 128 tessere». Contati
+**per sezione** invece che in blocco, non era vero:
+
+| sezione | elementi |
+| --- | --- |
+| `componi` | **16 253** |
+| `catalogo` | 2 110 |
+| `vetrina` | 3 175 |
+
+- L'80% della pagina era la **libreria del compositore**: 105 gruppi da 20 descrizioni, tutti
+  montati all'apertura del museo perche' le voci di un gruppo stavano dentro un `x-show`.
+  `x-show` nasconde, non evita di costruire.
+- Passate a `x-if`: **20 385 → 5 432 elementi**, compito lungo **3 082 → 1 049 ms** con la CPU
+  rallentata di quattro (a sei: 5,3 s → 1,7 s). Il marchio consegnava gia' 209 fotogrammi con
+  buco massimo 31 ms *prima*, e ne consegna 86 con buco 32 ms *dopo*: l'animazione non era
+  rotta ne' prima ne' ora — e' l'attesa a essere tre volte piu' corta.
+- ⚠️ **Prezzo dichiarato**: via `x-collapse` dai gruppi (vuole un elemento gia' in pagina da
+  misurare), quindi un gruppo si apre di scatto.
+- ⚠️ **Resta il `catalogo`**, 2 110 elementi montati anche per chi quella rotta non puo'
+  aprirla: e' lo stesso difetto un piano piu' su, e non l'ho toccato. Da decidere insieme,
+  come il tetto *Mostra altre* sulla vetrina.
+- ⚠️ **Sul telefono va riprovato.** Qui il difetto non si riproduceva nemmeno prima.
+
+### 2. Il compositore non e' piu' lungo dieci schermate
+
+Da `lg` la libreria ha un tetto (`70vh`) e scorre da sola: pagina da **9 127 a 1 225 px**.
+Sotto `lg` no, ed e' voluto: li' i due pannelli sono due schede, e il tetto lascerebbe un
+riquadro di 250 px stretto fra i filtri e la barra di salvataggio.
+⚠️ **`shrink-0` sulle righe non e' una rifinitura**: in una colonna flex con un tetto i figli
+si schiacciano, e i 105 gruppi erano usciti come 105 filetti da quattro pixel.
+
+### 3. Il vetro e' sparito
+
+`.barra` ha il fondo pieno (`bg-bg`). Con lui sono spariti `--vetro`, `--vetro-fondo`,
+`--color-vetro`, l'utility `vetro` e il `@supports` che la promuoveva: era l'unica a usarli.
+⚠️ **Nel navigator non c'era niente da togliere**, e non l'ho dedotto: scandagliati biglietteria
+e visita in chromium, gli elementi incollati o galleggianti con un fondo traslucido sono
+**zero**. Se quel che si vede sul navigator e' un'altra cosa, serve la schermata.
+
+### 4. L'iride: piu' colore, meno verde
+
+Quattro tinte alla stessa croma e alla stessa luminosita' (`oklch(from …)`) e interpolazione
+`in oklch`, cioe' per tinta: oro → lime → verde → verderame → blu → ametista. Le posizioni
+non sono equidistanti — verde e verderame sono la coppia piu' vicina e si stringono verso
+l'inizio, ed e' quello il «troppo verdina».
+⚠️ **Sopra ci va inchiostro** (`--on-iride`) e non piu' il bianco: misurato 5,4–6,5:1 al
+chiaro e 6,5–7,9:1 al buio, dipingendo su canvas.
+
+**Verificato pilotando chromium**, giro vero (soglia → accesso → Uffizi) da autore e da
+visitatore, a 1440x900 e a 390x844: dodici rotte aperte una per una, un gruppo della libreria
+aperto davvero (monta le sue 20 voci e i 20 bottoni), la vetrina scorsa nei due formati con la
+barra che copre, i due temi. **Zero errori in console** in ogni giro, `tsc` verde, `dist`
+ricostruito. **Niente scritto sul database**: si e' entrati con account esistenti e non si e'
+comprato niente.
+
+## ⏸ Ripresa — 2026-08-07, il marchio dell'attesa si fermava aprendo un museo
+
+Segnalato dal telefono: premendo *Galleria degli Uffizi* l'attesa «si blocca e poi riprende da
+un punto», mentre nel navigator la stessa attesa gira liscia. Ragionamento durevole in
+`state.md` §4.2-bis.
+
+- **Non era l'animazione.** Anima solo `transform` con `will-change`, quindi gira sul
+  **compositore**: bloccando il filo principale per 5,3 s ha disegnato 307 fotogrammi, buco
+  massimo 32 ms, mentre un controllo su `left` restava fermo. Si riscrive niente.
+- **Prima correzione: `afterPaint()` anche in TESTA all'attesa** (quattro punti in `state.ts`,
+  dove si accende `loading`). Un'animazione arriva al compositore solo se il filo principale
+  ha dipinto un fotogramma con lei a schermo: accendere il velo e occupare il filo nello
+  stesso compito la lascia ferma al primo fotogramma e poi la fa saltare. Misurato su 3 s di
+  blocco: **0 fotogrammi senza, 104 con**.
+- **Seconda correzione: il velo e' pieno** (`bg-bg`, era `bg-bg/90`). Velato, le ventimila
+  caselle che Alpine sta costruendo sotto vanno ridisegnate e fuse a ogni fotogramma. Il velo
+  del navigator era gia' pieno, ed e' la differenza fra le due applicazioni.
+- ⚠️ **`dopoIlDisegno` si chiama ora `afterPaint`**: era l'unico nome di metodo in italiano,
+  contro la regola 3 (codice in inglese, commenti in italiano).
+- ⚠️ **Il compito lungo resta**: 847 ms qui, 3,0 s con la CPU rallentata di quattro, di cui
+  796 dentro il ricalcolo di Alpine — 128 tessere, 20 378 elementi in `main`. Un fotogramma
+  cade ancora nell'istante in cui la schermata nuova compare. Toglierlo vuol dire disegnarne
+  meno, e i costi di quella strada stanno in `state.md` §4.2-bis.
+
+**Verificato pilotando chromium con la CPU rallentata di quattro**, giro vero (soglia →
+accesso → *Musei* → Uffizi): 208 fotogrammi dal compositore durante il compito da 3,0 s,
+**buco massimo 29 ms**, marchio a inclinazioni diverse lungo tutta l'attesa, velo pieno (di
+sotto non traspare piu' niente), atterraggio su `#/home` con 128 tessere, **zero errori in
+console**. `tsc` verde, `dist` ricostruito.
+
+⚠️ **Il difetto non si riproduce in locale**, nemmeno rallentando la CPU di sei e servendo il
+catalogo dalla cache: e' dimostrato sui meccanismi, isolati, non sulla schermata vera. **Va
+provato sul telefono.**
+
+## ⏸ Ripresa — 2026-08-07, la seconda scheda restava appesa
+
+Segnalato: «apro il sito dal browser, poi lo riapro in una pagina nuova sul telefono e non
+carica, resta fermo». Ragionamento durevole in `state.md` §1.1-nonies.
+
+- **Era `keepAliveTimeout`**, il valore di fabbrica di Node: cinque secondi. Il pozzo dei
+  socket è del browser e non della pagina, quindi la seconda scheda **riusa** una connessione
+  ferma della prima, e la riusa proprio mentre il server la sta chiudendo. Corretto in fondo a
+  `server/src/index.ts`: 65 s, con `headersTimeout` a 66 s (deve restare il maggiore).
+- Misurato prima e dopo tenendo un socket fermo e poi riusandolo: a 6 s di inattività prima il
+  server **chiudeva invece di rispondere**, ora risponde in 11 ms.
+- ⚠️ **Non è riproducibile in Chromium headless in locale**: su un collegamento veloce la
+  finestra della corsa è troppo stretta. Il difetto è dimostrato *sul server*, non nel browser
+  — se il telefono lo rifà, l'ipotesi va riaperta, non data per chiusa.
+- ✅ **In laboratorio non c'era**, misurato sul sito vero col codice di prima: davanti c'è
+  nginx e il browser gli parla in **HTTP/2**, quindi il pozzo di sei socket non esiste; e
+  `site252627` ha risposto **10/10 con 200** con pause di 5-10 s. La correzione serve dove il
+  difetto è stato trovato, cioè col telefono che parla direttamente col nostro processo.
+- ✅ **Anche i cataloghi delle lingue**, trovati per strada e corretti: `i18n.ts` ne murava
+  dentro **dodici** (437 KB, 141 compressi) per servirne uno. Tolto `{ eager: true }` dal
+  glob, il programma compilato scende da **260 a 114 KB compressi** e il catalogo diventa un
+  pezzo a parte da 12-14 KB. Ragionamento in `state.md` §2.3-bis.
+- ⚠️ **La trappola che ne è uscita**, e vale oltre l'i18n: `t` è reattivo solo dentro un legame
+  o un `computed`. `App.vue` memorizzava il risultato di `t()` dentro `erroreAvvio`/`testoAvvio`
+  e con un catalogo che arriva dopo quella schermata restava in italiano. **Un messaggio che
+  vive in un `ref` ci sta come chiave, non come frase tradotta.**
+
 ## ⏸ Ripresa — 2026-08-07, le miniature: il telefono scaricava figure da 960 px
 
 Segnalato: aprendo l'applicazione da un telefono sulla rete di casa (`ip:8000`) è «really

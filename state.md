@@ -134,7 +134,7 @@ sotto sono scritte per rispondere a quella, non a un gusto.
 | le tappe di un percorso erano un numero e un titolo: il compositore e la pagina della visita non mostravano mai le opere che si stanno mettendo in fila | ogni tappa porta la sua figura col numero su un dischetto di struttura; la nota logistica no, e si vede che non e' una tappa |
 | ogni lastra cliccabile si segnalava riempiendosi di grigio | `.filo-accento`: un filo d'accento che cresce da sinistra. Il grigio diceva "questa lastra e' diversa", che non e' vero |
 | le pastiglie erano bordo e testo su un grigio | fondo alla **velatura** del ruolo: la stessa tinta del testo al 12%, quindi trasparente e posabile su una fotografia |
-| la barra incollata tagliava di netto le righe che le passavano sotto | `.vetro`: fondo traslucido e sfocato, con ricaduta al fondo pieno dove `backdrop-filter` non c'e' |
+| la barra incollata tagliava di netto le righe che le passavano sotto | fondo **pieno** (`bg-bg`): la barra copre, e quel che copre non si legge |
 | la barra di copertura del curatore era d'**accento**, cioe' del colore di "dove puoi andare", per dire quanto catalogo esiste | e' **acquisito**, che e' il ruolo giusto; la pista e' la sua velatura |
 | il credito nel binario era ottone su Notte: **1,87:1 al chiaro**, illeggibile | `--brass-chiaro` e `.valore-su-struttura`, **5,73:1 in tutt'e due i temi** |
 | nel catalogo del curatore il tono era testo grigio, mentre in ogni altra schermata dell'app e' una pastiglia | pastiglia come altrove; e le righe di tutt'e due le tabelle si seguono col fondo al passaggio, che su sette colonne serve a leggere |
@@ -748,6 +748,56 @@ e' Alpine che disegna 250 carte. Il British Museum stava gia' a ~500 ms, quindi 
 vedeva solo dove c'e' volume: il costo cresce con **item per visite**, non col numero di
 risultati.
 
+### 1.1-nonies La seconda scheda che resta appesa *(2026-08-07)*
+
+Segnalato dal telefono: «apro il sito, poi lo riapro in una pagina nuova e non carica, resta
+fermo». La prima scheda continua a funzionare, la seconda no — ed e' proprio quell'asimmetria
+a dire dove guardare.
+
+Il pozzo dei socket e' del **browser**, non della pagina: una scheda nuova sullo stesso host
+non apre una connessione, ne riusa una che stava li' ferma. Node pero' chiude le connessioni
+inattive dopo cinque secondi (`keepAliveTimeout`, il suo valore di fabbrica), e fra il momento
+in cui il server manda il FIN e quello in cui il browser se ne accorge c'e' un giro di rete.
+Chi apre la seconda scheda dopo una pausa — cioe' sempre — scrive la sua prima richiesta
+dentro un socket che il server sta chiudendo in quell'istante. Il browser dovrebbe accorgersene
+e riprovare; su una rete con qualche decina di millisecondi di ritardo a volte non fa in tempo,
+e la richiesta resta appesa. La pagina non ha nemmeno il suo catalogo delle lingue, quindi
+`view` vale ancora `"avvio"`: schermata bianca, «e' fermo».
+
+Misurato contro il server prima e dopo, tenendo un socket fermo per un tempo scelto e poi
+riusandolo:
+
+| inattivita' | prima | dopo |
+| --- | --- | --- |
+| 1000-5100 ms | riuso OK, ~11 ms | riuso OK, ~11 ms |
+| 6000 ms | **il server chiude invece di rispondere** | riuso OK, 11 ms |
+| 10000 ms | **socket gia' chiuso (a 6009 ms)** | riuso OK, 10 ms |
+
+La correzione sta in fondo a `server/src/index.ts`: `keepAliveTimeout = 65_000` e
+`headersTimeout = 66_000`. Il secondo deve restare **maggiore** del primo, o a chiudere per
+primo sarebbe lui. Non e' un accorgimento nostro: e' il valore che si mette davanti a
+qualunque proxy, perche' la regola e' che chi sta dietro deve tenere aperto piu' a lungo di
+chi sta davanti, e qui davanti c'e' il browser.
+
+Nota su cosa **non** era: due schede in Chromium headless, con la rete strozzata a 4 Mbit e
+40 ms, non riproducono l'attesa — su un collegamento veloce la finestra della corsa e' troppo
+stretta. Restano quindi escluse per misura, e non per ragionamento, le ipotesi che le schede
+si rubino il limite delle sei connessioni (0 richieste aperte in entrambe, sempre) e che
+`start()` aspetti qualcosa che non arriva mai (`view` arriva a `"soglia"` in meno di due
+secondi). Il difetto e' dimostrato sul server, non nel browser.
+
+⚠️ **In laboratorio questo difetto non c'e', ed e' bene sapere perche'**: li' davanti c'e'
+nginx (1.31), e il browser gli parla in **HTTP/2**, cioe' su UNA connessione multiplata. Il
+pozzo di sei socket da cui la seconda scheda pescava non esiste proprio. Resta in teoria la
+tratta nginx→Express, ma `site252627` col codice **di prima** della correzione ha risposto
+**10 volte su 10 con 200**, con pause di 5, 5.5, 6, 7 e 10 secondi, cioe' dentro e oltre la
+fessura: coerente con nginx che di suo non tiene aperte le connessioni verso monte
+(`proxy_pass` parla HTTP/1.0 con `Connection: close` finche' non gli si configura un blocco
+`upstream ... keepalive`). Dieci richieste sono un campione piccolo e la configurazione di
+nginx non l'abbiamo letta, quindi la correzione resta: costa due righe, in laboratorio non
+fa danno, e serve **davvero** dove il difetto e' stato trovato, cioe' col telefono che parla
+direttamente col nostro processo sulla rete locale.
+
 ### 1.2-bis I commenti: cosa ci va e cosa no *(2026-08-04)*
 
 Passata su tutti i sorgenti (66 file). Le regole che ne sono uscite, oltre a quelle di
@@ -956,6 +1006,35 @@ si legge come piu' colori anche dentro una tessera di 40 px; con ardesia e verde
 meta' gradiente sembrava una tinta sola. Le `var()` dentro si risolvono sull'elemento che lo
 usa, quindi al buio prende da se' le versioni schiarite.
 
+**Le tinte dei ruoli non bastavano a fare una scorsa** *(2026-08-07)*. Segnalato: l'iride e'
+strana nei due temi, e al chiaro «troppo verdina». Erano due cose, e nessuna delle due era
+l'ordine delle quattro:
+
+- **La croma.** I quattro semantici sono scelti per reggere come inchiostro su una lastra,
+  quindi sono smorti: verderame e verde stanno a croma 0,07 e 0,13, e accostati fanno una
+  fascia verdastra invece di due colori. Nel gradiente vanno tutti alla **stessa** croma
+  (0,17) e alla **stessa** luminosita' (0,72 al chiaro, 0,78 al buio) — la luminosita' unica
+  non e' un vezzo: con luminosita' diverse il piu' scuro dei quattro sembra un'ombra e non un
+  colore. I numeri li prende `oklch(from var(--ruolo) …)`, quindi la tinta resta quella del
+  ruolo e non c'e' una seconda tavolozza da tenere allineata.
+- **Il passaggio.** Interpolando in sRGB, oro e verde davano un'oliva fangosa a meta' strada.
+  Con `linear-gradient(… in oklch, …)` si passa **per la tinta**: oro → lime → verde →
+  verderame → blu → ametista, cioe' la scorsa attraversa piu' colori di quanti ne dichiari.
+
+Le posizioni non sono equidistanti (0 · 26 · 44 · 100%): verde e verderame sono la coppia
+piu' vicina, 43 gradi contro 82 e 100, e a un terzo per uno il verde si prendeva meta' del
+segno — e' quello il «troppo verdina».
+
+⚠️ **Sopra ci va INCHIOSTRO, nei due temi** (`--on-iride`), e prima era il bianco dei fondi
+d'accento: quattro tinte a quella luminosita' sono chiare per definizione, e il bianco che
+reggeva sul verderame scuro sull'oro sparirebbe. Misurato dipingendo su canvas: **5,4–6,5:1
+al chiaro, 6,5–7,9:1 al buio**.
+
+⚠️ **La ricaduta e' obbligatoria e non e' il gradiente di prima**: dove i colori relativi non
+ci sono, i quattro ruoli vanno annacquati nella lastra (55%), o sotto l'inchiostro
+resterebbero le tinte scure. Un valore non capito dentro una proprieta' personalizzata non
+ricade su quella precedente: diventa invalido, e chi la usa come fondo resta senza fondo.
+
 Verificato in un browser vero, non stimato: 18 rapporti per tema, letti **dipingendo** i
 token su un canvas e leggendone i byte. (`getComputedStyle` restituisce `oklab(…)` per i
 `color-mix`, e leggerne i numeri come RGB da' nero — e' un modo perfetto per credere che
@@ -995,6 +1074,57 @@ In biglietteria il campo e' sceso **nella riga dei filtri**: a tutta larghezza s
 pesava piu' del titolo della schermata, ed e' un controllo della stessa taglia. Il valore
 (`Italiano`, `中文`) si legge da se', quindi l'etichetta resta allo screen reader come per gli
 altri due — `etichetta: false` la rende `sr-only` invece di toglierla.
+
+### 2.3-bis Un catalogo alla volta, non tutti e dodici *(2026-08-07)*
+
+`navigator/src/i18n.ts` murava dentro il programma **tutti** i cataloghi, con un
+`import.meta.glob(..., { eager: true })`. Dodici lingue, **437 KB (141 compressi)**, di cui un
+visitatore ne legge una: erano **piu' della meta'** del navigator compilato. Il marketplace,
+per lo stesso lavoro, ne scarica uno.
+
+La correzione e' togliere `{ eager: true }`. Vite allora spezza ogni catalogo in un pezzo suo e
+`setLocale` carica il solo `codice` chiesto. Misurato compilando prima e dopo:
+
+| | prima | dopo |
+| --- | --- | --- |
+| programma | 745 KB / **260 KB compressi** | 327 KB / **114 KB compressi** |
+| catalogo | dentro, tutti e dodici | un pezzo a parte, 12-14 KB compressi l'uno |
+| un visitatore in russo | 260 KB | 114 + 14 = **128 KB** |
+| un visitatore in italiano | 260 KB | **114 KB**, e nessuna richiesta di catalogo |
+
+⚠️ **Le chiavi del glob restano note anche senza `eager`**, ed e' quello che tiene in piedi il
+controllo in fondo al file: una lingua offerta senza catalogo si segnala ancora all'avvio, come
+prima. Se fosse servita una richiesta di rete per accorgersene, il controllo sarebbe morto.
+
+⚠️ **`t` non e' reattivo di per se'**: lo diventa dentro un legame o un `computed`, che si
+rifanno quando `locale` cambia. Chi lo chiama **una volta e ne memorizza la stringa** congela
+la lingua di quell'istante — e finche' i cataloghi c'erano tutti al primo tick la cosa non si
+vedeva. Con un catalogo che arriva dopo, si e' vista subito: `App.vue` riempiva `erroreAvvio` e
+`testoAvvio` cosi', e la schermata d'avvio restava in italiano mentre tutto il resto era in
+russo. Ora quei due `ref` tengono la **chiave** e il legame traduce (`{{ t(erroreAvvio) }}`):
+meno codice di prima, e sono anche l'unica versione che segue una lingua cambiata a schermo
+acceso. **La regola generale: un messaggio che vive in un `ref` ci sta come chiave, non come
+frase tradotta.**
+
+Verificato nel browser, non solo compilando: in russo arriva **un** catalogo e la schermata e'
+interamente in russo; in italiano non ne arriva **nessuno**. Il passaggio di lingua a schermo
+acceso usa la stessa funzione ma non e' stato guidato dall'interfaccia: li' `language` si
+sposta subito e `locale` dopo il pezzo, quindi per un istante il `<select>` mostra la lingua
+nuova e il testo la vecchia.
+
+⚠️ **Provato anche nella forma in cui si consegna**, che e' l'unica in cui conta: un `import`
+dinamico sotto `base: '/navigator/'` e' esattamente il genere di cosa che si rompe in silenzio
+quando la radice non e' piu' `/`. Compilato e servito da Express sotto `/navigator`, il conto
+delle richieste e':
+
+```
+/navigator/  ·  assets/index-*.js  ·  assets/index-*.css  ·  config.json
+assets/ru-*.js        <- uno solo, quello della lingua scelta
+```
+
+**156 KB in tutto**, contro i 4,2 MB che la stessa schermata costa attraverso Vite in
+sviluppo. Quel numero da sviluppo non arriva mai a un visitatore e non e' un problema da
+risolvere: e' il prezzo dei moduli non impacchettati, uno per file sorgente.
 
 ---
 
@@ -1559,6 +1689,12 @@ focus and collapse plugins are **served locally** from `public/vendor/`.
   Pinned, only the results move. It stops under the app bar via **`--app-bar`**, declared once
   in `marketplace/style.css` and used both to draw that bar and to offset this one — written
   twice, one of the two would age and hide the field again.
+  ⚠️ **Il suo fondo e' pieno dal 2026-08-07**, e prima era il vetro: fondo della pagina al
+  72% piu' `blur(14px)`, con una ricaduta al pieno dove `backdrop-filter` non c'era.
+  Segnalato guardando la vetrina scorrere: attraverso i filtri si continuavano a leggere le
+  tessere, e mezza riga sfocata sopra un campo di ricerca si legge come un difetto, non come
+  una superficie. Col vetro sono spariti `--vetro`, `--vetro-fondo`, `--color-vetro`,
+  l'utility `vetro` e il `@supports` che la promuoveva: era l'unica che li usasse.
 
 ### 4.2 `soglia` — the front door *(new)*
 
@@ -1618,6 +1754,54 @@ nobody is going to look at.
 
 Since 2026-07-28 the screen carries **no university strapline and no theme toggle** — the
 toggle did nothing visible here, `bg-structure` being the same in both themes.
+
+### 4.2-bis L'attesa: perche' il marchio si fermava *(2026-08-07)*
+
+Segnalato dal telefono: premendo un museo l'animazione dell'attesa «si blocca e poi riprende
+da un punto», mentre nel navigator la stessa attesa gira liscia.
+
+**Il marchio non gira sul filo principale.** Anima solo `transform` su quattro `<svg>` con
+`will-change`, quindi Chromium lo passa al **compositore**, che e' un altro filo: misurato
+bloccando il filo principale per 5,3 s, il compositore ha disegnato 307 fotogrammi col buco
+piu' grosso a 32 ms, mentre un'animazione di controllo su `left` restava immobile. Non e'
+quindi un'animazione da riscrivere — e' un'animazione da **consegnare**.
+
+Le due cose che la fermavano lo stesso, tutt'e due presenti qui e assenti nel navigator:
+
+| | |
+| --- | --- |
+| il velo si accendeva e il lavoro cominciava **nello stesso compito** | senza un fotogramma dipinto in mezzo il compositore non riceve niente: misurato su 3 s di blocco, **zero** fotogrammi contro **104** con il fotogramma. `afterPaint()` sta ora anche in TESTA all'attesa, non solo in coda |
+| il velo era `bg-bg/90`, cioe' velato | sotto ci sono le ventimila caselle che Alpine sta costruendo, e un fondo trasparente obbliga a ridisegnarle e fonderle in ogni fotogramma. Ora e' pieno, come quello del navigator (`Visita.vue`) |
+
+⚠️ **Quel che nessuna delle due toglie e' il compito lungo.** Aprire la Galleria degli Uffizi
+resta **un solo compito** sul filo principale — 847 ms qui, 3,0 s con la CPU rallentata di
+quattro, 5,3 s di sei — e 796 di quegli 847 stanno dentro il ricalcolo di Alpine, non nella
+rete, che ha gia' risposto quando il compito comincia: **20 378 elementi in `main`**. Finche'
+restano, un fotogramma cade nell'istante in cui la schermata nuova compare, e li' non c'e'
+compositore che tenga.
+
+**Quegli elementi non erano pero' le tessere della vetrina.** Contati per sezione invece che
+in blocco — che e' la misura che mancava — stavano cosi': **`componi` 16 253**, `catalogo`
+2 110, `vetrina` 3 175. Cioe' l'**80%** di tutto quel che il marketplace tiene in pagina era
+la libreria del compositore, una schermata che chi apre un museo non ha ancora chiesto: 105
+gruppi da 20 descrizioni, montati tutti perche' le voci di un gruppo stavano dentro un
+`x-show` e non un `x-if`. `x-show` nasconde, non evita di costruire.
+
+Passate a `x-if` (§4.13): **20 385 → 5 432 elementi**, e il compito lungo da **3 082 a
+1 049 ms** con la CPU rallentata di quattro (a sei: 1 746 ms). Un gruppo aperto monta le sue
+20 voci in quel momento, ed e' l'unico momento in cui servono.
+
+⚠️ **Il tetto piu' *Mostra altre* sulla vetrina resta sul tavolo e non e' stato fatto**: ora
+il pezzo grosso di quel che resta e' il `catalogo` del curatore, 2 110 elementi montati anche
+per chi quella rotta non puo' aprirla. E' lo stesso difetto un piano piu' su. Chi ci mette
+mano sappia il costo dell'altra strada: la ricerca del browser non trova quel che non e'
+disegnato, e contare le tessere in chromium smette di essere un modo per collaudare i filtri
+(§1.1-septies).
+
+⚠️ **Il difetto non si riproduce in locale su un portatile**, nemmeno con la CPU rallentata di
+sei e il catalogo servito dalla cache: il fotogramma in mezzo ci scappa sempre. E' stato
+dimostrato sui meccanismi, isolati uno per uno, non sulla schermata vera — se il telefono lo
+rifa', l'ipotesi va riaperta.
 
 ### 4.3 `accedi` / `registrati`
 
@@ -1855,6 +2039,24 @@ impostazioni, cioe' con nome, livello, prezzo e licenza mai guardati. Qual e' l'
 dipende dalla visita: il quiz esiste solo per le guidate, e `nextVisitStep()` e' l'unico posto
 che lo sa. Le linguette in cima restano cliccabili — sono navigazione, e bloccarle
 imprigionerebbe chi sta modificando una visita gia' fatta.
+
+**La libreria si monta pigra e scorre per conto suo** *(2026-08-07)*. Due difetti dello stesso
+pannello, segnalati come «da autore le cose da selezionare rendono la pagina lunghissima».
+
+- Le voci di un gruppo stavano dentro un `x-show`: c'erano tutte, chiuse. Agli Uffizi sono
+  105 gruppi da 20 descrizioni, cioe' **16 253 elementi** costruiti all'apertura del museo per
+  una schermata che nessuno ha ancora aperto — l'80% di tutta la pagina (§4.2-bis per l'altra
+  meta' della storia, che e' l'attesa che si piantava). Ora e' `x-if`: si montano
+  all'apertura del gruppo. **Prezzo dichiarato**: via `x-collapse`, che ha bisogno di un
+  elemento gia' in pagina da misurare, quindi il gruppo si apre di scatto.
+- L'elenco dei gruppi faceva la pagina alta **9 127 px**, e il percorso che si sta componendo
+  gli sta *accanto*: per tornarci si risalivano dieci schermate. Da `lg` la lista ha un tetto
+  (`70vh`) e scorre da sola — pagina a **1 225 px**. Sotto `lg` no: li' i due pannelli sono
+  due schede, a schermo ce n'e' una sola, e il tetto lascerebbe un riquadro di 250 px stretto
+  fra i filtri e la barra di salvataggio, che e' incollata in fondo.
+  ⚠️ **`shrink-0` sulle righe non e' una rifinitura**: dentro una colonna flex che ha un tetto
+  e scorre, i figli si schiacciano per starci, e i 105 gruppi erano usciti come 105 filetti da
+  quattro pixel.
 
 ### 4.13-bis `sumisura` — la visita descritta a parole *(nuova 2026-07-31)*
 

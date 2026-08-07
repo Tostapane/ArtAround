@@ -35,17 +35,16 @@ import { SOURCE_LANG, languages } from "../../shared/constants";
 // I cataloghi stanno in `shared/` e non dentro il navigator perche' li leggera'
 // anche il marketplace: sono un dato delle due applicazioni, non di una. Il
 // formato dei messaggi e' documentato in `shared/i18n/README.md`.
+// Senza `eager` sono dodici pezzi a parte invece che dentro il programma, e se
+// ne carica UNO: 437 KB di cataloghi (141 compressi) erano piu' della meta' del
+// navigator compilato, per undici lingue che nessun visitatore legge. Le chiavi
+// del glob restano note lo stesso, ed e' cio' che tiene in piedi il controllo in
+// fondo al file.
 const cataloghi = import.meta.glob<{ default: Record<string, string> }>(
   "../../shared/i18n/*.json",
-  { eager: true },
 );
 
-const resources: Record<string, { translation: Record<string, string> }> = {};
-for (const percorso in cataloghi) {
-  const codice = percorso.split("/").pop()!.replace(".json", "");
-  const modulo = cataloghi[percorso];
-  if (modulo) resources[codice] = { translation: modulo.default };
-}
+const percorsoDi = (codice: string) => `../../shared/i18n/${codice}.json`;
 
 i18next.init({
   lng: SOURCE_LANG,
@@ -69,19 +68,30 @@ i18next.init({
       if (l !== SOURCE_LANG) console.warn(`[i18n] manca "${key}" in ${l}`);
     }
   },
-  resources,
+  resources: {},
 });
 
 const locale = ref(SOURCE_LANG);
+const caricate = new Set<string>();
 
 export function t(key: string, params?: Record<string, unknown>): string {
   return i18next.t(key, { lng: locale.value, ...params });
 }
 
-/** La chiama `state.ts` quando la lingua cambia, e una volta all'avvio. */
-export function setLocale(codice: string) {
-  locale.value = codice;
+/**
+ * La chiama `state.ts` quando la lingua cambia, e una volta all'avvio. Il
+ * catalogo si carica qui, e `locale` si sposta DOPO: e' l'assegnazione a quel
+ * `ref` a ridisegnare, quindi spostarlo prima ridisegnerebbe una volta a vuoto,
+ * in italiano.
+ */
+export async function setLocale(codice: string) {
   document.documentElement.lang = codice;
+  const carica = cataloghi[percorsoDi(codice)];
+  if (carica && !caricate.has(codice)) {
+    i18next.addResourceBundle(codice, "translation", (await carica()).default);
+    caricate.add(codice);
+  }
+  locale.value = codice;
 }
 
 // Una lingua offerta ma senza catalogo mostrerebbe l'interfaccia in italiano
@@ -89,7 +99,7 @@ export function setLocale(codice: string) {
 // evitare, quindi si segnala all'avvio.
 for (const l of languages) {
   if (l.translate === SOURCE_LANG) continue;
-  if (!resources[l.translate]) {
+  if (!cataloghi[percorsoDi(l.translate)]) {
     console.warn(`[i18n] nessun catalogo per ${l.name} (${l.translate})`);
   }
 }

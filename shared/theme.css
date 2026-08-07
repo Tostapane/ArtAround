@@ -106,7 +106,6 @@
   --color-tono-semplice: var(--tono-semplice);
   --color-tono-medio: var(--tono-medio);
   --color-tono-avanzato: var(--tono-avanzato);
-  --color-vetro: var(--vetro);
 
   /* Caratteri: uno scaricato (display), gli altri di sistema (zero byte, resa
      corretta su ogni OS). Il contrasto fra display largo e UI neutra E' l'abbinamento. */
@@ -272,17 +271,6 @@
   --tono-semplice-velo: color-mix(in oklab, var(--tono-semplice) 12%, transparent);
   --tono-medio-velo: color-mix(in oklab, var(--tono-medio) 12%, transparent);
   --tono-avanzato-velo: color-mix(in oklab, var(--tono-avanzato) 12%, transparent);
-  /* Il VETRO: la superficie di una barra che sta sopra a roba che scorre. Si
-     ricava dal fondo della pagina e non dalla lastra, perche' e' li' che sta.
-     Non e' decorazione: una barra incollata deve nascondere quel che le passa
-     sotto, e un fondo pieno lo fa tagliandolo di netto a meta' riga. */
-  --vetro: color-mix(in oklab, var(--bg) 72%, transparent);
-  /* Quello che il vetro usa davvero. Parte OPACO ed e' `@supports` a promuoverlo
-     a traslucido dove la sfocatura esiste: senza sfocatura un fondo traslucido
-     lascia leggere attraverso la barra le righe che le scorrono sotto, cioe' e'
-     peggio di un fondo pieno. La condizione sta qui e non dentro l'utility
-     perche' `@apply` appiattisce la regola e si porta via il `@supports`. */
-  --vetro-fondo: var(--bg);
   --focus-ink: var(--inchiostro);
   --focus-halo: var(--lastra);
   color-scheme: light;
@@ -306,15 +294,47 @@
 
   Le `var()` dentro si risolvono sull'elemento che usa il gradiente, non qui:
   al buio prende da se' le versioni schiarite, senza una seconda definizione.
+
+  DUE COSE VANNO CORRETTE PERCHE' UNA SCORSA NON E' UN'ETICHETTA, e sono la
+  differenza fra i colori dei ruoli e questo gradiente:
+
+  - La CROMA. I quattro semantici sono scelti per reggere come inchiostro su
+    una lastra, quindi sono smorti: verderame e verde stanno a croma 0.07 e
+    0.13, e accostati fanno una fascia verdastra invece di due colori. Nel
+    gradiente si portano tutti alla stessa croma alta e alla stessa
+    luminosita', che e' anche il solo modo perche' i quattro pesino uguale —
+    con luminosita' diverse il piu' scuro sembra un'ombra e non un colore.
+  - Il PASSAGGIO. Interpolando in sRGB due tinte lontane si passa per il grigio
+    (oro e verde davano un'oliva fangosa a meta' strada). In `oklch` si passa
+    per la tinta, cioe' oro → lime → verde → verderame → blu → ametista: la
+    scorsa attraversa piu' colori di quanti ne siano dichiarati.
+
+  Le posizioni non sono equidistanti: verde e verderame sono la coppia piu'
+  vicina (43 gradi contro 82 e 100), quindi si stringono verso l'inizio. A un
+  terzo per uno, il verde si prendeva meta' del segno.
+
+  La ricaduta (browser senza colori relativi) e' il gradiente coi quattro ruoli
+  annacquati nella lastra: piu' spento, ma chiaro quanto basta perche' sopra ci
+  si legga lo stesso inchiostro, che e' la sola cosa che non puo' cambiare fra
+  le due strade. Non e' facoltativa — un valore non capito dentro una proprieta'
+  personalizzata non ricade sulla dichiarazione precedente, diventa invalido, e
+  chi la usa come fondo resta senza fondo.
 */
 :root {
   --iride: linear-gradient(
     112deg,
-    var(--brass) 0%,
-    var(--sage) 34%,
-    var(--accent) 68%,
-    var(--slate) 100%
+    color-mix(in oklab, var(--brass) 55%, var(--lastra)) 0%,
+    color-mix(in oklab, var(--sage) 55%, var(--lastra)) 26%,
+    color-mix(in oklab, var(--accent) 55%, var(--lastra)) 44%,
+    color-mix(in oklab, var(--slate) 55%, var(--lastra)) 100%
   );
+  --iride-l: 0.72;
+  --iride-c: 0.17;
+  /* Sopra la scorsa ci va INCHIOSTRO, nei due temi, e non il bianco dei fondi
+     d'accento: quattro tinte a questa luminosita' sono chiare per definizione,
+     e il bianco che regge sul verderame scuro qui sparirebbe sull'oro. E' la
+     stessa scelta che il tema scuro fa gia' su ogni fondo colorato. */
+  --on-iride: var(--inchiostro);
 }
 
 /*
@@ -359,8 +379,10 @@
   --tono-semplice-velo: color-mix(in oklab, var(--tono-semplice) 18%, transparent);
   --tono-medio-velo: color-mix(in oklab, var(--tono-medio) 18%, transparent);
   --tono-avanzato-velo: color-mix(in oklab, var(--tono-avanzato) 18%, transparent);
-  --vetro: color-mix(in oklab, var(--bg) 72%, transparent);
-  --vetro-fondo: var(--bg);
+  /* Al buio la scorsa sale di un gradino, come ogni altra tinta: e' il fondo a
+     essere sceso, non il colore a essere cambiato. */
+  --iride-l: 0.78;
+  --iride-c: 0.17;
   --focus-ink: var(--lastra);
   --focus-halo: var(--inchiostro);
   color-scheme: dark;
@@ -378,14 +400,6 @@
   basta. Dove `oklch(from ...)` non c'e', restano le mescolanze qui sopra, piu'
   spente ma leggibili.
 */
-/* La var si risolve sull'elemento che la usa, quindi una sola dichiarazione
-   copre anche `.dark`, dove `--vetro` vale un altro colore. */
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root {
-    --vetro-fondo: var(--vetro);
-  }
-}
-
 @supports (color: oklch(from red l c h)) {
   :root {
     --brass-chiaro: oklch(from var(--valore) 0.77 c h);
@@ -407,6 +421,25 @@
     --tono-semplice: oklch(from var(--semplice) 0.8 c h);
     --tono-medio: oklch(from var(--medio) 0.82 c h);
     --tono-avanzato: oklch(from var(--avanzato) 0.8 c h);
+  }
+}
+
+/* La scorsa carica: stesse quattro tinte, portate alla stessa luminosita' e
+   alla stessa croma, e interpolate per tinta. Il perche' sta sopra `--iride`.
+   Le due condizioni servono tutt'e due e sono due funzioni diverse: i colori
+   relativi per prendere la tinta di un ruolo senza riscriverne il numero, lo
+   spazio di interpolazione per passarci in mezzo. Una sola dichiarazione copre
+   anche `.dark`: le `var()` si risolvono su chi usa il gradiente. */
+@supports (color: oklch(from red l c h)) and
+  (background: linear-gradient(in oklch, red, blue)) {
+  :root {
+    --iride: linear-gradient(
+      112deg in oklch,
+      oklch(from var(--brass) var(--iride-l) var(--iride-c) h) 0%,
+      oklch(from var(--sage) var(--iride-l) var(--iride-c) h) 26%,
+      oklch(from var(--accent) var(--iride-l) var(--iride-c) h) 44%,
+      oklch(from var(--slate) var(--iride-l) var(--iride-c) h) 100%
+    );
   }
 }
 

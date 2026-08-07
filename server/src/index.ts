@@ -210,8 +210,22 @@ app.get("/api/config", async (req, res) => {
   res.json({ navigatorOrigin, thresholdArtworks: await thresholdFigures() });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`-------------------------------------------`);
   console.log(`  ArtAround Unified Backend on port ${PORT} `);
   console.log(`-------------------------------------------`);
 });
+
+/**
+ * Un browser tiene aperte le connessioni e le riusa, e le riusa fra le schede:
+ * il pozzo dei socket e' del browser, non della pagina. Node pero' le chiude da
+ * fermo dopo cinque secondi, e chi apre una seconda scheda dopo una pausa scrive
+ * la sua prima richiesta dentro un socket che il server sta chiudendo proprio in
+ * quell'istante. Il browser deve accorgersene e riprovare; su una rete con
+ * qualche decina di millisecondi di ritardo a volte non fa in tempo, e la
+ * richiesta resta appesa: la pagina non carica. Tenendo aperto piu' a lungo di
+ * quanto un browser resti fermo la corsa non si presenta.
+ * `headersTimeout` deve restare piu' grande, o sarebbe lui a chiudere per primo.
+ */
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;

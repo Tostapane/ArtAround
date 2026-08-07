@@ -11,6 +11,24 @@
  * anche l'unico posto da cui si chiede qualcosa, cosi' il vocabolario controllato
  * (slide 27-28) sta in un elenco solo.
  *
+ * SUL TELEFONO LE META' NON CI STANNO, e diventano quattro schede: Mappa, Elenco,
+ * Opera, Domande (`vistaMobile`). Su 844 px di altezza le due meta' facevano una
+ * pianta alta 255 px sopra una scheda in cui il testo dell'opera e le pastiglie
+ * delle domande si spartivano 400 px: tutto presente e niente usabile. La
+ * divisione e' solo la' sotto — da `lg` in su questo file monta esattamente quel
+ * che montava prima, perche' li' lo schermo le due domande le tiene davvero
+ * insieme, ed e' la ragione per cui la scheda non ha uno stato di apertura.
+ *
+ * Non c'e' nessun `matchMedia`: ogni pezzo porta la sua classe `hidden` per il
+ * telefono e la sua `lg:` per rimetterlo, quindi a decidere e' il foglio di
+ * stile, che la larghezza la sa. Un `matchMedia` qui e' gia' stato tolto una
+ * volta (era quello che pilotava la scheda a scatti).
+ *
+ * Le quattro schede non sono quattro stati sciolti: `Mappa` ed `Elenco` scrivono
+ * `stageView`, che e' dove quella scelta viveva gia' e resta ricordata, e aprire
+ * una tappa porta su `Opera`, perche' scegliere che cosa leggere e leggerlo sono
+ * lo stesso gesto interrotto a meta'.
+ *
  * Andando avanti, l'indicazione per raggiungere l'opera successiva si mostra
  * PRIMA di aprirla, e le note d'apertura prima della prima tappa: e' lo scopo per
  * cui esistono (slide 21). QR e codice digitato approdano entrambi in
@@ -33,6 +51,7 @@ import { useSensors } from "@/composables/useSensors";
 import { nodeOf, reanchor, startAtEntrance } from "@/localization";
 import Stage from "./Stage.vue";
 import Scheda from "./Scheda.vue";
+import Attesa from "../Attesa.vue";
 import Posizione from "./Posizione.vue";
 import { marketplaceHome } from "@/config";
 import { useTTS } from "./useTTS";
@@ -49,6 +68,7 @@ import {
   notesAfter,
   openingNotes,
   matchedContent,
+  stageView,
   setStageView,
   visit,
   posizioneAttiva,
@@ -72,15 +92,37 @@ const emit = defineEmits<{ exit: [] }>();
 const tts = useTTS();
 const { announce } = useAnnouncer();
 
+/** Le tappe arrivano dalla rete, e finche' non ci sono la pianta e' vuota e
+ *  l'elenco pure: senza un segno, una visita che si apre lenta sembra una visita
+ *  senza tappe. */
+const caricando = ref(true);
+
 watch(
   () => props.currVisit,
   async (id) => {
     if (!id) return;
+    caricando.value = true;
     await loadVisitContent(id);
+    caricando.value = false;
     const opening = openingNotes();
     if (opening.length) transition.value = { notes: opening, target: -1 };
   },
   { immediate: true },
+);
+
+// --- Le quattro schede del telefono ----------------------------------------
+type VistaMobile = "mappa" | "elenco" | "opera" | "domande";
+const vistaMobile = ref<VistaMobile>(stageView.value);
+
+/** Mappa ed Elenco sono la stessa scelta che il palcoscenico gia' ricorda: si
+ *  scrive li', o cambiando scheda si perderebbe quale dei due si guardava. */
+function apriVista(v: VistaMobile) {
+  vistaMobile.value = v;
+  if (v === "mappa" || v === "elenco") setStageView(v);
+}
+
+const schedaVisibile = computed(
+  () => vistaMobile.value === "opera" || vistaMobile.value === "domande",
 );
 
 // --- Posizione corrente ----------------------------------------------------
@@ -213,6 +255,10 @@ function selectIndex(i: number) {
   if (!match) return;
   currentArtwork.value = match;
   lastVisitIndex.value = i;
+  // Sul telefono aprire una tappa porta sull'opera: scegliere che cosa leggere e
+  // leggerlo sono lo stesso gesto, e restare sulla pianta vorrebbe dire che il
+  // tocco su un disco non ha fatto niente di visibile.
+  vistaMobile.value = "opera";
   const pos = currentPosition.value;
   if (pos > 0) {
     announce(
@@ -353,7 +399,7 @@ const teletrasportoArmato = ref(false);
 function armaTeletrasporto() {
   showLocator.value = false;
   teletrasportoArmato.value = true;
-  setStageView("mappa");
+  apriVista("mappa");
   announce(t("Teletrasporto pronto: tocca la pianta nel punto in cui ti trovi."));
 }
 
@@ -534,6 +580,17 @@ watch(currentArtwork, () => {
   tts.stop();
 });
 
+/**
+ * Una risposta aperta porta sulle Domande, ed e' l'unico punto in cui serve
+ * dirlo: le domande partono anche da fuori quel pannello — la voce, che sta
+ * nella barra, e un servizio toccato sulla pianta. Senza, toccare il bagno sulla
+ * pianta sembrerebbe non fare niente, perche' la risposta comparirebbe in una
+ * scheda che non si sta guardando.
+ */
+watch(openRequest, (richiesta) => {
+  if (richiesta) vistaMobile.value = "domande";
+});
+
 watch(guidedCurrentStep, (step) => {
   if (!guidedStudent.value) return;
   if (step < 0) return;
@@ -553,8 +610,21 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <!-- Il guscio esterno esiste per la barra delle schede, che sul telefono sta
+       in fondo e deve stare FUORI dalla riga che da `lg` in su affianca pianta e
+       scheda. Da `lg` la barra non c'e' e questo guscio e' un contenitore che
+       non fa niente. -->
+  <div class="flex min-h-0 flex-1 flex-col">
   <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
-    <div class="flex min-h-0 flex-1 flex-col">
+    <!-- La guida d'avanzamento sta qui dentro e non si spegne mai: e' l'unico
+         posto da cui si esce, e il conto delle tappe vale per tutte le schede.
+         Quando il palcoscenico e' spento la colonna non deve pero' prendersi lo
+         spazio: senza `shrink-0` resterebbe `flex-1` e la scheda dell'opera si
+         schiaccerebbe contro il fondo. -->
+    <div
+      class="flex min-h-0 flex-col lg:flex-1"
+      :class="schedaVisibile ? 'shrink-0' : 'flex-1'"
+    >
       <div
         class="flex shrink-0 items-center gap-3 border-b border-line bg-surface px-3 py-2"
       >
@@ -602,7 +672,8 @@ onUnmounted(() => {
 
       <!-- PALCOSCENICO -->
       <Stage
-        class="min-h-0 flex-1"
+        class="min-h-0 flex-1 lg:flex"
+        :class="schedaVisibile ? 'hidden' : 'flex'"
         :current-location-id="currentLocationId"
         :current-index="lastVisitIndex"
         :armed="teletrasportoArmato"
@@ -615,6 +686,9 @@ onUnmounted(() => {
     </div>
 
     <Scheda
+      class="lg:flex"
+      :class="schedaVisibile ? 'flex' : 'hidden'"
+      :sezione="vistaMobile"
       :content="currentArtwork"
       :fields="translatedFields"
       :riferimento="riferimento"
@@ -635,6 +709,12 @@ onUnmounted(() => {
       @close-request="chiudiRisposta"
       @apri-tappa="apriTappaCorrente"
     />
+
+    <!-- Le tappe non sono ancora arrivate: si copre tutto, perche' sotto non
+         c'e' niente da guardare e una pianta senza dischi dice il falso. -->
+    <div v-if="caricando" class="fixed inset-0 z-50 flex items-center justify-center bg-bg">
+      <Attesa :testo="t('Caricamento delle visite…')" />
+    </div>
 
     <div
       v-if="transition"
@@ -735,5 +815,41 @@ onUnmounted(() => {
       @arm="armaTeletrasporto"
       @close="showLocator = false"
     />
+  </div>
+
+    <!-- LE QUATTRO SCHEDE, solo sul telefono. Sono `radio` e non `tab` perche'
+         nessuno dei quattro pannelli e' figlio di questa barra: due stanno nel
+         palcoscenico e due nella scheda, e un `tablist` prometterebbe un legame
+         `aria-controls` che qui non esiste. -->
+    <nav
+      class="shrink-0 border-t border-line bg-surface lg:hidden"
+      style="padding-bottom: env(safe-area-inset-bottom)"
+      role="radiogroup"
+      :aria-label="t('Come vedere la visita')"
+    >
+      <div class="flex">
+        <button
+          v-for="s in [
+            { id: 'mappa', label: t('Mappa') },
+            { id: 'elenco', label: t('Elenco') },
+            { id: 'opera', label: t('Opera') },
+            { id: 'domande', label: t('Domande') },
+          ]"
+          :key="s.id"
+          type="button"
+          role="radio"
+          :aria-checked="vistaMobile === s.id"
+          class="min-h-12 flex-1 border-b-2 px-1 text-small font-medium transition-colors"
+          :class="
+            vistaMobile === s.id
+              ? 'border-accent text-accent'
+              : 'border-transparent text-muted'
+          "
+          @click="apriVista(s.id as VistaMobile)"
+        >
+          {{ s.label }}
+        </button>
+      </div>
+    </nav>
   </div>
 </template>

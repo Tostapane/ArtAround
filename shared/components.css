@@ -11,26 +11,6 @@
   Va importato dopo shared/theme.css, da cui prende tutti i token.
 */
 
-/*
-  Il VETRO: fondo di una barra che sta sopra a contenuto che scorre.
-
-  E' dichiarato `@utility` e non dentro `@layer components` perche' e' l'unico
-  che serve anche dentro un `@apply` (lo usa `.barra`), e in Tailwind 4 `@apply`
-  vede le utility, non le classi di componente: scritto come le altre, la
-  compilazione si ferma con "Cannot apply unknown utility class".
-
-  La ricaduta NON e' facoltativa, e non puo' stare qui: un `@supports` dentro
-  un'utility se lo porta via `@apply` quando la appiattisce dentro `.barra`, e
-  quel che resta e' il fondo pieno applicato SEMPRE, cioe' il vetro spento
-  ovunque senza che niente lo segnali. La condizione sta percio' su
-  `--vetro-fondo`, in `theme.css`.
-*/
-@utility vetro {
-  background-color: var(--vetro-fondo);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  backdrop-filter: blur(14px) saturate(140%);
-}
-
 @layer components {
   /* --- Salto rapido: primo elemento focalizzabile, visibile solo a fuoco --- */
   .salta {
@@ -225,11 +205,28 @@
      meta' elenco il documento si accorcia di colpo, il browser riporta lo
      scorrimento all'ultima riga possibile e il campo in cui si sta scrivendo
      scivola fuori dallo schermo. Incollata, la barra resta dov'e' e a muoversi
-     sono solo i risultati. Lo sfondo e' obbligatorio: sotto ci scorre roba.
-     Si ferma sotto la barra dell'applicazione, se c'e' una: `--app-bar` la
-     dichiara alta quanto e', ed e' la stessa misura con cui e' disegnata. */
+     sono solo i risultati. Si ferma sotto la barra dell'applicazione, se c'e'
+     una: `--app-bar` la dichiara alta quanto e', ed e' la stessa misura con cui
+     e' disegnata.
+
+     ⚠️ IL FONDO E' PIENO, e non e' una scelta d'aspetto rimasta indietro: la
+     barra copre quel che le passa sotto, quindi quel che le passa sotto non si
+     deve leggere. Traslucida (era il fondo della pagina al 72% piu' una
+     sfocatura) le tessere continuavano a vedersi attraverso i filtri, e mezza
+     riga sfocata sopra un campo di ricerca si legge come un difetto, non come
+     una superficie.
+
+     ⚠️ IL LIVELLO DEVE STARE SOPRA LE TESSERE, e non basta pareggiarle. Una
+     tessera cliccabile porta `.tessera-intera` a `z-20` e i suoi comandi a
+     `z-30`, per sollevarli sopra quel velo: a `z-20` la barra pareggiava il
+     velo e perdeva per ordine nel documento (le tessere vengono dopo), mentre
+     i comandi le passavano sopra di netto. Si vedeva scorrendo — i bottoni
+     delle tessere volavano sopra i filtri — e soprattutto si toccava: un dito
+     sul filtro cadeva sul velo della tessera che gli stava sotto e ad aprirsi
+     era la scheda dell'opera. `z-40` la tiene sopra tutt'e due e sotto il velo
+     dei dialoghi (`z-50`), che deve coprire anche lei. */
   .barra {
-    @apply vetro sticky z-20 flex flex-col gap-3 border-b border-line py-3
+    @apply sticky z-40 flex flex-col gap-3 border-b border-line bg-bg py-3
            md:flex-row md:items-center;
     top: var(--app-bar, 0px);
   }
@@ -584,6 +581,54 @@
            py-2 pl-4 text-small italic text-muted;
   }
 
+  /* --- L'ATTESA: il marchio si scompone e si ricompone --------------------
+     I tre quadri si staccano lungo la NORMALE della loro faccia, l'angolo di
+     sala gira di 120 gradi e rientrano. Gira di 120 perche' il segno ha
+     simmetria a tre: dopo un terzo di giro e' identico a se' stesso, quindi il
+     ciclo si richiude senza scatto.
+
+     ⚠️ QUATTRO `<svg>` SOVRAPPOSTI, non quattro `<g>` dentro uno. Chrome non
+     manda al compositore le trasformazioni INTERNE a un SVG: restano sul thread
+     principale, che in queste attese sta costruendo il catalogo, e l'animazione
+     si pianta proprio quando serve. Un `<svg>` intero prende invece un layer
+     suo. Stesso viewBox su tutti e quattro, quindi si allineano da se'.
+
+     ⚠️ Il ciclo dura 1,4 s perche' il giro comincia al 22%: piu' lungo, e
+     un'attesa che si risolve in un secondo mostra i quadri uscire e sparisce
+     prima che il cubo abbia girato.
+
+     ⚠️ Non va mai da solo: a "riduci animazioni" (theme.css) resta immobile, e
+     la frase accanto e' l'unica cosa che dice ancora che si sta aspettando. */
+  .marchio-attesa {
+    @apply relative inline-block;
+  }
+  .marchio-attesa > svg {
+    @apply absolute inset-0 h-full w-full;
+    overflow: visible; /* i quadri escono dal riquadro: e' il movimento */
+    will-change: transform;
+  }
+  .marchio-cubo {
+    animation: marchio-giro 1400ms ease-in-out infinite;
+  }
+  .marchio-quadro-alto,
+  .marchio-quadro-destra,
+  .marchio-quadro-sinistra {
+    animation: marchio-fuga 1400ms ease-in-out infinite;
+  }
+  /* Un movimento solo, tre direzioni: le normali delle tre facce. */
+  .marchio-quadro-alto {
+    --fuga-x: 0;
+    --fuga-y: -34%;
+  }
+  .marchio-quadro-destra {
+    --fuga-x: 29.4%;
+    --fuga-y: 17%;
+  }
+  .marchio-quadro-sinistra {
+    --fuga-x: -29.4%;
+    --fuga-y: 17%;
+  }
+
   /* --- Stati vuoti: una frase e un'azione, mai una griglia fantasma ------ */
   .vuoto {
     @apply rounded-card border border-line bg-surface-2 px-6 py-10 text-center;
@@ -608,4 +653,18 @@
   .link-scuro {
     @apply text-text underline decoration-line underline-offset-4 hover:decoration-accent;
   }
+}
+
+/* I fotogrammi dell'attesa. Fuori da `@layer components`: un `@keyframes` non
+   e' una regola di stile e dentro un livello non ha niente da ordinare.
+   I quadri escono nel primo quinto, RESTANO FUORI mentre l'angolo gira e
+   rientrano nell'ultimo: girando insieme a lui non si vedrebbe girare niente,
+   perche' il segno e' identico a se' stesso ogni 120 gradi. */
+@keyframes marchio-giro {
+  0%, 22% { transform: rotate(0deg); }
+  78%, 100% { transform: rotate(120deg); }
+}
+@keyframes marchio-fuga {
+  0%, 100% { transform: translate(0, 0); }
+  22%, 78% { transform: translate(var(--fuga-x), var(--fuga-y)); }
 }
