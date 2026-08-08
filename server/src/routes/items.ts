@@ -24,9 +24,14 @@
  *
  * L'eliminazione e' a cascata: un item citato da una visita lascerebbe una tappa
  * che non si risolve, e una tappa irrisolvibile non da' errore, semplicemente
- * non compare. Spariscono quindi anche le visite che lo contengono, e gli uni e
- * le altre da ogni collezione. `GET /:id/impact` lo dichiara prima di chiedere
- * conferma.
+ * non compare. La visita si ACCORCIA quindi della sua tappa — cioe' salta
+ * l'opera che quella descrizione raccontava, se nel percorso non ce n'e'
+ * un'altra sulla stessa opera — e sparisce solo se resta senza nessuna tappa.
+ * `GET /:id/impact` lo dichiara prima di chiedere conferma.
+ *
+ * Cancella chi l'ha scritta e il curatore, che risponde del catalogo del museo.
+ * Senza quella guardia bastava un `@id` per togliere di mezzo il lavoro di
+ * chiunque, e con esso le tappe delle visite che lo citavano.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -341,7 +346,48 @@ router.post("/", async (req, res) => {
   }
 });
 
-// --- Eliminazione a cascata (curatore) --------------------------------------
+// --- Eliminazione a cascata --------------------------------------------------
+
+/**
+ * Un contenuto privato non e' del suo autore risponde come se non esistesse.
+ * Dire "non puoi" confermerebbe comunque che c'e' e di chi e', ed e' la stessa
+ * regola che le visite applicano in lettura.
+ */
+function nascostoA(item: any, username: string): boolean {
+  if (!item) return false;
+  if (item.visibility !== "privato") return false;
+  return item.author !== username;
+}
+
+/**
+ * Chi puo' toccare questo contenuto: il curatore, che risponde del catalogo del
+ * museo, e l'autore che l'ha scritto. Risponde `null` quando si puo' procedere e
+ * altrimenti manda gia' la risposta.
+ *
+ * Si guarda PRIMA di cancellare, e nascondere il pulsante non basta: la rotta si
+ * chiama anche senza passare dall'interfaccia, e questa cancella per davvero —
+ * via il documento, via l'immagine dal disco, via le tappe dalle visite che lo
+ * citano e le righe dalle collezioni di chi l'aveva preso.
+ *
+ * Il ruolo si guarda prima della privatezza: nell'ordine opposto, al curatore la
+ * regola che nasconde i privati altrui direbbe "non esiste", lasciandolo senza lo
+ * strumento fine e con in mano solo lo svuotamento del museo intero.
+ */
+function vietato(req: any, res: any, item: any): boolean {
+  const chi = sessionUser(req);
+  if (chi.role === "curatore") return false;
+  if (nascostoA(item, chi.username)) {
+    res.status(404).json({ error: "Contenuto non trovato" });
+    return true;
+  }
+  if (item.author !== chi.username) {
+    res
+      .status(403)
+      .json({ error: "Puoi eliminare solo le descrizioni che hai scritto." });
+    return true;
+  }
+  return false;
+}
 
 async function measureImpact(itemId: string) {
   const visits = await VisitModel.find({ itemListElement: itemId });
@@ -371,12 +417,15 @@ async function measureImpact(itemId: string) {
  * GET /api/items/:id/impact
  * Ritorna: { visite[], adozioni }, cioe' cosa sparirebbe eliminando questo item.
  * Serve a dichiararlo prima di chiedere conferma. Non scrive nulla.
+ * Stessa prerogativa della cancellazione: elenca i nomi delle visite che lo
+ * citano, private comprese, quindi risponde a chi potrebbe cancellarlo davvero.
  */
 router.get("/:id/impact", async (req, res) => {
   try {
     const id = decodeURIComponent(req.params.id);
     const item = await ItemModel.findOne({ "@id": id });
     if (!item) return res.status(404).json({ error: "Contenuto non trovato" });
+    if (vietato(req, res, item)) return;
 
     const impact = await measureImpact(id);
     res.json({
@@ -399,18 +448,33 @@ router.get("/:id/impact", async (req, res) => {
  * la descrizione; `visite` dice che fare di quelle che la citano: "accorcia"
  * (predefinito) toglie la tappa e lascia in piedi il percorso, "elimina" le
  * butta via intere. Una visita che resterebbe senza tappe sparisce comunque.
+ *
+ * Accorciare vuol dire che la visita SALTA l'opera di cui la descrizione
+ * parlava — a meno che nel percorso non ci sia un'altra tappa sulla stessa
+ * opera, che resta e la fa visitare lo stesso. E' quel che la tappa tolta
+ * significa, e non serve nessun conto per ottenerlo: si toglie l'item, e la
+ * fermata su quell'opera resta solo se qualcos'altro la teneva.
+ *
+ * ⚠️ La strada "elimina" e' del solo CURATORE, e non e' una restrizione di
+ * comodo: butta via percorsi ALTRUI, comprati e composti da altri, per via di
+ * una tappa su cento. Chi risponde del museo puo' deciderlo; un autore
+ * risponde di quel che scrive, e la sua cancellazione accorcia.
  */
 router.delete("/:id", async (req, res) => {
   try {
     const id = decodeURIComponent(req.params.id);
     const item = await ItemModel.findOne({ "@id": id });
     if (!item) return res.status(404).json({ error: "Contenuto non trovato" });
+    if (vietato(req, res, item)) return;
 
     const impact = await measureImpact(id);
 
     let accorciate: { id: string; name: string }[] = [];
     let sparite: { id: string; name: string }[] = [];
-    if (String(req.query.visite || "") === "elimina") {
+    const buttaVia =
+      String(req.query.visite || "") === "elimina" &&
+      sessionUser(req).role === "curatore";
+    if (buttaVia) {
       if (impact.visitIds.length > 0)
         await VisitModel.deleteMany({ "@id": { $in: impact.visitIds } });
       sparite = impact.visite.map((v) => ({ id: v.id, name: v.name }));

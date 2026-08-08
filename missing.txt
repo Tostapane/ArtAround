@@ -8,13 +8,14 @@ MANCANTI
 - superseed, rework dei prezzi, - gli uffizi hanno tutto gratis
 - eliminare una visita, cosa succede? 
 - limitare agli utenti il numero di visite che puo' creare
-- ❯ so now just the author an the curator can remove visits, what about itms? are they protected?
-  we should expose a way for authors to delete their visits too (both visitors that created a
 MOBILE
+- sidebar invece cha un footer da mobile?
 - hard reload?
 DA DISCUTERE
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
+- eliminazione di visite da utente, autore 
+- eliminazione di item da autore
 - testare il nuovo sistema di audio su iphone
 - Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tipo filtrarle per periodi (vendite effettuate in mese x anno y)
 - E se avesse piu' piani?

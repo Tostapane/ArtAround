@@ -922,6 +922,15 @@
                           <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> <span x-text="t(`Modifica`)"></span>
                         </button>
                       </template>
+                      <!-- Elimina chi l'ha scritta, e il curatore su qualunque
+                           descrizione del suo museo. La conferma dice prima
+                           quali visite si accorciano. -->
+                      <template x-if="canDeleteItem(it)">
+                        <button type="button" @click="openDeleteItem(it)" class="btn-pericolo"
+                          :aria-label="t(`Elimina la descrizione {tono} di {opera}`, { tono: it.educationalLevel, opera: currentArtwork().name })">
+                          <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-elimina" /></svg> <span x-text="t(`Elimina`)"></span>
+                        </button>
+                      </template>
                       <span x-show="inLibrary(it)" class="inline-flex items-center gap-1 text-caption text-sage">
                         <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-check" /></svg> <span x-text="t(`Nella tua libreria`)"></span>
                       </span>
@@ -1005,14 +1014,17 @@
                       x-text="unlockMissingLabel()"></button>
                   </template>
                   <template x-if="currentVisit().author === currentUser">
-                    <span class="flex gap-3">
-                      <button type="button" @click="editVisit(currentVisit())" class="btn-secondario">
-                        <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> <span x-text="t(`Modifica`)"></span>
-                      </button>
-                      <button type="button" @click="openDeleteVisit(currentVisit())" class="btn-pericolo">
-                        <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-elimina" /></svg> <span x-text="t(`Elimina`)"></span>
-                      </button>
-                    </span>
+                    <button type="button" @click="editVisit(currentVisit())" class="btn-secondario">
+                      <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> <span x-text="t(`Modifica`)"></span>
+                    </button>
+                  </template>
+                  <!-- Il curatore risponde del catalogo del museo, quindi il
+                       comando c'e' anche per lui su una visita che non e' sua:
+                       e' la stessa autorita' con cui svuota il museo intero. -->
+                  <template x-if="canDeleteVisit(currentVisit())">
+                    <button type="button" @click="openDeleteVisit(currentVisit())" class="btn-pericolo">
+                      <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-elimina" /></svg> <span x-text="t(`Elimina`)"></span>
+                    </button>
                   </template>
                   <template x-if="currentVisit().accessKey && currentVisit().author === currentUser">
                     <button type="button" @click="openNavigator(startGuidedUrl(currentVisit()))" class="btn-primario">
@@ -1158,9 +1170,20 @@
                   <template x-if="!visitUsable(v) && !canBuy()">
                     <a :href="'/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario shrink-0" x-text="t(`Apri`)"></a>
                   </template>
+                  <!-- Solo gli itinerari propri: una visita comprata non e' tua
+                       da cancellare, e `canDeleteVisit` guarda l'autore. E' anche
+                       il posto da cui si fa spazio quando si e' al tetto. -->
+                  <template x-if="canDeleteVisit(v)">
+                    <button type="button" @click="openDeleteVisit(v)" class="btn-pericolo shrink-0"
+                      :aria-label="t(`Elimina la visita {nome}`, { nome: v.name })">
+                      <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-elimina" /></svg> <span x-text="t(`Elimina`)"></span>
+                    </button>
+                  </template>
                 </li>
               </template>
             </ul>
+            <p x-show="currentUserRole === 'visitatore'" class="mt-3 text-caption text-muted"
+              x-text="t(`Itinerari tuoi in questo museo: {n} di {max}.`, { n: composedVisitCount(), max: maxVisiteVisitatore })"></p>
             <div x-show="myVisits().length === 0" class="vuoto mt-4">
               <p x-text="t(`Non hai ancora visite.`)"></p>
               <a href="/vetrina" @click="setMarketType('visite')" class="btn-primario mt-4" x-text="t(`Vai alle visite`)"></a>
@@ -1234,6 +1257,12 @@
                         <button type="button" @click="editVisit(v)" class="btn-secondario">
                           <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-modifica" /></svg> <span x-text="t(`Modifica`)"></span>
                         </button>
+                        <template x-if="canDeleteVisit(v)">
+                          <button type="button" @click="openDeleteVisit(v)" class="btn-pericolo"
+                            :aria-label="t(`Elimina la visita {nome}`, { nome: v.name })">
+                            <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-elimina" /></svg> <span x-text="t(`Elimina`)"></span>
+                          </button>
+                        </template>
                       </div>
                     </li>
                   </template>

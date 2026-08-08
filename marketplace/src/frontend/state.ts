@@ -56,6 +56,7 @@ import {
   percorsoMiniatura,
   SOURCE_LANG,
   WORDS_PER_MINUTE,
+  MAX_VISITE_VISITATORE,
   marketplaceViews,
   marketplaceLegacyViews,
 } from "../../../shared/constants.js";
@@ -266,7 +267,14 @@ export class AppState {
    * dall'opzione che distrugge meno.
    */
   visiteScelta: "accorcia" | "elimina" = "accorcia";
-  itemToDelete: CatalogRow | null = null;
+  /**
+   * La descrizione che si sta per eliminare, ridotta ai due campi che la
+   * conferma usa. Ci si arriva da due schermate che tengono forme diverse — la
+   * tabella del curatore ha una `CatalogRow`, la pagina di un'opera l'item nudo
+   * — e chiedere la riga a tutt'e due vorrebbe dire costruirne una finta la'
+   * dove non serve a nient'altro.
+   */
+  itemToDelete: { id: string; name: string } | null = null;
   itemImpact: ImpactReport | null = null;
 
   // --- Notifiche ------------------------------------------------------------
@@ -1200,10 +1208,50 @@ export class AppState {
     this.confirmOpen = true;
   }
 
+  /**
+   * Chi vede il bottone che elimina: chi l'ha scritta, e il curatore, che
+   * risponde del catalogo del suo museo. Sono le stesse due condizioni che il
+   * server verifica prima di cancellare — qui decidono soltanto se mostrare il
+   * comando, perche' un bottone nascosto non e' una regola: la rotta si chiama
+   * anche senza passare di qui.
+   */
+  canDeleteVisit(visit: any): boolean {
+    if (!visit || !this.currentUser) return false;
+    if (this.currentUserRole === "curatore") return true;
+    return visit.author === this.currentUser;
+  }
+
+  canDeleteItem(item: any): boolean {
+    if (!item || !this.currentUser) return false;
+    if (this.currentUserRole === "curatore") return true;
+    return item.author === this.currentUser;
+  }
+
   openDeleteVisit(visit: any) {
-    if (!visit || visit.author !== this.currentUser) return;
+    if (!this.canDeleteVisit(visit)) return;
     this.visitToDelete = visit;
     this.confirmOpen = true;
+  }
+
+  /**
+   * Eliminare una descrizione dalla pagina dell'opera che racconta. Chiede
+   * l'impatto prima di lasciar confermare, come la tabella del curatore: quel
+   * che sparisce si dice prima, non si scopre dopo.
+   */
+  async openDeleteItem(item: any) {
+    if (!this.canDeleteItem(item)) return;
+    this.itemToDelete = {
+      id: item["@id"],
+      name: this.contentName(item) || item["@id"],
+    };
+    this.itemImpact = null;
+    this.confirmOpen = true;
+    try {
+      this.itemImpact = await ArtAPI.impattoItem(item["@id"]);
+    } catch (e) {
+      this.itemImpact = null;
+      this.showToast((e as Error).message, "error");
+    }
   }
 
   confirmTitle(): string {
@@ -1440,7 +1488,11 @@ export class AppState {
         const esito = await ArtAPI.eliminaItem(row.id, scelta);
         const eliminate = esito.visiteEliminate || [];
         const accorciate = esito.visiteAccorciate || [];
-        await this.loadMuseumState();
+        // Il curatore guarda i suoi conteggi, tutti gli altri il catalogo: la
+        // descrizione appena tolta e' ancora nella pagina dell'opera da cui la
+        // si e' eliminata, e le visite accorciate portano una tappa in meno.
+        if (this.currentUserRole === "curatore") await this.loadMuseumState();
+        else await this.loadCatalogue();
         if (eliminate.length > 0 || accorciate.length > 0) {
           this.showToast(
             `Descrizione eliminata: ${accorciate.length} visite accorciate, ${eliminate.length} eliminate.`,
@@ -1468,7 +1520,10 @@ export class AppState {
         );
         this.showToast("Visita eliminata.");
         if (this.currentUserRole === "curatore") await this.loadMuseumState();
-        else this.goHome();
+        // Si va via solo dalla pagina della visita appena eliminata, che senza
+        // il suo documento resterebbe vuota. Da un elenco si resta dove si era:
+        // la riga e' gia' sparita, ed e' quello che si voleva vedere.
+        if (this.view === "visita") this.goHome();
       } catch (e) {
         this.showToast((e as Error).message, "error");
       }
@@ -2284,6 +2339,9 @@ export class AppState {
    */
   itemKinds = itemKinds;
   museumTopics: { name: string; kind: string }[] = [];
+
+  /** Il tetto agli itinerari di un visitatore, per i legami che lo scrivono. */
+  maxVisiteVisitatore = MAX_VISITE_VISITATORE;
 
   /** I suggerimenti del genere scelto. Un periodo o un evento non ne hanno. */
   topicSuggestions(): string[] {
@@ -3148,6 +3206,43 @@ export class AppState {
     return issues;
   }
 
+  /**
+   * Gli itinerari che questa persona ha gia' composto in questo museo.
+   *
+   * Si conta su `visits`, che il server ha gia' mandato: le proprie private ci
+   * sono per costruzione, perche' sono l'unico caso in cui una privata esce
+   * dalla rotta. Una richiesta apposta chiederebbe un numero che e' gia' qui.
+   */
+  composedVisitCount(): number {
+    if (!this.currentUser) return 0;
+    return this.visits.filter(
+      (v: any) => v.author === this.currentUser && this.belongsToMuseum(v),
+    ).length;
+  }
+
+  /**
+   * Il tetto vale per il solo visitatore (§3.5-ter: l'autore pubblica, ed e' il
+   * suo mestiere) e non si applica a chi sta MODIFICANDO un itinerario che ha
+   * gia', o al quinto non lo si potrebbe piu' correggere.
+   */
+  visitCapReached(): boolean {
+    if (this.currentUserRole !== "visitatore") return false;
+    if (this.editingId) return false;
+    return this.composedVisitCount() >= MAX_VISITE_VISITATORE;
+  }
+
+  /** Quanti gliene restano, per dirlo mentre compone invece che al salvataggio. */
+  visitsLeft(): number {
+    return Math.max(0, MAX_VISITE_VISITATORE - this.composedVisitCount());
+  }
+
+  visitCapMessage(): string {
+    return this.t(
+      "Hai raggiunto i {n} itinerari di questo museo. Eliminane uno dalla tua libreria per comporne un altro.",
+      { n: MAX_VISITE_VISITATORE },
+    );
+  }
+
   /** "3 tappe · 2 min": il riepilogo della bozza, letto in due punti del compositore. */
   draftSummary(): string {
     const tappe = this.stopCount();
@@ -3157,6 +3252,9 @@ export class AppState {
   }
 
   visitStatus(): string {
+    // Il tetto viene prima di quel che manca: e' inutile dire che serve un
+    // titolo a chi comunque non potra' salvare.
+    if (this.visitCapReached()) return this.visitCapMessage();
     const issues = this.visitIssues();
     if (issues.length > 0)
       return this.t("Manca ancora: {elenco}.", { elenco: issues.join(", ") });
@@ -3193,6 +3291,11 @@ export class AppState {
   }
 
   async saveVisit() {
+    // La precheck del tetto e' una cortesia, non la regola: a rifiutare e' il
+    // server, che e' l'unico a sapere quanti itinerari ci sono davvero. Qui
+    // serve a non far comporre un percorso intero per poi buttarlo via.
+    if (this.visitCapReached())
+      return this.showToast(this.visitCapMessage(), "error");
     const issues = this.visitIssues();
     if (issues.length > 0)
       return this.showToast(`Manca ancora: ${issues.join(", ")}.`, "error");

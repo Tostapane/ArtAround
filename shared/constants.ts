@@ -474,6 +474,25 @@ export function formatDuration(totalSeconds: number): string {
  */
 export const WORDS_PER_MINUTE = 100;
 
+/**
+ * Quanti itinerari puo' tenere un visitatore in UNO stesso museo.
+ *
+ * Il visitatore compone per se' e non pubblica (§3.5-ter): i suoi itinerari
+ * restano privati e nessuno li vede, ma stanno nella stessa collezione di tutti
+ * gli altri e ogni lettura del catalogo se li porta dietro. Senza un tetto,
+ * comporre e' gratuito e illimitato, e un museo si riempie di percorsi che
+ * nessuno riaprira'.
+ *
+ * Il tetto e' per MUSEO e non complessivo: cinque itinerari agli Uffizi non
+ * devono togliere quelli del Louvre, che sono un'altra visita e un altro viaggio.
+ * Vale per il solo visitatore — l'autore pubblica, ed e' il suo mestiere.
+ *
+ * Il numero sta qui perche' lo leggono in due: il server, che rifiuta, e il
+ * compositore, che lo dice mentre si compone invece di farlo scoprire al
+ * salvataggio.
+ */
+export const MAX_VISITE_VISITATORE = 5;
+
 // ============================================================================
 //                       Le schermate del marketplace
 // ============================================================================

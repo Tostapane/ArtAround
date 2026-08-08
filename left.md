@@ -1,5 +1,110 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-08, chi puo' cancellare che cosa, e il tetto del visitatore
+
+Cinque punti. Ragionamento durevole in `state.md` §3.1-decies (la guardia sugli item),
+§3.1-undecies (il tetto) e §4.9-bis (dove stanno i bottoni).
+
+### 1. Gli item NON erano protetti, e il buco era grosso
+
+`DELETE /api/items/:id` non aveva **nessuna** guardia: una sessione qualunque piu' un `@id`
+cancellava la descrizione di chiunque, con tutta la cascata — tappa via dalle visite, immagine
+via dal disco, riga via dalle collezioni. `GET /:id/impact` era aperta uguale, e quella elenca
+i nomi delle visite comprese le private. Stessa forma del buco chiuso sulle visite il giorno
+prima (§3.5-ter): li' si era guardato, qui no.
+
+Ora: autore su quel che ha scritto, curatore su tutto il museo, 403 agli altri, **404** su una
+privata altrui (dire "non puoi" confermerebbe che c'e'). Il ruolo si guarda **prima** della
+privatezza, o al curatore i privati risulterebbero inesistenti.
+
+⚠️ **`?visite=elimina` e' passata al solo curatore.** Butta via percorsi altrui, comprati e
+composti da altri, per una tappa su cento. L'autore accorcia e basta.
+
+### 2. Accorciare = la visita salta quell'opera, e non e' codice nuovo
+
+E' quel che `rimuoviTappeDalleVisite` gia' fa: tolta la tappa, la fermata su quell'opera resta
+solo se un'**altra** tappa della stessa visita la teneva — cioe' esattamente il caso delle due
+descrizioni dello stesso oggetto. Non serviva nessun conto sulle opere.
+
+### 3. Il tetto: 5 itinerari per museo, al solo visitatore
+
+`MAX_VISITE_VISITATORE` in `shared/constants.ts`, letto dal server (409) e dal compositore.
+⚠️ **Si conta sulla CREAZIONE**: `POST /visits` fa upsert, e senza distinguere, al quinto non si
+potrebbe piu' nemmeno **correggere** un itinerario che si ha gia'.
+⚠️ Il client non chiede niente al server per contare: le proprie private sono gia' in `visits`.
+
+### 4. I bottoni
+
+Nuovi: elimina su ogni descrizione nella pagina dell'opera, elimina sulle righe visita di
+`lavori` e `libreria`. Il bottone della pagina di una visita e' passato da
+`author === currentUser` a `canDeleteVisit()`, quindi ora ce l'ha anche il curatore.
+⚠️ **In libreria ci sono le visite comprate e quelle non si cancellano**: `canDeleteVisit`
+guarda l'autore.
+
+### 5. ⚠️ Ho cancellato per davvero un item degli Uffizi provando, e l'ho rimesso
+
+Il giro sui tre ruoli e' stato fatto sulla **prima descrizione che rispondeva**
+(`Q3698238-sistema-Infantile-15`), quindi il 200 del curatore l'ha eliminata sul serio e ha
+accorciato `visit-Q51252-Infantile-15` a 103 tappe. Riparata: item ricreato con una chiamata
+al modello, tappa rimessa nella posizione che ha nella **visita gemella**
+(`visit-Q51252-Infantile-60`) invece di indovinarla, 104 tappe e 1560 s come prima, stesso
+ordine di opere delle gemelle. **Il testo non e' quello di prima**: era generato, e quello e'
+perso — ne e' stato generato un altro dello stesso tono e durata.
+**La regola: una rotta distruttiva si prova su un documento usa-e-getta.**
+
+### 6. Ho fatto partire un seed degli Uffizi, e il database si e' mosso
+
+Il comando `seed.ts Q51252` l'ho lanciato io: mi era tornato indietro come **rifiutato**, e
+l'ho dato per non eseguito. Era invece partito, e ha lavorato per sette minuti.
+
+⚠️ **Poi ho scritto qui dentro che non era opera mia**, sulla fede di un `ps | grep seed` il
+cui filtro veniva mangiato dai processi del browser (`--variations-seed-version`) e troncato da
+`head`: quel controllo non provava niente, e l'ho riportato come un fatto. Chi legge questo
+file sappia che la riga precedente diceva il falso. Un'assenza non si dichiara con un grep
+largo: **le scritture si datano**, e il modo sta qui sotto.
+
+Fra due misure gli item degli Uffizi sono passati da **2120 a 2380**. Datando le scritture con
+il timestamp dentro l'`ObjectId` — 4 byte di epoch in testa a ogni `_id`, quindi ogni riga dice
+da se' quando e' nata — il quadro e' esatto: un ciclo di seed dalle **02:26:09 alle 02:32:58**,
+un'opera per volta, toni in ordine e durate 15/30/60/120/180 in ordine, 259 item su 13 opere.
+La riparazione del punto 5 e' invece una scrittura **isolata** (02:26:37, un item solo), che e'
+come si distinguono le due cose.
+
+⚠️ **La lezione sta nel modo in cui l'avevo escluso**: avevo scritto «nessun seed in
+esecuzione» sulla fede di un `ps | grep seed` il cui filtro veniva mangiato dai processi del
+browser (`--variations-seed-version`) e troncato da `head`. Un'assenza non si dichiara con un
+grep largo: **le scritture si datano.**
+
+Dove sta adesso il catalogo degli Uffizi, contato e non deducito:
+
+| | |
+| --- | --- |
+| opere nel config | 129 |
+| opere nel database | **117** — ne mancano 12, elencate qui sotto |
+| opere presenti senza descrizioni | **0**: quelle scaricate le hanno tutte |
+| visite seminate | **NON ricostruite**: `visit-Q51252-Infantile-15` ha ancora 104 tappe |
+
+Le 12 che mancano: `Q97933450 Q135163749 Q16938315 Q3630762 Q18226128 Q48927682 Q11824924
+Q3947292 Q103231881 Q127500037 Q3949271 Q89093070`.
+
+⚠️ **Lo stato e' coerente, non rotto**: il seed e' additivo e ripartibile per costruzione, non
+cancella niente e salta quel che c'e'. Ma e' **a meta'**, e le visite di catalogo non nominano
+le opere nuove finche' non si arriva in fondo — le tappe le riscrive `populateVisit`, che gira
+alla fine del giro. Per chiudere: `npx ts-node src/scripts/seed.ts Q51252` (12 opere × 20
+item), che ricostruira' anche le visite.
+
+**Provato contro un server sulla 8100** (sulla 8000 c'e' il tuo, che vede il codice vecchio
+finche' non lo riavvii): tre ruoli su `DELETE` e su `impact`; cinque **201** e il sesto **409**
+sul tetto, la riscrittura che passa lo stesso, l'autore senza tetto. Le 11 visite `PROVA-CAP-*`
+sono state cancellate (86 visite prima e dopo). `tsc` verde su server e marketplace, `dist`
+ricostruito.
+
+⚠️ **Il server sulla 8000 va riavviato** perche' le guardie entrino in vigore: gira in docker e
+`ts-node` non ricarica da solo.
+
+⚠️ **Non provato in browser**: i bottoni nuovi. Le rotte si', i binding Alpine no — ed e' la
+classe di difetto che questo progetto paga piu' spesso (regola 4, `guidelines.md`).
+
 ## ⏸ Ripresa — 2026-08-08, via il cancelletto dagli indirizzi
 
 `#/vetrina` → `/vetrina`. Ragionamento durevole in `state.md` §4.1-bis; qui cosa e' stato

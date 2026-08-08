@@ -1494,6 +1494,78 @@ rigenererebbe anche tutti i testi (circa 8 chiamate al modello per opera). Per u
 popolato c'e' `npx ts-node src/scripts/testers.ts licenze`, che tocca **solo** i contenuti
 generati (`author: "sistema"`) e non sfiora la scelta di un autore.
 
+### 3.1-decies Cancellare una descrizione non era di nessuno *(2026-08-08)*
+
+`DELETE /api/items/:id` non aveva **nessuna** guardia: bastava una sessione qualunque e un
+`@id` per togliere di mezzo la descrizione di chiunque, e con lei la tappa dalle visite che la
+citavano, l'immagine dal disco e la riga dalle collezioni di chi l'aveva presa. `GET
+/:id/impact` era aperta allo stesso modo, e quella elenca i **nomi delle visite**, private
+comprese. E' la stessa forma del buco che le visite avevano fino al giorno prima (§3.5-ter):
+li' era stato chiuso, qui nessuno era tornato a guardare.
+
+| chi | su una descrizione | esito |
+| --- | --- | --- |
+| il suo autore | la sua | 200 |
+| il curatore | qualunque descrizione del museo, private comprese | 200 |
+| un autore | quella di un altro autore | 403 |
+| un visitatore | qualunque | 403 |
+| chiunque non curatore | una **privata** altrui | 404, come in lettura |
+
+⚠️ **Il ruolo si guarda PRIMA della privatezza**, per la ragione gia' scritta in §3.5-ter:
+nell'ordine opposto al curatore si risponderebbe "non esiste" proprio sui contenuti privati,
+lasciandolo senza lo strumento fine.
+
+⚠️ **La strada `?visite=elimina` e' ora del solo CURATORE**, e non e' una restrizione di
+comodo. Quel ramo butta via **percorsi altrui** — composti da altri, comprati da altri — per
+via di una tappa su cento: chi risponde del museo puo' deciderlo, un autore risponde di quel
+che scrive. La sua cancellazione **accorcia** e basta, che e' comunque il valore predefinito.
+
+**Accorciare vuol dire che la visita salta quell'opera**, e non serve nessun conto per
+ottenerlo: si toglie la tappa, e la fermata su quell'opera resta in piedi solo se un'altra
+tappa della stessa visita la teneva — cioe' esattamente quando nel percorso c'e' una seconda
+descrizione dello stesso oggetto, che la slide 21 vuole. E' `rimuoviTappeDalleVisite`
+(§1.1-sexies), che rimette a posto anche opzionali, note ancorate, durata e quiz.
+
+Provato contro il server vivo con i tre ruoli, su una descrizione generata dal seed (quindi di
+nessuno dei tre): 403, 403, 200. ⚠️ **Quel 200 ha cancellato per davvero** una descrizione
+degli Uffizi e accorciato `visit-Q51252-Infantile-15` — ricreata subito, tappa rimessa nella
+posizione che ha nella visita gemella, 104 tappe e 1560 s come prima. **La prova di una rotta
+distruttiva va fatta su un documento usa-e-getta, non sul primo che risponde.**
+
+⚠️ **Come si data una scrittura in questo database, che e' servito a capire chi aveva scritto
+cosa:** l'`ObjectId` di Mongo porta in testa quattro byte di epoch, quindi
+`doc._id.getTimestamp()` dice quando quella riga e' nata **senza** che lo schema abbia
+`timestamps`. Raggruppando gli item per quel valore si legge la forma di chi li ha scritti: un
+seed e' un blocco regolare — un'opera per volta, toni in ordine, durate in ordine — e una
+riparazione a mano e' una scrittura isolata. Serve quando due processi toccano il catalogo
+insieme e i conteggi non tornano.
+
+### 3.1-undecies Quanti itinerari puo' tenere un visitatore *(2026-08-08)*
+
+`MAX_VISITE_VISITATORE = 5` in `shared/constants.ts`, per **museo** e per il solo visitatore.
+Comporre e' gratuito e quel che si compone resta (§3.5-ter: privato, ma nella stessa
+collezione di tutto il resto), quindi senza un tetto un museo si riempie di percorsi che
+nessuno riaprira'.
+
+- Il tetto e' **per museo** e non complessivo: cinque itinerari agli Uffizi non devono togliere
+  il posto a quelli del Louvre, che sono un altro viaggio.
+- Non vale per l'**autore**, che pubblica: e' il suo mestiere. Ne' per il curatore, che oggi in
+  questa rotta non ci arriva.
+- ⚠️ **Si conta sulla CREAZIONE, non sul salvataggio.** `POST /visits` fa upsert, quindi senza
+  distinguere i due casi al quinto itinerario non lo si potrebbe piu' nemmeno **correggere**.
+  La differenza e' se quell'`@id` e' gia' nel database ed e' suo.
+- Il numero sta in `shared/` perche' lo leggono in due: il server, che rifiuta con **409**, e il
+  compositore, che lo dice mentre si compone — la barra «Manca ancora» diventa il messaggio del
+  tetto, che viene prima, perche' e' inutile chiedere un titolo a chi non potra' salvare. La
+  precheck del client e' una cortesia: a decidere e' il server, l'unico che sa quanti ce ne
+  sono davvero.
+- Il conto nel client non chiede niente al server: le proprie visite private sono gia' in
+  `visits`, perche' sono l'unico caso in cui una privata esce dalla rotta.
+
+Provato contro il server vivo: cinque **201** e il sesto **409**; riscrivere una delle cinque
+passa lo stesso; l'autore alla sesta fa **201**. Le undici visite di prova sono state
+cancellate (86 visite prima e dopo).
+
 ### 3.2 The four LLM uses (slide 31) — all present
 
 1. **Create items for undescribed objects / missing level or length** —
@@ -2268,6 +2340,36 @@ regge di stare in una fotografia? Non quello da dieci minuti che si consuma — 
 quarto d'ora dopo e' morto — e non la sessione lunga, che stampata in un indirizzo vale come
 una password. Il cambio di dispositivo resta detto dal solo «Inizia la visita», che apre il
 navigator coniando il biglietto sul momento.
+
+### 4.9-bis Dove si elimina, adesso *(2026-08-08)*
+
+Il comando esisteva in due punti soli: la pagina di una visita, per il suo autore, e la tabella
+del curatore. Una descrizione non si poteva togliere da **nessuna** schermata — la rotta c'era
+e la chiamava solo il curatore — e le visite non si toglievano dagli elenchi in cui si vedono.
+
+| dove | che cosa | chi lo vede |
+| --- | --- | --- |
+| pagina dell'opera, sotto ogni descrizione | la descrizione | chi l'ha scritta, e il curatore |
+| pagina di una visita | la visita | chi l'ha composta, e il curatore |
+| `lavori` (autore), riga di una visita | la visita | chi l'ha composta, e il curatore |
+| `libreria` (visitatore), riga di una visita | la visita | **solo** chi l'ha composta |
+| `catalogo` (curatore) | tutto | il curatore |
+
+⚠️ **In libreria ci sono anche le visite COMPRATE, e quelle non si cancellano**: `canDeleteVisit`
+guarda l'autore, quindi su una visita comprata il bottone non compare. Cancellarla vorrebbe dire
+togliere dal marketplace il lavoro di un altro per averlo pagato.
+
+⚠️ **`canDeleteVisit`/`canDeleteItem` decidono soltanto se MOSTRARE il comando.** Le stesse due
+condizioni le verifica il server prima di cancellare (§3.1-decies, §3.5-ter), e devono restare
+li': un bottone nascosto non e' una regola, la rotta si chiama anche senza passare da qui.
+
+⚠️ **Si torna alla home solo dalla pagina della visita appena eliminata**, che senza il suo
+documento resterebbe vuota. Da un elenco si resta dove si era: la riga e' gia' sparita, ed e'
+quello che si voleva vedere.
+
+In libreria una riga sotto l'elenco dice al visitatore a che punto e' del suo tetto
+(«Itinerari tuoi in questo museo: 3 di 5», §3.1-undecies): e' il posto da cui si fa spazio, ed
+e' li' che il messaggio del compositore lo manda.
 
 ### 4.10 `libreria` (visitor) / 4.11 `lavori` (author)
 

@@ -28,7 +28,11 @@ import { planVisit } from "../services/llm";
 import { resolveOrGenerateItem } from "../dbActions";
 import { purchasedBy, readableItems } from "../access";
 import { conto } from "../pricing";
-import { AI_LEVEL, CUSTOM_LEVEL } from "../../../shared/constants";
+import {
+  AI_LEVEL,
+  CUSTOM_LEVEL,
+  MAX_VISITE_VISITATORE,
+} from "../../../shared/constants";
 import { DEFAULT_LICENSE } from "../../../shared/constants";
 // La copertina di una visita si carica con la stessa rotta dell'immagine di un
 // item (`POST /api/items/image`) e finisce nella stessa cartella: e' lo stesso
@@ -296,6 +300,36 @@ router.post("/", async (req, res) => {
     // sarebbe una domanda a due risposte su un vocabolario che ne ha tre.
     let visibility: "pubblico" | "privato" = "privato";
     if (ruolo === "autore") visibility = "pubblico";
+
+    // Il visitatore compone per se', e quel che compone resta: senza un tetto un
+    // museo si riempie di itinerari che nessuno riaprira'. Si contano le SUE
+    // visite in QUESTO museo — gli Uffizi non devono togliere il posto al Louvre.
+    //
+    // Il tetto vale sulla creazione e non sul salvataggio, o modificare un
+    // itinerario che si ha gia' diventerebbe impossibile appena raggiunto il
+    // quinto: si guarda percio' se questo `@id` e' gia' nel database, che e'
+    // esattamente la differenza fra creare e riscrivere per una rotta che fa
+    // upsert. Il conto e' `$ne: "pubblico"` per simmetria con il filtro di
+    // lettura: le visite scritte prima del campo non ce l'hanno e sono d'autore.
+    const museoUri = payload.museumUri || payload.ofMuseum;
+    if (ruolo === "visitatore") {
+      const esiste = visitId
+        ? await VisitModel.exists({ "@id": visitId, author })
+        : null;
+      if (!esiste) {
+        const quante = await VisitModel.countDocuments({
+          author,
+          ofMuseum: museoUri,
+        });
+        if (quante >= MAX_VISITE_VISITATORE)
+          return res.status(409).json({
+            error:
+              `Hai gia' ${quante} itinerari in questo museo, che e' il massimo. ` +
+              "Eliminane uno per comporne un altro.",
+          });
+      }
+    }
+
     const name = payload.titolo || payload.name;
     if (typeof name !== "string" || name.trim() === "") {
       return res.status(400).json({ error: "La visita deve avere un titolo." });
