@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ArtAround">
+  <title>ArtAround</title>
+  <!--
+    Il marchio in versione autonoma: serve da favicon e da immagine, quindi ha
+    colori propri (dentro una pagina si usa invece il simbolo #ico-marchio, che
+    prende currentColor e segue il tema).
+
+    Segno: l'angolo di una sala in assonometria, con un quadro appeso su ognuna
+    delle tre facce. Si legge come l'angolo dentro cui si sta e come uno spigolo
+    che sporge in fuori — le due letture si alternano e non stanno insieme.
+
+    E' lo STESSO disegno del simbolo, non una seconda versione: quello di prima
+    aveva un tratteggio che alla favicon diventava poltiglia, e per esistere
+    aveva bisogno di due disegni diversi. Qui cambiano solo i colori, perche'
+    fuori da una pagina non c'e' nessun currentColor da seguire: la struttura fa
+    da fondo, gli spigoli sono chiari e i quadri prendono l'accento, cosi' a
+    16 px resta comunque leggibile un cubo con tre macchie chiare.
+
+    ⚠️ Le due battute interne dei quadri sotto i 28 px si impastano con le
+    cornici. E' il costo dichiarato di questa variante: la profondita' si paga
+    li'.
+  -->
+  <rect width="64" height="64" rx="12" fill="#0a3a55" />
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#ffffff" stroke-width="2.8">
+      <path d="M32 7 L53.65 19.5 L53.65 44.5 L32 57 L10.35 44.5 L10.35 19.5 Z" />
+      <path d="M32 32 L53.65 19.5 M32 32 L10.35 19.5 M32 32 L32 57" />
+    </g>
+    <g stroke="#7fc4c4" stroke-width="2.6">
+      <path d="M47.8 29.63 L47.8 41.13 L37.85 46.88 L37.85 35.38 Z" />
+      <path d="M26.15 35.38 L26.15 46.88 L16.2 41.13 L16.2 29.63 Z" />
+      <path d="M32 13.75 L41.96 19.5 L32 25.25 L22.04 19.5 Z" />
+    </g>
+    <g stroke="#7fc4c4" stroke-width="1.8">
+      <path d="M45.56 33.51 L45.56 39.83 L40.09 42.99 L40.09 36.67 Z" />
+      <path d="M23.91 36.67 L23.91 42.99 L18.44 39.83 L18.44 33.51 Z" />
+      <path d="M32 16.34 L37.48 19.5 L32 22.66 L26.52 19.5 Z" />
+    </g>
+  </g>
+</svg>

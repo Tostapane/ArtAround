@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ArtAround — guida accessibile per visitare le opere del museo." />
-    <title>ArtAround — Visita guidata</title>
+    <meta name="description" content="ArtAround — la visita del museo, raccontata." />
+    <meta name="theme-color" content="#284b63" />
+    <title>ArtAround</title>
     <!--
-      Anti-FOUC: applica il tema (chiaro/scuro) prima del primo paint,
-      leggendo la preferenza salvata o quella di sistema. Tenuto in sync con useTheme.ts.
+      Anti-FOUC: applica il tema prima del primo paint. Deve restare inline (piu'
+      tardi sarebbe gia' tardi). Stessa chiave localStorage del marketplace: le due
+      app condividono la preferenza, cosi' passare dall'una all'altra non cambia
+      l'aspetto.
     -->
     <script>
       (function () {
@@ -25,7 +28,6 @@
   </head>
   <body>
     <div id="app"></div>
-    <div id="dropDown"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

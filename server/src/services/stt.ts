@@ -1,18 +1,25 @@
+/**
+ * Riconoscimento vocale lato server.
+ *
+ * Google non ispeziona i byte: crede alla codifica e alla frequenza dichiarate
+ * qui. Dichiararne di sbagliate non produce un errore ma una trascrizione
+ * vuota. I due valori quindi non sono liberi: descrivono il WAV che il navigator
+ * costruisce a mano in `useSTT.ts`, PCM lineare a 16 bit e mono, e la frequenza
+ * arriva dalla costante condivisa proprio per non poter divergere.
+ */
 import speech from "@google-cloud/speech";
+import { STT_SAMPLE_RATE } from "../../../shared/constants";
 
 const client = new speech.SpeechClient({ apiKey: process.env.GOOGLE_API_KEY });
 
-// funzione che utilizza google cloud api per fare speech to text.
-// languageCode (BCP-47) e' la lingua in cui parla l'utente: cosi' un comando
-// vocale puo' essere pronunciato nella lingua scelta e non solo in italiano.
 export async function recognizeAudio(
   fileBuffer: Buffer,
   languageCode = "it-IT",
 ) {
   const request = {
     config: {
-      encoding: "WEBM_OPUS" as const,
-      sampleRateHertz: 48000,
+      encoding: "LINEAR16" as const,
+      sampleRateHertz: STT_SAMPLE_RATE,
       languageCode,
     },
     audio: {
@@ -20,8 +27,8 @@ export async function recognizeAudio(
     },
   };
   const [response] = await client.recognize(request);
-  const transcrtiption = response.results
+  const transcription = response.results
     ?.map((result) => result.alternatives?.[0].transcript)
     .join("\n");
-  return transcrtiption;
+  return transcription;
 }

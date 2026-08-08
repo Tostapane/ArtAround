@@ -1,11 +1,14 @@
+/**
+ * Annunci per gli screen reader.
+ *
+ * Il messaggio viene azzerato prima di riscriverlo, altrimenti due annunci uguali
+ * di fila non verrebbero riletti.
+ */
 import { ref } from "vue";
 
-// Annunciatore globale per screen reader: i componenti chiamano announce(testo)
-// e il messaggio viene letto dalla live region in App.vue (role="status").
 const message = ref("");
 
 function announce(text: string) {
-  // azzeriamo prima per forzare la rilettura anche di messaggi identici
   message.value = "";
   requestAnimationFrame(() => {
     message.value = text;

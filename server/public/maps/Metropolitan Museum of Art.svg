@@ -1,103 +1,674 @@
-<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" class="museum-map">
-  <!-- Cornice / muro perimetrale dell'edificio -->
-  <rect x="10" y="10" width="780" height="580" fill="#fbfbf9" stroke="#333" stroke-width="4" />
+<svg viewBox="0 -840 1300 1660" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="250">
+  <!--
+    PIANTA DEL METROPOLITAN MUSEUM OF ART, DUE LIVELLI.
 
-  <!-- Sale (AREE data-room): griglia 3x2. Ogni area ha il suo colore, cosi' le
-       sale si distinguono a colpo d'occhio; il nodo/ostacolo prende la sala la
-       cui area lo contiene. Le aree si toccano (non si sovrappongono). -->
-  <g pointer-events="none">
-    <rect data-room="Arte Egizia"          x="10"  y="10"  width="260" height="290" fill="#f6e3c5" />
-    <rect data-room="Dipinti Europei"      x="270" y="10"  width="260" height="290" fill="#dce8fb" />
-    <rect data-room="Arte Greca e Romana"  x="530" y="10"  width="260" height="290" fill="#e8e1f6" />
-    <rect data-room="American Wing"        x="10"  y="300" width="260" height="290" fill="#d9f2e4" />
-    <rect data-room="Great Hall"           x="270" y="300" width="260" height="290" fill="#fae3d4" />
-    <rect data-room="Arte Asiatica"        x="530" y="300" width="260" height="290" fill="#f8dde6" />
+    La struttura dei dati e' quella che services/svgGraph.ts sa leggere: data-room
+    (aree = sale), data-qid (nodi-opera), data-poi (servizi), data-obstacle
+    (ostacoli), data-edge (collegamenti fra sale), data-floor sul gruppo di ogni
+    piano. Tutto il resto e' disegno, e il parser lo ignora.
+
+    L'EDIFICIO e' un rettangolo diviso in tre fasce per piano, con la Great Hall
+    sul lato della Quinta Strada, cioe' a destra: e' da li' che si entra e li'
+    torna lo Scalone Principale. Le sale confinano l'una con l'altra e non c'e'
+    un corridoio che le serva tutte: il percorso passa DENTRO le sale, e infatti
+    ogni data-edge sta su un muro in comune.
+
+    LA LOCALIZZAZIONE nasce da due dati e da nient'altro: data-width-m dice
+    quanti metri e' larga la pianta (250 su 1300 unita', poco piu' di cinque
+    unita' per metro) e data-poi="entrance" dice da dove si entra, che e' il
+    punto in cui si mette il visitatore prima di qualunque misura. Il nord della
+    Terra e' il su del disegno per definizione: la bussola del telefono si legge
+    rispetto al foglio, non a coordinate vere.
+
+    I due piani sono impilati in verticale, non affiancati, perche' data-width-m
+    deve restare la larghezza di UN piano. Lo scalone che li unisce e' un
+    data-edge FUORI dai gruppi: dentro, allargherebbe il getBBox di quel piano
+    fino all'altro e l'inquadratura per piano mostrerebbe mezzo disegno vuoto.
+
+    Due regole da rispettare se si sposta qualcosa:
+      1. Niente transform sugli elementi con data-*: il parser legge cx/cy oppure
+         x/y/width/height cosi' come sono scritti. Le etichette ruotate possono
+         averlo perche' sono solo disegno.
+      2. I nomi delle sale sono unici sui due piani, altrimenti due omonime
+         diventano una sola sala e con loro un passaggio che nessuno ha disegnato.
+  -->
+
+  <style>
+    /*
+      I colori arrivano dal tema dell'app (shared/theme.css): la mappa viene
+      inserita NELLA pagina, non in un iframe, quindi le variabili del documento
+      cascano qui dentro e il tema scuro segue da se'. I valori di ripiego
+      servono solo se si apre il file da solo nel browser.
+
+      Ogni regola sta dentro :where(), cioe' a specificita' zero: le classi che
+      il navigator aggiunge a caldo (nodo-opera, nodo-corrente, nodo-opzionale)
+      devono sempre vincere su quello che si scrive qui.
+    */
+    :where(.museum-map) {
+      --carta: var(--surface, #ffffff);
+      --grafite: var(--text, #353535);
+      --tenue: var(--muted, #5c5c5c);
+      --linea: var(--line-strong, #284b63);
+      --accento: var(--accent, #3c6e71);
+      --ardesia: var(--slate, #40606f);
+      --ottone: var(--brass, #7a5722);
+      --salvia: var(--sage, #456347);
+      --notte: var(--structure, #284b63);
+      --allarme: var(--danger, #9e2b25);
+      font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    }
+
+    /*
+      Un nodo opera e' un cerchio di raggio 10: lasciando rimpicciolire la pianta
+      fino alla larghezza dello schermo, su un telefono verrebbe un paio di
+      pixel, non lo si centra col dito e non ci si legge dentro il numero della
+      tappa. Sotto questa soglia la pianta smette quindi di stringersi e scorre.
+    */
+    :where(.museum-map) { min-width: 650px; }
+
+    :where(.museum-map) .foglio {
+      fill: var(--carta);
+      stroke: var(--linea);
+      stroke-width: 5;
+    }
+    /* Griglia: da' la scala senza chiedere attenzione */
+    :where(.museum-map) .griglia-linea {
+      fill: none;
+      stroke: var(--grafite);
+      stroke-width: 0.8;
+      opacity: 0.14;
+    }
+    /* Il vuoto su cui si affaccia un ballatoio: pavimento non ce n'e' */
+    :where(.museum-map) .vuoto {
+      fill: url(#met-vuoto);
+      stroke: var(--linea);
+      stroke-width: 2;
+      stroke-dasharray: 6 4;
+      opacity: 0.5;
+    }
+
+    /*
+      Sale: carta appena tinta. Le tinte escono dalla palette e sono diluite
+      tanto da leggersi come carta colorata, mai come un comando. Due sale
+      confinanti non si distinguono per la sola TINTA: cambia anche quanto e'
+      forte la mescolanza, cosi' restano diverse anche in scala di grigi.
+    */
+    :where(.museum-map) .sala {
+      fill: color-mix(in oklab, var(--carta) var(--forza, 88%), var(--tinta, var(--carta)));
+    }
+    :where(.museum-map) .t-notte { --tinta: var(--notte); --forza: 88%; }
+    :where(.museum-map) .t-verderame { --tinta: var(--accento); --forza: 78%; }
+    :where(.museum-map) .t-ottone { --tinta: var(--ottone); --forza: 85%; }
+    :where(.museum-map) .t-salvia { --tinta: var(--salvia); --forza: 87%; }
+    :where(.museum-map) .t-ardesia { --tinta: var(--ardesia); --forza: 80%; }
+    :where(.museum-map) .sala-atrio {
+      fill: color-mix(in oklab, var(--carta) 93%, var(--grafite));
+    }
+    :where(.museum-map) .sala-servizio {
+      fill: color-mix(in oklab, var(--carta) 96%, var(--grafite));
+    }
+
+    :where(.museum-map) .nome-sala {
+      fill: var(--tenue);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-anchor: middle;
+    }
+    :where(.museum-map) .nome-corridoio {
+      fill: var(--tenue);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-anchor: middle;
+    }
+
+    :where(.museum-map) .muro {
+      stroke: var(--linea);
+      stroke-width: 4;
+      stroke-linecap: butt;
+      fill: none;
+    }
+    :where(.museum-map) .porta {
+      fill: none;
+      stroke: var(--linea);
+      stroke-width: 1.5;
+      opacity: 0.6;
+    }
+
+    /* Collegamenti del grafo: servono al parser, non all'occhio */
+    :where(.museum-map) .arco {
+      stroke: var(--accento);
+      stroke-width: 1.5;
+      stroke-dasharray: 3 5;
+      opacity: 0.12;
+    }
+
+    /*
+      Opere: dischi (e qualche quadrato dove il pezzo e' una scultura o un
+      oggetto). Questo e' l'aspetto A RIPOSO: quando l'opera e' una tappa della
+      visita in corso il navigator la ricolora e ci scrive dentro il numero.
+    */
+    :where(.museum-map) .nodo-arte {
+      fill: color-mix(in oklab, var(--carta) 42%, var(--tenue));
+      stroke: var(--carta);
+      stroke-width: 2.5;
+      paint-order: stroke;
+    }
+
+    /*
+      Servizi: quadrati arrotondati. La forma, non solo il colore, li separa
+      dalle opere: si riconoscono anche senza distinguere le tinte.
+    */
+    :where(.museum-map) .nodo-servizio {
+      fill: var(--ardesia);
+      stroke: var(--carta);
+      stroke-width: 2;
+      paint-order: stroke;
+    }
+    :where(.museum-map) .nodo-emergenza { fill: var(--salvia); }
+    :where(.museum-map) .nome-servizio {
+      fill: var(--tenue);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-anchor: middle;
+    }
+
+    /* Ostacoli: l'unico rosso della mappa */
+    :where(.museum-map) .ostacolo {
+      fill: var(--allarme);
+      stroke: var(--carta);
+      stroke-width: 2;
+      paint-order: stroke;
+    }
+
+    :where(.museum-map) .titolo-mappa {
+      fill: var(--grafite);
+      font-family: var(--font-display, inherit);
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    :where(.museum-map) .sottotitolo-mappa {
+      fill: var(--tenue);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+    }
+    :where(.museum-map) .voce-legenda {
+      fill: var(--tenue);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+  </style>
+
+  <defs>
+    <pattern id="met-griglia" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path class="griglia-linea" d="M40 0 L0 0 L0 40" />
+    </pattern>
+    <pattern id="met-vuoto" width="12" height="12" patternUnits="userSpaceOnUse">
+      <path class="griglia-linea" d="M0 12 L12 0" />
+    </pattern>
+    <filter id="met-ombra" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.14" />
+    </filter>
+  </defs>
+
+  <g data-floor="1" data-floor-label="Primo piano">
+    <polygon class="foglio" points="50,-800 1250,-800 1250,-100 50,-100" filter="url(#met-ombra)" />
+    <g pointer-events="none">
+      <rect class="sala sala-atrio" data-room="Balconata della Great Hall" data-flow="14" x="1000" y="-540" width="250" height="260" />
+      <rect class="sala t-notte" data-room="Ala americana - pittura" data-flow="18" x="50" y="-800" width="350" height="260" />
+      <rect class="sala t-verderame" data-room="Stampe, disegni e fotografie" data-flow="17" x="400" y="-800" width="300" height="260" />
+      <rect class="sala t-ottone" data-room="Arte asiatica - Cina" data-flow="16" x="700" y="-800" width="300" height="260" />
+      <rect class="sala t-salvia" data-room="Arte asiatica - Giappone" data-flow="15" x="1000" y="-800" width="250" height="260" />
+      <rect class="sala t-ardesia" data-room="Pittura europea 1250-1600" data-flow="19" x="50" y="-540" width="300" height="260" />
+      <rect class="sala t-notte" data-room="Pittura europea 1600-1800" data-flow="20" x="350" y="-540" width="350" height="260" />
+      <rect class="sala t-verderame" data-room="Pittura europea 1800-1900" data-flow="21" x="700" y="-540" width="300" height="260" />
+      <rect class="sala t-ottone" data-room="Sale degli strumenti musicali" data-flow="24" x="50" y="-280" width="350" height="180" />
+      <rect class="sala t-salvia" data-room="Arte islamica" data-flow="23" x="400" y="-280" width="300" height="180" />
+      <rect class="sala t-ardesia" data-room="Arte moderna e contemporanea" data-flow="22" x="700" y="-280" width="300" height="180" />
+      <rect class="sala sala-atrio" data-room="Scalone Superiore" data-flow="13" x="1000" y="-280" width="250" height="180" />
+    </g>
+    <polygon points="50,-800 1250,-800 1250,-100 50,-100" fill="url(#met-griglia)" pointer-events="none" />
+    <g class="muro">
+      <line x1="1000" y1="-540" x2="1000" y2="-428" />
+      <line x1="1000" y1="-392" x2="1000" y2="-280" />
+      <line x1="1250" y1="-540" x2="1250" y2="-280" />
+      <line x1="1000" y1="-540" x2="1107" y2="-540" />
+      <line x1="1143" y1="-540" x2="1250" y2="-540" />
+      <line x1="1000" y1="-280" x2="1107" y2="-280" />
+      <line x1="1143" y1="-280" x2="1250" y2="-280" />
+      <line x1="50" y1="-800" x2="50" y2="-540" />
+      <line x1="400" y1="-800" x2="400" y2="-688" />
+      <line x1="400" y1="-652" x2="400" y2="-540" />
+      <line x1="50" y1="-800" x2="400" y2="-800" />
+      <line x1="50" y1="-540" x2="182" y2="-540" />
+      <line x1="218" y1="-540" x2="400" y2="-540" />
+      <line x1="400" y1="-800" x2="400" y2="-688" />
+      <line x1="400" y1="-652" x2="400" y2="-540" />
+      <line x1="700" y1="-800" x2="700" y2="-688" />
+      <line x1="700" y1="-652" x2="700" y2="-540" />
+      <line x1="400" y1="-800" x2="700" y2="-800" />
+      <line x1="400" y1="-540" x2="532" y2="-540" />
+      <line x1="568" y1="-540" x2="700" y2="-540" />
+      <line x1="700" y1="-800" x2="700" y2="-688" />
+      <line x1="700" y1="-652" x2="700" y2="-540" />
+      <line x1="1000" y1="-800" x2="1000" y2="-688" />
+      <line x1="1000" y1="-652" x2="1000" y2="-540" />
+      <line x1="700" y1="-800" x2="1000" y2="-800" />
+      <line x1="700" y1="-540" x2="1000" y2="-540" />
+      <line x1="1000" y1="-800" x2="1000" y2="-688" />
+      <line x1="1000" y1="-652" x2="1000" y2="-540" />
+      <line x1="1250" y1="-800" x2="1250" y2="-540" />
+      <line x1="1000" y1="-800" x2="1250" y2="-800" />
+      <line x1="1000" y1="-540" x2="1107" y2="-540" />
+      <line x1="1143" y1="-540" x2="1250" y2="-540" />
+      <line x1="50" y1="-540" x2="50" y2="-280" />
+      <line x1="350" y1="-540" x2="350" y2="-428" />
+      <line x1="350" y1="-392" x2="350" y2="-280" />
+      <line x1="50" y1="-540" x2="182" y2="-540" />
+      <line x1="218" y1="-540" x2="350" y2="-540" />
+      <line x1="50" y1="-280" x2="182" y2="-280" />
+      <line x1="218" y1="-280" x2="350" y2="-280" />
+      <line x1="350" y1="-540" x2="350" y2="-428" />
+      <line x1="350" y1="-392" x2="350" y2="-280" />
+      <line x1="700" y1="-540" x2="700" y2="-428" />
+      <line x1="700" y1="-392" x2="700" y2="-280" />
+      <line x1="350" y1="-540" x2="532" y2="-540" />
+      <line x1="568" y1="-540" x2="700" y2="-540" />
+      <line x1="350" y1="-280" x2="700" y2="-280" />
+      <line x1="700" y1="-540" x2="700" y2="-428" />
+      <line x1="700" y1="-392" x2="700" y2="-280" />
+      <line x1="1000" y1="-540" x2="1000" y2="-428" />
+      <line x1="1000" y1="-392" x2="1000" y2="-280" />
+      <line x1="700" y1="-540" x2="1000" y2="-540" />
+      <line x1="700" y1="-280" x2="832" y2="-280" />
+      <line x1="868" y1="-280" x2="1000" y2="-280" />
+      <line x1="50" y1="-280" x2="50" y2="-100" />
+      <line x1="400" y1="-280" x2="400" y2="-208" />
+      <line x1="400" y1="-172" x2="400" y2="-100" />
+      <line x1="50" y1="-280" x2="182" y2="-280" />
+      <line x1="218" y1="-280" x2="400" y2="-280" />
+      <line x1="50" y1="-100" x2="400" y2="-100" />
+      <line x1="400" y1="-280" x2="400" y2="-208" />
+      <line x1="400" y1="-172" x2="400" y2="-100" />
+      <line x1="700" y1="-280" x2="700" y2="-208" />
+      <line x1="700" y1="-172" x2="700" y2="-100" />
+      <line x1="400" y1="-280" x2="700" y2="-280" />
+      <line x1="400" y1="-100" x2="700" y2="-100" />
+      <line x1="700" y1="-280" x2="700" y2="-208" />
+      <line x1="700" y1="-172" x2="700" y2="-100" />
+      <line x1="1000" y1="-280" x2="1000" y2="-208" />
+      <line x1="1000" y1="-172" x2="1000" y2="-100" />
+      <line x1="700" y1="-280" x2="832" y2="-280" />
+      <line x1="868" y1="-280" x2="1000" y2="-280" />
+      <line x1="700" y1="-100" x2="1000" y2="-100" />
+      <line x1="1000" y1="-280" x2="1000" y2="-208" />
+      <line x1="1000" y1="-172" x2="1000" y2="-100" />
+      <line x1="1250" y1="-280" x2="1250" y2="-100" />
+      <line x1="1000" y1="-280" x2="1107" y2="-280" />
+      <line x1="1143" y1="-280" x2="1250" y2="-280" />
+      <line x1="1000" y1="-100" x2="1250" y2="-100" />
+    </g>
+    <g class="porta">
+      <path d="M1107 -540 L1107 -520 A20 20 0 0 0 1143 -540" />
+      <path d="M1107 -280 L1107 -260 A20 20 0 0 0 1143 -280" />
+      <path d="M1000 -428 L1020 -428 A20 20 0 0 1 1000 -392" />
+      <path d="M1000 -688 L1020 -688 A20 20 0 0 1 1000 -652" />
+      <path d="M700 -688 L720 -688 A20 20 0 0 1 700 -652" />
+      <path d="M400 -688 L420 -688 A20 20 0 0 1 400 -652" />
+      <path d="M700 -428 L720 -428 A20 20 0 0 1 700 -392" />
+      <path d="M350 -428 L370 -428 A20 20 0 0 1 350 -392" />
+      <path d="M182 -540 L182 -520 A20 20 0 0 0 218 -540" />
+      <path d="M532 -540 L532 -520 A20 20 0 0 0 568 -540" />
+      <path d="M182 -280 L182 -260 A20 20 0 0 0 218 -280" />
+      <path d="M400 -208 L420 -208 A20 20 0 0 1 400 -172" />
+      <path d="M700 -208 L720 -208 A20 20 0 0 1 700 -172" />
+      <path d="M1000 -208 L1020 -208 A20 20 0 0 1 1000 -172" />
+      <path d="M832 -280 L832 -260 A20 20 0 0 0 868 -280" />
+    </g>
+    <g class="nome-sala" pointer-events="none">
+      <text x="225" y="-779">ALA AMERICANA</text>
+      <text x="225" y="-769">PITTURA</text>
+      <text x="550" y="-779">STAMPE, DISEGNI E FOTOGRAFIE</text>
+      <text x="850" y="-779">ARTE ASIATICA</text>
+      <text x="850" y="-769">CINA</text>
+      <text x="1125" y="-779">ARTE ASIATICA</text>
+      <text x="1125" y="-769">GIAPPONE</text>
+      <text x="200" y="-519">PITTURA EUROPEA 1250-1600</text>
+      <text x="525" y="-519">PITTURA EUROPEA 1600-1800</text>
+      <text x="850" y="-519">PITTURA EUROPEA 1800-1900</text>
+      <text x="225" y="-106">SALE DEGLI STRUMENTI MUSICALI</text>
+      <text x="550" y="-106">ARTE ISLAMICA</text>
+      <text x="850" y="-106">ARTE MODERNA E CONTEMPORANEA</text>
+      <text x="1125" y="-106">SCALONE SUPERIORE</text>
+    </g>
+    <g class="nome-corridoio" pointer-events="none">
+      <text x="1125" y="-519">BALCONATA DELLA GREAT HALL</text>
+    </g>
+    <g class="arco">
+      <line data-edge="" x1="1125" y1="-560" x2="1125" y2="-520" /> <!-- Balconata della Great Hall <-> Arte asiatica - Giappone -->
+      <line data-edge="" x1="1125" y1="-300" x2="1125" y2="-260" /> <!-- Balconata della Great Hall <-> Scalone Superiore -->
+      <line data-edge="" x1="980" y1="-410" x2="1020" y2="-410" /> <!-- Balconata della Great Hall <-> Pittura europea 1800-1900 -->
+      <line data-edge="" x1="980" y1="-670" x2="1020" y2="-670" /> <!-- Arte asiatica - Giappone <-> Arte asiatica - Cina -->
+      <line data-edge="" x1="680" y1="-670" x2="720" y2="-670" /> <!-- Arte asiatica - Cina <-> Stampe, disegni e fotografie -->
+      <line data-edge="" x1="380" y1="-670" x2="420" y2="-670" /> <!-- Stampe, disegni e fotografie <-> Ala americana - pittura -->
+      <line data-edge="" x1="680" y1="-410" x2="720" y2="-410" /> <!-- Pittura europea 1800-1900 <-> Pittura europea 1600-1800 -->
+      <line data-edge="" x1="330" y1="-410" x2="370" y2="-410" /> <!-- Pittura europea 1600-1800 <-> Pittura europea 1250-1600 -->
+      <line data-edge="" x1="200" y1="-560" x2="200" y2="-520" /> <!-- Pittura europea 1250-1600 <-> Ala americana - pittura -->
+      <line data-edge="" x1="550" y1="-560" x2="550" y2="-520" /> <!-- Pittura europea 1600-1800 <-> Stampe, disegni e fotografie -->
+      <line data-edge="" x1="200" y1="-300" x2="200" y2="-260" /> <!-- Pittura europea 1250-1600 <-> Sale degli strumenti musicali -->
+      <line data-edge="" x1="380" y1="-190" x2="420" y2="-190" /> <!-- Sale degli strumenti musicali <-> Arte islamica -->
+      <line data-edge="" x1="680" y1="-190" x2="720" y2="-190" /> <!-- Arte islamica <-> Arte moderna e contemporanea -->
+      <line data-edge="" x1="980" y1="-190" x2="1020" y2="-190" /> <!-- Arte moderna e contemporanea <-> Scalone Superiore -->
+      <line data-edge="" x1="850" y1="-300" x2="850" y2="-260" /> <!-- Pittura europea 1800-1900 <-> Arte moderna e contemporanea -->
+    </g>
+    <g class="nodo-arte">
+      <!-- Ala americana - pittura -->
+      <circle id="art-16" class="interactive-node" data-qid="Q509806" data-label="Washington attraversa il Delaware" cx="193" cy="-687" r="10" />
+      <circle id="art-31" class="interactive-node" data-qid="Q334604" data-label="Il cuore delle Ande" cx="225" cy="-687" r="10" />
+      <circle id="art-29" class="interactive-node" data-qid="Q3172259" data-label="L'ansa del fiume, dopo il temporale" cx="257" cy="-687" r="10" />
+      <circle id="art-48" class="interactive-node" data-qid="Q40432" data-label="La fiera dei cavalli" cx="193" cy="-655" r="10" />
+      <circle id="art-35" class="interactive-node" data-qid="Q1196533" data-label="I giocatori di scacchi" cx="225" cy="-655" r="10" />
+      <circle id="art-1" class="interactive-node" data-qid="Q19925045" data-label="Studio nel bosco" cx="257" cy="-655" r="10" />
+      <circle id="art-39" class="interactive-node" data-qid="Q3299143" data-label="Mattinata settembrina" cx="225" cy="-623" r="10" />
+      <!-- Stampe, disegni e fotografie -->
+      <circle id="art-42" class="interactive-node" data-qid="Q1362177" data-label="Melencolia I" cx="534" cy="-676" r="10" />
+      <circle id="art-26" class="interactive-node" data-qid="Q1755464" data-label="Il cavaliere, la morte e il diavolo" cx="566" cy="-676" r="10" />
+      <circle id="art-45" class="interactive-node" data-qid="Q671237" data-label="Il sonno della ragione genera mostri" cx="550" cy="-644" r="10" />
+      <!-- Arte asiatica - Cina -->
+      <circle id="art-37" class="interactive-node" data-qid="Q28092249" data-label="Cavallo bianco che brilla nella notte" cx="850" cy="-655" r="10" />
+      <!-- Arte asiatica - Giappone -->
+      <circle id="art-12" class="interactive-node" data-qid="Q44461289" data-label="L'isola di Jinshan e il Lago dell'Ovest" cx="1109" cy="-655" r="10" />
+      <circle id="art-25" class="interactive-node" data-qid="Q29383342" data-label="Onde in burrasca" cx="1141" cy="-655" r="10" />
+      <!-- Pittura europea 1250-1600 -->
+      <circle id="art-46" class="interactive-node" data-qid="Q7232319" data-label="Ritratto di un certosino" cx="168" cy="-416" r="10" />
+      <circle id="art-40" class="interactive-node" data-qid="Q9392232" data-label="L'Annunciazione" cx="200" cy="-416" r="10" />
+      <circle id="art-17" class="interactive-node" data-qid="Q776175" data-label="La mietitura" cx="232" cy="-416" r="10" />
+      <circle id="art-14" class="interactive-node" data-qid="Q883994" data-label="Veduta di Toledo" cx="184" cy="-384" r="10" />
+      <circle id="art-28" class="interactive-node" data-qid="Q1220013" data-label="L'apertura del quinto sigillo" cx="216" cy="-384" r="10" />
+      <!-- Pittura europea 1600-1800 -->
+      <circle id="art-18" class="interactive-node" data-qid="Q386453" data-label="Donna con brocca d'acqua" cx="477" cy="-432" r="10" />
+      <circle id="art-23" class="interactive-node" data-qid="Q684935" data-label="Giovane donna assopita" cx="509" cy="-432" r="10" />
+      <circle id="art-27" class="interactive-node" data-qid="Q467359" data-label="Allegoria della Fede cattolica" cx="541" cy="-432" r="10" />
+      <circle id="art-33" class="interactive-node" data-qid="Q839359" data-label="Suonatrice di liuto" cx="573" cy="-432" r="10" />
+      <circle id="art-47" class="interactive-node" data-qid="Q958088" data-label="Ragazza con velo" cx="477" cy="-400" r="10" />
+      <circle id="art-43" class="interactive-node" data-qid="Q2404992" data-label="Aristotele contempla il busto di Omero" cx="509" cy="-400" r="10" />
+      <circle id="art-22" class="interactive-node" data-qid="Q655705" data-label="I musici" cx="541" cy="-400" r="10" />
+      <circle id="art-30" class="interactive-node" data-qid="Q4717953" data-label="Ritratto di Juan de Pareja" cx="573" cy="-400" r="10" />
+      <circle id="art-4" class="interactive-node" data-qid="Q3035829" data-label="Don Manuel Osorio de Zuniga" cx="493" cy="-368" r="10" />
+      <circle id="art-41" class="interactive-node" data-qid="Q1752990" data-label="La morte di Socrate" cx="525" cy="-368" r="10" />
+      <circle id="art-10" class="interactive-node" data-qid="Q2324840" data-label="L'Antico dei Giorni" cx="557" cy="-368" r="10" />
+      <!-- Pittura europea 1800-1900 -->
+      <circle id="art-11" class="interactive-node" data-qid="Q152509" data-label="Colazione sull'erba" cx="802" cy="-432" r="10" />
+      <circle id="art-36" class="interactive-node" data-qid="Q2024709" data-label="Il chitarrista spagnolo" cx="834" cy="-432" r="10" />
+      <circle id="art-15" class="interactive-node" data-qid="Q734082" data-label="Regata a Sainte-Adresse" cx="866" cy="-432" r="10" />
+      <circle id="art-19" class="interactive-node" data-qid="Q432253" data-label="La terrazza a Sainte-Adresse" cx="898" cy="-432" r="10" />
+      <circle id="art-34" class="interactive-node" data-qid="Q941549" data-label="La Grenouillere" cx="802" cy="-400" r="10" />
+      <circle id="art-20" class="interactive-node" data-qid="Q8030760" data-label="Donna con pappagallo" cx="834" cy="-400" r="10" />
+      <circle id="art-21" class="interactive-node" data-qid="Q39013" data-label="Donna tra le onde" cx="866" cy="-400" r="10" />
+      <circle id="art-49" class="interactive-node" data-qid="Q4891521" data-label="Donna alla sorgente" cx="898" cy="-400" r="10" />
+      <circle id="art-50" class="interactive-node" data-qid="Q1118465" data-label="Ia Orana Maria" cx="834" cy="-368" r="10" />
+      <circle id="art-7" class="interactive-node" data-qid="Q293990" data-label="Edipo e la Sfinge" cx="866" cy="-368" r="10" />
+    </g>
+    <g class="servizi">
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scalone Superiore" x="1116" y="-209" width="18" height="18" rx="5"><title>Scalone Superiore</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore del primo piano" x="1031" y="-469" width="18" height="18" rx="5"><title>Ascensore del primo piano</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette del primo piano" x="1191" y="-469" width="18" height="18" rx="5"><title>Toilette del primo piano</title></rect>
+      <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza del primo piano" x="81" y="-149" width="18" height="18" rx="5"><title>Uscita di emergenza del primo piano</title></rect>
+      <g class="nome-servizio" pointer-events="none">
+      <text x="1125" y="-179">Scalone</text>
+      <text x="1040" y="-439">Ascensore</text>
+      <text x="1200" y="-439">Toilette</text>
+      <text x="90" y="-119">Emergenza</text>
+      </g>
+    </g>
+    <g class="ostacoli">
+      <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="le sedute davanti ai Vermeer" x="654" y="-516" width="12" height="12" rx="2"><title>Le sedute davanti ai Vermeer</title></rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="due gradini fra la pittura europea e l'ala americana" x="194" y="-546" width="12" height="12" rx="2"><title>Due gradini fra la pittura europea e l'ala americana</title></rect>
+    </g>
+    <g pointer-events="none">
+      <text class="titolo-mappa" x="50" y="-60">Primo piano</text>
+      <text class="sottotitolo-mappa" x="50" y="-42">La pittura europea, l'arte asiatica e l'ala americana</text>
+      <g class="voce-legenda">
+        <circle class="nodo-arte" cx="620" cy="-64" r="7" />
+        <text x="633" y="-60">Opera</text>
+        <rect class="nodo-servizio" x="703" y="-71" width="14" height="14" rx="4" />
+        <text x="724" y="-60">Servizio</text>
+        <rect class="nodo-servizio nodo-emergenza" x="808" y="-71" width="14" height="14" rx="4" />
+        <text x="829" y="-60">Emergenza</text>
+        <rect class="ostacolo" x="933" y="-70" width="12" height="12" rx="2" />
+        <text x="952" y="-60">Ostacolo</text>
+        <path class="porta" d="M1053 -56 L1053 -70 A14 14 0 0 1 1067 -56" />
+        <text x="1074" y="-60">Porta</text>
+      </g>
+    </g>
   </g>
 
-  <!-- Etichette delle sale -->
-  <g font-family="sans-serif" font-size="13" font-weight="600" fill="#5a5a5a" text-anchor="middle" pointer-events="none">
-    <text x="140" y="32">Arte Egizia</text>
-    <text x="400" y="32">Dipinti Europei</text>
-    <text x="660" y="32">Arte Greca e Romana</text>
-    <text x="140" y="322">American Wing</text>
-    <text x="400" y="322">Great Hall</text>
-    <text x="660" y="322">Arte Asiatica</text>
+  <g data-floor="0" data-floor-label="Piano terra">
+    <polygon class="foglio" points="50,40 1250,40 1250,740 50,740" filter="url(#met-ombra)" />
+    <g pointer-events="none">
+      <rect class="sala sala-atrio" data-room="Great Hall" data-flow="1" x="1000" y="260" width="250" height="260" />
+      <rect class="sala t-notte" data-room="Ala americana - cortile Engelhard" data-flow="5" x="50" y="40" width="350" height="220" />
+      <rect class="sala t-verderame" data-room="Armi e armature" data-flow="4" x="400" y="40" width="300" height="220" />
+      <rect class="sala t-ottone" data-room="Ala egizia - Tempio di Dendur" data-flow="3" x="700" y="40" width="300" height="220" />
+      <rect class="sala t-salvia" data-room="Sale medievali" data-flow="2" x="1000" y="40" width="250" height="220" />
+      <rect class="sala t-ardesia" data-room="Arti dell'Africa e delle Americhe" data-flow="6" x="50" y="260" width="300" height="260" />
+      <rect class="sala sala-atrio" data-room="Cortile delle sculture europee" data-flow="9" x="350" y="260" width="350" height="260" />
+      <rect class="sala t-notte" data-room="Sale greche e romane" data-flow="10" x="700" y="260" width="300" height="260" />
+      <rect class="sala t-verderame" data-room="Ala Robert Lehman" data-flow="7" x="50" y="520" width="350" height="220" />
+      <rect class="sala sala-servizio" data-room="Caffetteria e bookshop" data-flow="8" x="400" y="520" width="300" height="220" />
+      <rect class="sala t-ottone" data-room="Sale del Vicino Oriente antico" data-flow="11" x="700" y="520" width="300" height="220" />
+      <rect class="sala sala-atrio" data-room="Scalone Principale" data-flow="12" x="1000" y="520" width="250" height="220" />
+    </g>
+    <polygon points="50,40 1250,40 1250,740 50,740" fill="url(#met-griglia)" pointer-events="none" />
+    <g class="muro">
+      <line x1="1000" y1="260" x2="1000" y2="372" />
+      <line x1="1000" y1="408" x2="1000" y2="520" />
+      <line x1="1250" y1="260" x2="1250" y2="520" />
+      <line x1="1000" y1="260" x2="1107" y2="260" />
+      <line x1="1143" y1="260" x2="1250" y2="260" />
+      <line x1="1000" y1="520" x2="1107" y2="520" />
+      <line x1="1143" y1="520" x2="1250" y2="520" />
+      <line x1="50" y1="40" x2="50" y2="260" />
+      <line x1="400" y1="40" x2="400" y2="132" />
+      <line x1="400" y1="168" x2="400" y2="260" />
+      <line x1="50" y1="40" x2="400" y2="40" />
+      <line x1="50" y1="260" x2="182" y2="260" />
+      <line x1="218" y1="260" x2="400" y2="260" />
+      <line x1="400" y1="40" x2="400" y2="132" />
+      <line x1="400" y1="168" x2="400" y2="260" />
+      <line x1="700" y1="40" x2="700" y2="132" />
+      <line x1="700" y1="168" x2="700" y2="260" />
+      <line x1="400" y1="40" x2="700" y2="40" />
+      <line x1="400" y1="260" x2="532" y2="260" />
+      <line x1="568" y1="260" x2="700" y2="260" />
+      <line x1="700" y1="40" x2="700" y2="132" />
+      <line x1="700" y1="168" x2="700" y2="260" />
+      <line x1="1000" y1="40" x2="1000" y2="132" />
+      <line x1="1000" y1="168" x2="1000" y2="260" />
+      <line x1="700" y1="40" x2="1000" y2="40" />
+      <line x1="700" y1="260" x2="1000" y2="260" />
+      <line x1="1000" y1="40" x2="1000" y2="132" />
+      <line x1="1000" y1="168" x2="1000" y2="260" />
+      <line x1="1250" y1="40" x2="1250" y2="260" />
+      <line x1="1000" y1="40" x2="1250" y2="40" />
+      <line x1="1000" y1="260" x2="1107" y2="260" />
+      <line x1="1143" y1="260" x2="1250" y2="260" />
+      <line x1="50" y1="260" x2="50" y2="520" />
+      <line x1="350" y1="260" x2="350" y2="372" />
+      <line x1="350" y1="408" x2="350" y2="520" />
+      <line x1="50" y1="260" x2="182" y2="260" />
+      <line x1="218" y1="260" x2="350" y2="260" />
+      <line x1="50" y1="520" x2="182" y2="520" />
+      <line x1="218" y1="520" x2="350" y2="520" />
+      <line x1="350" y1="260" x2="350" y2="372" />
+      <line x1="350" y1="408" x2="350" y2="520" />
+      <line x1="700" y1="260" x2="700" y2="372" />
+      <line x1="700" y1="408" x2="700" y2="520" />
+      <line x1="350" y1="260" x2="532" y2="260" />
+      <line x1="568" y1="260" x2="700" y2="260" />
+      <line x1="350" y1="520" x2="532" y2="520" />
+      <line x1="568" y1="520" x2="700" y2="520" />
+      <line x1="700" y1="260" x2="700" y2="372" />
+      <line x1="700" y1="408" x2="700" y2="520" />
+      <line x1="1000" y1="260" x2="1000" y2="372" />
+      <line x1="1000" y1="408" x2="1000" y2="520" />
+      <line x1="700" y1="260" x2="1000" y2="260" />
+      <line x1="700" y1="520" x2="832" y2="520" />
+      <line x1="868" y1="520" x2="1000" y2="520" />
+      <line x1="50" y1="520" x2="50" y2="740" />
+      <line x1="400" y1="520" x2="400" y2="612" />
+      <line x1="400" y1="648" x2="400" y2="740" />
+      <line x1="50" y1="520" x2="182" y2="520" />
+      <line x1="218" y1="520" x2="400" y2="520" />
+      <line x1="50" y1="740" x2="400" y2="740" />
+      <line x1="400" y1="520" x2="400" y2="612" />
+      <line x1="400" y1="648" x2="400" y2="740" />
+      <line x1="700" y1="520" x2="700" y2="612" />
+      <line x1="700" y1="648" x2="700" y2="740" />
+      <line x1="400" y1="520" x2="532" y2="520" />
+      <line x1="568" y1="520" x2="700" y2="520" />
+      <line x1="400" y1="740" x2="700" y2="740" />
+      <line x1="700" y1="520" x2="700" y2="612" />
+      <line x1="700" y1="648" x2="700" y2="740" />
+      <line x1="1000" y1="520" x2="1000" y2="612" />
+      <line x1="1000" y1="648" x2="1000" y2="740" />
+      <line x1="700" y1="520" x2="832" y2="520" />
+      <line x1="868" y1="520" x2="1000" y2="520" />
+      <line x1="700" y1="740" x2="1000" y2="740" />
+      <line x1="1000" y1="520" x2="1000" y2="612" />
+      <line x1="1000" y1="648" x2="1000" y2="740" />
+      <line x1="1250" y1="520" x2="1250" y2="740" />
+      <line x1="1000" y1="520" x2="1107" y2="520" />
+      <line x1="1143" y1="520" x2="1250" y2="520" />
+      <line x1="1000" y1="740" x2="1250" y2="740" />
+    </g>
+    <g class="porta">
+      <path d="M1107 260 L1107 280 A20 20 0 0 0 1143 260" />
+      <path d="M1107 520 L1107 540 A20 20 0 0 0 1143 520" />
+      <path d="M1000 372 L1020 372 A20 20 0 0 1 1000 408" />
+      <path d="M1000 132 L1020 132 A20 20 0 0 1 1000 168" />
+      <path d="M700 132 L720 132 A20 20 0 0 1 700 168" />
+      <path d="M400 132 L420 132 A20 20 0 0 1 400 168" />
+      <path d="M700 372 L720 372 A20 20 0 0 1 700 408" />
+      <path d="M350 372 L370 372 A20 20 0 0 1 350 408" />
+      <path d="M532 260 L532 280 A20 20 0 0 0 568 260" />
+      <path d="M532 520 L532 540 A20 20 0 0 0 568 520" />
+      <path d="M182 260 L182 280 A20 20 0 0 0 218 260" />
+      <path d="M182 520 L182 540 A20 20 0 0 0 218 520" />
+      <path d="M400 612 L420 612 A20 20 0 0 1 400 648" />
+      <path d="M700 612 L720 612 A20 20 0 0 1 700 648" />
+      <path d="M1000 612 L1020 612 A20 20 0 0 1 1000 648" />
+      <path d="M832 520 L832 540 A20 20 0 0 0 868 520" />
+    </g>
+    <g class="nome-sala" pointer-events="none">
+      <text x="225" y="61">ALA AMERICANA</text>
+      <text x="225" y="71">CORTILE ENGELHARD</text>
+      <text x="550" y="61">ARMI E ARMATURE</text>
+      <text x="850" y="61">ALA EGIZIA</text>
+      <text x="850" y="71">TEMPIO DI DENDUR</text>
+      <text x="1125" y="61">SALE MEDIEVALI</text>
+      <text x="200" y="281">ARTI DELL'AFRICA E DELLE AMERICHE</text>
+      <text x="525" y="281">CORTILE DELLE SCULTURE EUROPEE</text>
+      <text x="850" y="281">SALE GRECHE E ROMANE</text>
+      <text x="225" y="734">ALA ROBERT LEHMAN</text>
+      <text x="550" y="734">CAFFETTERIA E BOOKSHOP</text>
+      <text x="850" y="734">SALE DEL VICINO ORIENTE ANTICO</text>
+      <text x="1125" y="734">SCALONE PRINCIPALE</text>
+    </g>
+    <g class="nome-corridoio" pointer-events="none">
+      <text x="1125" y="281">GREAT HALL</text>
+    </g>
+    <g class="arco">
+      <line data-edge="" x1="1125" y1="240" x2="1125" y2="280" /> <!-- Great Hall <-> Sale medievali -->
+      <line data-edge="" x1="1125" y1="500" x2="1125" y2="540" /> <!-- Great Hall <-> Scalone Principale -->
+      <line data-edge="" x1="980" y1="390" x2="1020" y2="390" /> <!-- Great Hall <-> Sale greche e romane -->
+      <line data-edge="" x1="980" y1="150" x2="1020" y2="150" /> <!-- Sale medievali <-> Ala egizia - Tempio di Dendur -->
+      <line data-edge="" x1="680" y1="150" x2="720" y2="150" /> <!-- Ala egizia - Tempio di Dendur <-> Armi e armature -->
+      <line data-edge="" x1="380" y1="150" x2="420" y2="150" /> <!-- Armi e armature <-> Ala americana - cortile Engelhard -->
+      <line data-edge="" x1="680" y1="390" x2="720" y2="390" /> <!-- Cortile delle sculture europee <-> Sale greche e romane -->
+      <line data-edge="" x1="330" y1="390" x2="370" y2="390" /> <!-- Cortile delle sculture europee <-> Arti dell'Africa e delle Americhe -->
+      <line data-edge="" x1="550" y1="240" x2="550" y2="280" /> <!-- Cortile delle sculture europee <-> Armi e armature -->
+      <line data-edge="" x1="550" y1="500" x2="550" y2="540" /> <!-- Cortile delle sculture europee <-> Caffetteria e bookshop -->
+      <line data-edge="" x1="200" y1="240" x2="200" y2="280" /> <!-- Arti dell'Africa e delle Americhe <-> Ala americana - cortile Engelhard -->
+      <line data-edge="" x1="200" y1="500" x2="200" y2="540" /> <!-- Arti dell'Africa e delle Americhe <-> Ala Robert Lehman -->
+      <line data-edge="" x1="380" y1="630" x2="420" y2="630" /> <!-- Ala Robert Lehman <-> Caffetteria e bookshop -->
+      <line data-edge="" x1="680" y1="630" x2="720" y2="630" /> <!-- Caffetteria e bookshop <-> Sale del Vicino Oriente antico -->
+      <line data-edge="" x1="980" y1="630" x2="1020" y2="630" /> <!-- Sale del Vicino Oriente antico <-> Scalone Principale -->
+      <line data-edge="" x1="850" y1="500" x2="850" y2="540" /> <!-- Sale greche e romane <-> Sale del Vicino Oriente antico -->
+    </g>
+    <g class="nodo-arte">
+      <!-- Ala egizia - Tempio di Dendur -->
+      <rect id="art-32" class="interactive-node" data-qid="Q7818635" data-label="Tomba di Perneb" x="824" y="155" width="20" height="20" rx="3" />
+      <rect id="art-38" class="interactive-node" data-qid="Q845853" data-label="Stele di Metternich" x="856" y="155" width="20" height="20" rx="3" />
+      <!-- Sale medievali -->
+      <rect id="art-3" class="interactive-node" data-qid="Q1603141" data-label="Elmo di Sutton Hoo" x="1099" y="150" width="20" height="20" rx="3" />
+      <rect id="art-9" class="interactive-node" data-qid="Q217796" data-label="Scacchi di Lewis" x="1131" y="150" width="20" height="20" rx="3" />
+      <!-- Arti dell'Africa e delle Americhe -->
+      <rect id="art-8" class="interactive-node" data-qid="Q248101" data-label="Bronzi del Benin" x="190" y="390" width="20" height="20" rx="3" />
+      <!-- Cortile delle sculture europee -->
+      <rect id="art-24" class="interactive-node" data-qid="Q2734209" data-label="Piccola danzatrice di quattordici anni" x="515" y="390" width="20" height="20" rx="3" />
+      <!-- Sale greche e romane -->
+      <rect id="art-2" class="interactive-node" data-qid="Q606662" data-label="Marmi del Partenone" x="824" y="390" width="20" height="20" rx="3" />
+      <rect id="art-6" class="interactive-node" data-qid="Q609292" data-label="Vaso Portland" x="856" y="390" width="20" height="20" rx="3" />
+      <!-- Ala Robert Lehman -->
+      <circle id="art-5" class="interactive-node" data-qid="Q19912235" data-label="Cristo che porta la croce" cx="225" cy="620" r="10" />
+      <!-- Sale del Vicino Oriente antico -->
+      <rect id="art-13" class="interactive-node" data-qid="Q1246609" data-label="Tesoro dell'Oxus" x="824" y="610" width="20" height="20" rx="3" />
+      <rect id="art-44" class="interactive-node" data-qid="Q4115387" data-label="Tesoro di Creso" x="856" y="610" width="20" height="20" rx="3" />
+    </g>
+    <g class="servizi">
+      <rect class="poi-node nodo-servizio" data-poi="entrance" data-label="Ingresso della Quinta Strada" x="1191" y="331" width="18" height="18" rx="5"><title>Ingresso della Quinta Strada</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="exit" data-label="Uscita della Quinta Strada" x="1191" y="431" width="18" height="18" rx="5"><title>Uscita della Quinta Strada</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="toilet" data-label="Toilette della Great Hall" x="1031" y="331" width="18" height="18" rx="5"><title>Toilette della Great Hall</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="elevator" data-label="Ascensore della Great Hall" x="1031" y="431" width="18" height="18" rx="5"><title>Ascensore della Great Hall</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scalone Principale" x="1116" y="591" width="18" height="18" rx="5"><title>Scalone Principale</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="shop" data-label="Bookshop del museo" x="471" y="651" width="18" height="18" rx="5"><title>Bookshop del museo</title></rect>
+      <rect class="poi-node nodo-servizio" data-poi="bar" data-label="Caffetteria del museo" x="611" y="651" width="18" height="18" rx="5"><title>Caffetteria del museo</title></rect>
+      <rect class="poi-node nodo-servizio nodo-emergenza" data-poi="emergency_exit" data-label="Uscita di emergenza a ovest" x="81" y="691" width="18" height="18" rx="5"><title>Uscita di emergenza a ovest</title></rect>
+      <g class="nome-servizio" pointer-events="none">
+      <text x="1200" y="361">Ingresso</text>
+      <text x="1200" y="461">Uscita</text>
+      <text x="1040" y="361">Toilette</text>
+      <text x="1040" y="461">Ascensore</text>
+      <text x="1125" y="621">Scalone</text>
+      <text x="480" y="681">Bookshop</text>
+      <text x="620" y="681">Caffetteria</text>
+      <text x="90" y="721">Emergenza</text>
+      </g>
+    </g>
+    <g class="ostacoli">
+      <rect class="obstacle-marker ostacolo" data-obstacle="steps" data-desc="i gradini dello Scalone Principale" x="1119" y="534" width="12" height="12" rx="2"><title>I gradini dello Scalone Principale</title></rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="object" data-desc="la vasca del Tempio di Dendur, che stringe il passaggio" x="944" y="234" width="12" height="12" rx="2"><title>La vasca del Tempio di Dendur, che stringe il passaggio</title></rect>
+      <rect class="obstacle-marker ostacolo" data-obstacle="chairs" data-desc="le sedute del cortile delle sculture" x="374" y="494" width="12" height="12" rx="2"><title>Le sedute del cortile delle sculture</title></rect>
+    </g>
+    <g pointer-events="none">
+      <text class="titolo-mappa" x="50" y="780">Piano terra</text>
+      <text class="sottotitolo-mappa" x="50" y="798">La Great Hall, l'Egitto, la Grecia e le arti del mondo</text>
+      <g class="voce-legenda">
+        <circle class="nodo-arte" cx="620" cy="776" r="7" />
+        <text x="633" y="780">Opera</text>
+        <rect class="nodo-servizio" x="703" y="769" width="14" height="14" rx="4" />
+        <text x="724" y="780">Servizio</text>
+        <rect class="nodo-servizio nodo-emergenza" x="808" y="769" width="14" height="14" rx="4" />
+        <text x="829" y="780">Emergenza</text>
+        <rect class="ostacolo" x="933" y="770" width="12" height="12" rx="2" />
+        <text x="952" y="780">Ostacolo</text>
+        <path class="porta" d="M1053 784 L1053 770 A14 14 0 0 1 1067 784" />
+        <text x="1074" y="780">Porta</text>
+      </g>
+    </g>
   </g>
 
-  <!-- Muri interni: linee con un VARCO = porta tra due sale (la connettivita'
-       vera e' data dai data-edge che passano per il varco). -->
-  <g stroke="#333" stroke-width="4" stroke-linecap="square">
-    <!-- divisorio verticale x=270 (varchi a y=155 e y=445) -->
-    <line x1="270" y1="10"  x2="270" y2="135" />
-    <line x1="270" y1="175" x2="270" y2="425" />
-    <line x1="270" y1="465" x2="270" y2="590" />
-    <!-- divisorio verticale x=530 (varchi a y=155 e y=445) -->
-    <line x1="530" y1="10"  x2="530" y2="135" />
-    <line x1="530" y1="175" x2="530" y2="425" />
-    <line x1="530" y1="465" x2="530" y2="590" />
-    <!-- divisorio orizzontale y=300 (varchi a x=140, x=400, x=660) -->
-    <line x1="10"  y1="300" x2="120" y2="300" />
-    <line x1="160" y1="300" x2="380" y2="300" />
-    <line x1="420" y1="300" x2="640" y2="300" />
-    <line x1="680" y1="300" x2="790" y2="300" />
-  </g>
-
-  <!-- Grafo di navigazione: ogni <line data-edge> collega due SALE passando per
-       un varco; gli estremi cadono dentro le due sale. Quasi invisibile: la
-       lettura del percorso e' data dalle sale e dai varchi, non dalla linea. -->
-  <g id="nav-edges" stroke="#6b7c8a" stroke-width="1.5" stroke-dasharray="3,5" opacity="0.08">
-    <line data-edge x1="240" y1="155" x2="300" y2="155" /> <!-- Egizia <-> Dipinti -->
-    <line data-edge x1="500" y1="155" x2="560" y2="155" /> <!-- Dipinti <-> Greca/Romana -->
-    <line data-edge x1="240" y1="445" x2="300" y2="445" /> <!-- American Wing <-> Great Hall -->
-    <line data-edge x1="500" y1="445" x2="560" y2="445" /> <!-- Great Hall <-> Asiatica -->
-    <line data-edge x1="140" y1="270" x2="140" y2="330" /> <!-- Egizia <-> American Wing -->
-    <line data-edge x1="400" y1="270" x2="400" y2="330" /> <!-- Dipinti <-> Great Hall -->
-    <line data-edge x1="660" y1="270" x2="660" y2="330" /> <!-- Greca/Romana <-> Asiatica -->
-  </g>
-
-  <!-- Nodi-opera: id="art-N" deve combaciare con la posizione N in activeArtworks
-       (il seed assegna locationId=art-N in quell'ordine) e data-qid col relativo qid. -->
-  <!-- Arte Egizia -->
-  <circle id="art-1"  class="interactive-node" data-qid="Q19925045" cx="80"  cy="95"  r="11" fill="gray" />
-  <rect   id="art-2"  class="interactive-node" data-qid="Q606662"  x="178" y="80"  width="24" height="24" fill="gray" />
-  <circle id="art-3"  class="interactive-node" data-qid="Q1603141" cx="120" cy="225" r="11" fill="gray" />
-  <!-- Dipinti Europei -->
-  <circle id="art-4"  class="interactive-node" data-qid="Q251147"  cx="340" cy="95"  r="11" fill="gray" />
-  <circle id="art-5"  class="interactive-node" data-qid="Q19912235" cx="460" cy="95"  r="11" fill="gray" />
-  <circle id="art-6"  class="interactive-node" data-qid="Q609292"  cx="400" cy="225" r="11" fill="gray" />
-  <!-- Arte Greca e Romana -->
-  <rect   id="art-7"  class="interactive-node" data-qid="Q582103"  x="598" y="88"  width="24" height="24" fill="#555" />
-  <circle id="art-8"  class="interactive-node" data-qid="Q248101"  cx="710" cy="215" r="11" fill="gray" />
-  <!-- American Wing -->
-  <circle id="art-9"  class="interactive-node" data-qid="Q217796"  cx="90"  cy="410" r="11" fill="gray" />
-  <circle id="art-10" class="interactive-node" data-qid="Q2324840" cx="190" cy="515" r="11" fill="gray" />
-  <!-- Great Hall -->
-  <circle id="art-11" class="interactive-node" data-qid="Q152509"  cx="350" cy="470" r="14" fill="#333" />
-  <!-- Arte Asiatica -->
-  <circle id="art-12" class="interactive-node" data-qid="Q2351239" cx="610" cy="410" r="11" fill="gray" />
-  <circle id="art-13" class="interactive-node" data-qid="Q1246609" cx="710" cy="515" r="11" fill="gray" />
-
-  <!-- Punti di interesse (POI): data-poi = tipo, data-label = nome mostrato/letto. -->
-  <g id="pois" font-family="sans-serif" font-size="12" fill="#1d4ed8" text-anchor="middle">
-    <circle class="poi-node" data-poi="exit" data-label="Uscita" cx="400" cy="565" r="8" fill="#1d4ed8" />
-    <text x="400" y="585">Uscita</text>
-    <circle class="poi-node" data-poi="toilet" data-label="Toilette" cx="240" cy="560" r="8" fill="#1d4ed8" />
-    <text x="240" y="580">WC</text>
-    <circle class="poi-node" data-poi="bar" data-label="Caffetteria" cx="755" cy="135" r="8" fill="#1d4ed8" />
-    <text x="755" y="115">Bar</text>
-    <circle class="poi-node" data-poi="shop" data-label="Bookshop" cx="480" cy="345" r="8" fill="#1d4ed8" />
-    <text x="480" y="365">Shop</text>
-    <circle class="poi-node" data-poi="elevator" data-label="Ascensore" cx="300" cy="560" r="8" fill="#1d4ed8" />
-    <text x="300" y="580">Lift</text>
-    <circle class="poi-node" data-poi="emergency_exit" data-label="Uscita di emergenza" cx="770" cy="345" r="8" fill="#16a34a" />
-    <text x="770" y="365" fill="#16a34a">SOS</text>
-  </g>
-
-  <!-- Ostacoli di accessibilita': data-obstacle = tipo, data-desc = descrizione.
-       La POSIZIONE del marker decide in quale sala (area) ricade. -->
-  <g id="obstacles" fill="#dc2626" opacity="0.85">
-    <rect class="obstacle-marker" data-obstacle="object" data-desc="un grande sarcofago al centro della sala egizia che restringe il passaggio" x="195" y="155" width="12" height="12" />
-    <rect class="obstacle-marker" data-obstacle="steps" data-desc="tre gradini tra i Dipinti Europei e la Great Hall" x="394" y="330" width="12" height="12" />
-    <rect class="obstacle-marker" data-obstacle="chairs" data-desc="alcune panche disposte al centro della Great Hall" x="440" y="464" width="12" height="12" />
+  <!--
+    I vani scale che uniscono i piani. Stanno FUORI dai gruppi dei piani:
+    dentro, il getBBox del gruppo si allungherebbe fino all'altro piano e
+    l'inquadratura per piano mostrerebbe mezzo disegno vuoto.
+  -->
+  <g class="arco" id="nav-edges-piani">
+    <line data-edge="" x1="1125" y1="640" x2="1125" y2="-200" /> <!-- Scalone Principale (terra) <-> Scalone Superiore (primo) -->
   </g>
 </svg>

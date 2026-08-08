@@ -1,0 +1,544 @@
+/*
+  ArtAround: foglio dei token condiviso fra navigator e marketplace.
+  Importato da navigator/src/assets/main.css e marketplace/src/frontend/style.css.
+  Le due applicazioni devono restare identiche sui token, quindi i valori vivono
+  qui e in nessun altro posto: un colore scritto a mano dentro un componente e'
+  un errore, perche' non seguira' il tema scuro ne' un cambio di palette.
+
+  Riferimento: prelude.md §3. Palette "Sala e Deposito, accesa":
+    Gesso #FFFFFF · Cemento #DCDAD5 · Grafite #2B2B2B · Notte #0A3A55 · Verderame #196969
+  Regola che tiene in piedi tutta l'interfaccia:
+    NOTTE e' dove sei (struttura), VERDERAME e' dove puoi andare (interazione).
+
+  Accanto ci sono quattro tinte di solo significato, mai cliccabili. Finche' la
+  regola qui sopra vale, nessuno le scambia per un comando:
+    OTTONE     valore      prezzi, ricavi, credito
+    AMETISTA   categoria   tipo di contenuto, livello, metadati secondari
+    SALVIA     acquisito   posseduto, pronto da pubblicare, operazione riuscita
+    MINIO      allarme     errori e azioni distruttive
+  Tutte e quattro passano AA come testo su entrambi i fondi chiari, quindi si
+  possono usare anche sul muro e non solo sulla lastra.
+
+  L'AMETISTA e' l'unica calda-fredda del gruppo, e sta fuori dalla famiglia
+  delle altre di proposito: la categoria e' l'annotazione che compare piu'
+  spesso accanto a un comando (il tono di una descrizione dentro una riga che
+  si puo' aggiungere), quindi e' quella che aveva piu' bisogno di non somigliare
+  all'accento.
+
+  Ogni ruolo ha anche la sua VELATURA (--*-velo): la stessa tinta al 12% su
+  trasparente, per i fondi. Vedi la derivazione piu' sotto.
+
+  A parte c'e' la SCALA DEI TONI (--tono-*), che non e' un quinto ruolo ma una
+  progressione: azzurro, blu, giallo, arancio, cioe' dal freddo al caldo man mano
+  che la descrizione si fa piu' difficile. Serve dove i toni compaiono tutti
+  insieme -- la pagina di un'opera ne mostra venti in fila -- e li' una tinta
+  sola per tutti costringe a leggere ogni parola per sapere che cos'e'.
+  Il colore non porta comunque l'informazione da solo: dentro la pastiglia c'e'
+  sempre il nome del tono.
+
+  ⚠️ Due vicinanze da conoscere prima di ritoccarle: il GIALLO del Medio sta
+  vicino all'ottone del valore, e l'ARANCIO dell'Avanzato al minio dell'allarme.
+  Reggono perche' una pastiglia non e' mai ne' un prezzo ne' un errore -- i
+  prezzi sono cifre in `.valore`, gli errori stanno in `.avviso` -- ma chi
+  spostasse queste due tinte verso l'ottone o verso il rosso romperebbe proprio
+  quella distinzione.
+*/
+
+/* ---------------------------------------------------------------------------
+   Carattere display: Bricolage Grotesque (variabile, SIL OFL), servito da noi.
+   Nessuna richiesta di rete a runtime: i .woff2 stanno in public/fonts di
+   entrambe le app (vedi prelude.md §6 C1).
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-weight: 200 800;
+  font-stretch: 75% 100%;
+  font-display: swap;
+  src: url("/fonts/bricolage-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-weight: 200 800;
+  font-stretch: 75% 100%;
+  font-display: swap;
+  src: url("/fonts/bricolage-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Tema scuro pilotato da una classe `.dark` su <html> (script anti-FOUC in
+   entrambi gli index.html, stessa chiave localStorage "artaround-theme"). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  /* Colori: sempre attraverso le CSS var, cosi' `.dark` cambia tutto a runtime */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-text-strong: var(--text-strong);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-structure: var(--structure);
+  --color-on-structure: var(--on-structure);
+  --color-danger: var(--danger);
+  --color-on-danger: var(--on-danger);
+  --color-brass: var(--brass);
+  --color-brass-chiaro: var(--brass-chiaro);
+  --color-slate: var(--slate);
+  --color-sage: var(--sage);
+  --color-tint: var(--tint);
+  --color-accent-velo: var(--accent-velo);
+  --color-brass-velo: var(--brass-velo);
+  --color-slate-velo: var(--slate-velo);
+  --color-sage-velo: var(--sage-velo);
+  --color-danger-velo: var(--danger-velo);
+  --color-tono-infantile: var(--tono-infantile);
+  --color-tono-semplice: var(--tono-semplice);
+  --color-tono-medio: var(--tono-medio);
+  --color-tono-avanzato: var(--tono-avanzato);
+
+  /* Caratteri: uno scaricato (display), gli altri di sistema (zero byte, resa
+     corretta su ogni OS). Il contrasto fra display largo e UI neutra E' l'abbinamento. */
+  --font-display: "Bricolage Grotesque", "Archivo", "Helvetica Neue", Arial,
+    sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Scala tipografica: questi gradini e nessun altro (prelude.md §3.2) */
+  --text-hero: clamp(3rem, 12vw, 9rem);
+  --text-hero--line-height: 0.9;
+  --text-display: clamp(2.25rem, 6vw, 3rem);
+  --text-display--line-height: 1.05;
+  --text-title-1: clamp(1.625rem, 4vw, 2rem);
+  --text-title-1--line-height: 1.15;
+  --text-title-2: 1.5rem;
+  --text-title-2--line-height: 1.25;
+  --text-title-3: 1.125rem;
+  --text-title-3--line-height: 1.4;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.5;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+
+  /* Raggi: piatto per le fasce, 3px per i controlli, 6px per le lastre */
+  --radius-plate: 3px;
+  --radius-card: 6px;
+
+  /* Tre soli livelli di elevazione */
+  --shadow-l1: 0 2px 8px rgb(0 0 0 / 0.1);
+  --shadow-l2: 0 -8px 32px rgb(0 0 0 / 0.18);
+
+  /* Movimento: una curva, tre durate */
+  --ease-aa: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ===========================================================================
+   LA SORGENTE: le uniche righe da toccare per cambiare l'aspetto.
+
+   Nove colori, piu' i quattro gradini della scala dei toni. Tutto il resto del
+   sistema, cioe' i token di ogni tema e il tema scuro compreso, si ricava da
+   questi con `color-mix`: non c'e' niente da riallineare a mano e non esiste un
+   valore che possa restare indietro.
+
+   I nove non sono una tavolozza a caso: sono i RUOLI dell'interfaccia.
+     lastra      il foglio su cui si legge
+     muro        il fondo su cui la lastra e' appesa
+     inchiostro  il testo
+     struttura   DOVE SEI: barre, soglia, autorita'
+     accento     DOVE PUOI ANDARE: l'unica cosa cliccabile
+     valore      prezzi, ricavi, credito
+     categoria   tipo, livello, metadati
+     acquisito   posseduto, pronto, riuscito
+     allarme     errori e azioni distruttive
+
+   Due regole da non rompere, o l'interfaccia smette di spiegarsi da sola:
+     1. STRUTTURA E ACCENTO devono restare due tinte diverse e riconoscibili.
+        Se si somigliano, "dove sei" e "dove puoi andare" diventano la stessa
+        cosa e il bottone principale sparisce dentro la barra.
+     2. ALLARME resta l'unico rosso e VALORE l'unico oro. Gli altri sei ruoli
+        non devono cadere in quelle due famiglie.
+
+   Contrasti: `inchiostro` va scuro (AA vuole 4.5:1 sul muro, e qui si sta molto
+   sopra), `accento` e i tre semantici vanno scelti abbastanza scuri da reggere
+   come TESTO sulla lastra. La derivazione al buio li schiarisce da se'.
+
+   ⚠️ I quattro toni si misurano DENTRO LA LORO PASTIGLIA, non sulla lastra: li'
+   il fondo e' la velatura della loro stessa tinta, che alza il fondo e abbassa
+   il rapporto. L'arancio dell'Avanzato e' stato scurito proprio per quello --
+   sulla lastra passava, dentro la pastiglia stava a 4.4:1.
+   =========================================================================== */
+/* In uso: "Sala e Deposito, accesa". Le altre provate stanno in coda al file,
+   commentate: si scambiano i due blocchi e basta.
+
+   Come sono stati scelti questi nove, perche' e' una regola e non un gusto:
+   ogni ruolo e' il colore PIU' SATURO della sua tinta che regge ancora 4.6:1
+   come testo sul muro. La luminosita' non e' un dato d'ingresso, e' la
+   conseguenza. Serve dirlo perche' la strada che viene in mente per prima --
+   "accendere" schiarendo -- e' quella che rompe tutto: su un tema chiaro il
+   colore si legge sul bianco, quindi schiarirlo gli toglie proprio il contrasto
+   che deve avere. Alzare il croma a luminosita' ferma non costa niente.
+
+   La STRUTTURA fa eccezione, e per una ragione di ruolo: non e' un testo, e' un
+   fondo, quindi si giudica dal bianco che ci sta sopra e non da se' sul muro.
+   Puo' percio' andare piu' scura di tutti gli altri, ed e' quel che la fa
+   leggere come autorita' invece che come un'altra tinta fra le sei.
+
+   La CATEGORIA e' la sola che ha cambiato tinta. Stava a 28 gradi dall'accento:
+   "che tipo di dato e' questo" e "dove puoi andare" avevano quasi lo stesso
+   colore, il che e' esattamente cio' che la griglia di valutazione chiama
+   corretta differenziazione nei tipi di dati. Portata a 288 gradi, la coppia
+   piu' vicina fra i sei ruoli passa da 15 a 53 di distanza. */
+:root {
+  --lastra: #ffffff;
+  --muro: #dcdad5;
+  --inchiostro: #2b2b2b;
+  --struttura: #0a3a55;
+  --accento: #196969;
+  --valore: #7e5717;
+  --categoria: #624db7;
+  --acquisito: #196d29;
+  --allarme: #ad322a;
+  /* La scala dei toni: un gradino per ogni voce di `educationalLevelHints`, e
+     nello stesso ordine. Sono scelte perche' si distinguano fra loro a corpo
+     caption, non perche' significhino qualcosa da sole. */
+  --infantile: #0d6e91;
+  --semplice: #3a45b4;
+  --medio: #7c6200;
+  --avanzato: #99420f;
+}
+
+/* ---------------------------------------------------------------------------
+   LA DERIVAZIONE: da qui in giu' non si tocca nulla per cambiare palette.
+   Ogni token e' una funzione dei nove colori sopra. Le percentuali sono state
+   scelte una volta contro tre sorgenti diverse e verificate in un browser:
+   cambiando i nove, i rapporti di contrasto si spostano di poco e restano AA.
+   --------------------------------------------------------------------------- */
+:root {
+  --bg: var(--muro);
+  --surface: var(--lastra);
+  --surface-2: var(--muro);
+  --text: var(--inchiostro);
+  --text-strong: var(--inchiostro);
+  /* Un solo inchiostro non fa gerarchia: il secondario e' inchiostro annacquato
+     nel muro, non un grigio scelto a parte. */
+  --muted: color-mix(in oklab, var(--inchiostro) 76%, var(--muro));
+  --line: color-mix(in oklab, var(--inchiostro) 16%, transparent);
+  --line-strong: var(--struttura);
+  --accent: var(--accento);
+  --on-accent: var(--lastra);
+  --structure: var(--struttura);
+  --on-structure: color-mix(in oklab, var(--lastra) 94%, var(--struttura));
+  --danger: var(--allarme);
+  --on-danger: var(--lastra);
+  --brass: var(--valore);
+  --slate: var(--categoria);
+  --sage: var(--acquisito);
+  /* L'ottone schiarito, che al chiaro NON e' `--brass`. Serve dove il fondo e'
+     la struttura: quella barra e' scura in tutt'e due i temi, mentre l'ottone
+     si schiarisce solo al buio, quindi nel tema chiaro il credito finiva ottone
+     scuro su Notte. Vedi `.valore-su-struttura`. */
+  --brass-chiaro: color-mix(in oklab, var(--valore) 46%, var(--lastra));
+  --tint: color-mix(in oklab, var(--categoria) 9%, transparent);
+  /* Le VELATURE: ogni ruolo semantico ha anche la sua versione da fondo. Sono
+     trasparenti e non opache, quindi una pastiglia velata lascia vedere la
+     lastra o la fotografia che ha sotto e non ci apre un buco: e' la stessa
+     tinta del testo che ci sta dentro, quindi il colore dice la stessa cosa due
+     volte invece di dirne due. Restano deboli apposta -- l'informazione la
+     porta la parola, il colore la conferma. */
+  --accent-velo: color-mix(in oklab, var(--accent) 12%, transparent);
+  --brass-velo: color-mix(in oklab, var(--brass) 12%, transparent);
+  --slate-velo: color-mix(in oklab, var(--slate) 12%, transparent);
+  --sage-velo: color-mix(in oklab, var(--sage) 12%, transparent);
+  --danger-velo: color-mix(in oklab, var(--danger) 12%, transparent);
+  --tono-infantile: var(--infantile);
+  --tono-semplice: var(--semplice);
+  --tono-medio: var(--medio);
+  --tono-avanzato: var(--avanzato);
+  --tono-infantile-velo: color-mix(in oklab, var(--tono-infantile) 12%, transparent);
+  --tono-semplice-velo: color-mix(in oklab, var(--tono-semplice) 12%, transparent);
+  --tono-medio-velo: color-mix(in oklab, var(--tono-medio) 12%, transparent);
+  --tono-avanzato-velo: color-mix(in oklab, var(--tono-avanzato) 12%, transparent);
+  --focus-ink: var(--inchiostro);
+  --focus-halo: var(--lastra);
+  color-scheme: light;
+}
+
+/*
+  L'IRIDE: i quattro semantici in fila, e l'unico posto dove compaiono insieme.
+  Serve alla visita nata da una frase, che e' la sola cosa del prodotto ad
+  attraversarli tutti e quattro: sceglie per categoria, e' un percorso da fare
+  (accento), consegna contenuti (acquisito) e ha un valore. Va usata li' e in
+  nessun altro punto, o diventa decorazione e smette di indicare qualcosa.
+
+  Non rompe le due regole della sorgente perche' nessuna delle quattro tinte
+  viene qui asserita da sola: e' una scorsa, non un'etichetta, quindi l'oro
+  resta l'oro del valore e il rosso resta fuori.
+
+  L'ordine e' per distanza di tinta e non per importanza: oro, verde, verderame
+  e ardesia sono quattro gradini da circa 60 gradi l'uno dall'altro, cosi' la
+  scorsa si legge come piu' colori anche dentro una tessera di 40 px. Con due
+  tinte vicine accostate, meta' gradiente sembra una tinta sola.
+
+  Le `var()` dentro si risolvono sull'elemento che usa il gradiente, non qui:
+  al buio prende da se' le versioni schiarite, senza una seconda definizione.
+
+  DUE COSE VANNO CORRETTE PERCHE' UNA SCORSA NON E' UN'ETICHETTA, e sono la
+  differenza fra i colori dei ruoli e questo gradiente:
+
+  - La CROMA. I quattro semantici sono scelti per reggere come inchiostro su
+    una lastra, quindi sono smorti: verderame e verde stanno a croma 0.07 e
+    0.13, e accostati fanno una fascia verdastra invece di due colori. Nel
+    gradiente si portano tutti alla stessa croma alta e alla stessa
+    luminosita', che e' anche il solo modo perche' i quattro pesino uguale —
+    con luminosita' diverse il piu' scuro sembra un'ombra e non un colore.
+  - Il PASSAGGIO. Interpolando in sRGB due tinte lontane si passa per il grigio
+    (oro e verde davano un'oliva fangosa a meta' strada). In `oklch` si passa
+    per la tinta, cioe' oro → lime → verde → verderame → blu → ametista: la
+    scorsa attraversa piu' colori di quanti ne siano dichiarati.
+
+  Le posizioni non sono equidistanti: verde e verderame sono la coppia piu'
+  vicina (43 gradi contro 82 e 100), quindi si stringono verso l'inizio. A un
+  terzo per uno, il verde si prendeva meta' del segno.
+
+  La ricaduta (browser senza colori relativi) e' il gradiente coi quattro ruoli
+  annacquati nella lastra: piu' spento, ma chiaro quanto basta perche' sopra ci
+  si legga lo stesso inchiostro, che e' la sola cosa che non puo' cambiare fra
+  le due strade. Non e' facoltativa — un valore non capito dentro una proprieta'
+  personalizzata non ricade sulla dichiarazione precedente, diventa invalido, e
+  chi la usa come fondo resta senza fondo.
+*/
+:root {
+  --iride: linear-gradient(
+    112deg,
+    color-mix(in oklab, var(--brass) 55%, var(--lastra)) 0%,
+    color-mix(in oklab, var(--sage) 55%, var(--lastra)) 26%,
+    color-mix(in oklab, var(--accent) 55%, var(--lastra)) 44%,
+    color-mix(in oklab, var(--slate) 55%, var(--lastra)) 100%
+  );
+  --iride-l: 0.72;
+  --iride-c: 0.17;
+  /* Sopra la scorsa ci va INCHIOSTRO, nei due temi, e non il bianco dei fondi
+     d'accento: quattro tinte a questa luminosita' sono chiare per definizione,
+     e il bianco che regge sul verderame scuro qui sparirebbe sull'oro. E' la
+     stessa scelta che il tema scuro fa gia' su ogni fondo colorato. */
+  --on-iride: var(--inchiostro);
+}
+
+/*
+  Al buio i neutri si scambiano i ruoli, cioe' l'inchiostro diventa la lastra e
+  il muro scende sotto, e le tinte si schiariscono quanto basta a reggere su un
+  fondo scuro. E' la stessa palette letta al contrario, non un secondo elenco di
+  colori da tenere allineato al primo.
+*/
+.dark {
+  --bg: color-mix(in oklab, var(--inchiostro) 86%, #000);
+  --surface: var(--inchiostro);
+  --surface-2: color-mix(in oklab, var(--inchiostro) 88%, var(--muro));
+  --text: var(--muro);
+  --text-strong: var(--lastra);
+  --muted: color-mix(in oklab, var(--muro) 78%, var(--inchiostro));
+  --line: color-mix(in oklab, var(--lastra) 14%, transparent);
+  --line-strong: color-mix(in oklab, var(--muro) 66%, var(--inchiostro));
+  --accent: color-mix(in oklab, var(--accento) 42%, var(--lastra));
+  --on-accent: color-mix(in oklab, var(--inchiostro) 86%, #000);
+  --structure: var(--struttura);
+  --on-structure: color-mix(in oklab, var(--lastra) 94%, var(--struttura));
+  --danger: color-mix(in oklab, var(--allarme) 58%, var(--lastra));
+  --on-danger: color-mix(in oklab, var(--inchiostro) 86%, #000);
+  --brass: color-mix(in oklab, var(--valore) 46%, var(--lastra));
+  --brass-chiaro: var(--brass);
+  --slate: color-mix(in oklab, var(--categoria) 42%, var(--lastra));
+  --sage: color-mix(in oklab, var(--acquisito) 42%, var(--lastra));
+  --tint: color-mix(in oklab, var(--categoria) 12%, transparent);
+  /* Le velature al buio vanno un po' piu' cariche: la stessa percentuale su un
+     fondo scuro rende meno, perche' la tinta schiarita ci si stacca di meno di
+     quanto la tinta scura si stacchi dal chiaro. */
+  --accent-velo: color-mix(in oklab, var(--accent) 18%, transparent);
+  --brass-velo: color-mix(in oklab, var(--brass) 18%, transparent);
+  --slate-velo: color-mix(in oklab, var(--slate) 18%, transparent);
+  --sage-velo: color-mix(in oklab, var(--sage) 18%, transparent);
+  --danger-velo: color-mix(in oklab, var(--danger) 18%, transparent);
+  --tono-infantile: color-mix(in oklab, var(--infantile) 46%, var(--lastra));
+  --tono-semplice: color-mix(in oklab, var(--semplice) 46%, var(--lastra));
+  --tono-medio: color-mix(in oklab, var(--medio) 46%, var(--lastra));
+  --tono-avanzato: color-mix(in oklab, var(--avanzato) 46%, var(--lastra));
+  --tono-infantile-velo: color-mix(in oklab, var(--tono-infantile) 18%, transparent);
+  --tono-semplice-velo: color-mix(in oklab, var(--tono-semplice) 18%, transparent);
+  --tono-medio-velo: color-mix(in oklab, var(--tono-medio) 18%, transparent);
+  --tono-avanzato-velo: color-mix(in oklab, var(--tono-avanzato) 18%, transparent);
+  /* Al buio la scorsa sale di un gradino, come ogni altra tinta: e' il fondo a
+     essere sceso, non il colore a essere cambiato. */
+  --iride-l: 0.78;
+  --iride-c: 0.17;
+  --focus-ink: var(--lastra);
+  --focus-halo: var(--inchiostro);
+  color-scheme: dark;
+}
+
+/*
+  Le tinte al buio, meglio: schiarire MESCOLANDO CON IL BIANCO spegne il colore
+  (l'ottone diventava un beige fangoso), perche' avvicinarsi al bianco vuol dire
+  perdere croma. Qui invece si alza la sola LUMINOSITA' e si lasciano stare tinta
+  e saturazione: e' quello che si fa a mano quando si adatta una palette al buio,
+  scritto una volta sola.
+
+  Sta dentro un @supports perche' un valore non capito, dentro una proprieta'
+  personalizzata, non ricade sulla dichiarazione precedente: diventa invalido e
+  basta. Dove `oklch(from ...)` non c'e', restano le mescolanze qui sopra, piu'
+  spente ma leggibili.
+*/
+@supports (color: oklch(from red l c h)) {
+  :root {
+    --brass-chiaro: oklch(from var(--valore) 0.77 c h);
+  }
+  .dark {
+    --accent: oklch(from var(--accento) 0.78 c h);
+    --danger: oklch(from var(--allarme) 0.82 c h);
+    --brass: oklch(from var(--valore) 0.77 c h);
+    --brass-chiaro: var(--brass);
+    /* Piu' chiari degli altri di un gradino, e per la stessa ragione: sono le
+       tinte che si leggono a corpo caption dentro una pastiglia, cioe' su
+       `surface-2` e non sulla lastra, e sopra ci passa anche la velatura. La
+       misura si fa li', non sulla lastra, o si tara sul caso facile. */
+    --slate: oklch(from var(--categoria) 0.8 c h);
+    --sage: oklch(from var(--acquisito) 0.78 c h);
+    /* La scala dei toni sale allo stesso gradino delle altre due, e per lo
+       stesso motivo: si legge a corpo caption dentro una pastiglia. */
+    --tono-infantile: oklch(from var(--infantile) 0.8 c h);
+    --tono-semplice: oklch(from var(--semplice) 0.8 c h);
+    --tono-medio: oklch(from var(--medio) 0.82 c h);
+    --tono-avanzato: oklch(from var(--avanzato) 0.8 c h);
+  }
+}
+
+/* La scorsa carica: stesse quattro tinte, portate alla stessa luminosita' e
+   alla stessa croma, e interpolate per tinta. Il perche' sta sopra `--iride`.
+   Le due condizioni servono tutt'e due e sono due funzioni diverse: i colori
+   relativi per prendere la tinta di un ruolo senza riscriverne il numero, lo
+   spazio di interpolazione per passarci in mezzo. Una sola dichiarazione copre
+   anche `.dark`: le `var()` si risolvono su chi usa il gradiente. */
+@supports (color: oklch(from red l c h)) and
+  (background: linear-gradient(in oklch, red, blue)) {
+  :root {
+    --iride: linear-gradient(
+      112deg in oklch,
+      oklch(from var(--brass) var(--iride-l) var(--iride-c) h) 0%,
+      oklch(from var(--sage) var(--iride-l) var(--iride-c) h) 26%,
+      oklch(from var(--accent) var(--iride-l) var(--iride-c) h) 44%,
+      oklch(from var(--slate) var(--iride-l) var(--iride-c) h) 100%
+    );
+  }
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+  }
+
+  /*
+    Anello di fuoco a due tinte, cosi' uno dei due membri e' sempre lontano dal
+    fondo su cui si trova. Vale anche sulle fotografie delle opere, dove un
+    anello a tinta unica sparirebbe a seconda dell'immagine.
+  */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--focus-ink);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px var(--focus-halo);
+    border-radius: 2px;
+  }
+
+  /* La selezione usa Notte: e' struttura, non un'azione */
+  ::selection {
+    background-color: var(--structure);
+    color: var(--on-structure);
+  }
+
+  /* Titoli in display: larghi, piantati, mai piu' pesanti di 700 */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-stretch: 100%;
+    letter-spacing: -0.01em;
+  }
+
+  /* Ogni numero incolonnato: prezzi, durate, tappe, punteggi */
+  :where(time, output, .tabular) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Rispetta "riduci animazioni": lo stato cambia comunque, ma di colpo */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Nasconde visivamente ma resta leggibile dagli screen reader */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Colonna di testo leggibile: mai piu' larga di ~66 caratteri */
+  .measure {
+    max-width: 66ch;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   SORGENTI GIA' PROVATE: si incolla il blocco al posto di quello in cima.
+
+   "Sala e Deposito, accesa" e' quella IN USO, in cima. Non ha piu' l'eccezione
+   che aveva la versione spenta, dove l'accento sul muro stava a 4.06:1.
+
+   "Sala e Deposito" (la versione spenta, per un anno quella in uso):
+     --lastra:#ffffff; --muro:#d9d9d9; --inchiostro:#353535;
+     --struttura:#284b63; --accento:#3c6e71;
+     --valore:#7a5722; --categoria:#40606f; --acquisito:#456347; --allarme:#9e2b25;
+
+   "Bosco e Indaco" (carta e osso, struttura bosco, accento indaco):
+     --lastra:#faf9f4; --muro:#dbd8cd; --inchiostro:#23261f;
+     --struttura:#22453b; --accento:#5344a8;
+     --valore:#6e5a1c; --categoria:#45606b; --acquisito:#4a6438; --allarme:#9c2a20;
+
+   Chi ne prova una nuova rifaccia le due misure che decidono se regge, e sono
+   nello scratchpad di questa sessione come `definitiva.mjs`: i rapporti di ogni
+   ruolo su lastra e su muro (4.5:1 minimo) e la distanza fra i sei ruoli presi
+   a coppie, che sotto ~40 li fa confondere.
+   --------------------------------------------------------------------------- */

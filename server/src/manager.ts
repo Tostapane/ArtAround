@@ -1,3 +1,12 @@
+/**
+ * Popolamento di un museo a partire dal suo file di configurazione.
+ *
+ * Il file dice QUALI opere esporre; Wikidata dice com'e' fatta ciascuna; la
+ * mappa dice dove sta. Qui si mettono insieme le tre cose e si salva quel che
+ * ne esce, scaricando una copia locale delle immagini e generando le
+ * descrizioni mancanti. Un'opera senza immagine (P18) viene saltata: meglio non
+ * averla che averla senza volto.
+ */
 import { fetchArtwork, fetchMuseum } from "./services/wikidata";
 import { downloadImage } from "./services/imageDownloader";
 import {
@@ -8,7 +17,30 @@ import {
 } from "./dbActions";
 import { createDescription } from "./services/llm";
 import { ArtworkModel } from "./models/artwork";
-import { generateMuseumConfig } from "./services/museumConfig";
+import { MuseumConfig } from "./data/museumConfigs";
+import { getMuseumGraph } from "./services/svgGraph";
+import { LogisticNote } from "../../shared/types";
+import { DEFAULT_LICENSE } from "../../shared/constants";
+
+/**
+ * Da qid dell'opera a id del nodo che la rappresenta sulla pianta
+ * (`Artwork.locationId`). E' la mappa a dire dove sta un'opera: legarla invece
+ * alla sua POSIZIONE nell'elenco del file di configurazione vorrebbe dire tenere
+ * allineati a mano due elenchi, e basta inserirne una in mezzo perche' tutte
+ * quelle dopo finiscano sul nodo sbagliato senza un errore da nessuna parte.
+ *
+ * Un'opera che sulla pianta non c'e' resta senza nodo: non compare sulla mappa,
+ * ma il suo contenuto si legge lo stesso.
+ */
+export function locationsFromMap(mapPath: string): Map<string, string> {
+  const positions = new Map<string, string>();
+  for (const node of getMuseumGraph(mapPath).nodes) {
+    if (node.kind === "artwork" && node.elementId) {
+      positions.set(node.qid, node.elementId);
+    }
+  }
+  return positions;
+}
 
 /**
  * Popola un artwork nel database ottenendo dati da Wikidata.
@@ -21,16 +53,11 @@ export async function populateArtwork(
   const data = await fetchArtwork(qid);
   if (!data) throw new Error("Artwork non trovato");
 
-  // Nessuna immagine (P18) su Wikidata: l'opera non e' mostrabile con la sua
-  // immagine, quindi la saltiamo per garantire che ogni opera caricata abbia
-  // sempre un'immagine visibile.
   if (!data.image) {
     console.warn(`[seed] opera ${qid} senza immagine (P18): saltata`);
     return false;
   }
 
-  // downloadImage salva l'immagine sul server e ritorna il percorso relativo;
-  // in caso di fallita download ritorna l'URL remoto (usabile comunque come src).
   const imagePath = await downloadImage(data.image, `${qid}`);
 
   await insertArtwork({
@@ -53,9 +80,6 @@ export async function populateArtwork(
   return true;
 }
 
-/**
- * Crea e inserisce un Item (descrizione) associato a un artwork.
- */
 export async function populateItem(
   atworkQid: string,
   level: string,
@@ -75,40 +99,50 @@ export async function populateItem(
       duration,
     );
     itemAuthor = "sistema";
+
+    /*
+     * Anche dopo i ritentativi il modello puo' non rispondere. In quel caso
+     * NON si scrive l'item: uno che manca si vede nel conteggio finale e nel
+     * log, uno senza testo diventa invece una tappa muta dentro una visita,
+     * e nessuno se ne accorge finche' non la si apre.
+     */
+    if (!description || description.trim() === "") {
+      console.warn(
+        `[seed] item ${atworkQid} (${level}/${duration}s) NON creato: ` +
+          `il modello non ha prodotto una descrizione.`,
+      );
+      return;
+    }
   }
 
   const id = `${atworkQid}-${itemAuthor}-${level}-${duration}`;
 
   await insertItem({
     "@id": id,
-    about: artwork["@id"], // Full Wikidata URL
+    kind: "opera",
+    about: artwork["@id"],
+    ofMuseum: artwork.ofMuseum,
     timeRequired: duration.toString(),
     educationalLevel: level,
     author: itemAuthor,
     price: itemPrice,
     text: description,
+    license: DEFAULT_LICENSE,
   });
 }
 
-/**
- * Inserisce una visita (percorso) nel database.
- */
 export async function populateVisit(
   level: string,
-  durationPerArt: number, // secondi di descrizione per singola opera
+  durationPerArt: number,
   museum: string,
   museumUri: string,
   items: string[],
-  logist: string[],
+  logist: LogisticNote[],
   visitPrice?: number,
   visitAuthor?: string,
 ) {
-  // L'id resta stabile (basato su museo-livello-durata per opera), ma il NOME
-  // mostrato e' leggibile (le vecchie visite mostravano il codice grezzo).
   const id = `visit-${museum}-${level}-${durationPerArt}`;
   const name = `Visita ${level} · ${durationPerArt}s per opera`;
-  // Visit.duration e' la durata TOTALE in secondi: qui gli item sono omogenei
-  // (stessa durata per opera), quindi totale = durata per opera × numero opere.
   await insertVisit({
     "@id": id,
     name: name,
@@ -119,22 +153,37 @@ export async function populateVisit(
     ofMuseum: museumUri,
     itemListElement: items,
     logistics: logist,
+    license: DEFAULT_LICENSE,
   });
 }
 
 /**
- * Fetcha il museo, ne crea il file di configurazione e inseirsce i suoi dati nel database
+ * Scrive nel database il museo descritto dal suo file di configurazione.
+ *
+ * Il file vince su Wikidata, che si interroga solo per i campi che il curatore
+ * ha lasciato in bianco. Il nome in particolare e' una scelta e non un dato: per
+ * gli Uffizi Wikidata risponde "Palazzo degli Uffizi", che e' l'edificio.
  */
-export async function populateMuseum(qid: string, artworks: readonly string[]) {
-  const data = await fetchMuseum(qid);
-  if (!data) throw new Error("Museum non trovato");
-  generateMuseumConfig(qid, data, `${data.name}`, artworks);
+export async function populateMuseum(config: MuseumConfig) {
+  let name = config.name;
+  let created = config.created;
+  let location = config.location;
+
+  if (!created || !location) {
+    const data = await fetchMuseum(config.qid);
+    if (data) {
+      if (!name) name = data.name;
+      if (!created) created = data.created;
+      if (!location) location = data.location;
+    }
+  }
+
   await intertMuseum({
-    "@id": `http://www.wikidata.org/entity/${qid}`,
-    qid: qid,
-    name: data.name,
-    created: data.created,
-    location: data.location,
-    mapPath: `/maps/${data.name}.svg`,
+    "@id": `http://www.wikidata.org/entity/${config.qid}`,
+    qid: config.qid,
+    name,
+    created,
+    location,
+    mapPath: config.mapPath,
   });
 }

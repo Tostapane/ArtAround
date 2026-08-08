@@ -9,7 +9,6 @@
     "watch:css": "tailwindcss -i ./src/frontend/style.css -o ./dist/style.css --watch"
   },
   "dependencies": {
-    "@headlessui/tailwindcss": "^0.2.2",
     "@tailwindcss/cli": "^4.2.2",
     "tailwindcss": "^4.2.2"
   },

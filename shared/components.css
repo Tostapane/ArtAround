@@ -1,0 +1,670 @@
+/*
+  ArtAround: vocabolario di componenti condiviso fra navigator e marketplace.
+  Riferimento: prelude.md §9.
+
+  Sta in shared/ e non dentro le due applicazioni perche' le due sono la stessa
+  istituzione in due stanze: un bottone primario definito in due file diventa in
+  fretta due bottoni diversi. Qui c'e' una definizione sola di ogni componente,
+  mentre le classi proprie di una sola applicazione restano nel suo foglio, come
+  il binario del marketplace e la mappa del navigator.
+
+  Va importato dopo shared/theme.css, da cui prende tutti i token.
+*/
+
+@layer components {
+  /* --- Salto rapido: primo elemento focalizzabile, visibile solo a fuoco --- */
+  .salta {
+    @apply sr-only;
+  }
+  .salta:focus {
+    @apply not-sr-only fixed left-4 top-4 z-[100] rounded-plate bg-accent px-4 py-3
+           font-medium text-on-accent;
+  }
+
+  /* --- La lastra: la superficie montata sul muro ------------------------- */
+  .lastra {
+    @apply rounded-card border border-line bg-surface;
+  }
+
+  /*
+    Il FILO D'ACCENTO: la riga che si accende in basso quando si passa sopra una
+    lastra che si puo' toccare. E' l'unico segnale di passaggio del sistema, ed
+    e' d'accento perche' quella e' la tinta di dove puoi andare: cambiare fondo
+    invece direbbe "questa lastra e' diversa dalle altre", che non e' vero -- e'
+    solo quella sotto il dito.
+
+    Cresce da sinistra invece di comparire, cosi' la si vede arrivare e non
+    lampeggia. Chi ha chiesto meno movimento la riceve istantanea: la regola sta
+    in theme.css e vale per tutte le transizioni.
+
+    Va sull'elemento, non dentro: `::after` e' l'ultimo figlio e dipinge SOPRA
+    il contenuto, quindi con qualcosa di alto piu' di 3 px servirebbe anche uno
+    z-index sul testo.
+  */
+  .filo-accento {
+    @apply relative;
+  }
+  .filo-accento::after {
+    content: "";
+    @apply pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-accent;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 240ms var(--ease-aa);
+  }
+  .filo-accento:hover::after,
+  .filo-accento:focus-visible::after,
+  .filo-accento:focus-within::after {
+    transform: scaleX(1);
+  }
+  /* Il filo si accende anche quando a essere puntata e' la TESSERA che lo
+     contiene, non lui: la copertina di una visita e' un pezzo di una carta piu'
+     grande, e il segno deve rispondere al gesto che la persona sta facendo. */
+  .group:hover .filo-accento::after,
+  .group:focus-within .filo-accento::after {
+    transform: scaleX(1);
+  }
+
+  /* --- Bottoni ----------------------------------------------------------- */
+  .btn-primario,
+  .btn-secondario,
+  .btn-fantasma,
+  .btn-fantasma-chiaro,
+  .btn-pericolo,
+  .btn-pericolo-pieno {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-plate px-4 py-2.5
+           text-small font-semibold transition-colors;
+  }
+  .btn-primario {
+    @apply bg-accent text-on-accent hover:opacity-90;
+  }
+  .btn-secondario {
+    @apply border border-line-strong text-text hover:bg-surface-2;
+  }
+  .btn-fantasma {
+    @apply text-text hover:bg-surface-2;
+  }
+  /* Su fondo Notte (soglia, sala d'attesa) */
+  .btn-fantasma-chiaro {
+    @apply border border-on-structure/40 text-on-structure hover:bg-on-structure/10;
+  }
+  .btn-pericolo {
+    @apply border border-danger text-danger hover:bg-danger/10;
+  }
+  .btn-pericolo-pieno {
+    @apply bg-danger text-on-danger hover:opacity-90;
+  }
+  .btn-primario:disabled,
+  .btn-secondario:disabled,
+  .btn-fantasma:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
+  /* --- Bottoni-icona ----------------------------------------------------- */
+  .icona-mini {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-plate text-muted
+           transition-colors hover:bg-surface-2 hover:text-text
+           disabled:cursor-not-allowed disabled:opacity-30;
+  }
+  /* Tondo e grande: comandi che si premono in piedi, con una mano sola */
+  .icona-tonda {
+    @apply inline-flex h-12 w-12 items-center justify-center rounded-full text-text
+           transition-colors hover:bg-surface-2
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .icona-tonda-attiva {
+    @apply bg-accent text-on-accent hover:opacity-90;
+  }
+
+  /* --- Campi: pozzetto + filo spesso in basso.
+         Un campo si riconosce dal sottolineato, non da una cornice. -------- */
+  .etichetta {
+    @apply block text-small font-medium text-text;
+  }
+  .campo {
+    @apply mt-1.5 block min-h-11 w-full rounded-t-plate border-0 border-b-2 border-line-strong
+           bg-surface-2 px-3 py-2.5 text-body text-text
+           placeholder:text-muted focus:border-accent;
+  }
+  /*
+    I campi si segnalano col bordo d'accento e non con l'anello a due tinte, che
+    su un campo largo diventa una cornice pesante. Le due meta' dell'anello
+    vanno pero' spente INSIEME: `outline: none` da solo lascia in piedi il
+    `box-shadow`, cioe' 6 px di quasi-nero appoggiati sul bordo -- invisibili al
+    chiaro, dove l'alone e' bianco su lastra bianca, e un rettangolo nero al
+    buio. E' il difetto che si vedeva scrivendo nella ricerca.
+  */
+  .campo:focus,
+  .campo-select:focus,
+  .campo-cerca input:focus {
+    outline: none;
+    box-shadow: none;
+  }
+  .campo:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+  .campo-piatto {
+    @apply mt-0 border-b border-line bg-transparent px-2 py-1.5 text-small;
+  }
+  /* `appearance: none` NON toglie il selettore nativo: su un telefono il tocco
+     apre lo stesso quello del sistema operativo, ed e' il motivo per cui questi
+     restano `<select>`. Toglie solo il disegno del controllo chiuso, che il
+     browser dipinge coi propri colori ignorando i nostri: senza, il campo che
+     sta sulla barra scura arriva come un rettangolo bianco col testo nero.
+     La freccia e' quindi nostra, e sono due gradienti invece di un'immagine
+     perche' `currentColor` segue il tema e il contesto senza una seconda
+     regola: sulla lastra e' inchiostro, sulla struttura e' chiara. */
+  .campo-select {
+    @apply min-h-11 appearance-none rounded-plate border border-line-strong bg-surface
+           py-2 pl-3 pr-9 text-small font-medium text-text
+           focus:border-accent;
+    background-image:
+      linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+      calc(100% - 1.15rem) calc(50% + 1px),
+      calc(100% - 0.85rem) calc(50% + 1px);
+    background-size: 0.3rem 0.3rem;
+    background-repeat: no-repeat;
+  }
+  /* Lo stesso controllo quando siede sulla STRUTTURA e non sulla lastra: la
+     barra laterale e' scura in tutt'e due i temi, quindi un campo che si porta
+     dietro il fondo dell'applicazione ci si stacca sopra. */
+  .campo-select-struttura {
+    @apply border-on-structure/25 bg-transparent text-on-structure
+           hover:border-on-structure/50 focus:border-accent;
+  }
+  /* L'elenco che si apre al clic NON sta sulla barra: lo disegna il browser
+     sopra la pagina, con la lastra dietro. Le voci vanno percio' riportate ai
+     colori dell'applicazione, o ereditano il chiaro del testo qui sopra e
+     diventano illeggibili sul fondo chiaro dell'elenco. Non basta dichiarare
+     `color-scheme: dark`: quello e' un suggerimento e il browser lo disattende,
+     lasciando testo bianco su bianco. */
+  .campo-select-struttura option {
+    color: var(--text);
+    background-color: var(--surface);
+  }
+  /* L'etichetta di un'impostazione: minuscola e discreta, perche' il valore
+     (Italiano, 中文) e' gia' leggibile da se' e l'etichetta serve solo a dire
+     di che cosa e' il valore. */
+  .etichetta-impostazione {
+    @apply block text-caption uppercase tracking-wider text-muted;
+  }
+  /* Il bordo d'accento sta sul CONTENITORE, che e' quel che ha l'aspetto del
+     campo: l'input dentro non ha bordo suo e non deve disegnare niente. */
+  .campo-cerca {
+    @apply flex min-h-11 flex-1 items-center gap-2 rounded-plate border border-line-strong
+           bg-surface px-3 focus-within:border-accent;
+  }
+  .campo-cerca input {
+    @apply min-h-11 w-full border-0 bg-transparent text-small text-text
+           placeholder:text-muted focus:outline-none;
+  }
+
+  /* --- Barra di strumenti ------------------------------------------------
+     Sta INCOLLATA in alto perche' cercare accorcia la pagina: filtrando da
+     meta' elenco il documento si accorcia di colpo, il browser riporta lo
+     scorrimento all'ultima riga possibile e il campo in cui si sta scrivendo
+     scivola fuori dallo schermo. Incollata, la barra resta dov'e' e a muoversi
+     sono solo i risultati. Si ferma sotto la barra dell'applicazione, se c'e'
+     una: `--app-bar` la dichiara alta quanto e', ed e' la stessa misura con cui
+     e' disegnata.
+
+     ⚠️ IL FONDO E' PIENO, e non e' una scelta d'aspetto rimasta indietro: la
+     barra copre quel che le passa sotto, quindi quel che le passa sotto non si
+     deve leggere. Traslucida (era il fondo della pagina al 72% piu' una
+     sfocatura) le tessere continuavano a vedersi attraverso i filtri, e mezza
+     riga sfocata sopra un campo di ricerca si legge come un difetto, non come
+     una superficie.
+
+     ⚠️ IL LIVELLO DEVE STARE SOPRA LE TESSERE, e non basta pareggiarle. Una
+     tessera cliccabile porta `.tessera-intera` a `z-20` e i suoi comandi a
+     `z-30`, per sollevarli sopra quel velo: a `z-20` la barra pareggiava il
+     velo e perdeva per ordine nel documento (le tessere vengono dopo), mentre
+     i comandi le passavano sopra di netto. Si vedeva scorrendo — i bottoni
+     delle tessere volavano sopra i filtri — e soprattutto si toccava: un dito
+     sul filtro cadeva sul velo della tessera che gli stava sotto e ad aprirsi
+     era la scheda dell'opera. `z-40` la tiene sopra tutt'e due e sotto il velo
+     dei dialoghi (`z-50`), che deve coprire anche lei. */
+  .barra {
+    @apply sticky z-40 flex flex-col gap-3 border-b border-line bg-bg py-3
+           md:flex-row md:items-center;
+    top: var(--app-bar, 0px);
+  }
+
+  /* --- Controllo segmentato: la selezione e' un filo, non un riempimento -- */
+  .segmenti {
+    @apply inline-flex gap-1 rounded-plate border border-line bg-surface p-1;
+  }
+  .segmento {
+    @apply min-h-9 rounded-plate px-3 py-1.5 text-small font-medium text-muted
+           transition-colors hover:text-text;
+  }
+  .segmento-attivo {
+    @apply border-b-2 border-accent text-accent;
+    background-color: var(--accent-velo);
+  }
+
+  /* --- Scelte descritte (radio grandi): si sceglie sulla conseguenza ------ */
+  .scelta {
+    @apply block rounded-card border border-line bg-surface p-4 transition-colors hover:bg-surface-2;
+  }
+  .scelta-attiva {
+    @apply border-accent;
+    background-color: var(--accent-velo);
+  }
+
+  /* --- Comandi del vocabolario controllato (scheda del navigator) -------- */
+  .comando {
+    @apply flex min-h-11 w-full items-center rounded-plate border-l-[3px] border-transparent
+           px-3 py-2.5 text-left text-small font-medium text-text
+           transition-colors hover:bg-surface-2;
+  }
+  .comando-attivo {
+    @apply border-l-accent text-accent;
+    background-color: var(--accent-velo);
+  }
+
+  /*
+    Il collegamento che copre la TESSERA INTERA, figura compresa.
+
+    E' un `<a>` vero messo come ultimo figlio della tessera, non uno pseudo
+    elemento appeso al titolo: un `::after` si posiziona rispetto al primo
+    antenato posizionato, e nella tessera di un'opera quello e' il blocco del
+    testo -- che ha `relative` per risalire sopra la dissolvenza. Il velo
+    copriva percio' il solo testo, e la fotografia restava fuori: un modo
+    silenzioso di rendere la tessera MENO cliccabile di quando la figura era un
+    collegamento suo.
+
+    Il nome accessibile lo porta lui, quindi il titolo non e' piu' un
+    collegamento: una destinazione sola, una voce sola nell'elenco dei
+    collegamenti.
+
+    ⚠️ Il velo copre tutto quel che gli sta sotto, comandi compresi. Una tessera
+    che ne ha -- quella di una visita ha *Inizia* e *Sblocca* -- deve tirarli
+    sopra con `relative z-30`, o smettono di rispondere e restano solo da
+    guardare. Il difetto non da' errori: il clic finisce sul collegamento e la
+    scheda si apre lo stesso, quindi sembra funzionare.
+  */
+  .tessera-intera {
+    @apply absolute inset-0 z-20 rounded-card;
+  }
+
+  /*
+    Quel che si POSSIEDE gia', dove sta in mezzo a quel che non si possiede: il
+    BORDO INTERO della lastra in ACQUISITO, piu' una velatura della stessa
+    tinta. E' il ruolo che il foglio dei token assegna proprio a "posseduto",
+    quindi il colore dice la stessa cosa che dice la parola sulla tessera.
+
+    Il bordo e' tutt'e quattro i lati perche' questa e' la differenza che si
+    deve vedere scorrendo venti tessere uguali senza leggerle: un filo su un
+    lato solo, a un metro di distanza, non si distingue dal margine. Il colore
+    non porta comunque l'informazione da solo -- accanto c'e' sempre la parola
+    (Nella tua libreria, Acquistato, Pubblicata da te).
+
+    La velatura si posa SOPRA il fondo della lastra come immagine, invece di
+    sostituire `bg-surface`: assegnandola a `background-color` la tessera
+    posseduta perderebbe la superficie e resterebbe salvia sul muro, cioe' piu'
+    scura delle altre invece che piu' segnata.
+
+    ⚠️ Va su una lastra che NON si accende d'accento al passaggio: dove il bordo
+    e' gia' un segnale di "ci puoi andare" i due si darebbero fastidio, e li' il
+    possesso va detto in un altro modo.
+  */
+  .lastra-posseduta {
+    @apply border-2 border-sage;
+    background-image: linear-gradient(var(--sage-velo), var(--sage-velo));
+  }
+
+  /* --- Pastiglie: informazione, mai un'azione ----------------------------
+     Il fondo e' la VELATURA del ruolo, cioe' la stessa tinta del testo al 12%
+     su trasparente. Due conseguenze volute: la pastiglia dice il suo ruolo
+     anche a chi la vede di sfuggita senza leggerla, e, essendo trasparente, la
+     si puo' posare su una fotografia senza aprirci un rettangolo opaco.
+     Il colore non porta mai l'informazione da solo: accanto c'e' sempre la
+     parola (Gratis, Posseduto, Visita...). */
+  .pastiglia {
+    @apply inline-flex items-center gap-1 rounded-plate border border-line bg-surface-2
+           px-2 py-0.5 text-caption font-medium uppercase tracking-wider text-muted;
+  }
+  /* Le varianti colorate SOSTITUISCONO `bg-surface-2` con la loro velatura: e'
+     quello a tenerle sopra AA, perche' la velatura finisce sulla lastra e non
+     sopra un secondo grigio. Una pastiglia colorata posata su `surface-2` --
+     dentro un `.vuoto` o un `.avviso` -- somma i due fondi e scende sotto 4.5:1.
+     Misurato: sulla lastra 5.38:1 al chiaro e 4.77:1 al buio; su surface-2
+     3.91:1. Se un giorno ne serve una li', il fondo va tolto, non aggiunto. */
+  .pastiglia-ottone {
+    @apply border-brass/35 text-brass;
+    background-color: var(--brass-velo);
+  }
+  .pastiglia-ametista {
+    @apply border-slate/35 text-slate;
+    background-color: var(--slate-velo);
+  }
+  .pastiglia-salvia {
+    @apply border-sage/35 text-sage;
+    background-color: var(--sage-velo);
+  }
+  .pastiglia-allarme {
+    @apply border-danger/35 text-danger;
+    background-color: var(--danger-velo);
+  }
+  .pastiglia-accento {
+    @apply border-accent/35 text-accent;
+    background-color: var(--accent-velo);
+  }
+  /*
+    IL TONO, un colore per gradino. La pagina di un'opera mette in fila venti
+    descrizioni che differiscono solo per tono e durata: con una tinta sola per
+    tutte, sapere quali sono per bambini vuol dire leggere venti parole.
+
+    ⚠️ Il nome della classe si RICAVA dal tono (`toneClass`), non da una tabella:
+    un tono nuovo in `educationalLevelHints` compare da solo, e finche' nessuno
+    gli scrive qui la sua riga resta una pastiglia neutra -- che e' il ripiego
+    giusto, perche' l'informazione la porta la parola dentro. Cambiando qui i
+    nomi si scollegano in silenzio: si toccano insieme.
+  */
+  .pastiglia-tono-infantile {
+    @apply border-tono-infantile/35 text-tono-infantile;
+    background-color: var(--tono-infantile-velo);
+  }
+  .pastiglia-tono-semplice {
+    @apply border-tono-semplice/35 text-tono-semplice;
+    background-color: var(--tono-semplice-velo);
+  }
+  .pastiglia-tono-medio {
+    @apply border-tono-medio/35 text-tono-medio;
+    background-color: var(--tono-medio-velo);
+  }
+  .pastiglia-tono-avanzato {
+    @apply border-tono-avanzato/35 text-tono-avanzato;
+    background-color: var(--tono-avanzato-velo);
+  }
+  /*
+    La DURATA. Sta accanto al tono, che e' ametista, e prima era testo nudo: due
+    metadati della stessa riga, uno vestito e l'altro no.
+
+    Non prende una tinta semantica sua, e il motivo va saputo prima di
+    cambiarlo: le quattro sono assegnate (valore, categoria, acquisito,
+    allarme) e la durata non e' nessuna delle quattro. Darle l'ottone la
+    farebbe leggere come un prezzo -- che sta due posti piu' in la' nella stessa
+    riga -- e darle l'accento direbbe che si puo' cliccare. Prende quindi la
+    forma della pastiglia e resta neutra: si distingue dal tono per il colore
+    che NON ha, ed e' l'unico modo di distinguerla senza mentire su che cosa
+    sia. Chi volesse una tinta vera deve aggiungere un quinto ruolo alla
+    sorgente, e rifare le due misure di `theme.css`.
+  */
+  .pastiglia-durata {
+    @apply border-line-strong/40 text-text;
+  }
+
+  /* Cifre che rappresentano un valore: prezzi, ricavi, credito. */
+  .valore {
+    @apply tabular-nums text-brass;
+  }
+  /* Lo stesso valore quando siede sulla STRUTTURA. Non e' una rifinitura: la
+     barra e' scura in tutt'e due i temi, ma l'ottone si schiarisce solo al buio,
+     quindi al chiaro il credito era ottone scuro su Notte -- misurato 1.87:1,
+     cioe' illeggibile. Qui l'ottone e' sempre quello schiarito. */
+  .valore-su-struttura {
+    @apply tabular-nums;
+    color: var(--brass-chiaro);
+  }
+
+  /* Riga o blocco messo in evidenza: velatura, non un altro fondo. */
+  .evidenza {
+    background-color: var(--tint);
+  }
+
+  /* Una pastiglia CLICCABILE e' un bottone travestito: ha aria-pressed */
+  .pastiglia-bottone {
+    @apply inline-flex min-h-9 items-center rounded-plate border border-line px-2.5
+           text-caption font-medium uppercase tracking-wider text-muted
+           transition-colors hover:text-text;
+  }
+  .pastiglia-attiva {
+    @apply border-accent text-accent;
+    background-color: var(--accent-velo);
+  }
+
+  /* --- Immagini: tre modi di mostrare un'opera --------------------------- */
+  /*
+    La DISSOLVENZA e' la tessera del catalogo. La figura riempie la testa della
+    lastra e ci sfuma dentro con una maschera, cosi' il titolo le arriva sopra
+    invece di stare in un riquadro separato sotto di lei. Il ritaglio e' voluto:
+    una tessera e' un richiamo, e un'immagine contenuta dentro proporzioni fisse
+    lascia bande vuote proprio dove dovrebbe esserci il colore dell'opera. Chi
+    vuole vedere l'opera intera apre la sua pagina, dove c'e' `.figura`.
+
+    La maschera si spegne presto, e dove passa il titolo non resta quasi niente:
+    quel titolo e' inchiostro sulla lastra, quindi ogni punto d'immagine ancora
+    acceso sotto di lui gli toglie contrasto. Le fermate valgono per i due temi,
+    e il caso peggiore e' quello scuro, dove il testo e' chiaro e una zona
+    bianca del quadro che affiorasse gli si avvicinerebbe.
+  */
+  .dissolvenza {
+    @apply relative block overflow-hidden;
+    aspect-ratio: 4 / 3;
+    background-color: var(--tint);
+    --sfumatura: linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 46%,
+      rgb(0 0 0 / 0.9) 60%,
+      rgb(0 0 0 / 0.55) 72%,
+      rgb(0 0 0 / 0.18) 80%,
+      transparent 86%
+    );
+    -webkit-mask-image: var(--sfumatura);
+    mask-image: var(--sfumatura);
+  }
+  /* Il ritaglio non e' centrato: in un quadro verticale il soggetto sta nella
+     meta' alta, e centrando si perdeva insieme al volto. */
+  .dissolvenza img {
+    @apply h-full w-full object-cover transition-transform duration-500;
+    object-position: 50% 30%;
+  }
+
+  /* La stessa sfumatura, ma su un'immagine che resta nel flusso invece di
+     riempire una riga: serve alla scheda del navigator, dove sul telefono
+     l'opera sta di fianco al titolo. Da `lg` la maschera si toglie, perche' li'
+     c'e' l'altezza per l'opera intera e quella non si sfuma: la si guarda.
+     Va dichiarata prima di `.figura`, che sullo stesso elemento porta il resto. */
+  .figura-sfumata {
+    --sfumatura-lato: linear-gradient(
+      to right,
+      #000 0%,
+      #000 52%,
+      rgb(0 0 0 / 0.7) 72%,
+      rgb(0 0 0 / 0.24) 88%,
+      transparent 100%
+    );
+    -webkit-mask-image: var(--sfumatura-lato);
+    mask-image: var(--sfumatura-lato);
+  }
+  @media (min-width: 1024px) {
+    .figura-sfumata {
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+  }
+
+  /* La FIGURA e' l'opera vista per intero. Nessuna cornice, nessun fondo e
+     nessun contenitore: senza proporzioni imposte non restano bande attorno a
+     un quadro verticale. Sta sull'<img>, quindi dove serve la si stringe con
+     un'altezza massima. */
+  .figura {
+    @apply w-full rounded-card object-contain;
+  }
+
+  /*
+    La RIGA FIGURATA e' la dissolvenza applicata a un elenco invece che a una
+    griglia. Sostituisce il quadratino con un fondo suo: quello incorniciava
+    l'opera dentro 56 px e circondava di grigio proprio la cosa che si sta
+    scegliendo, e in un elenco di venti righe il grigio diventa la tinta della
+    schermata. Qui la figura entra dal bordo della riga, la riempie in altezza e
+    sfuma dentro la lastra prima che cominci il testo.
+
+    La sfumatura arriva a zero PRIMA della colonna di testo, e non e' un gusto:
+    cosi' nessuna parola sta mai sopra un'immagine, quindi non c'e' nessun
+    rapporto di contrasto che dipenda da che quadro sia capitato in quella riga.
+    E' la differenza con la tessera della vetrina, dove il titolo la attraversa
+    e le fermate della maschera vanno percio' misurate.
+
+    Il fondo velato resta anche quando l'immagine manca: senza, la riga di
+    un'opera senza figura perderebbe il suo posto e il testo scivolerebbe sotto
+    quello delle altre.
+  */
+  .riga-figurata {
+    @apply relative flex items-stretch overflow-hidden;
+  }
+  .figura-riga {
+    @apply relative shrink-0 self-stretch overflow-hidden;
+    width: 6.5rem;
+    min-height: 4.5rem;
+    background-color: var(--slate-velo);
+    --sfumatura-riga: linear-gradient(
+      to right,
+      #000 0%,
+      #000 40%,
+      rgb(0 0 0 / 0.7) 62%,
+      rgb(0 0 0 / 0.26) 80%,
+      transparent 100%
+    );
+    -webkit-mask-image: var(--sfumatura-riga);
+    mask-image: var(--sfumatura-riga);
+  }
+  @media (min-width: 640px) {
+    .figura-riga {
+      width: 8.5rem;
+    }
+  }
+  /* La variante corta serve dove la riga divide lo schermo con qualcos'altro,
+     come il percorso del compositore, che sta in mezza colonna accanto alla
+     libreria: a larghezza piena la figura mangia il titolo e lo tronca a tre
+     lettere. Va dichiarata DOPO la media query, o quella la sovrascrive. */
+  .figura-riga-corta {
+    width: 5rem;
+  }
+  /* Come nella tessera: il ritaglio sta in alto, dove in un quadro verticale
+     c'e' il soggetto. */
+  .figura-riga img {
+    @apply absolute inset-0 h-full w-full object-cover;
+    object-position: 50% 30%;
+  }
+  /* Il corpo della riga porta lui la spaziatura, perche' la riga non ne ha:
+     la figura deve toccare il bordo. */
+  .riga-corpo {
+    @apply min-w-0 flex-1 p-3;
+  }
+
+  /* Il numero di una tappa, posato sulla sua figura. E' un dischetto PIENO di
+     struttura e non testo sull'immagine: cosi' il rapporto di contrasto e'
+     quello del disco e non dipende da che quadro sia capitato li' sotto.
+     Sta a sinistra, dove la maschera non ha ancora cominciato a sfumare. */
+  .numero-tappa {
+    @apply absolute left-2 top-2 z-10 inline-flex h-7 min-w-7 items-center justify-center
+           rounded-full bg-structure px-1.5 font-display text-caption font-semibold
+           tabular-nums text-on-structure;
+  }
+
+  /* Il ripiego dove l'immagine e' il soggetto della schermata: resta il nome,
+     che e' l'unica cosa che si puo' ancora dire. Nella tessera non serve, li'
+     il nome sta gia' sotto. */
+  .senza-figura {
+    @apply flex items-center justify-center rounded-card bg-surface-2 px-4 py-12
+           text-center font-display text-title-3 text-muted;
+  }
+
+  /* --- Note logistiche: non sono tappe, e si vede ------------------------ */
+  .nota-logistica {
+    @apply ml-6 mt-2 flex items-center gap-2 border-l-2 border-dashed border-line
+           py-2 pl-4 text-small italic text-muted;
+  }
+
+  /* --- L'ATTESA: il marchio si scompone e si ricompone --------------------
+     I tre quadri si staccano lungo la NORMALE della loro faccia, l'angolo di
+     sala gira di 120 gradi e rientrano. Gira di 120 perche' il segno ha
+     simmetria a tre: dopo un terzo di giro e' identico a se' stesso, quindi il
+     ciclo si richiude senza scatto.
+
+     ⚠️ QUATTRO `<svg>` SOVRAPPOSTI, non quattro `<g>` dentro uno. Chrome non
+     manda al compositore le trasformazioni INTERNE a un SVG: restano sul thread
+     principale, che in queste attese sta costruendo il catalogo, e l'animazione
+     si pianta proprio quando serve. Un `<svg>` intero prende invece un layer
+     suo. Stesso viewBox su tutti e quattro, quindi si allineano da se'.
+
+     ⚠️ Il ciclo dura 1,4 s perche' il giro comincia al 22%: piu' lungo, e
+     un'attesa che si risolve in un secondo mostra i quadri uscire e sparisce
+     prima che il cubo abbia girato.
+
+     ⚠️ Non va mai da solo: a "riduci animazioni" (theme.css) resta immobile, e
+     la frase accanto e' l'unica cosa che dice ancora che si sta aspettando. */
+  .marchio-attesa {
+    @apply relative inline-block;
+  }
+  .marchio-attesa > svg {
+    @apply absolute inset-0 h-full w-full;
+    overflow: visible; /* i quadri escono dal riquadro: e' il movimento */
+    will-change: transform;
+  }
+  .marchio-cubo {
+    animation: marchio-giro 1400ms ease-in-out infinite;
+  }
+  .marchio-quadro-alto,
+  .marchio-quadro-destra,
+  .marchio-quadro-sinistra {
+    animation: marchio-fuga 1400ms ease-in-out infinite;
+  }
+  /* Un movimento solo, tre direzioni: le normali delle tre facce. */
+  .marchio-quadro-alto {
+    --fuga-x: 0;
+    --fuga-y: -34%;
+  }
+  .marchio-quadro-destra {
+    --fuga-x: 29.4%;
+    --fuga-y: 17%;
+  }
+  .marchio-quadro-sinistra {
+    --fuga-x: -29.4%;
+    --fuga-y: 17%;
+  }
+
+  /* --- Stati vuoti: una frase e un'azione, mai una griglia fantasma ------ */
+  .vuoto {
+    @apply rounded-card border border-line bg-surface-2 px-6 py-10 text-center;
+  }
+
+  /* --- Avvisi in linea --------------------------------------------------- */
+  .avviso {
+    @apply flex items-start gap-3 rounded-card border border-line bg-surface-2 p-4
+           text-small text-muted;
+  }
+
+  /* --- Collegamenti ------------------------------------------------------ */
+  .link {
+    @apply font-medium text-accent underline underline-offset-4 hover:opacity-80;
+  }
+  /*
+    Il Verderame come testo su Cemento fa 4.06:1, sotto la soglia AA per il
+    testo normale (prelude.md §3.1, l'unica eccezione dichiarata); sulle lastre
+    di Gesso fa 5.74:1 e va bene. Qui percio' il collegamento resta inchiostro e
+    si distingue per la sottolineatura invece che per il colore.
+  */
+  .link-scuro {
+    @apply text-text underline decoration-line underline-offset-4 hover:decoration-accent;
+  }
+}
+
+/* I fotogrammi dell'attesa. Fuori da `@layer components`: un `@keyframes` non
+   e' una regola di stile e dentro un livello non ha niente da ordinare.
+   I quadri escono nel primo quinto, RESTANO FUORI mentre l'angolo gira e
+   rientrano nell'ultimo: girando insieme a lui non si vedrebbe girare niente,
+   perche' il segno e' identico a se' stesso ogni 120 gradi. */
+@keyframes marchio-giro {
+  0%, 22% { transform: rotate(0deg); }
+  78%, 100% { transform: rotate(120deg); }
+}
+@keyframes marchio-fuga {
+  0%, 100% { transform: translate(0, 0); }
+  22%, 78% { transform: translate(var(--fuga-x), var(--fuga-y)); }
+}

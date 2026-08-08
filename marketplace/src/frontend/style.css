@@ -1,94 +1,228 @@
 @import "tailwindcss";
-@plugin "@headlessui/tailwindcss";
+/* Token e componenti: un'unica fonte condivisa col navigator.
+   Non aggiungere qui colori o componenti generici: vanno in shared/. */
+@import "../../../shared/theme.css";
+@import "../../../shared/components.css";
+
+/* Tailwind deve scandire anche l'HTML servito (le classi vivono li', non nel TS) */
+@source "../../public/index.html";
 
 /*
-  Dark mode pilotato da una classe `.dark` su <html> (vedi il toggle in
-  index.html + lo script anti-FOUC). Tenuto in sync col navigator: stessa
-  chiave localStorage "artaround-theme".
+  IL DEPOSITO: solo cio' che esiste unicamente nel marketplace, cioe' il binario
+  di navigazione, il banco di lavoro dell'editor e la soglia. Tutto il resto
+  (lastre, bottoni, campi, pastiglie, immagini) sta in shared/components.css.
 */
-@custom-variant dark (&:where(.dark, .dark *));
 
-/*
-  Stessi token semantici del navigator (palette "Swiss minimal": grigi
-  neutri + un singolo accento blu). Usiamo `@theme inline` cosi' le utility
-  Tailwind (es. bg-bg, text-text, border-border, bg-accent) puntano alle
-  CSS var, mantenendo coerenza visiva fra marketplace e navigator.
-*/
-@theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-text: var(--text);
-  --color-muted: var(--muted);
-  --color-border: var(--border);
-  --color-accent: var(--accent);
-  --color-on-accent: var(--on-accent);
-  --color-focus: var(--focus);
-  --color-danger: var(--danger);
-
-  --font-sans:
-    "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
+/* Alpine non ha ancora inizializzato: nascondi tutto invece di mostrare ogni
+   vista impilata per un istante. */
+[x-cloak] {
+  display: none !important;
 }
 
-/* Tema chiaro (default) — contrasti verificati >= WCAG AA */
+/* Quant'e' alta la barra dell'applicazione, che sotto `lg` sta incollata in alto
+   e da `lg` in su non esiste (li' la navigazione e' il binario a sinistra). La
+   misura sta qui perche' la usano in due: l'intestazione, che ci si disegna
+   dentro, e le barre di strumenti, che ci si fermano sotto. Scritta due volte,
+   una delle due invecchierebbe e i campi di ricerca finirebbero nascosti. */
 :root {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #fafafa;
-  --text: #111113;
-  --muted: #5b5b62;
-  --border: #e3e3e6;
-  --accent: #1f4fd6;
-  --on-accent: #ffffff;
-  --focus: #1f4fd6;
-  --danger: #c12626;
-  color-scheme: light;
+  --app-bar: 4rem;
+}
+@media (min-width: 1024px) {
+  :root {
+    --app-bar: 0px;
+  }
 }
 
-/* Tema scuro */
-.dark {
-  --bg: #0c0c0e;
-  --surface: #151517;
-  --surface-2: #1b1b1e;
-  --text: #f2f2f3;
-  --muted: #a8a8b0;
-  --border: #2a2a2e;
-  --accent: #5f82ff;
-  --on-accent: #0a0a0c;
-  --focus: #5f82ff;
-  --danger: #ff6b6b;
-  color-scheme: dark;
+@layer components {
+  /* --- Voci del binario --------------------------------------------------
+     Sotto lg il binario e' una barra in basso e le voci sono colonne affiancate:
+     l'icona sta in cima e l'etichetta sotto, centrata. Le due righe che sembrano
+     rifiniture tengono in piedi la barra come RIGA di icone:
+
+     - `justify-start` invece di `justify-center`: un'etichetta che va a capo
+       alza l'icona della sua voce, quindi con le voci centrate le icone stanno
+       ad altezze diverse a seconda di quanto e' lunga la parola. Ancorate in
+       cima, la riga di icone resta una riga in qualunque lingua.
+     - `text-center`: la casella dell'etichetta e' larga quanto la voce, quindi
+       senza allineamento la prima riga si appoggia a sinistra e non sta sotto
+       l'icona.
+
+     Da lg la voce e' una riga in un binario verticale e le due tornano a
+     `flex-row` / testo a sinistra. */
+  .voce-binario {
+    @apply relative flex min-h-14 flex-1 flex-col items-center justify-start gap-1 px-2 py-2
+           text-center text-caption font-medium text-on-structure/70 transition-colors
+           hover:text-on-structure
+           lg:min-h-11 lg:flex-none lg:flex-row lg:items-center lg:gap-3 lg:rounded-plate
+           lg:px-3 lg:text-left lg:text-small;
+  }
+  .voce-attiva {
+    @apply text-on-structure lg:bg-on-structure/10;
+  }
+  /* Il segno "sei qui" non e' solo colore: e' anche una barra */
+  .voce-attiva::before {
+    content: "";
+    @apply absolute bottom-0 h-0.5 w-10 rounded-full bg-accent
+           lg:bottom-auto lg:left-0 lg:h-6 lg:w-0.5;
+  }
+
+  /* --- Passi del banco di lavoro ----------------------------------------- */
+  .passi {
+    @apply flex flex-wrap gap-1 border-b border-line;
+  }
+  .passo {
+    @apply min-h-11 border-b-2 border-transparent px-4 py-2 text-small font-medium
+           text-muted transition-colors hover:text-text
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .passo-attivo {
+    @apply border-accent text-accent;
+  }
+
+  /* --- Barra di salvataggio: dice sempre cosa manca, non tace e rifiuta --- */
+  .barra-salva {
+    @apply sticky bottom-20 z-20 flex flex-col gap-3 rounded-card border border-line
+           bg-surface p-4 shadow-l1 sm:flex-row sm:items-center sm:justify-between lg:bottom-4;
+  }
+
+  /* --- Copertina: una visita non ha una fotografia sola -------------------
+     A portarla e' quindi il titolo, in carattere display sulla struttura: la
+     stessa superficie della soglia, e la tessera di una visita resta cosi'
+     riconoscibilmente diversa da quella di un'opera, che invece e' una figura
+     col nome sotto.
+
+     Non ci va la figura della prima tappa: le visite di catalogo di un museo
+     sono le stesse opere nello stesso ordine, e cambia solo il tono, quindi
+     una fotografia presa dal percorso esce identica su tutte le tessere. Una
+     scelta piu' furba non c'e': quale opera rappresenti un percorso e' una
+     domanda di curatela, e nel dato non c'e' la risposta.
+
+     Il filo in basso lo mette `.filo-accento` (in shared/components.css), che
+     e' lo stesso segno di ogni altra lastra che si puo' toccare: qui si accende
+     puntando la tessera intera e non il solo titolo, perche' e' quello il gesto
+     che si sta facendo. */
+  .copertina {
+    @apply relative flex items-end overflow-hidden bg-structure p-5 font-display
+           text-title-2 leading-tight text-on-structure;
+    aspect-ratio: 16 / 9;
+  }
+  .copertina span {
+    @apply line-clamp-3;
+  }
+
+  /* --- L'iride: la visita che nasce da una frase -------------------------
+     Tre segni soli, sempre gli stessi tre, in tutti i punti da cui ci si
+     arriva: la tessera che porta l'icona, il filo sul bordo, il bottone che
+     avvia. Il gradiente sta in `--iride` (vedi `theme.css`) perche' e'
+     ricavato dai quattro semantici e deve seguirli anche al buio. */
+  .tessera-iride {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-card;
+    background-image: var(--iride);
+    color: var(--on-iride);
+  }
+  /* Il filo va disegnato, non messo come bordo: `border-image` non convive con
+     il raggio della lastra e squadrerebbe l'angolo. */
+  .filo-iride {
+    @apply relative overflow-hidden;
+  }
+  .filo-iride::before {
+    content: "";
+    @apply absolute inset-y-0 left-0 w-[3px];
+    background-image: var(--iride);
+  }
+  .btn-iride {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-plate px-4
+           text-small font-semibold transition-opacity hover:opacity-90;
+    background-image: var(--iride);
+    color: var(--on-iride);
+  }
 }
 
-@layer base {
-  html {
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
+/*
+  IL FONDALE DELLA SOGLIA.
+  Il disegno lo fa lo sciame di punti in app.ts; qui si stabilisce solo che
+  copre tutta la sezione, che non intercetta il puntatore e che sta sotto al
+  contenuto.
+*/
+.sciame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* Entra in dissolvenza: il primo fotogramma e' una nuvola sparsa, e comparire
+     di colpo la faceva sembrare grana invece dell'inizio di un quadro. La
+     regola globale di theme.css la annulla a "riduci animazioni". */
+  animation: sciame-entra 900ms var(--ease-out, ease-out) both;
+}
 
-  body {
-    background-color: var(--bg);
-    color: var(--text);
+@keyframes sciame-entra {
+  from {
+    opacity: 0;
   }
-
-  /* Focus visibile e ad alto contrasto su qualsiasi elemento interattivo */
-  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
-
-  /* Rispetta la preferenza "riduci animazioni" */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
+  to {
+    opacity: 1;
   }
 }
-</content>
+
+/*
+  Velo: lascia in luce la figura e scurisce tutto il resto. Serve a due cose
+  insieme, dare profondita' allo sciame e staccare il titolo dal fondale, dove
+  altrimenti i punti gli si avvicinano troppo.
+*/
+.sciame-velo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /*
+    Sulle viewport strette la figura sta in alto e il testo sotto: il velo e'
+    un'ombra che cresce verso il basso, trasparente sul volto e piena sotto al
+    titolo. Con la sola vignettatura centrata il testo cadeva in mezzo al
+    retino e non si leggeva piu'.
+  */
+  background:
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 22%,
+      rgb(0 0 0 / 0.42) 38%,
+      rgb(0 0 0 / 0.66) 55%,
+      rgb(0 0 0 / 0.72) 100%
+    ),
+    radial-gradient(
+      115% 85% at 50% 34%,
+      transparent 40%,
+      rgb(0 0 0 / 0.22) 78%,
+      rgb(0 0 0 / 0.45) 100%
+    );
+}
+
+/*
+  Sulle viewport larghe la figura si sposta a destra (vedi nextShape) e il
+  titolo tiene la sinistra: il velo segue: un'ombra piena sotto al testo, e la
+  luce spostata dove ora sta il quadro. Con la vignettatura centrata il titolo
+  finiva nel punto piu' chiaro del fondale.
+*/
+@media (min-width: 1024px) {
+  .sciame-velo {
+    background:
+      linear-gradient(
+        to right,
+        rgb(0 0 0 / 0.62) 0%,
+        rgb(0 0 0 / 0.38) 34%,
+        transparent 56%
+      ),
+      radial-gradient(
+        95% 85% at 70% 50%,
+        transparent 45%,
+        rgb(0 0 0 / 0.25) 78%,
+        rgb(0 0 0 / 0.5) 100%
+      );
+  }
+}
+
+/* Il marchio: grande sulla soglia, ma sempre sotto al titolo per peso visivo. */
+.marchio {
+  width: clamp(3rem, 7vw, 4.5rem);
+  height: clamp(3rem, 7vw, 4.5rem);
+}

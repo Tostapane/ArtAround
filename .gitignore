@@ -36,3 +36,6 @@ __screenshots__/
 # Claude Code
 .claude/
 CLAUDE.md
+
+# cache di npm creata da deploy-build.js dentro il container
+.npm-cache/

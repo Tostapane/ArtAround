@@ -1,0 +1,540 @@
+/**
+ * LINGUE: i cataloghi dell'interfaccia del navigator.
+ *
+ * Non tocca il database: per questo non sta in `testers.ts`, che dichiara in testa
+ * di essere l'utilita' che i dati esistenti li riallinea. Qui si legge il sorgente
+ * e si scrivono dodici file JSON.
+ *
+ * Il modello gira una volta sola, qui, e non davanti al visitatore. Tradurre a
+ * runtime darebbe la stessa frase in due modi in due caricamenti, dipenderebbe da
+ * una quota che puo' esaurirsi, e non lascerebbe nessun file da correggere quando
+ * una parola esce storta. L'applicazione pronuncia le proprie etichette, e una
+ * parola che oscilla e' peggio di una sbagliata.
+ *
+ * Si usa il modello e non il servizio di traduzione che il progetto gia' adopera
+ * per i contenuti perche' qui le stringhe sono corte e senza contesto, ed e'
+ * proprio li' che una traduzione automatica sbaglia: "tappa" da sola e' un tappo,
+ * una sosta o una frazione di gara, "vetrina" e' una finestra di negozio. Al
+ * modello si possono passare il glossario e il contesto museale, cosa che a
+ * `translateTexts` non si puo' dire.
+ *
+ * I contenuti restano invece dove sono, perche' sono dati: crescono quando un
+ * autore pubblica e non si possono enumerare in anticipo. L'interfaccia sta nel
+ * sorgente e quindi si enumera, ed e' quella la riga che divide le due strade.
+ *
+ * Le revisioni a mano non si perdono: `traduci` riempie solo le chiavi mancanti.
+ * Per rifare una traduzione si cancella quella riga dal file, o si passa `--tutto`.
+ *
+ * Uso:
+ *   npx ts-node src/scripts/languages.ts chiavi     elenca le chiavi trovate nel sorgente
+ *   npx ts-node src/scripts/languages.ts residui    le frasi italiane NON ancora avvolte in t()
+ *   npx ts-node src/scripts/languages.ts traduci    riempie i buchi nei cataloghi
+ *   npx ts-node src/scripts/languages.ts traduci en riempie i buchi di una lingua sola
+ *   npx ts-node src/scripts/languages.ts pota       toglie le traduzioni di chiavi che non esistono piu'
+ *   npx ts-node src/scripts/languages.ts stato      quante chiavi, quante tradotte, quante orfane
+ */
+
+// `./env` va importato PRIMA del client: legge il .env, e senza di lui la chiave
+// arriva vuota e il modello risponde "API key should be set" a ogni richiesta.
+import "../env";
+import fs from "fs";
+import path from "path";
+import { GoogleGenAI } from "@google/genai";
+import {
+  SOURCE_LANG,
+  languages,
+  options,
+  educationalLevels,
+  educationalLevelHints,
+  assignedLevels,
+  visitDurationBands,
+} from "../../../shared/constants";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const MODEL = "gemini-3.1-flash-lite";
+
+const ROOT = path.resolve(__dirname, "../../..");
+const CATALOGS_DIR = path.join(ROOT, "shared/i18n");
+
+/**
+ * Dove si cercano le frasi. Le due applicazioni condividono i cataloghi, quindi
+ * vanno scandite tutte e due: se ne saltasse una, `pota` prenderebbe le sue
+ * chiavi per orfane e le cancellerebbe.
+ *
+ * Il marketplace ha una pagina sola, e le sue frasi stanno per meta' dentro
+ * l'HTML (nelle espressioni Alpine) e per meta' nei moduli TypeScript.
+ */
+const SOURCE_DIRS = [
+  path.join(ROOT, "navigator/src"),
+  path.join(ROOT, "marketplace/src/frontend"),
+];
+const SOURCE_FILES = [path.join(ROOT, "marketplace/public/index.html")];
+
+function allSources(): string[] {
+  const files: string[] = [];
+  for (const dir of SOURCE_DIRS) {
+    if (fs.existsSync(dir)) walkFiles(dir, files);
+  }
+  for (const f of SOURCE_FILES) {
+    if (fs.existsSync(f)) files.push(f);
+  }
+  return files;
+}
+
+// ============================================================================
+//                          Raccolta delle chiavi
+// ============================================================================
+
+/**
+ * Le chiavi sono le stringhe passate a `t(...)`, piu' gli elenchi di
+ * `shared/constants.ts`. Questi vanno presi a parte perche' nel codice compaiono
+ * come `t(o.label)`, `t(v.level)`, `t(toneHints[tono])` e `t(b.label)`: la
+ * chiave sta nei DATI, e una scansione del testo non la vedrebbe mai. E' il
+ * prezzo di una chiave calcolata, ed e' anche il motivo per cui quei dati
+ * stanno tutti in quel file: una chiave calcolata scritta altrove resterebbe
+ * fuori dal catalogo, e `pota` cancellerebbe le sue traduzioni come orfane.
+ *
+ * I TONI si traducono ma non cambiano di valore: `Medio` resta `Medio` nel
+ * database, nel confronto del filtro e nella richiesta al server: si traduce
+ * solo quel che si legge. Tradurre il valore vorrebbe dire che un filtro scelto
+ * in cinese non trova piu' niente.
+ */
+function keysFromSource(): string[] {
+  const found = new Set<string>();
+
+  for (const o of options) {
+    found.add(o.label);
+    if (o.hint) found.add(o.hint);
+  }
+
+  for (const livello of educationalLevels) found.add(livello);
+  for (const livello of educationalLevels) {
+    const aiuto = educationalLevelHints[livello];
+    if (aiuto) found.add(aiuto);
+  }
+
+  for (const livello of assignedLevels) found.add(livello);
+
+  for (const banda of visitDurationBands) found.add(banda.label);
+
+  for (const file of allSources()) {
+    const text = withoutComments(fs.readFileSync(file, "utf8"));
+    // t("…"), t('…') o t(`…`): la chiave e' letterale e mai un'espressione,
+    // perche' una chiave calcolata non si potrebbe raccogliere da qui e
+    // resterebbe non tradotta.
+    // I backtick servono nei template: `:aria-label="t(`Scheda dell'opera`)"` e'
+    // l'unico modo di scrivere una stringa con un apostrofo dentro un attributo
+    // gia' delimitato da virgolette doppie.
+    const re = /\bt\(\s*(['"`])((?:\\.|(?!\1)[^\\])*?)\1\s*[,)]/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) {
+      const key = m[2].replace(/\\(['"`])/g, "$1");
+      // Un backtick con dentro `${}` sarebbe una chiave che cambia a ogni
+      // esecuzione: la si segnala invece di metterla in catalogo.
+      if (key.includes("${")) {
+        console.warn(`[lingue] chiave calcolata, non traducibile: ${key.slice(0, 60)}`);
+        continue;
+      }
+      if (key.trim()) found.add(key);
+    }
+  }
+
+  return [...found].sort((a, b) => a.localeCompare(b, "it"));
+}
+
+/**
+ * Toglie i commenti prima di scandire. Non e' una pulizia: le intestazioni di
+ * questo progetto spiegano il codice citandolo, quindi un `t("Esci")` scritto in
+ * un commento d'esempio finirebbe nei cataloghi come chiave vera. Le stringhe
+ * vanno saltate per intero, o un apostrofo italiano dentro un commento
+ * ("perche'") aprirebbe un letterale che non si chiude piu'.
+ */
+function withoutComments(src: string): string {
+  let out = "";
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src[i];
+    const d = src[i + 1];
+    if (c === "<" && src.startsWith("<!--", i)) {
+      const end = src.indexOf("-->", i);
+      i = end < 0 ? n : end + 3;
+      continue;
+    }
+    if (c === "/" && d === "/") {
+      while (i < n && src[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && d === "*") {
+      i += 2;
+      while (i < n && !(src[i] === "*" && src[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      const q = c;
+      out += c;
+      i++;
+      while (i < n && src[i] !== q) {
+        if (src[i] === "\\") {
+          out += src[i];
+          i++;
+        }
+        out += src[i];
+        i++;
+      }
+      out += q;
+      i++;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * Le frasi italiane che nessuno ha avvolto in `t()`.
+ *
+ * E' il complemento dell'avviso del runtime e i due non si sostituiscono: quello
+ * dice che una chiave non ha traduzione, questo che una frase non e' mai diventata
+ * una chiave. Una stringa scritta a mano non chiede nessuna traduzione, quindi il
+ * runtime non la vedra' mai, ed e' cosi' che questo lavoro si sfalda quando si
+ * aggiunge una schermata.
+ *
+ * Guarda solo dove finisce il testo che si vede: i nodi dei template, i quattro
+ * attributi visibili, `announce()`, `riferisci()` e le assegnazioni a `*.value`.
+ * Cercando ogni letterale italiano si otterrebbero decine di risultati tutti
+ * deliberati, cioe' gli id dei comandi (che il modello confronta), i prompt
+ * scritti per il modello e non per il visitatore e i `console.error`: un controllo
+ * da rigiudicare a mano ogni volta non e' un controllo, e conviene che dica zero
+ * quando e' pulito.
+ */
+function strayStrings(): { file: string; text: string }[] {
+  const stray: { file: string; text: string }[] = [];
+  const ITALIANO = /[a-zA-ZàèéìòùÀÈÉÌÒÙ]{2,}/;
+
+  for (const file of allSources()) {
+    if (file.endsWith("i18n.ts")) continue;
+    const src = fs.readFileSync(file, "utf8");
+
+    // Le espressioni `{{ }}` si tolgono PRIMA dei tag: un `<` dentro un confronto
+    // (`{{ n < 0 ? … }}`) sembrerebbe l'inizio di un tag e mangerebbe fino al primo
+    // `>` utile. E il taglio dei tag salta le virgolette, o un `>` dentro un
+    // attributo (`v-if="n > 0"`) spezzerebbe il tag a meta'.
+    // In un `.vue` il testo visibile sta dentro <template>; in `index.html` e'
+    // tutta la pagina, e il <head> non porta frasi da tradurre.
+    let grezzo: string;
+    if (file.endsWith(".html")) {
+      grezzo = (src.match(/<body[^>]*>([\s\S]*)<\/body>/) || ["", ""])[1]!;
+    } else {
+      grezzo = (src.match(/<template>([\s\S]*)<\/template>/) || ["", ""])[1]!;
+    }
+    const tpl = grezzo
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/\{\{[\s\S]*?\}\}/g, "⟦⟧");
+
+    for (const chunk of tpl.split(/<(?:"[^"]*"|'[^']*'|[^>])*>/)) {
+      const text = chunk.replace(/⟦⟧/g, " ").replace(/\s+/g, " ").trim();
+      if (text.length > 1 && ITALIANO.test(text)) {
+        stray.push({ file: path.relative(ROOT, file), text });
+      }
+    }
+
+    for (const attr of ["placeholder", "aria-label", "title", "alt"]) {
+      const re = new RegExp(`(?<![:\\w-])${attr}\\s*=\\s*"([^"]*)"`, "g");
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(tpl))) {
+        const v = m[1]!.trim();
+        if (v.length > 3 && /\s/.test(v) && ITALIANO.test(v)) {
+          stray.push({ file: path.relative(ROOT, file), text: `${attr}="${v}"` });
+        }
+      }
+    }
+
+    const script = withoutComments(src.replace(/<template>[\s\S]*<\/template>/, ""));
+    const visible = /(?:announce|riferisci)\(\s*(['"])|\.value\s*=\s*(['"])/g;
+    let m: RegExpExecArray | null;
+    while ((m = visible.exec(script))) {
+      const q = m[1] || m[2]!;
+      const end = script.indexOf(q, visible.lastIndex);
+      if (end < 0) continue;
+      const v = script.slice(visible.lastIndex, end).trim();
+      if (v.length > 3 && /\s/.test(v) && ITALIANO.test(v)) {
+        stray.push({ file: path.relative(ROOT, file), text: v });
+      }
+    }
+  }
+  return stray;
+}
+
+function walkFiles(dir: string, acc: string[] = []): string[] {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walkFiles(p, acc);
+    else if (/\.(vue|ts)$/.test(e.name)) acc.push(p);
+  }
+  return acc;
+}
+
+// ============================================================================
+//                              Traduzione
+// ============================================================================
+
+function catalogPath(code: string): string {
+  return path.join(CATALOGS_DIR, `${code}.json`);
+}
+
+function readCatalog(code: string): Record<string, string> {
+  const p = catalogPath(code);
+  if (!fs.existsSync(p)) return {};
+  return JSON.parse(fs.readFileSync(p, "utf8"));
+}
+
+function writeCatalog(code: string, data: Record<string, string>) {
+  const sorted: Record<string, string> = {};
+  for (const k of Object.keys(data).sort((a, b) => a.localeCompare(b, "it"))) {
+    sorted[k] = data[k]!;
+  }
+  fs.writeFileSync(catalogPath(code), JSON.stringify(sorted, null, 2) + "\n");
+}
+
+/**
+ * Il glossario e' la ragione per cui qui c'e' un modello e non un traduttore: sono
+ * le parole che, prese da sole, questa applicazione le fa dire sbagliate.
+ *
+ * Le voci si spiegano, non si traducono. Scrivendo accanto a una voce una resa
+ * in un'altra lingua il modello ricopia quella invece di cercare la parola giusta
+ * della lingua d'arrivo: da «tappa (stop)» il giapponese esce ステーション, cioe' la
+ * fermata del treno.
+ */
+const GLOSSARY = `
+- "tappa" = una sosta del percorso di visita davanti a un'opera; NON un tappo, non una
+  frazione di gara, non una fermata di mezzi pubblici
+- "opera" = un'opera d'arte esposta nel museo
+- "visita" = un percorso a piedi fra piu' opere del museo. Scegli UN termine della lingua
+  d'arrivo, con le sue forme di singolare e plurale, e usa quello in ogni chiave che la
+  nomina: l'etichetta di un filtro e il conto dei risultati stanno uno sotto l'altro nella
+  stessa schermata, e due termini diversi li' sembrano due cose diverse. La parola italiana
+  non va mai lasciata com'e'
+- "scheda" = il pannello che mostra la descrizione dell'opera
+- "pianta" = il disegno delle sale del museo visto dall'alto
+- "sala" = una stanza del museo
+- "tono" = il registro in cui una descrizione e' scritta
+- "curatore" = la persona che risponde del museo e del suo catalogo
+- "vetrina" = la sezione dove si sfoglia quel che il museo offre, visite e descrizioni;
+  e' il nome di una schermata, NON un mobile con i ripiani ne' una teca
+- "libreria" = la raccolta personale di quel che si e' preso o comprato; NON un negozio
+  di libri e NON una libreria di programmazione
+- "Infantile" = il tono di chi racconta a un bambino, con parole semplici e affetto;
+  NON vuol dire puerile, sciocco o offensivo
+- "Semplice" = il tono per un adulto che dell'argomento non sa nulla
+- "Medio" = il tono intermedio, per un visitatore curioso e gia' un po' informato;
+  NON vuol dire mediocre o scadente
+- "Avanzato" = il tono per chi la materia la conosce gia', col lessico degli studiosi
+`.trim();
+
+/**
+ * Quante chiavi per richiesta. Non e' una manopola di prestazione: chiedendole
+ * tutte in un colpo la risposta sfonda il tetto dei token e arriva un JSON
+ * troncato, cioe' non valido. Succede soprattutto su cinese, giapponese e
+ * coreano, dove i valori pesano in token piu' di quanto sembrino in caratteri;
+ * un blocco piccolo costa qualche richiesta in piu' e non fallisce.
+ */
+const PER_BATCH = 40;
+
+async function translateLanguage(code: string, name: string, keys: string[], all: boolean) {
+  const catalog = readCatalog(code);
+  const missing = all ? keys : keys.filter((k) => !(k in catalog));
+
+  if (missing.length === 0) {
+    console.log(`  ${name.padEnd(12)} gia' completo (${keys.length})`);
+    return;
+  }
+
+  let writtenTotal = 0;
+  for (let i = 0; i < missing.length; i += PER_BATCH) {
+    const batch = missing.slice(i, i + PER_BATCH);
+    writtenTotal += await translateBatch(code, name, batch, catalog);
+    if (i + PER_BATCH < missing.length) await new Promise((r) => setTimeout(r, 6000));
+  }
+  const lost = missing.length - writtenTotal;
+  console.log(
+    `  ${name.padEnd(12)} +${writtenTotal}` +
+      (lost > 0 ? `  (${lost} non tornate, rilancia)` : ""),
+  );
+}
+
+async function translateBatch(
+  code: string,
+  name: string,
+  missing: string[],
+  catalog: Record<string, string>,
+): Promise<number> {
+  const prompt = `Traduci dall'italiano al ${name} le stringhe dell'interfaccia di
+un'applicazione museale: un'audioguida che un visitatore usa sul telefono dentro il
+museo. Sono etichette di pulsanti, titoli, messaggi di stato e frasi che l'app
+PRONUNCIA ad alta voce, quindi devono suonare naturali dette a voce.
+
+Glossario, da rispettare:
+${GLOSSARY}
+
+Regole:
+- mantieni i segnaposto {cosi'} identici, senza tradurne il nome;
+- mantieni la punteggiatura finale e le maiuscole iniziali come nell'originale;
+- un'etichetta di pulsante resta corta almeno quanto l'originale;
+- non aggiungere spiegazioni: traduci e basta;
+- se una stringa e' gia' comprensibile come nome proprio, lasciala.
+
+Rispondi con un oggetto JSON che ha per chiavi ESATTAMENTE le stringhe italiane qui
+sotto e per valori la traduzione. Nient'altro.
+
+${JSON.stringify(missing, null, 1)}`;
+
+  const answer = await ai.models.generateContent({
+    model: MODEL,
+    contents: prompt,
+    config: { responseMimeType: "application/json" },
+  });
+
+  const raw = answer.text;
+  if (!raw) {
+    console.log(`  ${name.padEnd(12)} un blocco senza risposta, rilancia`);
+    return 0;
+  }
+
+  let translated: Record<string, string>;
+  try {
+    translated = JSON.parse(raw);
+  } catch {
+    console.log(`  ${name.padEnd(12)} un blocco non e' JSON valido, rilancia`);
+    return 0;
+  }
+
+  let written = 0;
+  for (const k of missing) {
+    const v = translated[k];
+    if (typeof v === "string" && v.trim()) {
+      catalog[k] = v.trim();
+      written++;
+    }
+  }
+  // Si scrive a ogni blocco, non alla fine: un'interruzione a meta' lascia
+  // tradotto quel che era gia' tornato invece di buttarlo via.
+  writeCatalog(code, catalog);
+  return written;
+}
+
+// ============================================================================
+//                                  CLI
+// ============================================================================
+
+async function main() {
+  const command = process.argv[2] || "stato";
+  const argument = process.argv[3];
+  const keys = keysFromSource();
+
+  if (!fs.existsSync(CATALOGS_DIR)) fs.mkdirSync(CATALOGS_DIR, { recursive: true });
+
+  if (command === "chiavi") {
+    for (const k of keys) console.log(k);
+    console.log(`\n${keys.length} chiavi`);
+    return;
+  }
+
+  if (command === "residui") {
+    const stray = strayStrings();
+    const byFile = new Map<string, string[]>();
+    for (const r of stray) {
+      if (!byFile.has(r.file)) byFile.set(r.file, []);
+      byFile.get(r.file)!.push(r.text);
+    }
+    for (const [file, texts] of [...byFile].sort()) {
+      console.log(`\n${file}  (${texts.length})`);
+      for (const t of texts) console.log(`   ${t.slice(0, 90)}`);
+    }
+    console.log(
+      stray.length === 0
+        ? "Nessuna frase italiana fuori dal catalogo."
+        : `\n${stray.length} frasi da avvolgere in t(), in ${byFile.size} file`,
+    );
+    return;
+  }
+
+  if (command === "stato") {
+    console.log(`Chiavi nel sorgente: ${keys.length}\n`);
+    let orphansTotal = 0;
+    for (const l of languages) {
+      if (l.translate === SOURCE_LANG) continue;
+      const c = readCatalog(l.translate);
+      const present = keys.filter((k) => k in c).length;
+      const orphans = Object.keys(c).filter((k) => !keys.includes(k)).length;
+      orphansTotal += orphans;
+      const bar = "█".repeat(Math.round((present / Math.max(keys.length, 1)) * 20));
+      console.log(
+        `  ${l.name.padEnd(12)} ${String(present).padStart(4)}/${keys.length} ${bar}` +
+          (orphans ? `  ${orphans} orfane` : ""),
+      );
+    }
+    const stray = strayStrings().length;
+    console.log(
+      `\n${stray} frasi italiane fuori dal catalogo (vedi "residui")` +
+        (orphansTotal ? `\n${orphansTotal} traduzioni orfane (vedi "pota")` : ""),
+    );
+    return;
+  }
+
+  /**
+   * Toglie dai cataloghi le traduzioni di chiavi che nel sorgente non esistono
+   * piu'. Non e' pulizia estetica: una chiave orfana e' una frase che qualcuno ha
+   * riscritto, e lasciarla fa credere a `stato` che il lavoro sia piu' avanti di
+   * quanto sia. Si stampa quel che si toglie, perche' cancellare in silenzio una
+   * traduzione corretta a mano sarebbe il modo peggiore di risparmiare righe.
+   */
+  if (command === "pota") {
+    let removed = 0;
+    for (const l of languages) {
+      if (l.translate === SOURCE_LANG) continue;
+      const c = readCatalog(l.translate);
+      const orphans = Object.keys(c).filter((k) => !keys.includes(k));
+      if (orphans.length === 0) continue;
+      for (const k of orphans) delete c[k];
+      writeCatalog(l.translate, c);
+      removed += orphans.length;
+      console.log(`  ${l.name.padEnd(12)} −${orphans.length}`);
+      for (const k of orphans) console.log(`      ${k.slice(0, 70)}`);
+    }
+    console.log(removed === 0 ? "Nessuna orfana." : `\n${removed} traduzioni tolte.`);
+    return;
+  }
+
+  if (command === "traduci") {
+    const all = process.argv.includes("--tutto");
+    const targets = languages.filter((l) => {
+      if (l.translate === SOURCE_LANG) return false;
+      if (argument && !argument.startsWith("--")) return l.translate === argument;
+      return true;
+    });
+    if (targets.length === 0) {
+      console.log(`Nessuna lingua "${argument}". Codici: ` +
+        languages.filter((l) => l.translate !== SOURCE_LANG).map((l) => l.translate).join(" "));
+      return;
+    }
+    console.log(`${keys.length} chiavi, ${targets.length} lingue\n`);
+    for (const l of targets) {
+      await translateLanguage(l.translate, l.name, keys, all);
+      // Le pause del seed esistono per la stessa ragione: la quota gratuita si
+      // esaurisce, e quando succede ogni richiesta seguente spende i suoi
+      // ritentativi senza produrre niente.
+      await new Promise((r) => setTimeout(r, 6000));
+    }
+    return;
+  }
+
+  console.log("Comandi: chiavi · residui · traduci [codice] [--tutto] · pota · stato");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

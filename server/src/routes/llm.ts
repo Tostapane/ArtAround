@@ -1,3 +1,9 @@
+/**
+ * Rotta di rielaborazione del testo di un'opera.
+ *
+ * La risposta viene generata direttamente nella lingua chiesta, non tradotta dopo:
+ * una traduzione automatica di un testo gia' generato perde due volte.
+ */
 import { Router } from "express";
 import { additionalDescription } from "../services/llm";
 

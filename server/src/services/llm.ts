@@ -1,36 +1,41 @@
+/**
+ * Tutte le chiamate al modello generativo.
+ *
+ * Quattro usi, come chiede la specifica: creare descrizioni mancanti, mappare una
+ * richiesta vocale libera su un comando del vocabolario, comporre una visita dai
+ * vincoli dell'utente, e verbalizzare un percorso gia' calcolato.
+ *
+ * La regola che tiene insieme il tutto: il codice deterministico possiede la
+ * CORRETTEZZA, il modello possiede l'INTERPRETAZIONE e la lingua. Per questo il
+ * pianificatore risponde in JSON con tono e durata presi da un elenco chiuso, e
+ * per questo le indicazioni di percorso arrivano gia' calcolate dal grafo.
+ *
+ * La mappatura dei comandi avviene sugli id, non sulle etichette: le etichette
+ * sono testo mostrato e possono cambiare senza rompere il protocollo.
+ */
 import { GoogleGenAI, Type } from "@google/genai";
-import { options, educationalLevels, secPerArt } from "../../../shared/constants";
-import { ItemModel } from "../models/item";
-import { insertArtwork } from "../dbActions";
+import { options, educationalLevels, secPerArt , WORDS_PER_MINUTE } from "../../../shared/constants";
 import { RouteIR } from "./wayfinding";
+import { conTentativi } from "./retry";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Modello usato dal server (cambiare qui per tutti gli usi).
-// NOTA disponibilita': "gemini-3.1-flash" NON esiste su questa key (404); la
-// variante flash 3.1 disponibile e' "gemini-3.1-flash-lite" (veloce, ~0.8s/chiamata).
-// Attenzione ai limiti free (RPM): se il seed va in 429, aumentare il delay nel
-// seed oppure aggiungere un retry/backoff sulle chiamate.
 const MODEL = "gemini-3.1-flash-lite";
 const MODEL_LIGHT = "gemini-3.1-flash-lite";
 
-// numero di parole indicativo per stare dentro la durata richiesta (secondi):
-// ~100 parole al minuto (ritmo di lettura ad alta voce), minimo 5 parole.
-// Proporzionale, cosi' funziona anche per durate fuori da secPerArt (es. gli
-// item creati dal marketplace con durate libere).
 function wordsForDuration(duration: number): number {
-  const words = Math.round((duration * 100) / 60);
+  const words = Math.round((duration * WORDS_PER_MINUTE) / 60);
   if (words < 5) return 5;
   return words;
 }
 
-// genera la descrizione di un'opera per un dato livello e durata, dando
-// eventualmente particolare risalto a un'angolazione (`twist`): un'indicazione
-// in italiano su quale aspetto enfatizzare (es. "enfatizza l'uso del verde").
-// Con twist vuoto e' una descrizione neutra (vedi createDescription).
-export async function createTwistedDescription(
-  name: string,
-  author: string,
+/**
+ * La richiesta di una descrizione. Cambia solo la riga che dice CHE COSA
+ * descrivere: un'opera con il suo autore, oppure un soggetto che opera non e'.
+ */
+async function descrizione(
+  cosa: string,
+  etichetta: string,
   level: string,
   duration: number,
   twist: string,
@@ -40,7 +45,7 @@ export async function createTwistedDescription(
     let twistLine = "";
     if (twist && twist.trim() !== "") {
       twistLine = `Dai particolare risalto a: ${twist.trim()}.
-                    Mantieni comunque una descrizione completa e corretta dell'opera.`;
+                    Mantieni comunque una descrizione completa e corretta.`;
     }
     const request = `
                     Sei uno scrittore di guide per musei,
@@ -49,24 +54,46 @@ export async function createTwistedDescription(
                     Scrivi SOLO in plain text.
                     Esaudisci ESATTAMENTE la richiesta rispettando la difficolta'
                     e il limite di parole fornito.
-                    Descrivi l'opera ${name}
-                    realizzata da ${author}.
+                    Descrivi ${cosa}.
                     L'utente e' di livello ${level},
                     produci una spiegazione in circa ${wordNo} parole.
                     ${twistLine}
                     NOTA: e' molto importante che sia leggibile in ${duration} secondi`;
-    const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
-      contents: request,
-    });
+    const response = await conTentativi(`descrizione di "${etichetta}"`, () =>
+      ai.models.generateContent({
+        model: MODEL_LIGHT,
+        contents: request,
+      }),
+    );
     return response.text;
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
   }
 }
 
-// si potrebbe aggiungere un parametro meta per aggiungere informazioni
-// riguardo l'utente, ad esempio: faiclmente annoiabile, etc
+/**
+ * L'autore entra nella richiesta solo se c'e'.
+ *
+ * Di un'opera Wikidata puo' non sapere chi l'ha fatta, e li' il campo resta
+ * vuoto (`services/wikidata.ts`). Incollandolo comunque, la richiesta finisce
+ * con "realizzata da" e basta: al modello si chiede di descrivere un'opera di
+ * un autore il cui nome non e' stato detto, e il testo che torna se lo inventa
+ * o si scusa. Senza quella meta' la domanda resta invece una domanda intera.
+ */
+export async function createTwistedDescription(
+  name: string,
+  author: string,
+  level: string,
+  duration: number,
+  twist: string,
+) {
+  let cosa = `l'opera ${name}`;
+  if (author && author.trim() !== "") {
+    cosa = `l'opera ${name} realizzata da ${author.trim()}`;
+  }
+  return descrizione(cosa, name, level, duration, twist);
+}
+
 export async function createDescription(
   name: string,
   author: string,
@@ -76,14 +103,17 @@ export async function createDescription(
   return createTwistedDescription(name, author, level, duration, "");
 }
 
-// PIANIFICATORE di visite su misura: ricevuto il catalogo delle opere di un museo
-// e la richiesta in linguaggio naturale del visitatore, sceglie quali opere
-// includere (in ordine), con quale tono e durata, e con quale "twist" (angolazione
-// da enfatizzare per quella specifica opera, in base alla richiesta).
-// Il tempo totale e' bilanciato dall'LLM stesso (numero di opere x durata di
-// ciascuna), senza vincolo rigido lato server. L'output e' JSON strutturato:
-// tono e durata sono enum (educationalLevels / secPerArt) per garantire che il
-// resolver li sappia gestire. Restituisce undefined in caso di errore.
+/** Un soggetto che non e' un'opera: il genere entra nella richiesta perche'
+ *  "Caravaggio" come artista o come periodo darebbe due testi diversi. */
+export async function createSubjectDescription(
+  subject: string,
+  kindName: string,
+  level: string,
+  duration: number,
+) {
+  return descrizione(`${kindName.toLowerCase()}: ${subject}`, subject, level, duration, "");
+}
+
 export interface PlannedArtwork {
   qid: string;
   tone: string;
@@ -124,50 +154,48 @@ export async function planVisit(
       Catalogo delle opere:
       ${catalogText}
       Richiesta del visitatore: "${userRequest}".`;
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: request,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            artworks: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  qid: { type: Type.STRING },
-                  tone: { type: Type.STRING, enum: educationalLevels },
-                  durationSec: {
-                    type: Type.STRING,
-                    enum: secPerArt.map((s) => String(s)),
+    const response = await conTentativi("pianificazione della visita", () =>
+      ai.models.generateContent({
+        model: MODEL,
+        contents: request,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              artworks: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    qid: { type: Type.STRING },
+                    tone: { type: Type.STRING, enum: educationalLevels },
+                    durationSec: {
+                      type: Type.STRING,
+                      enum: secPerArt.map((s) => String(s)),
+                    },
+                    twist: { type: Type.STRING },
                   },
-                  twist: { type: Type.STRING },
+                  required: ["qid", "tone", "durationSec", "twist"],
+                  propertyOrdering: ["qid", "tone", "durationSec", "twist"],
                 },
-                required: ["qid", "tone", "durationSec", "twist"],
-                propertyOrdering: ["qid", "tone", "durationSec", "twist"],
               },
             },
+            required: ["name", "artworks"],
+            propertyOrdering: ["name", "artworks"],
           },
-          required: ["name", "artworks"],
-          propertyOrdering: ["name", "artworks"],
         },
-      },
-    });
+      }),
+    );
     if (!response.text) return undefined;
     return JSON.parse(response.text) as VisitPlan;
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
     return undefined;
   }
 }
 
-// funzione per richiedere una descrizione aggiuntiva
-// `language` e' il nome della lingua in cui rispondere (es. "English",
-// "Francais"): l'LLM genera direttamente nella lingua scelta dall'utente,
-// evitando una successiva traduzione automatica.
 export async function additionalDescription(
   previous: string,
   userReq: string,
@@ -183,20 +211,18 @@ export async function additionalDescription(
                         L'utente dopo aver letto ${previous} richiede ${userReq}.
                         Rispondi in modo consono.
                         IMPORTANTE: scrivi la risposta ESCLUSIVAMENTE in lingua ${language}.`;
-    const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
-      contents: request,
-    });
+    const response = await conTentativi("descrizione aggiuntiva", () =>
+      ai.models.generateContent({
+        model: MODEL_LIGHT,
+        contents: request,
+      }),
+    );
     return response.text;
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
   }
 }
 
-// trasforma il percorso calcolato (RouteIR) in indicazioni parlate, nella lingua
-// scelta dall'utente. Il grafo garantisce il percorso; l'LLM lo rende naturale.
-// `language` e' il nome della lingua (es. "English"): l'LLM scrive direttamente
-// in quella lingua, evitando una traduzione successiva.
 export async function directionsFromRoute(route: RouteIR, language: string) {
   try {
     let body: string;
@@ -219,7 +245,18 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
     } else {
       let pathLine = "La destinazione e' nella stessa sala.";
       if (route.steps.length > 0) {
-        pathLine = `Sale da attraversare, in ordine: ${route.steps.join(" -> ")}.`;
+        const tappe: string[] = [];
+        let piano = route.from.floor;
+        for (const step of route.steps) {
+          if (step.floor > piano) {
+            tappe.push(`SALI al ${step.floorLabel}`);
+          } else if (step.floor < piano) {
+            tappe.push(`SCENDI al ${step.floorLabel}`);
+          }
+          piano = step.floor;
+          tappe.push(step.room);
+        }
+        pathLine = `Sale da attraversare, in ordine: ${tappe.join(" -> ")}.`;
       }
       let obstacleLine = "";
       if (route.obstacles.length > 0) {
@@ -234,7 +271,9 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
               ${pathLine}
               ${obstacleLine}
               Genera indicazioni brevi e chiare seguendo ESATTAMENTE il percorso.
-              NON inventare sale o luoghi non elencati.`;
+              NON inventare sale o luoghi non elencati.
+              Dove il percorso dice SALI o SCENDI il visitatore cambia piano:
+              dillo esplicitamente, col nome del piano che trovi scritto.`;
     }
 
     const request = `Sei una guida museale che fornisce indicazioni di orientamento.
@@ -242,19 +281,32 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
                     niente simboli o asterischi.
                     ${body}
                     IMPORTANTE: scrivi la risposta ESCLUSIVAMENTE in lingua ${language}.`;
-    const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
-      contents: request,
-    });
+    const response = await conTentativi("indicazioni di percorso", () =>
+      ai.models.generateContent({
+        model: MODEL_LIGHT,
+        contents: request,
+      }),
+    );
     return response.text;
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
   }
 }
 
-export async function mapRequest(transcript: string) {
+/**
+ * Ritorna il comando riconosciuto, la stringa vuota se non c'era niente da
+ * riconoscere, e **null se il modello non ha risposto affatto**.
+ *
+ * I tre casi non si possono confondere, perche' «non ho capito quel che hai
+ * detto» e «il servizio non risponde» chiedono due cose diverse a chi ascolta:
+ * ripetere, oppure smettere di provare e usare i pulsanti. Il fallimento va
+ * quindi restituito esplicitamente: tornando `undefined` verrebbe tolto dalla
+ * risposta da `JSON.stringify`, e il client leggerebbe `{}` con stato 200, cioe'
+ * «ho capito, e non era niente».
+ */
+export async function mapRequest(transcript: string): Promise<string | null> {
   try {
-    const range = options.map((o) => o.label);
+    const range = options.map((o) => o.id);
     const request = `La tua funzione e' quella di mappare la richiesta
                     di un utente con l'opzione fornita dal servizio che piu' si addice.
                     l'utente dice "${transcript}", le opzioni possibili sono: ${range}.
@@ -262,15 +314,16 @@ export async function mapRequest(transcript: string) {
                     NOTA: se non trovi alcuna corrispondenza con le opzioni fornite,
                     rispondi con l'esatta richiesta senza modificarla.
                     Se la richiesta dell'utente risulta vuota, rispondi con una stringa vuota.`;
-    const response = await ai.models.generateContent({
-      model: MODEL_LIGHT,
-      contents: request,
-    });
-    // trim: i client confrontano il comando con === sugli id del vocabolario,
-    // quindi un a-capo/spazio finale del modello romperebbe ogni comando vocale
-    if (!response.text) return response.text;
+    const response = await conTentativi("mappatura del comando vocale", () =>
+      ai.models.generateContent({
+        model: MODEL_LIGHT,
+        contents: request,
+      }),
+    );
+    if (!response.text) return "";
     return response.text.trim();
   } catch (err) {
-    console.error("Error during the request", err);
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
+    return null;
   }
 }

@@ -1,16 +1,37 @@
+/**
+ * Rotte dei musei.
+ *
+ * `/overview` e `/items` sono le due letture del curatore: la prima da' conteggi
+ * e copertura del catalogo, la seconda tutti gli item del museo, privati
+ * compresi. E' quest'ultimo dettaglio a distinguerla da `GET /api/items`, che
+ * invece li nasconde.
+ *
+ * `/config` legge il museo dal FILE DI CONFIGURAZIONE del curatore invece che dal
+ * database: e' quello il file che si modifica per adattare il navigator.
+ * `/visits` filtra per chi guarda: le visite guidate non compaiono mai (ci si
+ * entra con la parola chiave) e quelle a pagamento solo a chi le possiede.
+ * `/qrcodes` produce il foglio stampabile da ritagliare e affiancare alle opere.
+ * L'elenco porta i CONTEGGI di opere e visite: da quando il client scarica il
+ * catalogo di un museo alla volta, non puo' piu' contare quelli che non ha.
+ */
 import { Router } from "express";
+import { requireSession, sessionUser } from "../session";
 import QRCode from "qrcode";
-import fs from "fs";
-import path from "path";
 import { MuseumModel } from "../models/museum";
 import { ArtworkModel } from "../models/artwork";
+import { ItemModel } from "../models/item";
 import { VisitModel } from "../models/visit";
+import { UserModel } from "../models/user";
+import { educationalLevels } from "../../../shared/constants";
+import { findMuseumConfig } from "../data/museumConfigs";
+import { sortByFlow } from "../services/svgGraph";
+import { rimuoviImmagine } from "./items";
 const router = Router();
 
-// directory dei file di configurazione per-museo generati dal seed
-const CONFIG_DIR = path.join(__dirname, "..", "data", "museums");
+function museumUri(qid: string): string {
+  return `http://www.wikidata.org/entity/${qid}`;
+}
 
-// minima escape per inserire testo dal DB nell'HTML stampabile dei QR
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -23,82 +44,117 @@ function escapeHtml(value: string): string {
  * GET /api/museums: Recupera tutti i musei presenti nel database
  */
 
-router.get("/", async (req, res) => {
+router.get("/", requireSession, async (req, res) => {
   try {
-    const museums = await MuseumModel.find({});
+    const museums = await MuseumModel.find({}).lean();
+    for (const m of museums as any[]) {
+      const uri = museumUri(m.qid);
+      m.opere = await ArtworkModel.countDocuments({ ofMuseum: uri });
+      m.visite = await VisitModel.countDocuments({
+        ofMuseum: uri,
+        accessKey: { $in: [null, ""] },
+      });
+    }
     res.json(museums);
   } catch (err) {
     res.status(500).json({ error: "Errore nel caricamento dei musei" });
   }
 });
 
-/**
- * GET /api/museums/:id
- * ritorna il museo con l'"@id" specificato
- */
-router.get("/:qid", async (req, res) => {
+router.get("/:qid/config", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
-    const museum = await MuseumModel.findOne({ qid });
-    if (!museum) return res.status(404).json({ error: "Museo non trovato" });
-    res.json(museum);
-  } catch (err: any) {
-    res.status(500).json({ err: err.message || "Errore nel caricamento del museo richiesto" });
-  }
-});
-
-/**
- * GET /api/museums/:qid/config
- * Ritorna il museo leggendolo dal suo FILE DI CONFIGURAZIONE
- * (server/src/data/museums/<nome>.json, generato dal seed) invece che dal
- * database: e' il file che il curatore puo' modificare per creare la versione
- * del navigator specifica per il suo museo. Include anche activeArtworks.
- */
-router.get("/:qid/config", async (req, res) => {
-  try {
-    const { qid } = req.params;
-    const files = fs.readdirSync(CONFIG_DIR).filter((f) => f.endsWith(".json"));
-    for (const file of files) {
-      const raw = fs.readFileSync(path.join(CONFIG_DIR, file), "utf-8");
-      const config = JSON.parse(raw);
-      if (config.qid === qid) {
-        // "@id" per compatibilita' con la shape Museum usata dai client
-        config["@id"] = `http://www.wikidata.org/entity/${qid}`;
-        return res.json(config);
-      }
+    const config = findMuseumConfig(qid);
+    if (!config) {
+      return res.status(404).json({ error: "Configurazione del museo non trovata" });
     }
-    return res.status(404).json({ error: "Configurazione del museo non trovata" });
+    return res.json({
+      ...config,
+      "@id": `http://www.wikidata.org/entity/${qid}`,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nel caricamento della configurazione del museo" });
   }
 });
 
-/**
- * GET /api/museums/:id/artworks
- * ritorna tutte le opere che sono presenti in quel museo
- */
-
-router.get("/:qid/artworks", async (req, res) => {
+router.get("/:qid/artworks", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const museumId = `http://www.wikidata.org/entity/${qid}`;
     const artworks = await ArtworkModel.find({ ofMuseum: museumId });
-    res.json(artworks);
+    const doc = await MuseumModel.findOne({ qid });
+    res.json(sortByFlow(artworks, doc ? doc.mapPath : ""));
   } catch (err: any) {
     res.status(500).json({ error: "Errore nel caricamento delle opere specifiche del museo" });
   }
 });
 
 /**
- * GET /api/museums/:qid/visits
- * ritorna tutte le visite associate a quel museo
+ * GET /api/museums/:qid/topics
+ * Ritorna: [{name, kind}], i soggetti che il catalogo del museo gia' nomina,
+ * cioe' gli stili e gli autori delle sue opere.
+ *
+ * Non c'e' niente di memorizzato: uno stile esiste finche' un'opera lo dichiara.
+ * Servono a suggerire un nome a chi scrive un contenuto che non parla di
+ * un'opera, perche' scritto uguale quel contenuto e la pastiglia dello stile
+ * sulla pagina dell'opera si ritrovano.
  */
-router.get("/:qid/visits", async (req, res) => {
+router.get("/:qid/topics", requireSession, async (req, res) => {
+  try {
+    const { qid } = req.params;
+    const artworks = await ArtworkModel.find({
+      ofMuseum: `http://www.wikidata.org/entity/${qid}`,
+    }).select("author.name style.name");
+
+    const visti = new Set<string>();
+    const topics: { name: string; kind: string }[] = [];
+    for (const a of artworks) {
+      const coppie = [
+        { name: a.style?.name, kind: "stile" },
+        { name: a.author?.name, kind: "artista" },
+      ];
+      for (const c of coppie) {
+        // "Unknown" e gli indirizzi di nodo anonimo (`.well-known/genid/…`)
+        // sono buchi di Wikidata, non nomi.
+        if (!c.name || c.name === "Unknown" || c.name.startsWith("http")) continue;
+        const chiave = `${c.kind}:${c.name}`;
+        if (visti.has(chiave)) continue;
+        visti.add(chiave);
+        topics.push({ name: c.name, kind: c.kind });
+      }
+    }
+
+    topics.sort((a, b) => a.name.localeCompare(b.name));
+    res.json(topics);
+  } catch (err: any) {
+    res.status(500).json({ error: "Errore nel caricamento dei soggetti del museo" });
+  }
+});
+
+router.get("/:qid/visits", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const museumId = `http://www.wikidata.org/entity/${qid}`;
     const visits = await VisitModel.find({ ofMuseum: museumId });
-    res.json(visits);
+
+    const username = sessionUser(req).username;
+    let owned = new Set<string>();
+    if (username) {
+      const accounts = await UserModel.find({ username });
+      for (const u of accounts) {
+        for (const id of u.collezione || []) owned.add(id);
+      }
+    }
+
+    const visible = visits.filter((v: any) => {
+      if (v.accessKey) return false;
+      const isFree = !v.price || Number(v.price) === 0;
+      if (isFree) return true;
+      if (!username) return false;
+      return owned.has(v["@id"]) || v.author === username;
+    });
+
+    res.json(visible);
   } catch (err: any) {
     res.status(500).json({ error: "Errore nel caricamento delle visite del museo" });
   }
@@ -106,11 +162,12 @@ router.get("/:qid/visits", async (req, res) => {
 
 /**
  * GET /api/museums/:qid/qrcodes
- * Pagina HTML stampabile con un QR per ogni opera del museo. Il payload del QR
- * e' il qid nudo dell'opera (es. "Q12345"): lo scanner in-app del navigator lo
- * decodifica e imposta la posizione corrente. Il curatore stampa questo foglio,
- * ritaglia i QR e li affianca alle opere ("foglio di carta" della specifica 18-33).
- * Completamente generico: un nuovo museo ottiene il suo foglio senza codice ad-hoc.
+ * Ritorna: il foglio stampabile, una pagina HTML.
+ *
+ * E' l'unica rotta del file senza `requireSession`, e non per dimenticanza: si
+ * apre come pagina, quindi a chiederla e' il browser e non il nostro codice, e a
+ * una navigazione non si puo' attaccare un'intestazione. Non ci si perde niente,
+ * perche' sono indirizzi di opere e il foglio nasce per essere appeso al muro.
  */
 router.get("/:qid/qrcodes", async (req, res) => {
   try {
@@ -129,7 +186,8 @@ router.get("/:qid/qrcodes", async (req, res) => {
            <div class="qr">${svg}</div>
            <figcaption>
              <strong>${escapeHtml(art.name)}</strong>
-             <span>${escapeHtml(art.qid)}</span>
+             <span class="codice">${escapeHtml(art.qid)}</span>
+             <span class="istruzione">Inquadra il QR, oppure scrivi il codice nell'app</span>
            </figcaption>
          </figure>`,
       );
@@ -139,20 +197,36 @@ router.get("/:qid/qrcodes", async (req, res) => {
 <html lang="it">
 <head>
   <meta charset="utf-8" />
-  <title>QR opere — ${escapeHtml(museum.name)}</title>
+  <title>QR delle opere di ${escapeHtml(museum.name)}</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 24px; }
-    h1 { font-size: 18px; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .cell { border: 1px solid #ccc; border-radius: 8px; padding: 12px; text-align: center; break-inside: avoid; }
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+           margin: 24px; color: #111; background: #fff; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .nota { font-size: 13px; color: #444; margin: 0 0 20px; max-width: 60ch; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .cell { border: 1px solid #333; border-radius: 6px; padding: 12px;
+            text-align: center; break-inside: avoid; }
     .qr svg { width: 100%; height: auto; }
-    figcaption strong { display: block; font-size: 13px; margin-top: 8px; }
-    figcaption span { display: block; font-size: 11px; color: #666; }
-    @media print { .grid { grid-template-columns: repeat(3, 1fr); } }
+    figcaption strong { display: block; font-size: 13px; margin-top: 10px;
+                        line-height: 1.25; }
+    .codice { display: block; margin-top: 8px; padding: 4px 0;
+              font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+              font-size: 22px; font-weight: 700; letter-spacing: 0.06em;
+              color: #000; border-top: 1px solid #333; }
+    .istruzione { display: block; font-size: 10px; color: #444; margin-top: 2px; }
+    @media print {
+      body { margin: 10mm; }
+      .nota { display: none; }
+    }
   </style>
 </head>
 <body>
-  <h1>QR delle opere — ${escapeHtml(museum.name)} (${escapeHtml(museum.qid)})</h1>
+  <h1>Opere di ${escapeHtml(museum.name)}</h1>
+  <p class="nota">
+    Ritaglia e affianca ogni riquadro alla sua opera. Il visitatore può inquadrare il QR
+    oppure, se non può usare la fotocamera, digitare il codice stampato sotto.
+  </p>
   <div class="grid">${cells.join("")}</div>
 </body>
 </html>`;
@@ -160,6 +234,164 @@ router.get("/:qid/qrcodes", async (req, res) => {
     res.type("html").send(html);
   } catch (err: any) {
     res.status(500).json({ error: "Errore nella generazione dei QR" });
+  }
+});
+
+// --- Letture del curatore ---------------------------------------------------
+
+/**
+ * GET /api/museums/:qid/overview
+ * Ritorna: { conteggi, copertura, account } del museo indicato.
+ */
+router.get("/:qid/overview", requireSession, async (req, res) => {
+  try {
+    const { qid } = req.params;
+    const artworks = await ArtworkModel.find({ ofMuseum: museumUri(qid) });
+    const items = await ItemModel.find({ ofMuseum: museumUri(qid) });
+    const visits = await VisitModel.find({ ofMuseum: museumUri(qid) });
+
+    const descritte = new Set<string>();
+    const opereConTono = new Map<string, Set<string>>();
+    for (const tono of educationalLevels) opereConTono.set(tono, new Set());
+
+    let privati = 0;
+    for (const it of items) {
+      if (it.visibility === "privato") privati++;
+      // La copertura misura le OPERE descritte: un contenuto su uno stile
+      // direbbe che un'opera in piu' e' stata descritta.
+      if (!it.about) continue;
+      descritte.add(it.about);
+      const perTono = opereConTono.get(it.educationalLevel);
+      if (perTono) perTono.add(it.about);
+    }
+
+    const senzaDescrizione = [];
+    for (const a of artworks) {
+      if (!descritte.has(a["@id"]))
+        senzaDescrizione.push({ qid: a.qid, name: a.name });
+    }
+
+    const perTono = educationalLevels.map((tono) => ({
+      tono,
+      opere: opereConTono.get(tono)!.size,
+    }));
+
+    let guidate = 0;
+    for (const v of visits) {
+      if (v.accessKey) guidate++;
+    }
+
+    const autori = await UserModel.countDocuments({ role: "autore" });
+    const visitatori = await UserModel.countDocuments({ role: "visitatore" });
+    const curatori = await UserModel.countDocuments({ role: "curatore" });
+
+    res.json({
+      conteggi: {
+        opere: artworks.length,
+        item: items.length,
+        itemPrivati: privati,
+        visite: visits.length,
+        visiteGuidate: guidate,
+      },
+      copertura: {
+        opereTotali: artworks.length,
+        senzaDescrizione,
+        perTono,
+      },
+      account: { autori, visitatori, curatori },
+    });
+  } catch (err: any) {
+    console.error("[BACKEND ERROR] overview museo:", err);
+    res.status(500).json({ error: err.message || "Errore nel quadro d'insieme" });
+  }
+});
+
+/**
+ * GET /api/museums/:qid/items
+ * Ritorna: TUTTI gli item del museo, privati compresi, con l'opera popolata.
+ * E' la differenza con `GET /api/items`, che i privati li nasconde.
+ */
+router.get("/:qid/items", requireSession, async (req, res) => {
+  try {
+    const items = await ItemModel.find({
+      ofMuseum: museumUri(req.params.qid),
+    }).populate({
+      path: "about",
+      model: "Artwork",
+      foreignField: "@id",
+      localField: "about",
+      justOne: true,
+    });
+    res.json(items);
+  } catch (err: any) {
+    console.error("[BACKEND ERROR] catalogo museo:", err);
+    res.status(500).json({ error: err.message || "Errore nel catalogo" });
+  }
+});
+
+/**
+ * DELETE /api/museums/:qid/contents
+ * Ritorna: quante opere, descrizioni e visite sono state eliminate.
+ * Svuota il catalogo di UN museo. Solo il curatore, e solo il museo chiesto.
+ *
+ * E' la stessa cascata di `DELETE /api/items/:id` allargata al museo: cancellare
+ * gli item senza le visite che li citano lascerebbe tappe che non si risolvono,
+ * e una tappa che non si risolve non da' errore, semplicemente non compare.
+ * Percio' se ne va anche tutto cio' che vi puntava, comprese le righe nelle
+ * collezioni di chi li aveva presi.
+ *
+ * NON tocca due cose, ed e' voluto:
+ * - il DOCUMENTO del museo, cosi' il museo resta selezionabile (con zero opere)
+ *   invece di sparire dall'applicazione fino al prossimo seed;
+ * - le IMMAGINI delle opere su disco, che il seed ha scaricato da Wikidata e
+ *   che ricostruirle costa una chiamata per opera. Spariscono invece le immagini
+ *   caricate a mano dagli autori, che appartengono all'item e a nient'altro.
+ *
+ * Il museo si prende dal PERCORSO e mai dal corpo: e' l'unica cosa che decide
+ * che cosa viene cancellato.
+ */
+router.delete("/:qid/contents", requireSession, async (req, res) => {
+  try {
+    const chi = sessionUser(req);
+    if (chi.role !== "curatore")
+      return res
+        .status(403)
+        .json({ error: "Solo il curatore può svuotare il catalogo di un museo." });
+
+    const { qid } = req.params;
+    const config = findMuseumConfig(qid);
+    if (!config)
+      return res.status(404).json({ error: "Museo non configurato" });
+
+    const uri = museumUri(qid);
+    const items = await ItemModel.find({ ofMuseum: uri }).select("@id imagePath");
+    const visits = await VisitModel.find({ ofMuseum: uri }).select("@id");
+    const itemIds = items.map((i: any) => i["@id"]);
+    const visitIds = visits.map((v: any) => v["@id"]);
+
+    await ItemModel.deleteMany({ ofMuseum: uri });
+    await VisitModel.deleteMany({ ofMuseum: uri });
+    const opere = await ArtworkModel.deleteMany({ ofMuseum: uri });
+    await UserModel.updateMany(
+      {},
+      { $pull: { collezione: { $in: [...itemIds, ...visitIds] } } },
+    );
+    for (const it of items as any[]) rimuoviImmagine(it.imagePath);
+
+    console.log(
+      `[curatore ${chi.username}] svuotato ${config.name} (${qid}): ` +
+        `${opere.deletedCount} opere, ${itemIds.length} item, ${visitIds.length} visite.`,
+    );
+    res.json({
+      message: "Catalogo del museo svuotato",
+      museo: config.name,
+      opere: opere.deletedCount,
+      item: itemIds.length,
+      visite: visitIds.length,
+    });
+  } catch (err: any) {
+    console.error("[BACKEND ERROR] svuotamento museo:", err);
+    res.status(500).json({ error: err.message || "Errore nello svuotamento" });
   }
 });
 

@@ -1,3 +1,6 @@
+/**
+ * Documento Mongoose di un'opera.
+ */
 import { Schema, model } from "mongoose";
 import { Artwork as SharedArtwork } from "../../../shared/types";
 
@@ -30,5 +33,10 @@ const artworkSchema = new Schema<IArtwork>({
   lastUpdated: { type: Date, default: Date.now },
   locationId: String,
 });
+
+// Indici: vedi la nota in models/item.ts.
+// `@id` e' gia' unique nel campo, quindi Mongoose gli fa l'indice da se'.
+artworkSchema.index({ qid: 1 });
+artworkSchema.index({ ofMuseum: 1 });
 
 export const ArtworkModel = model<IArtwork>("Artwork", artworkSchema);

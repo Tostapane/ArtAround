@@ -1,25 +1,86 @@
+/**
+ * Rotte delle visite.
+ *
+ * Il salvataggio fa tre cose non ovvie:
+ * - calcola sempre lui la durata totale, sommando i tempi degli item davvero
+ *   trovati: un totale mandato dal client non si accetta e quello pianificato
+ *   non si usa, o una visita con tappe di lunghezza diversa dichiarerebbe una
+ *   durata che le sue tappe non fanno;
+ * - ancora ogni nota logistica alla tappa che segue, cosi' il navigator puo'
+ *   mostrarla al momento giusto (slide 21); una nota che perde il suo posto non
+ *   puo' piu' dire come si va da un'opera alla successiva;
+ * - per le visite guidate verifica che la parola chiave sia unica e che ogni item
+ *   sia gratuito o dell'autore: altrimenti la parola chiave regalerebbe contenuti
+ *   a pagamento di altri.
+ *
+ * `/custom` genera una visita dai vincoli espressi a parole e non salva nulla.
+ */
 import { Router } from "express";
+import { sessionUser } from "../session";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
+import { isReadable } from "../../../shared/access";
 import { UserModel } from "../models/user";
 import { ArtworkModel } from "../models/artwork";
+import { MuseumModel } from "../models/museum";
+import { sortByFlow } from "../services/svgGraph";
 import { planVisit } from "../services/llm";
 import { resolveOrGenerateItem } from "../dbActions";
+import { purchasedBy, readableItems } from "../access";
+import { conto } from "../pricing";
+import { AI_LEVEL, CUSTOM_LEVEL } from "../../../shared/constants";
+import { DEFAULT_LICENSE } from "../../../shared/constants";
+// La copertina di una visita si carica con la stessa rotta dell'immagine di un
+// item (`POST /api/items/image`) e finisce nella stessa cartella: e' lo stesso
+// gesto e lo stesso file su disco, e una seconda rotta identica sarebbe solo un
+// altro posto in cui sbagliare il formato ammesso. Di qui serve la cancellazione,
+// perche' una visita eliminata deve portarsi via la sua immagine.
+import { rimuoviImmagine } from "./items";
 
 const router = Router();
 
-// tetto al numero di opere di una visita su misura: limita il costo di
-// generazione (ogni opera con twist e' una chiamata all'LLM).
 const MAX_CUSTOM_ARTWORKS = 30;
 
 /**
  * GET /api/visits
  * Recupera la lista di tutte le visite disponibili nel marketplace (quella ufficiali).
  */
+/**
+ * GET /api/visits[?museum=Qxxx][&user=nome]
+ * Ritorna: le visite del museo indicato, o tutte se il parametro manca.
+ * Con `user`, ogni visita porta anche il conto per quella persona (`mancanti`,
+ * `costoMancanti`, `totale`), cosi' il client scrive un numero che gli e' stato
+ * dato invece di rifarne uno suo. Le tappe di tutte le visite si leggono con una
+ * query sola, perche' una per visita crescerebbe col catalogo.
+ */
 router.get("/", async (req, res) => {
   try {
-    const visits = await VisitModel.find({});
-    res.json(visits);
+    const museum = String(req.query.museum || "");
+    const filter = museum
+      ? { ofMuseum: `http://www.wikidata.org/entity/${museum}` }
+      : {};
+    const visits = await VisitModel.find(filter);
+
+    const username = sessionUser(req).username;
+    const owned = await purchasedBy(username);
+    const ids = new Set<string>();
+    for (const v of visits) {
+      for (const id of v.itemListElement || []) ids.add(id);
+    }
+    const tappe = await ItemModel.find({ "@id": { $in: Array.from(ids) } });
+    const byId = new Map<string, any>();
+    for (const t of tappe) byId.set(t["@id"], t);
+
+    const out = visits.map((v: any) => {
+      const c = conto(v, username, owned, byId);
+      return {
+        ...v.toObject(),
+        mancanti: c.mancanti,
+        costoMancanti: c.costoMancanti,
+        totale: c.totale,
+      };
+    });
+    res.json(out);
   } catch (error: any) {
     console.error(error);
     res.status(500).json({ error: error.message || "Errore nel caricamento delle visite" });
@@ -27,14 +88,16 @@ router.get("/", async (req, res) => {
 });
 
 /**
- * GET /api/visits/:id
- * Ritorna una singola visita. Usato dal navigator quando viene aperto con un
- * deep link dal marketplace (?visit=<id>): dalla visita ricava anche il museo.
+ * Il quiz non esce da qui. Questa rotta la chiama anche il navigator degli
+ * studenti, per caricare la visita guidata: restituire le domande con dentro
+ * l'indice della risposta corretta significherebbe consegnare il compito
+ * svolto. Le domande le distribuisce la sessione guidata, senza `correct`;
+ * l'editor dell'autore legge il quiz dall'elenco delle visite.
  */
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const visit = await VisitModel.findOne({ "@id": id });
+    const visit = await VisitModel.findOne({ "@id": id }).select("-quiz");
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
     res.json(visit);
   } catch (err: any) {
@@ -42,12 +105,6 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-/**
- * GET /api/visits/:id/items
- * Ritorna gli item della visita con il rispettivo artwork (`about`) gia' popolato,
- * preservando l'ordine definito in itemListElement.
- * Evita il join lato client nel navigator.
- */
 router.get("/:id/items", async (req, res) => {
   try {
     const { id } = req.params;
@@ -63,27 +120,16 @@ router.get("/:id/items", async (req, res) => {
       justOne: true,
     });
 
-    // ripristina l'ordine di itemListElement (find con $in non lo garantisce)
     const byId = new Map(items.map((it: any) => [it["@id"], it]));
     const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
-    res.json(ordered);
+    const user = sessionUser(req).username;
+    const owned = await purchasedBy(user);
+    res.json(readableItems(ordered, user, owned));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nel caricamento degli item della visita" });
   }
 });
 
-/**
- * POST /api/visits/custom
- * Crea una visita SU MISURA dai vincoli espressi dall'utente in linguaggio
- * naturale (18-33: "creazione di visite sulla base di vincoli dell'utente").
- * Body: { museumQid, request }.
- * Pipeline: catalogo del museo -> planVisit (sceglie opere/tono/durata/twist) ->
- * resolveOrGenerateItem per opera (riuso o generazione) -> visita assemblata.
- * NON persiste nulla: la visita su misura vive nel client. Risponde con
- * { visit, content } dove content e' [{ artwork, item }] gia' pronto per il
- * navigator (niente join lato client). I contenuti restano in italiano: il
- * navigator li traduce live nella lingua scelta, come per le altre visite.
- */
 router.post("/custom", async (req, res) => {
   try {
     const { museumQid, request } = req.body;
@@ -109,11 +155,19 @@ router.post("/custom", async (req, res) => {
       return res.status(502).json({ error: "Impossibile generare la visita su misura" });
     }
 
+    /*
+     * L'ordine delle tappe lo decide la mappa, non il modello: al modello si
+     * chiede QUALI opere, e a quello si risponde bene; in che ordine si
+     * attraversa il museo e' scritto sul disegno (`data-flow`) e non si negozia.
+     * Chiederglielo nel prompt vorrebbe dire sperare che obbedisca.
+     */
+    const museo = await MuseumModel.findOne({ qid: museumQid });
+    plan.artworks = sortByFlow(plan.artworks, museo ? museo.mapPath : "");
+
     const byQid = new Map(artworks.map((a) => [a.qid, a]));
     const content: { artwork: unknown; item: unknown }[] = [];
     let totalSec = 0;
 
-    // tono e durata sono gia' garantiti dagli enum dello schema di planVisit
     for (const planned of plan.artworks.slice(0, MAX_CUSTOM_ARTWORKS)) {
       const artwork = byQid.get(planned.qid);
       if (!artwork) continue;
@@ -126,7 +180,7 @@ router.post("/custom", async (req, res) => {
       );
       if (item) {
         content.push({ artwork, item });
-        totalSec += durationSec;
+        totalSec += Number((item as any).timeRequired) || 0;
       }
     }
 
@@ -142,8 +196,7 @@ router.post("/custom", async (req, res) => {
     const visit = {
       "@id": `custom-${museumQid}-${Date.now()}`,
       name,
-      level: "Su misura",
-      // durata TOTALE in secondi, coerente con le altre visite
+      level: AI_LEVEL,
       duration: totalSec,
       ofMuseum: museumId,
       itemListElement: content.map((c) => (c.item as any)["@id"]),
@@ -158,23 +211,21 @@ router.post("/custom", async (req, res) => {
   }
 });
 
-/**
- * POST /api/visits
- * Salva o aggiorna una visita (tour).
- */
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
 
-    const itemIds: string[] =
+    // Una tappa senza id non e' una tappa: si toglie qui, cosi' cade nel
+    // controllo che chiede almeno una tappa invece di andare a cercare nel
+    // catalogo un item che si chiama stringa vuota.
+    const itemIds: string[] = (
       payload.percorso
         ?.filter((t: any) => t.tipo === "item")
         .map((t: any) => t.id_item) ||
       payload.itemListElement ||
-      [];
+      []
+    ).filter((id: any) => typeof id === "string" && id.trim() !== "");
 
-    // Item marcati come "opzionali" (da mostrare solo se resta tempo o su
-    // domanda del visitatore): sottoinsieme di itemListElement.
     const optionalItems: string[] =
       payload.percorso
         ?.filter((t: any) => t.tipo === "item" && t.opzionale)
@@ -182,18 +233,60 @@ router.post("/", async (req, res) => {
       payload.optionalItems ||
       [];
 
-    // `level` e `duration` sono obbligatori nello schema Visit. Una visita
-    // creata dal marketplace non ne ha di espliciti: usiamo un livello generico
-    // e ricaviamo la durata sommando i `timeRequired` (secondi) degli item scelti.
+    // --- Note logistiche ANCORATE alla loro posizione ---
+    let logistics: { after: string | null; text: string }[] = [];
+    if (Array.isArray(payload.percorso)) {
+      let ultimoItem: string | null = null;
+      for (const t of payload.percorso) {
+        if (t.tipo === "item") {
+          ultimoItem = t.id_item;
+        } else if (t.tipo === "logistica") {
+          const text = typeof t.indicazione === "string" ? t.indicazione.trim() : "";
+          if (text !== "") logistics.push({ after: ultimoItem, text });
+        }
+      }
+    } else if (Array.isArray(payload.logistics)) {
+      logistics = payload.logistics
+        .filter((n: any) => typeof n === "string" && n.trim() !== "")
+        .map((n: string) => ({ after: null, text: n.trim() }));
+    }
+
     const items = itemIds.length
       ? await ItemModel.find({ "@id": { $in: itemIds } })
       : [];
-    const duration =
-      payload.duration ??
-      items.reduce((s, it: any) => s + (Number(it.timeRequired) || 0), 0);
+    const duration = items.reduce(
+      (s, it: any) => s + (Number(it.timeRequired) || 0),
+      0,
+    );
 
     const visitId = payload.id || payload["@id"];
-    const author = payload.autore || payload.author;
+    const author = sessionUser(req).username;
+    const name = payload.titolo || payload.name;
+    if (typeof name !== "string" || name.trim() === "") {
+      return res.status(400).json({ error: "La visita deve avere un titolo." });
+    }
+
+    let prezzoDichiarato = payload.prezzo;
+    if (prezzoDichiarato === undefined) prezzoDichiarato = payload.price;
+    if (Number(prezzoDichiarato) < 0)
+      return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
+    if (itemIds.length === 0)
+      return res.status(400).json({ error: "La visita deve avere almeno una tappa." });
+    // Le tappe si contano sugli item TROVATI, non sugli id ricevuti: un id che
+    // non esiste non da' errore da nessuna parte, semplicemente non compare, e
+    // una visita fatta di tappe che non si risolvono si apre vuota. E' lo stesso
+    // danno silenzioso per cui la cancellazione di un'opera accorcia le visite
+    // invece di lasciarci dentro un buco.
+    const trovati = new Set(items.map((it: any) => String(it["@id"])));
+    const assenti = itemIds.filter((id) => !trovati.has(id));
+    if (assenti.length > 0)
+      return res.status(400).json({
+        error:
+          "Queste tappe non esistono nel catalogo: " +
+          assenti.slice(0, 3).join(", ") +
+          (assenti.length > 3 ? ` e altre ${assenti.length - 3}` : "") +
+          ".",
+      });
 
     // --- Visita GUIDATA (con parola chiave) ---
     const accessKey: string | undefined =
@@ -202,27 +295,21 @@ router.post("/", async (req, res) => {
         : undefined;
 
     if (accessKey) {
-      // 1) La parola chiave dev'essere UNIVOCA nel DB (un'altra visita non può
-      //    già usarla — altrimenti gli studenti non saprebbero quale attivare).
-      const conflitto = await VisitModel.findOne({
+      const clash = await VisitModel.findOne({
         accessKey,
         "@id": { $ne: visitId },
       });
-      if (conflitto)
+      if (clash)
         return res.status(409).json({
           error: `La parola chiave "${accessKey}" è già usata da un'altra visita. Scegline un'altra.`,
         });
 
-      // 2) Vincolo anti-scappatoia: ogni item dev'essere gratuito OPPURE
-      //    posseduto dall'autore (creato da lui — anche privato — oppure
-      //    acquistato). Vietato includere item a pagamento di ALTRI autori:
-      //    li si regalerebbe tramite una password magari condivisa.
-      const autoreUser = await UserModel.findOne({ username: author });
-      const posseduti = new Set(autoreUser?.collezione || []);
+      const authorAccount = await UserModel.findOne({ username: author });
+      const owned = new Set(authorAccount?.collezione || []);
+      // Che cosa puo' entrare in una visita guidata e' la stessa domanda di che
+      // cosa puoi leggere: la regola sta in `shared/access.ts`, non riscritta qui.
       for (const it of items as any[]) {
-        const gratis = !it.price || Number(it.price) === 0;
-        const suo = it.author === author || posseduti.has(it["@id"]);
-        if (!gratis && !suo) {
+        if (!isReadable(it, author, owned.has(it["@id"]))) {
           return res.status(400).json({
             error:
               "Una visita guidata può contenere solo item gratuiti o posseduti da te. " +
@@ -233,8 +320,6 @@ router.post("/", async (req, res) => {
     }
 
     // --- Quiz di fine visita (solo GUIDATE, facoltativo) ---
-    // Struttura attesa: [{ question, options[4], correct 0..3 }]. Se presente,
-    // va validato; un quiz su una visita NON guidata viene ignorato.
     let quiz: any[] | undefined;
     if (accessKey && Array.isArray(payload.quiz) && payload.quiz.length > 0) {
       quiz = [];
@@ -261,30 +346,35 @@ router.post("/", async (req, res) => {
       }
     }
 
+    // La copertina e' facoltativa, quindi il campo si scrive SEMPRE: `undefined`
+    // in un aggiornamento Mongoose lo salta, e chi toglie l'immagine da una
+    // visita gia' pubblicata non riuscirebbe piu' a levarla. `null` invece la
+    // cancella. La vecchia, se c'era, si toglie anche dal disco.
+    const immagine =
+      typeof payload.immagine === "string" && payload.immagine.trim() !== ""
+        ? payload.immagine.trim()
+        : null;
+    const precedente = await VisitModel.findOne({ "@id": visitId }).select("imagePath");
+    if (precedente?.imagePath && precedente.imagePath !== immagine)
+      rimuoviImmagine(precedente.imagePath);
+
     await VisitModel.findOneAndUpdate(
       { "@id": visitId },
       {
         "@id": visitId,
         name: payload.titolo || payload.name,
-        level: payload.level || "Personalizzata",
+        level: payload.level || CUSTOM_LEVEL,
         duration,
-        // Le visite guidate sono gratuite (accesso a parola chiave): prezzo 0.
         price: accessKey ? 0 : payload.prezzo || payload.price,
         author,
-        license: payload.licenza || payload.license || "Tutti i diritti riservati",
+        license: payload.licenza || payload.license || DEFAULT_LICENSE,
         ofMuseum: payload.museumUri || payload.ofMuseum,
+        imagePath: immagine,
         itemListElement: itemIds,
         optionalItems,
         accessKey: accessKey ?? null,
-        // Quiz solo per le guidate: null lo rimuove se la visita non è guidata o
-        // non ha domande (es. modifica che toglie il quiz).
         quiz: quiz ?? null,
-        logistics:
-          payload.percorso
-            ?.filter((t: any) => t.tipo === "logistica")
-            .map((t: any) => t.indicazione) ||
-          payload.logistics ||
-          [],
+        logistics,
       },
       { upsert: true },
     );
@@ -296,18 +386,16 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/visits/:id
- * Elimina una visita creata dal marketplace e la rimuove dalle collezioni
- * degli utenti che la possedevano.
- */
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await VisitModel.deleteOne({ "@id": id });
-    if (result.deletedCount === 0) {
+    // Si legge prima di cancellare: la copertina sta su disco e il documento e'
+    // l'unico posto che ne conosce il nome.
+    const eliminata = await VisitModel.findOneAndDelete({ "@id": id });
+    if (!eliminata) {
       return res.status(404).json({ error: "Visita non trovata" });
     }
+    rimuoviImmagine(eliminata.imagePath);
     await UserModel.updateMany({}, { $pull: { collezione: id } });
     res.json({ message: "Visita eliminata" });
   } catch (error: any) {

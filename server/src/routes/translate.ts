@@ -1,3 +1,9 @@
+/**
+ * Rotta di traduzione dei contenuti statici del database.
+ *
+ * Le risposte dell'LLM non passano di qui: quelle nascono gia' nella lingua
+ * giusta.
+ */
 import { Router } from "express";
 import { translateTexts } from "../services/translate";
 

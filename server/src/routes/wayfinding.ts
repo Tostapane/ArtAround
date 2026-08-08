@@ -1,5 +1,19 @@
+/**
+ * Rotta delle indicazioni di orientamento.
+ *
+ * Due livelli di risposta. Quella predefinita e' SEMPLICE: il nome della sala,
+ * preso dalla mappa, senza scomodare l'LLM. Su richiesta si passa al percorso
+ * passo-passo, dove il grafo garantisce la correttezza e l'LLM si limita a dirlo
+ * in parole.
+ *
+ * Il titolo dell'opera lo sa il database e non la mappa: sul disegno un nodo
+ * opera porta il qid, quindi senza cercarne qui il nome le indicazioni parlate
+ * direbbero «la destinazione Q248101». Si cerca solo sulla strada dettagliata,
+ * che e' l'unica a usare quel nome: la risposta semplice dice la sala.
+ */
 import { Router } from "express";
 import { MuseumModel } from "../models/museum";
+import { ArtworkModel } from "../models/artwork";
 import { getMuseumGraph } from "../services/svgGraph";
 import { computeDirections } from "../services/wayfinding";
 import { directionsFromRoute } from "../services/llm";
@@ -20,7 +34,10 @@ const router = Router();
  * Due livelli di risposta:
  *  - SEMPLICE (default): comunica solo in quale ZONA si trova la destinazione,
  *    cioe' il nome della sala (data-room) authorata nell'SVG che la contiene
- *    (es. "Ala Nord"). Nessun LLM: e' un valore statico della mappa.
+ *    (es. "Great Court"). Nessun LLM: e' un valore statico della mappa. Il piano
+ *    compare solo quando la destinazione e' su un altro piano, perche' dirlo
+ *    quando non cambia sarebbe rumore, e in un museo a un piano solo non
+ *    compare mai.
  *  - DETTAGLIATA (detailed=true, oppure target="obstacles"): calcola il percorso
  *    sul grafo e lo verbalizza con l'LLM (sistema completo, non rimosso).
  */
@@ -37,12 +54,20 @@ router.post("/", async (req, res) => {
     const graph = getMuseumGraph(museum.mapPath);
     const route = computeDirections(graph, from, target);
 
-    // Risposta SEMPLICE: solo la zona (nome della sala dall'SVG). Gli ostacoli
-    // non hanno una "zona" da indicare, quindi restano sempre sul percorso LLM.
     if (!detailed && target !== "obstacles") {
       let directions = "Zona non disponibile.";
-      if (route.kind === "route" && route.to.room) directions = route.to.room;
+      if (route.kind === "route" && route.to.room) {
+        directions = route.to.room;
+        if (route.to.floor !== route.from.floor) {
+          directions = `${route.to.room} (${route.to.floorLabel})`;
+        }
+      }
       return res.json({ directions });
+    }
+
+    if (route.to.qid) {
+      const opera = await ArtworkModel.findOne({ qid: route.to.qid });
+      if (opera && opera.name) route.to.label = opera.name;
     }
 
     const directions = await directionsFromRoute(route, language);
