@@ -13,13 +13,15 @@
  * librerie diverse, e sbagliare la lettura significherebbe non riprovare
  * proprio quando serve. Una richiesta malformata costa due tentativi in piu' e
  * fallisce lo stesso; un timeout di rete invece si salva.
+ *
+ * `cosa` compare nel log ed e' l'unica cosa che, a seed finito, dice DOVE la
+ * rete ha fatto le bizze. I timeout di undici tengono il motivo vero dentro
+ * `cause`, ed e' per questo che `messaggio` lo va a cercare: senza, nel log
+ * resta un "fetch failed" che non dice niente.
  */
 
-/** Quante volte si prova in tutto, primo tentativo compreso. */
-export const TENTATIVI = 3;
-
-/** L'attesa cresce a ogni tentativo: 3s, poi 6s. */
-const ATTESA_MS = 3000;
+export const TENTATIVI = 3; // quante volte si prova in tutto, primo tentativo compreso
+const ATTESA_MS = 3000; // l'attesa cresce a ogni tentativo: 3s, poi 6s
 
 function pausa(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,7 +29,6 @@ function pausa(ms: number): Promise<void> {
 
 function messaggio(err: unknown): string {
   if (err instanceof Error) {
-    // I timeout di undici tengono il motivo vero dentro `cause`.
     const causa = (err as { cause?: unknown }).cause;
     if (causa instanceof Error) return `${err.message} (${causa.message})`;
     return err.message;
@@ -35,13 +36,6 @@ function messaggio(err: unknown): string {
   return String(err);
 }
 
-/**
- * Esegue `azione`, riprovando fino a TENTATIVI volte.
- * Se falliscono tutti, rilancia l'errore dell'ultimo tentativo.
- *
- * `cosa` compare nel log ed e' l'unica cosa che, a seed finito, dice DOVE la
- * rete ha fatto le bizze.
- */
 export async function conTentativi<T>(
   cosa: string,
   azione: () => Promise<T>,

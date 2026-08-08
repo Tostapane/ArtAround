@@ -35,6 +35,18 @@
  * unita' del disegno si passa per `getScreenCTM()`, perche' i conti a mano
  * sbagliano appena la pianta viene incorniciata; una tappa invece non si misura,
  * si emette quale e', cosi' vale anche dall'elenco.
+ *
+ * Cambiando museo il piano ricordato puo' non esistere piu': si riparte dal piu'
+ * basso, che e' quello da cui si entra.
+ *
+ * Una visita puo' avere PIU' ITEM PER LO STESSO OGGETTO (slide 21), ma sulla
+ * mappa quell'oggetto resta UN nodo solo: senza raggruppare, il secondo passaggio
+ * sovrascriveva l'etichetta del primo, sovrapponeva due numeri e lasciava due
+ * ascoltatori sullo stesso disco. Per la stessa ragione un nodo e' opzionale solo
+ * se lo sono TUTTE le tappe che vi si fermano.
+ *
+ * Il nodo si tiene il tocco: senza fermarlo arriverebbe anche all'`<svg>`, che
+ * collocherebbe una seconda volta sul pixel invece che sull'opera.
  */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
@@ -102,8 +114,6 @@ function leggiPiani() {
   elenco.sort((a, b) => a.numero - b.numero);
   piani.value = elenco;
 
-  // Cambiando museo il piano ricordato puo' non esistere piu': si riparte dal
-  // piu' basso, che e' quello da cui si entra.
   let esiste = false;
   for (const p of elenco) {
     if (p.numero === pianoAttivo.value) esiste = true;
@@ -260,10 +270,6 @@ function prepareMap() {
 
   const svg = root.querySelector("svg");
 
-  // Una visita puo' avere piu' item per lo stesso oggetto (slide 21): sulla
-  // mappa restano UN nodo solo. Senza raggruppare, il secondo passaggio
-  // sovrascriveva l'etichetta del primo, sovrapponeva due numeri e lasciava due
-  // ascoltatori sullo stesso disco.
   const perNodo = new Map<string, number[]>();
   matchedContent.value.forEach((match, index) => {
     const luogo = match.anchor ? match.anchor.locationId : "";
@@ -291,7 +297,6 @@ function prepareMap() {
     element.setAttribute("role", "button");
     element.classList.add("nodo-opera");
 
-    // Il nodo e' opzionale solo se lo sono TUTTE le tappe che vi si fermano.
     let optional = true;
     for (const i of indices) {
       const m = matchedContent.value[i];
@@ -317,8 +322,6 @@ function prepareMap() {
     }
     title.textContent = label;
 
-    // Il nodo si tiene il tocco: senza fermarlo arriverebbe anche all'<svg>, che
-    // collocherebbe una seconda volta sul pixel invece che sull'opera.
     const clickHandler = ((e: Event) => {
       if (props.armed) e.stopPropagation();
       onStopPress(index);

@@ -2,9 +2,8 @@
  * I SENSORI DEL DEVICE: posizione e orientamento.
  *
  * L'unico posto con gli effetti collaterali del browser, cioe' permessi,
- * ascoltatori e `watchPosition`, come useQRScanner lo e' per la fotocamera. La
- * geometria sta
- * in localization.ts e non sa che questi esistano.
+ * ascoltatori e `watchPosition`, come `useQRScanner` lo e' per la fotocamera. La
+ * geometria sta in `localization.ts` e non sa che questi esistano.
  *
  * DUE STRADE PER UNA BUSSOLA SOLA. Android e Chrome danno `alpha` riferito al
  * nord su `deviceorientationabsolute`; iOS lo da' su `deviceorientation` come
@@ -22,6 +21,10 @@
  * lo si proietta sul piano orizzontale. Quando il telefono torna quasi piatto
  * quell'asse punta al pavimento e la proiezione non dice piu' niente: li' si usa
  * la direzione del bordo superiore, che e' la bussola classica.
+ *
+ * Su iOS `webkitCompassHeading` e' gia' un rilevamento ORARIO dal nord, mentre
+ * `alpha` gira al contrario: si riporta ad alpha assoluto, cosi' sotto resta una
+ * formula sola invece di due rami per piattaforma.
  */
 
 import { ref } from "vue";
@@ -43,8 +46,6 @@ export function useSensors() {
 
     let alpha = e.alpha;
     if (typeof vendor.webkitCompassHeading === "number") {
-      // iOS: la bussola e' gia' un rilevamento orario dal nord, e alpha gira al
-      // contrario. Riportarlo ad alpha assoluto permette una formula sola sotto.
       alpha = 360 - vendor.webkitCompassHeading;
     } else if (!e.absolute) {
       return null;
@@ -61,8 +62,6 @@ export function useSensors() {
     const cG = Math.cos(g);
     const sG = Math.sin(g);
 
-    // Asse della fotocamera posteriore (l'opposto della normale dello schermo)
-    // portato in coordinate del mondo: est e nord.
     const estCamera = -(cA * sG + cG * sA * sB);
     const nordCamera = -(sA * sG - cA * cG * sB);
 
@@ -70,8 +69,6 @@ export function useSensors() {
       return normalizza((Math.atan2(estCamera, nordCamera) * 180) / Math.PI);
     }
 
-    // Telefono quasi piatto: la fotocamera guarda il pavimento, decide il bordo
-    // superiore dello schermo.
     const estBordo = -cB * sA;
     const nordBordo = cA * cB;
     return normalizza((Math.atan2(estBordo, nordBordo) * 180) / Math.PI);

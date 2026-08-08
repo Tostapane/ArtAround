@@ -26,7 +26,7 @@ function cleanup() {
 }
 
 function stop() {
-  requestId++; 
+  requestId++;
   if (audio) {
     audio.pause();
     audio.removeAttribute("src");
@@ -40,7 +40,7 @@ async function speak(text: string | undefined) {
   if (text) content = text.trim();
   if (!content) return;
   stop();
-  const myId = requestId; 
+  const myId = requestId;
   const lang = language.value;
   try {
     const blob = await getSpeechAudio(content, lang.tts);

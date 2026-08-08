@@ -7,7 +7,7 @@
  * quattro gruppi in uno — il perche' e' scritto la', ed e' la differenza fra
  * un'attesa che si muove e una che si pianta.
  *
- * ⚠️ Le stesse otto linee stanno nello sprite del marketplace e in `logo.svg`:
+ * Le stesse otto linee stanno nello sprite del marketplace e in `logo.svg`:
  * li' il marchio arriva da `<use>`, che qui non si puo' fare perche' in sviluppo
  * il navigator sta su un'altra porta. Chi tocca la geometria le tocca tutt'e
  * tre, e l'elenco delle facce e quello degli spigoli devono restare d'accordo

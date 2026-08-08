@@ -32,7 +32,7 @@
  * devono coincidere, il giorno che smettono, non danno un errore ma una casella
  * vuota nell'editor e una chiave senza traduzione.
  *
- * ⚠️ Dopo averne aggiunto uno serve il giro delle traduzioni (`traduci`): il
+ * Dopo averne aggiunto uno serve il giro delle traduzioni (`traduci`): il
  * tono e la sua riga sono chiavi di catalogo, raccolte da `languages.ts` proprio
  * da qui perche' nel codice si leggono come `t(v.level)` e `t(toneHints[tono])`.
  */
@@ -76,7 +76,7 @@ export function priceForTone(tone: string): number {
 /**
  * Durate di una singola descrizione usate da seed e pianificatore, in secondi.
  *
- * ⚠️ Il costo del seed e' opere x toni x durate, e ogni item e' una chiamata al
+ * Il costo del seed e' opere x toni x durate, e ogni item e' una chiamata al
  * modello con una pausa: aggiungere una durata qui costa, sul museo piu' grande,
  * quanto un intero tono. Il conto lo stampa il seed prima di cominciare.
  */
@@ -94,10 +94,8 @@ export const secPerArt = [15, 30, 60, 120, 180];
  */
 export interface ItemKind {
   id: string;
-  /** Risposta alla domanda "di che cosa parli?", nell'editor. */
-  label: string;
-  /** Il genere da solo, sulla pastiglia di un contenuto. */
-  name: string;
+  label: string; // risposta alla domanda "di che cosa parli?", nell'editor
+  name: string; // il genere da solo, sulla pastiglia di un contenuto
 }
 
 export const itemKinds: ItemKind[] = [
@@ -126,7 +124,7 @@ export function kindById(id: string): ItemKind | null {
  * distribuzione dei sorgenti -- e su un testo divulgativo non dicono niente di
  * sensato; Creative Commons lo sconsiglia esplicitamente in tutt'e due i versi.
  *
- * ⚠️ La prima voce NON e' una licenza, ed e' il motivo per cui e' scritta cosi'.
+ * La prima voce NON e' una licenza, ed e' il motivo per cui e' scritta cosi'.
  * "Tutti i diritti riservati" non e' una cosa che si concede: e' l'assenza di
  * concessione, cioe' lo stato in cui il diritto d'autore mette un'opera da se'.
  * Serviva pero' un valore dichiarabile e leggibile da una macchina, e quello
@@ -146,7 +144,7 @@ export function kindById(id: string): ItemKind | null {
  *
  * In coda CC0, che e' l'estremo opposto della prima voce: la rinuncia a tutto.
  *
- * ⚠️ Sono IDENTIFICATORI e non si traducono, come il marchio e come gli id dei
+ * Sono IDENTIFICATORI e non si traducono, come il marchio e come gli id dei
  * comandi vocali. `In Copyright` e' un nome proprio, non una frase inglese.
  */
 export const licenses = [
@@ -206,10 +204,10 @@ export const SOURCE_LANG = "it";
 export const STT_SAMPLE_RATE = 16000;
 
 export interface Language {
-  name: string;
-  translate: string;
-  tts: string;
-  stt: string;
+  name: string; // l'endonimo, cioe' come la lingua chiama se stessa
+  translate: string; // il codice per Google Translate
+  tts: string; // il codice per la sintesi vocale
+  stt: string; // il codice per il riconoscimento vocale
 }
 
 /** Solo lingue con supporto completo: traduzione, sintesi e riconoscimento. */
@@ -236,7 +234,7 @@ export const languages: Language[] = [
  * uguale: sceglierla nel marketplace e ritrovarla nel navigator e' una scelta
  * sola, non due. Scritta in tutt'e due i file, prima o poi ne diventa due.
  *
- * ⚠️ Sta in `sessionStorage` e NON in `localStorage`, ed e' la differenza fra
+ * Sta in `sessionStorage` e NON in `localStorage`, ed e' la differenza fra
  * "questa volta" e "per sempre": la lingua vale finche' la scheda resta aperta,
  * quindi ogni apertura nuova riparte in italiano. In `localStorage` una scelta
  * fatta una volta vinceva su ogni apertura successiva, anche mesi dopo, e
@@ -256,7 +254,7 @@ export const LANG_KEY = "artaround-lang";
  * apre nella lingua del progetto finche' non lo fa qualcuno, e da quel momento
  * in quella scelta, in ogni scheda e anche dopo aver chiuso il browser.
  *
- * ⚠️ Prima veniva provata anche la lingua del DISPOSITIVO (`navigator.languages`),
+ * Prima veniva provata anche la lingua del DISPOSITIVO (`navigator.languages`),
  * fra le due. Era pensata per la prima schermata, che si legge prima di poter
  * scegliere, ma leggeva nel pensiero: un browser configurato in inglese apriva
  * in inglese un'applicazione italiana, senza che nessuno l'avesse chiesto e
@@ -301,13 +299,13 @@ const CARTELLA_OPERE = "/images/artworks/";
  * file con lo stesso nome, e il giorno che il nome cambia deve cambiare per
  * tutt'e due insieme.
  *
- * ⚠️ Il client non puo' chiedere al server se la miniatura esiste — sarebbe una
+ * Il client non puo' chiedere al server se la miniatura esiste — sarebbe una
  * richiesta in piu' per ogni tessera, cioe' il contrario di quel che si sta
  * facendo. Vale percio' l'invariante che `imageDownloader` mantiene: **ogni file
  * in /images/artworks/ ha il suo `-c`**, anche quando la miniatura vera non si
  * e' potuta avere, e in quel caso `-c` e' una copia dell'originale.
  *
- * ⚠️ Le figure caricate da un autore stanno in /images/items/ e restano intere:
+ * Le figure caricate da un autore stanno in /images/items/ e restano intere:
  * non vengono da Wikimedia, quindi non c'e' nessun secchiello piu' piccolo da
  * chiedere, e sono l'unica figura che quell'opera abbia.
  */
@@ -323,11 +321,10 @@ export function percorsoMiniatura(figura: string): string {
 // ============================================================================
 
 export interface CommandOption {
-  id: string;
-  label: string;
-  surface: "chiedi" | "orientati" | "scheda";
-  /** Aiuto per lo screen reader quando l'etichetta da sola e' ambigua. */
-  hint?: string;
+  id: string; // il token canonico: e' questo che i gestori confrontano
+  label: string; // il solo testo mostrato, separato per non dover scrivere gli id con gli accenti
+  surface: "chiedi" | "orientati" | "scheda"; // dove vive il pulsante equivalente al comando vocale
+  hint?: string; // aiuto per lo screen reader quando l'etichetta da sola e' ambigua
 }
 
 /**
@@ -439,9 +436,9 @@ export const assignedLevels = [CUSTOM_LEVEL, AI_LEVEL];
  * cambia taglia fa parte del lavoro.
  */
 export const visitDurationBands: {
-  value: string;
-  label: string;
-  test: (min: number) => boolean;
+  value: string; // il codice della fascia, quello che il filtro tiene in mano
+  label: string; // l'etichetta a schermo, che e' anche una chiave di traduzione
+  test: (min: number) => boolean; // la prova, nella stessa riga dell'etichetta
 }[] = [
   { value: "breve", label: "Meno di 30 min", test: (m) => m < 30 },
   { value: "media", label: "Da 30 a 60 min", test: (m) => m >= 30 && m <= 60 },
@@ -513,13 +510,13 @@ export const MAX_VISITE_VISITATORE = 5;
  * Sono in italiano di proposito (guidelines.md §3): un indirizzo e' superficie
  * utente, e questa applicazione parla italiano.
  *
- * ⚠️ Un nome qui dentro non puo' coincidere con una cartella sotto
+ * Un nome qui dentro non puo' coincidere con una cartella sotto
  * `server/public/`: il server rimanda il guscio del marketplace a questi
  * indirizzi, e la schermata si mangerebbe i file mancanti di quella cartella,
  * rispondendo 200 con dentro `index.html` invece di un 404. E' il motivo per cui
  * l'allestimento dei musei non sta in `public/musei/`.
  *
- * ⚠️ `as const` non e' decorativo: da qui il marketplace RICAVA il tipo `View`
+ * `as const` non e' decorativo: da qui il marketplace RICAVA il tipo `View`
  * (`"avvio" | (typeof marketplaceViews)[number]`). Aggiungere una schermata si
  * fa quindi in un posto solo, e toglierne una accende un errore di compilazione
  * in ogni punto che la nomina. Senza, i due elenchi sarebbero da tenere
@@ -566,7 +563,7 @@ export const marketplaceLegacyViews = ["visite", "opere"] as const;
  * cinque punti perche' cambiarlo va fatto in un colpo solo: cambiarlo a meta'
  * non da' errore, fa sparire i contenuti dai conteggi.
  *
- * ⚠️ Non deve esistere un account con questo nome. `isReadable` da' per letto
+ * Non deve esistere un account con questo nome. `isReadable` da' per letto
  * un contenuto a chi ne e' l'autore, quindi chi si registrasse cosi' si
  * ritroverebbe gratis tutto il catalogo a pagamento; per questo la
  * registrazione lo rifiuta.

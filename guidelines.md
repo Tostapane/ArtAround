@@ -9,46 +9,46 @@ the code it governs has already broken rule 4.
 
 Every `.ts` / `.vue` opens with a comment saying **what it does and why it is the way it
 is**. If something inside needs explaining, the explanation goes **up into the header**,
-not next to the line. Write the *why* — the code already says the *what*.
+not next to the line. Write the _why_ — the code already says the _what_.
 
 ### Who the comment is for
 
 **The reader is the person who will have to explain this project out loud**, at the
 presentation, without having the author beside them. Write what they need in order to
-*understand the thing well enough to defend it*.
+_understand the thing well enough to defend it_.
 
 That is not the same as **justifying the choice you made**. A comment is not a defence of
 its author. Explaining why the code is shaped this way is exactly right; arguing that the
 decision was clever is not, and it costs the reader the one thing they came for.
 
-| ✗ giustificazione | ✓ spiegazione |
-| --- | --- |
-| "prima erano 94 `as any`, ora sono 55" | "`Content` è `Item \| Visit`: senza una guardia non si può leggere un campo che appartiene a una sola metà" |
-| "l'ho misurato: 654 ms → 67 ms" | "le adozioni si contano con una query e un conteggio in memoria: una query per riga cresce col catalogo" |
-| "ho preferito questo a X perché X era peggio" | *(niente: se X non serve a nessuno, non nominarlo)* |
+| ✗ giustificazione                             | ✓ spiegazione                                                                                               |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| "prima erano 94 `as any`, ora sono 55"        | "`Content` è `Item \| Visit`: senza una guardia non si può leggere un campo che appartiene a una sola metà" |
+| "l'ho misurato: 654 ms → 67 ms"               | "le adozioni si contano con una query e un conteggio in memoria: una query per riga cresce col catalogo"    |
+| "ho preferito questo a X perché X era peggio" | _(niente: se X non serve a nessuno, non nominarlo)_                                                         |
 
 Test it by asking: **would this sentence help someone answer a question at the exam?**
 If it only tells them the author did a good job, delete it. Numbers and comparisons belong
-in the commit message, where they document a change; the file documents the *system*.
+in the commit message, where they document a change; the file documents the _system_.
 
 A rejected alternative earns a mention in **one** case: when knowing it stops someone from
-reintroducing a bug — *"non usare `dbActions.deleteItem` per gli item: salta la cascata"*.
+reintroducing a bug — _"non usare `dbActions.deleteItem` per gli item: salta la cascata"_.
 That is operational, not self-congratulatory.
 
 ### The story goes in `state.md`. The header gets the system.
 
 Two different readers. `state.md` is read by whoever wants to know **what happened to this
 project**: the rewrite, the defect, the measurement, the thing that was tried and dropped.
-A header is read by whoever has to **study this file and explain it**. Dates, *"prima
-era…"*, *"ora è…"*, counts, verifications and the account of a working session belong to
+A header is read by whoever has to **study this file and explain it**. Dates, _"prima
+era…"_, _"ora è…"_, counts, verifications and the account of a working session belong to
 the first reader — in the second's hands they age into lies, and they crowd out the one
 paragraph that was needed.
 
-| header | `state.md` |
-| --- | --- |
-| what the file is, and why it is shaped that way | why it was changed, and when |
-| the trap that will make the next edit break it | how it was verified, with what numbers |
-| the vocabulary needed to follow the code | what it replaced, and what was rejected |
+| header                                          | `state.md`                              |
+| ----------------------------------------------- | --------------------------------------- |
+| what the file is, and why it is shaped that way | why it was changed, and when            |
+| the trap that will make the next edit break it  | how it was verified, with what numbers  |
+| the vocabulary needed to follow the code        | what it replaced, and what was rejected |
 
 The test: **would the sentence still belong if the code had always been like this?**
 If not, it is history — move it to `state.md` and delete it here.
@@ -66,7 +66,7 @@ Plus short section labels in templates (`<!-- MAPPA -->`). Signs, not explanatio
 
 **One exception: routes.** Above each endpoint, its contract — method, path, what it
 returns. It is what you go looking for when you open a routes file. Two or three lines;
-the *why* still lives at the top.
+the _why_ still lives at the top.
 
 ```ts
 /**
@@ -117,3 +117,4 @@ All three compiled cleanly. **Verify by running the thing, not by reading it.**
 - **`ts-node` ignores ambient `.d.ts` from tsconfig `include`.** A stripped
   `/// <reference>` kept `tsc` green while `npm run start` stopped booting → that line is
   not a comment, and the header must say so (rule 1).
+  DO NOT PUT EMOJIS OR WHATEVER IN THE COMMENTS

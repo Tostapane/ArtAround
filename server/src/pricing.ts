@@ -15,17 +15,17 @@
  * Non fa I/O apposta: i documenti delle tappe arrivano gia' caricati in una
  * mappa. Chi la chiama su un elenco di visite li prende tutti con una query sola
  * e conta in memoria, perche' una query per visita crescerebbe col catalogo.
+ *
+ * Una tappa che non esiste piu' non si compra e non si legge: conta come
+ * mancante e basta.
  */
 import { isReadable } from "../../shared/access";
 
 export interface Conto {
-  /** Gli id da mettere in collezione: il contenuto, se non e' gia' tuo, piu' le tappe da comprare. */
-  daPrendere: string[];
-  /** Quante tappe mancano. Una tappa che non si risolve conta come mancante: non si potrebbe leggere. */
-  mancanti: number;
+  daPrendere: string[]; // gli id da mettere in collezione: il contenuto se non e' gia' tuo, piu' le tappe
+  mancanti: number; // quante tappe mancano; una che non si risolve conta come mancante
   costoMancanti: number;
-  /** Il conto: le tappe mancanti piu' il contenuto stesso, se non e' gia' tuo. */
-  totale: number;
+  totale: number; // le tappe mancanti piu' il contenuto stesso, se non e' gia' tuo
 }
 
 export function conto(
@@ -51,7 +51,6 @@ export function conto(
 
   for (const id of tappe) {
     const tappa = itemsById.get(id);
-    // Una tappa che non esiste piu' non si compra e non si legge: manca e basta.
     if (!tappa) {
       mancanti++;
       continue;

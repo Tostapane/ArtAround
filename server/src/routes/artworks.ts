@@ -30,6 +30,21 @@
  * (vedi `locationsFromMap` in `manager.ts`). Aggiungerla non crea descrizioni,
  * che costano una chiamata al modello l'una: le scrive il seed, che salta le
  * opere gia' presenti, oppure un autore.
+ *
+ * `soloCuratore` e' la guardia delle tre rotte che cambiano il catalogo.
+ * `impattoOpera` conta che cosa se ne andrebbe — le descrizioni, le visite che
+ * la citano e, fra queste, quelle che resterebbero SENZA tappe — e non scrive
+ * niente: lo chiamano sia il preventivo sia l'eliminazione, cosi' i due contano
+ * la stessa cosa. Quale delle due strade prendere lo decide il CURATORE, perche'
+ * e' una scelta di curatela e non una conseguenza tecnica.
+ *
+ * Nell'eliminazione se ne vanno anche le immagini caricate a mano, che
+ * appartengono alla descrizione e a nient'altro. Quella dell'opera resta: e' la
+ * copia locale di Wikidata, e riscaricarla costa una richiesta per opera (vedi
+ * `DELETE /museums/:qid/contents`).
+ *
+ * In `POST /` lo stesso qid non puo' stare in due musei: l'`@id` di una
+ * descrizione e' `qid-autore-tono-durata`, e il museo li' dentro non compare.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -59,7 +74,7 @@ router.get("/", async (req, res) => {
     const filter = museum
       ? { ofMuseum: `http://www.wikidata.org/entity/${museum}` }
       : {};
-    const artworks = await ArtworkModel.find(filter);
+    const artworks = await ArtworkModel.find(filter).lean();
     if (!museum) return res.json(artworks);
     const doc = await MuseumModel.findOne({ qid: museum });
     res.json(sortByFlow(artworks, doc ? doc.mapPath : ""));
@@ -83,7 +98,7 @@ router.get("/:qid/items", async (req, res) => {
     const items = await ItemModel.find({
       about: artwork["@id"],
       visibility: { $ne: "privato" },
-    });
+    }).lean();
     const user = sessionUser(req).username;
     const owned = await purchasedBy(user);
     res.json(readableItems(items, user, owned));
@@ -92,6 +107,14 @@ router.get("/:qid/items", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/artworks/:qid/preview[?level=&duration=]
+ * Ritorna: { artwork, item } per un'opera QUALUNQUE, anche fuori dalla visita in
+ * corso (serve al QR e al codice digitato). Sceglie la descrizione per tono e
+ * durata, ripiega sul solo tono, poi su una qualsiasi; se l'opera non ne ha
+ * nessuna ne genera una col modello e la salva, cosi' la volta dopo c'e'. 502 se
+ * il modello non risponde.
+ */
 router.get("/:qid/preview", async (req, res) => {
   try {
     const { qid } = req.params;
@@ -167,16 +190,12 @@ router.get("/:qid/preview", async (req, res) => {
 
 // --- Il catalogo del curatore: aggiungere e togliere un'opera ---------------
 
-/** Il curatore, o niente. Le tre rotte qui sotto cambiano il catalogo del museo. */
 function soloCuratore(req: any, res: any): boolean {
   if (sessionUser(req).role === "curatore") return true;
   res.status(403).json({ error: "Solo il curatore può modificare il catalogo." });
   return false;
 }
 
-/** Che cosa se ne va insieme all'opera. Non scrive niente: lo usano sia il
- *  preventivo che l'eliminazione, cosi' contano la stessa cosa. */
-/** L'altro modo: le visite che la citano se ne vanno intere. */
 async function eliminaVisiteCitanti(impatto: {
   visitIds: string[];
   visits: any[];
@@ -189,12 +208,6 @@ async function eliminaVisiteCitanti(impatto: {
   };
 }
 
-/**
- * Cosa comporta togliere un'opera: le sue descrizioni, le visite che le citano
- * e, fra queste, quelle che resterebbero SENZA tappe. Le prime si accorciano,
- * le seconde spariscono (`rimuoviTappeDalleVisite`), ed e' la differenza che va
- * detta prima di chiedere conferma.
- */
 async function impattoOpera(artworkId: string) {
   const items = await ItemModel.find({ about: artworkId }).select("@id imagePath");
   const itemIds = items.map((i: any) => i["@id"]);
@@ -261,9 +274,6 @@ router.delete("/:qid", async (req, res) => {
 
     const impatto = await impattoOpera(artwork["@id"]);
 
-    // Che ne e' delle visite che la citano lo decide il curatore, perche' e'
-    // una scelta di curatela e non una conseguenza tecnica: accorciarle (togliere
-    // la tappa e rimettere a posto note, durata e quiz) oppure eliminarle.
     const esito =
       String(req.query.visite || "") === "elimina"
         ? await eliminaVisiteCitanti(impatto)
@@ -276,9 +286,6 @@ router.delete("/:qid", async (req, res) => {
       {},
       { $pull: { collezione: { $in: [...impatto.itemIds, ...spariti] } } },
     );
-    // Le immagini caricate a mano appartengono alla descrizione e a nient'altro.
-    // Quella dell'opera resta: e' la copia locale di Wikidata, e riscaricarla
-    // costa una richiesta per opera (vedi `DELETE /museums/:qid/contents`).
     for (const it of impatto.items as any[]) rimuoviImmagine(it.imagePath);
 
     console.log(
@@ -316,8 +323,6 @@ router.post("/", async (req, res) => {
     const config = findMuseumConfig(museo);
     if (!config) return res.status(404).json({ error: "Museo non configurato" });
 
-    // Lo stesso qid in due musei collide: l'`@id` di una descrizione e'
-    // `qid-autore-tono-durata` e il museo non ci compare.
     const gia = await ArtworkModel.findOne({ qid });
     if (gia)
       return res.status(409).json({

@@ -7,18 +7,66 @@
  *
  * L'ordine dei `use` e' significativo e non va rimescolato: prima i file veri,
  * poi /api, e per ultimo il guscio del marketplace, che risponde agli indirizzi
- * delle sue schermate (in fondo al file, col perche').
+ * delle sue schermate.
  *
  * La porta arriva dall'ambiente perche' sul server del dipartimento non e' detto
  * che sia la 8000, e perche' cosi' si possono tenere due istanze accese insieme.
  *
  * Si entra da un account: ogni rotta sotto /api pretende una sessione, tranne
- * tre che non possono averne una. Le prime due perche' vengono prima di avere un
- * account (`/config`, `/users/{login,register,redeem}`); la terza perche' a
- * chiederla non e' il nostro codice ma il browser — il foglio
- * `/museums/:qid/qrcodes` si apre come pagina, e a una navigazione non si puo'
- * attaccare un'intestazione. Di li' non passa nessun testo a pagamento: quel
- * foglio nasce per essere appeso al muro.
+ * quelle che non possono averne una. `/config` e `/users/{login,register,redeem}`
+ * perche' vengono prima di avere un account; `/museums/:qid/qrcodes` perche' a
+ * chiederla non e' il nostro codice ma il browser — il foglio si apre come
+ * pagina, e a una navigazione non si puo' attaccare un'intestazione. Di li' non
+ * passa nessun testo a pagamento: quel foglio nasce per essere appeso al muro.
+ * `museums` e `users` sono percio' le due miste, e li' la guardia sta dentro il
+ * router, rotta per rotta.
+ *
+ * Le scelte incorporate nella catena dei middleware, nell'ordine in cui compaiono:
+ *
+ *   compression   il catalogo di un museo grande e' JSON molto ripetitivo (le
+ *                 stesse licenze, gli stessi livelli, lo stesso museo su
+ *                 migliaia di descrizioni): comprimerlo lo riduce di oltre
+ *                 trenta volte, senza toccare ne' rotte ne' client.
+ *   resolveSession legge il biglietto se c'e' e non rifiuta niente: a rifiutare
+ *                 e' requireSession, rotta per rotta.
+ *   /images       cache lunga e immutabile: il nome di un'immagine E' la sua
+ *                 identita' (il qid dell'opera, un UUID per quelle caricate),
+ *                 quindi sostituirla cambia indirizzo e la copia vecchia non
+ *                 puo' avanzare. Le mappe no: si correggono sul posto.
+ *   /navigator    in sviluppo il navigator ha Vite sulla 5173; in deploy quel
+ *                 server non c'e' (il dipartimento pubblica una porta sola per
+ *                 sito) e diventa i file statici di `npm run build`.
+ *   /i18n         il navigator si porta i cataloghi dentro il pacchetto
+ *                 compilato, il marketplace no perche' non ha un
+ *                 impacchettatore: li chiede qui, uno per lingua.
+ *
+ * `GET /api/config` porta anche le opere della SOGLIA, gia' risolte in
+ * `{qid, imagePath}`: la soglia e' la schermata di chi non e' entrato e il
+ * catalogo pretende una sessione, ma di li' passano solo i nomi di sei immagini
+ * gia' in chiaro sotto `/images`. Quali siano lo dice `data/soglia.json`, riletto
+ * a ogni richiesta perche' cambiare quella scelta non deve costare un riavvio;
+ * l'ordine e' del curatore, dato che il retino dello sciame rende bene solo su
+ * certe opere e non c'e' modo di calcolarlo. File mancante o illeggibile: si
+ * ripiega sulle prime del catalogo, cosi' la soglia non resta mai vuota.
+ *
+ * Il GUSCIO del marketplace, in fondo alla catena, esiste perche' quell'app
+ * naviga su percorsi veri (`/vetrina`, `/opera/Q12418`) a cui sul disco non
+ * corrisponde nessun file: chi ricarica, arriva da un segnalibro o preme
+ * "indietro" prenderebbe 404, e qui riceve invece lo stesso `index.html` della
+ * radice, che legge l'indirizzo e apre la schermata giusta. Riconosce SOLO i nomi
+ * di `shared/constants.ts` invece di rispondere a tutto, o un file davvero
+ * mancante uscirebbe travestito da pagina buona e la console direbbe soltanto
+ * che il foglio di stile non e' CSS. E' `app.use` e non una rotta con `*` perche'
+ * il carattere jolly ha cambiato sintassi fra Express 4 e 5.
+ *
+ * In fondo, `keepAliveTimeout`: un browser tiene aperte le connessioni e le
+ * riusa fra le schede, perche' il pozzo dei socket e' del browser e non della
+ * pagina. Node pero' le chiude da fermo dopo cinque secondi, e chi apre una
+ * seconda scheda dopo una pausa scrive la sua prima richiesta dentro un socket
+ * che il server sta chiudendo in quell'istante; su una rete con qualche decina
+ * di millisecondi di ritardo il browser non fa in tempo ad accorgersene e la
+ * pagina non carica. `headersTimeout` deve restare il maggiore dei due, o
+ * sarebbe lui a chiudere per primo.
  */
 import { MONGO_URI } from "./env";
 import express from "express";
@@ -49,20 +97,11 @@ const app = express();
 const PORT = Number(process.env.PORT) || 8000;
 
 app.use(cors());
-// Il catalogo di un museo grande e' JSON molto ripetitivo: le stesse licenze,
-// gli stessi livelli e lo stesso museo su migliaia di descrizioni. Comprimerlo
-// lo riduce di oltre trenta volte, e non tocca ne' le rotte ne' il client.
 app.use(compression());
 app.use(express.json());
 
-// Legge il biglietto se c'e' e non rifiuta niente: a rifiutare e' requireSession,
-// rotta per rotta, perche' qualcuna deve restare aperta (vedi sopra).
 app.use("/api", resolveSession);
 
-// Le immagini si tengono in cache a lungo, le mappe no. Un'immagine ha per nome
-// la sua identita' (il qid dell'opera, un UUID per quelle caricate), quindi
-// sostituirla vuol dire cambiare indirizzo e la copia vecchia non puo' avanzare;
-// una mappa invece si corregge sul posto, e va richiesta di nuovo ogni volta.
 app.use(
   "/images",
   express.static(path.join(__dirname, "../public/images"), {
@@ -76,17 +115,10 @@ app.use(
   "/dist",
   express.static(path.join(__dirname, "../../marketplace/dist")),
 );
-// In sviluppo il navigator ha un server suo, Vite sulla porta 5173. In deploy
-// quel server non c'e', perche' il dipartimento pubblica una porta sola per
-// sito: il navigator diventa file statici serviti da qui, sotto /navigator.
-// La cartella e' il prodotto di `npm run build`, da rifare a ogni modifica.
 app.use(
   "/navigator",
   express.static(path.join(__dirname, "../../navigator/dist")),
 );
-// I cataloghi dell'interfaccia. Il navigator se li porta dentro il pacchetto
-// compilato, il marketplace no perche' non ha un impacchettatore: li chiede qui,
-// uno per lingua, quando qualcuno sceglie una lingua diversa dall'italiano.
 app.use("/i18n", express.static(path.join(__dirname, "../../shared/i18n")));
 
 const connectWithRetry = () => {
@@ -102,8 +134,6 @@ const connectWithRetry = () => {
 
 connectWithRetry();
 
-// `museums` e `users` sono le due miste: il foglio dei QR e l'accesso restano
-// aperti, quindi li' la guardia sta dentro il router, rotta per rotta.
 app.use("/api/artworks", requireSession, artworkRoutes);
 app.use("/api/visits", requireSession, visitsRoutes);
 app.use("/api/speech", requireSession, speechRoutes);
@@ -121,12 +151,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-/**
- * Le opere che la soglia compone. Si rilegge a ogni richiesta e non una volta
- * all'avvio, cosi' cambiare quella scelta non obbliga a riavviare il server. Se
- * il file manca o non si legge si torna un elenco vuoto e il client ripiega
- * sulle prime opere del catalogo.
- */
 function readThresholdArtworks(): string[] {
   try {
     const file = path.join(__dirname, "data", "soglia.json");
@@ -138,16 +162,6 @@ function readThresholdArtworks(): string[] {
   }
 }
 
-/**
- * Le opere della soglia, gia' risolte in `{qid, imagePath}`.
- *
- * Le risolve il server perche' la soglia e' la schermata di chi non e' entrato e
- * il catalogo pretende una sessione. Di qui non passa nessun testo, solo il nome
- * di sei immagini che stanno gia' in chiaro sotto `/images`. L'ordine e' quello
- * scelto dal curatore, perche' il retino dello sciame rende bene solo su certe
- * opere e non c'e' modo di calcolarlo; se il file non dice niente si ripiega
- * sulle prime del catalogo, cosi' la soglia non resta mai vuota.
- */
 async function thresholdFigures(): Promise<
   { qid: string; imagePath: string }[]
 > {
@@ -202,26 +216,6 @@ app.get("/api/config", async (req, res) => {
   res.json({ navigatorOrigin, thresholdArtworks: await thresholdFigures() });
 });
 
-/**
- * Il guscio del marketplace per gli indirizzi delle sue schermate.
- *
- * Il marketplace naviga su percorsi veri (`/vetrina`, `/opera/Q12418`), che pero'
- * esistono solo dentro la pagina gia' aperta: sul disco non c'e' nessun file con
- * quel nome. Chi ricarica, arriva da un segnalibro o scrive l'indirizzo a mano
- * prenderebbe 404, e il tasto "indietro" del browser pure. Qui si rimanda lo
- * stesso `index.html` della radice, che a quel punto legge l'indirizzo e apre la
- * schermata giusta.
- *
- * Riconosce SOLO i nomi di `shared/constants.ts`, che sono quelli del router,
- * invece di rispondere a tutto: cosi' un file davvero mancante resta un 404 e si
- * vede, mentre un `catch-all` glielo travestirebbe da pagina buona e la console
- * direbbe soltanto che il foglio di stile non e' CSS.
- *
- * Sta dopo i file statici e dopo `/api`, quindi non puo' rubare niente a
- * nessuno; e' `app.use` e non una rotta con `*` perche' il carattere jolly ha
- * cambiato sintassi fra Express 4 e 5, e un elenco che si legge in chiaro non
- * ha versioni.
- */
 const schermateMarketplace = new Set<string>([
   ...marketplaceViews,
   ...marketplaceLegacyViews,
@@ -241,16 +235,5 @@ const server = app.listen(PORT, () => {
   console.log(`-------------------------------------------`);
 });
 
-/**
- * Un browser tiene aperte le connessioni e le riusa, e le riusa fra le schede:
- * il pozzo dei socket e' del browser, non della pagina. Node pero' le chiude da
- * fermo dopo cinque secondi, e chi apre una seconda scheda dopo una pausa scrive
- * la sua prima richiesta dentro un socket che il server sta chiudendo proprio in
- * quell'istante. Il browser deve accorgersene e riprovare; su una rete con
- * qualche decina di millisecondi di ritardo a volte non fa in tempo, e la
- * richiesta resta appesa: la pagina non carica. Tenendo aperto piu' a lungo di
- * quanto un browser resti fermo la corsa non si presenta.
- * `headersTimeout` deve restare piu' grande, o sarebbe lui a chiudere per primo.
- */
 server.keepAliveTimeout = 65_000;
 server.headersTimeout = 66_000;

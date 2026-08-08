@@ -11,11 +11,15 @@
  *
  * Due proprieta' che decidono la forma di tutto il file:
  *
- * RIPRENDIBILE. Ogni item e' una chiamata all'LLM con una pausa in mezzo per
- * non superare i limiti di frequenza: un museo da cento opere sono ottocento
- * chiamate e qualche ora, e in qualche ora qualcosa si interrompe sempre. Il
+ * RIPRENDIBILE. Ogni item e' una chiamata all'LLM: un museo da cento opere sono
+ * duemila chiamate, e in una corsa cosi' lunga qualcosa si interrompe sempre. Il
  * seed salta quel che trova gia' scritto, quindi rilanciarlo riparte da dove si
  * era fermato invece di rifare tutto.
+ *
+ * Fra due chiamate al modello non c'e' nessuna pausa, e la sola che resta e'
+ * quella verso Wikimedia, che i suoi limiti li fa ancora rispettare. Le
+ * chiamate al modello sono su un piano a pagamento, e rallentare apposta un
+ * seed che dura ore per un limite che non scatta piu' era tempo regalato.
  *
  * ADDITIVO. Semina il museo chiesto e non tocca gli altri. Cancellare tutto per
  * aggiungere un museo vorrebbe dire rigenerare anche i contenuti degli altri
@@ -26,8 +30,32 @@
  *
  * Oltre alle opere semina due soggetti che opere non sono, lo stile e l'autore
  * piu' ricorrenti in quel museo, perche' la slide 21 chiede contenuti anche su
- * stili e artisti, e senza nemmeno uno non si possono mostrare. Ognuno apre le
- * visite di catalogo del suo museo, in testa alle opere: vedi `seedMuseumVisits`.
+ * stili e artisti, e senza nemmeno uno non si possono mostrare. Quali siano lo
+ * decide il CATALOGO e non un elenco scritto qui, cosi' un museo di arte
+ * contemporanea non semina il Rinascimento; l'immagine e' quella di un'opera che
+ * porta quel valore, cioe' la piu' vicina che il museo abbia.
+ *
+ * I soggetti stanno in TESTA alle visite di catalogo. Un contenuto su uno stile o
+ * su un artista non e' appeso a una parete, quindi non ha un posto nell'ordine di
+ * cammino e `inOrdineDiPercorso` non saprebbe dove metterlo; infilato fra due
+ * sale spezzerebbe il giro. In apertura invece e' l'inquadramento che si ascolta
+ * prima di muoversi, cioe' la stessa posizione in cui il museo mette un pannello
+ * introduttivo. Le indicazioni logistiche del museo diventano per lo stesso
+ * motivo note d'APERTURA (`after: null`): ingresso, biglietto e guardaroba si
+ * sanno prima della prima tappa, non fra una tappa e l'altra.
+ *
+ * Le venti visite di un museo hanno percio' le stesse tappe: a cambiare sono tono
+ * e durata — come si racconta e quanto dura — non che cosa si guarda. E' anche il
+ * motivo per cui la copertina si sceglie per tono e non per visita
+ * (`visitImages`): cinque visite che differiscono per la sola durata non hanno
+ * cinque facce diverse.
+ *
+ * `inOrdineDiPercorso` esiste perche' il database rende gli item nell'ordine in
+ * cui sono stati scritti, che non e' un ordine: una visita seminata cosi' rimbalza
+ * da una sala all'altra e, da quando le piante hanno i piani, sale e scende le
+ * scale a ogni tappa. L'ordine di percorrenza sta sulla mappa (`data-flow`) ed e'
+ * lo stesso che mette in fila il catalogo; qui si applica alle tappe, che sono
+ * item e non opere, passando per il qid dell'opera di cui l'item parla.
  */
 import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
@@ -60,8 +88,7 @@ import {
 } from "../data/museumConfigs";
 import { costruisciQuiz } from "../data/quiz";
 
-const PAUSA_LLM_MS = 0;
-const PAUSA_IMMAGINE_MS = 1000;
+const PAUSA_IMMAGINE_MS = 1000; // la pausa fra due scaricamenti, per non far scattare il 429 di Wikimedia
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -77,11 +104,6 @@ function fmt(seconds: number): string {
 //                              Seed di un museo
 // ============================================================================
 
-/**
- * Le indicazioni valide per tutto il museo diventano note d'APERTURA della
- * visita (`after: null`): riguardano l'ingresso, il biglietto, il guardaroba,
- * cioe' cose da sapere prima della prima tappa e non fra una tappa e l'altra.
- */
 function openingNotes(config: MuseumConfig): LogisticNote[] {
   if (!config.logistics) return [];
   return config.logistics.map((text) => ({ after: null, text }));
@@ -93,14 +115,10 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
   const itemsPerArtwork = educationalLevels.length * secPerArt.length;
   const totalItems = config.activeArtworks.length * itemsPerArtwork;
 
-  // Il costo si dice PRIMA di cominciare: e' opere x toni x durate, ognuno una
-  // chiamata al modello con la sua pausa, e chi lancia il comando deve poter
-  // decidere sapendo quante ore e quante chiamate sta impegnando.
-  const oreAlPeggio = (totalItems * PAUSA_LLM_MS) / 3_600_000;
   console.log(
     `\n=== ${config.name} (${config.qid}): ${config.activeArtworks.length} opere ` +
       `x ${educationalLevels.length} toni x ${secPerArt.length} durate = ` +
-      `fino a ${totalItems} item (${oreAlPeggio.toFixed(1)}h se mancassero tutti) ===`,
+      `fino a ${totalItems} item ===`,
   );
   const senzaNodo = config.activeArtworks.filter((q) => !positions.has(q));
   if (senzaNodo.length > 0) {
@@ -134,7 +152,6 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
       console.log(`${etichetta} opera inserita.`);
       await delay(PAUSA_IMMAGINE_MS);
     } else {
-      // La posizione puo' essere cambiata sulla pianta dopo il primo seed.
       const position = positions.get(qid);
       if (position && artwork.locationId !== position) {
         await ArtworkModel.updateOne({ qid }, { locationId: position });
@@ -166,11 +183,8 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
           `${etichetta} item ${level}/${duration}s  ·  ${generati} generati, ` +
             `${saltati} gia' presenti  ·  ETA ~${fmt(eta)}`,
         );
-        await delay(PAUSA_LLM_MS);
       }
     }
-    // Un'opera gia' completa non stampa niente per conto suo: in una ripresa
-    // sarebbero cento righe di silenzio apparente prima della prima novita'.
     if (nuoviQui === 0) console.log(`${etichetta} gia' completa.`);
   }
 
@@ -186,7 +200,6 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
 //                        Soggetti che non sono opere
 // ============================================================================
 
-/** Il valore piu' ricorrente e un'opera che lo porta: serve il nome e una faccia. */
 function piuRicorrente(
   artworks: any[],
   leggi: (a: any) => { name?: string; qid?: string } | undefined,
@@ -196,7 +209,6 @@ function piuRicorrente(
 
   for (const a of artworks) {
     const valore = leggi(a);
-    // "Unknown" e gli indirizzi di nodo anonimo sono buchi di Wikidata, non nomi.
     if (!valore || !valore.name) continue;
     if (valore.name === "Unknown" || valore.name.startsWith("http")) continue;
     const gia = conteggi.get(valore.name);
@@ -222,13 +234,6 @@ function piuRicorrente(
   return { name: vincitore, qid: esempio.qid, artwork: esempio.artwork };
 }
 
-/**
- * I contenuti che non parlano di un'opera. Quali soggetti siano lo decide il
- * catalogo, cioe' lo stile e l'autore che vi ricorrono di piu', e non un elenco
- * scritto qui:
- * cosi' un museo di arte contemporanea non semina il Rinascimento. L'immagine e'
- * quella di un'opera che porta quel valore: e' la piu' vicina che il museo abbia.
- */
 async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
   const uri = museumUri(config.qid);
   const artworks = await ArtworkModel.find({ ofMuseum: uri });
@@ -254,8 +259,6 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
 
     for (const level of educationalLevels) {
       for (const duration of secPerArt) {
-        // Uno per genere, quindi il genere basta a identificarlo: cambiando lo
-        // stile piu' ricorrente il documento si aggiorna invece di sdoppiarsi.
         const id = `${config.qid}-${s.kind}-${SEED_ID_TOKEN}-${level}-${duration}`;
         const gia = await ItemModel.findOne({ "@id": id });
         if (gia && !force) continue;
@@ -291,22 +294,11 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
         console.log(
           `[${config.qid}] soggetto ${s.kind} "${nome}" ${level}/${duration}s.`,
         );
-        await delay(PAUSA_LLM_MS);
       }
     }
   }
 }
 
-/**
- * Le tappe nell'ordine in cui il museo si attraversa.
- *
- * Il database restituisce gli item nell'ordine in cui sono stati scritti, che
- * non e' un ordine: una visita seminata cosi' rimbalza da una sala all'altra e,
- * da quando le piante hanno i piani, sale e scende le scale a ogni tappa.
- * L'ordine di percorrenza sta sulla mappa (`data-flow`) ed e' lo stesso che
- * mette in fila il catalogo: qui si applica alle tappe, che sono item e non
- * opere, passando per il qid dell'opera di cui l'item parla.
- */
 function inOrdineDiPercorso<T extends { about?: string }>(
   items: T[],
   mapPath: string,
@@ -319,23 +311,6 @@ function inOrdineDiPercorso<T extends { about?: string }>(
   return sortByFlow(conQid, mapPath).map((riga) => riga.item);
 }
 
-/**
- * Una visita per ogni combinazione di tono e durata, con dentro tutte le opere
- * del museo per cui quell'item esiste davvero, precedute dai suoi soggetti.
- *
- * Le venti visite di un museo hanno percio' le stesse tappe: a cambiare sono
- * tono e durata, cioe' come si raccontano e quanto durano, non che cosa si
- * guarda. E' anche il motivo per cui la copertina si sceglie per tono e non per
- * visita (`visitImages`): cinque visite che differiscono per la sola durata non
- * hanno cinque facce diverse.
- *
- * I soggetti stanno in TESTA. Un contenuto su uno stile o su un artista non e'
- * appeso a una parete, quindi non ha un posto nell'ordine di cammino e
- * `inOrdineDiPercorso` non saprebbe dove metterlo; in mezzo alle sale
- * spezzerebbe il giro. In apertura invece e' l'inquadramento che si ascolta
- * prima di muoversi, ed e' la stessa posizione in cui il museo mette un
- * pannello introduttivo.
- */
 async function seedMuseumVisits(config: MuseumConfig) {
   const uri = museumUri(config.qid);
   const aboutIds = config.activeArtworks.map(museumUri);
@@ -351,11 +326,6 @@ async function seedMuseumVisits(config: MuseumConfig) {
       if (items.length === 0) continue;
       const percorso = inOrdineDiPercorso(items, config.mapPath);
 
-      // I soggetti (stile, artista) aprono il cammino invece di stare in mezzo
-      // alle opere: non hanno un posto sulla pianta — non sono appesi a una
-      // parete — quindi `inOrdineDiPercorso` non saprebbe dove metterli, e
-      // infilarli fra due sale spezzerebbe il giro. In testa sono quel che
-      // sono: l'inquadramento che si ascolta prima di cominciare a camminare.
       const soggetti = await ItemModel.find({
         timeRequired: `${duration}`,
         educationalLevel: level,
@@ -389,11 +359,12 @@ async function seedMuseumVisits(config: MuseumConfig) {
 // ============================================================================
 
 /*
- * Le due visite che il seed omogeneo non sa produrre, su OGNI museo configurato:
- *  1) una visita con CONTENUTI OPZIONALI: la seconda meta' delle tappe e'
- *     marcata come "da mostrare solo se resta tempo";
- *  2) una VISITA GUIDATA del docente (modulo 18-27), protetta da parola chiave,
- *     con il quiz costruito sulle opere della visita stessa.
+ * La visita che il seed omogeneo non sa produrre, su OGNI museo configurato: la
+ * VISITA GUIDATA del docente (modulo 18-27), protetta da parola chiave, col quiz
+ * costruito sulle opere della visita stessa. Cancella per strada anche la vecchia
+ * "Percorso con contenuti opzionali": era una visita dimostrativa in vetrina con
+ * le stesse tappe delle altre venti, e le tappe opzionali si mostrano meglio da
+ * dove si creano, cioe' il compositore.
  *
  * Il docente e gli studenti sono gli stessi per tutti i musei e si creano una
  * volta sola, fuori dal giro: sono persone, non arredo di un museo.
@@ -439,7 +410,6 @@ async function seedSpecialVisits(config: MuseumConfig) {
   const durataTotale = duration * itemIds.length;
   const notes = openingNotes(config);
 
-  // Il test di competenza di fine visita (slide 33), sulle opere del percorso.
   const opereDellaVisita = await ArtworkModel.find({
     "@id": { $in: items.map((it: any) => it.about) },
   });
@@ -458,9 +428,6 @@ async function seedSpecialVisits(config: MuseumConfig) {
     quiz,
   };
 
-  // Si toglie anche la vecchia "Percorso con contenuti opzionali": era una
-  // visita dimostrativa in vetrina con le stesse tappe delle altre venti, e le
-  // tappe opzionali si mostrano meglio da dove si creano, cioe' il compositore.
   await VisitModel.deleteMany({
     "@id": { $in: [`visit-opzionali-${config.qid}`, visitaGuidata["@id"]] },
   });
@@ -471,7 +438,6 @@ async function seedSpecialVisits(config: MuseumConfig) {
   );
 }
 
-/** Il docente e i suoi studenti: gli stessi per ogni museo, quindi una volta sola. */
 async function seedDemoAccounts() {
   const account: { username: string; role: "autore" | "visitatore" }[] = [
     { username: DOCENTE, role: "autore" },

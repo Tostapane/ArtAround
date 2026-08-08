@@ -23,6 +23,28 @@
  * pianta e scheda si spartiscono l'altezza, e una pagina che scorre le farebbe
  * uscire tutt'e due. Chi deve scorrere lo fa dentro di se', ed e' il motivo per
  * cui la biglietteria riceve `overflow-y-auto` da qui.
+ *
+ * I due messaggi d'avvio tengono la CHIAVE e non la frase tradotta: il catalogo
+ * della lingua arriva a parte (vedi `i18n.ts`) e potrebbe non esserci ancora
+ * quando queste righe passano, che passano una volta sola. Tradurli nel legame
+ * invece che nel `ref` e' anche l'unica cosa giusta quando la lingua cambia a
+ * schermo acceso.
+ *
+ * La sessione che scade a meta' visita si gestisce in un punto solo: senza,
+ * ogni chiamata fallirebbe per conto suo e la persona resterebbe davanti a una
+ * pianta che non risponde piu'. Si dice invece dove si rientra, che e' il
+ * marketplace. L'avviso viene PRIMA della visita guidata nel modello: una
+ * sessione scaduta spegne anche quella, e lasciarla a schermo direbbe che si sta
+ * ancora seguendo il docente.
+ *
+ * `resume` non ricarica niente: uscire non chiude la visita, `visit` resta in
+ * piedi e la tappa aperta e' ancora quella. Serve soprattutto alle visite che
+ * nell'elenco non ci sono — quella su misura, che nel database non esiste, e
+ * quella aperta da un collegamento diretto.
+ *
+ * La visita su misura arriva a COPPIE (i suoi item non stanno nel database):
+ * `onCustomStart` rimette l'opera dentro l'item, che e' la forma da cui parte
+ * `buildStops`.
  */
 import { onMounted, ref, computed } from "vue";
 import Biglietteria from "./components/selection/Biglietteria.vue";
@@ -46,19 +68,14 @@ import {
 import { loadConfig, museumQid } from "./config";
 import { guidedActive, startAsTeacher, attachAsStudent } from "./guided";
 import { useAnnouncer } from "./composables/useAnnouncer";
-import { t } from "@/i18n";
+import { t, tKey } from "@/i18n";
 import type { Visit, Artwork, Item } from "../../shared/types";
 
 const { message, announce } = useAnnouncer();
 
 const pronto = ref(false);
 const erroreAvvio = ref("");
-// I due messaggi d'avvio tengono la CHIAVE, non la frase tradotta: il
-// catalogo della lingua arriva a parte (vedi `i18n.ts`) e potrebbe non
-// esserci ancora quando queste righe passano, che passano una volta sola.
-// Tradurli nel legame invece che qui li rende anche l'unica cosa giusta
-// quando la lingua cambia a schermo acceso.
-const testoAvvio = ref("Apertura del museo…");
+const testoAvvio = ref(tKey("Apertura del museo…"));
 const started = ref(false);
 const choice = ref<string>("");
 
@@ -68,12 +85,10 @@ function museumQidFromUri(uri: string): string {
 }
 
 onMounted(async () => {
-  // Una sessione che scade a meta' visita: senza questo, ogni chiamata
-  // fallirebbe per conto suo e la persona resterebbe davanti a una pianta che
-  // non risponde piu'. Si dice invece dove si rientra, che e' il marketplace.
   onSessionExpired(() => {
-    erroreAvvio.value =
-      "La sessione è scaduta. Torna al marketplace ed entra di nuovo col tuo profilo.";
+    erroreAvvio.value = tKey(
+      "La sessione è scaduta. Torna al marketplace ed entra di nuovo col tuo profilo.",
+    );
     pronto.value = true;
   });
 
@@ -96,8 +111,9 @@ onMounted(async () => {
     }
   }
   if (!hasSession()) {
-    erroreAvvio.value =
-      "Apri l'app da museo dal marketplace: è lì che si entra col proprio profilo.";
+    erroreAvvio.value = tKey(
+      "Apri l'app da museo dal marketplace: è lì che si entra col proprio profilo.",
+    );
     pronto.value = true;
     return;
   }
@@ -113,8 +129,9 @@ onMounted(async () => {
       return;
     } catch (err) {
       console.error("Impossibile agganciare la visita guidata", err);
-      erroreAvvio.value =
-        "Non è stato possibile entrare nella visita guidata. Chiedi al docente di riaprire la sala d'attesa.";
+      erroreAvvio.value = tKey(
+        "Non è stato possibile entrare nella visita guidata. Chiedi al docente di riaprire la sala d'attesa.",
+      );
     }
   }
   if (role === "docente" && guidedVisitParam) {
@@ -124,7 +141,7 @@ onMounted(async () => {
       return;
     } catch (err) {
       console.error("Impossibile avviare la visita guidata", err);
-      erroreAvvio.value = "Non è stato possibile aprire la sala d'attesa.";
+      erroreAvvio.value = tKey("Non è stato possibile aprire la sala d'attesa.");
     }
   }
 
@@ -146,8 +163,9 @@ onMounted(async () => {
 
   const qid = museumParam || museumQid();
   if (!qid) {
-    erroreAvvio.value =
-      "Nessun museo configurato. Il curatore deve indicarlo in config.json.";
+    erroreAvvio.value = tKey(
+      "Nessun museo configurato. Il curatore deve indicarlo in config.json.",
+    );
     pronto.value = true;
     return;
   }
@@ -155,14 +173,15 @@ onMounted(async () => {
 
   const richiesta = (params.get("custom") || "").trim();
   if (richiesta !== "") {
-    testoAvvio.value = "Stiamo componendo la tua visita…";
+    testoAvvio.value = tKey("Stiamo componendo la tua visita…");
     try {
       const risultato = await createCustomVisit(qid, richiesta);
       onCustomStart(risultato);
     } catch (err) {
       console.error("Impossibile comporre la visita su misura", err);
-      erroreAvvio.value =
-        "Non è stato possibile comporre la visita. Torna al marketplace e riprova, magari descrivendola con altre parole.";
+      erroreAvvio.value = tKey(
+        "Non è stato possibile comporre la visita. Torna al marketplace e riprova, magari descrivendola con altre parole.",
+      );
     }
   }
 
@@ -180,8 +199,6 @@ function onCustomStart(payload: {
   visit: Visit;
   content: { artwork: Artwork; item: Item }[];
 }) {
-  // La visita su misura arriva a coppie (i suoi item non stanno nel database):
-  // si rimette l'opera dentro l'item, che e' la forma da cui parte `buildStops`.
   const items = payload.content.map((c) => ({ ...c.item, about: c.artwork }));
   setCustomVisit(payload.visit, buildStops(items));
   choice.value = payload.visit["@id"];
@@ -194,13 +211,6 @@ function exit() {
   announce(t("Scelta della visita"));
 }
 
-/**
- * Si rientra nella visita da cui si era usciti. Uscire non la chiude: `visit`
- * resta in piedi, quindi qui non c'e' niente da ricaricare e la tappa aperta e'
- * ancora quella. Serve soprattutto alle visite che nell'elenco non ci sono --
- * quella su misura, che nel database non esiste, e quella aperta da un
- * collegamento diretto.
- */
 function resume() {
   if (!visit.value) return;
   started.value = true;
@@ -219,9 +229,7 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
         <Attesa :testo="t(testoAvvio)" />
       </div>
 
-      <!-- L'avviso viene prima della visita guidata: una sessione scaduta
-           spegne anche quella, e lasciarla a schermo direbbe che si sta ancora
-           seguendo il docente. -->
+      <!-- AVVISO D'AVVIO -->
       <div
         v-else-if="erroreAvvio"
         class="flex flex-1 items-center justify-center p-8"

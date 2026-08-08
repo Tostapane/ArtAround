@@ -7,6 +7,10 @@
  * del museo). Solo il visitatore ha un portafoglio e una collezione; sugli
  * altri due i campi restano assenti, non a zero.
  * La password e' in chiaro: la sicurezza non e' materia di valutazione.
+ *
+ * L'indice su `collezione` serve a chiedere chi possiede un contenuto: lo
+ * chiedono il resoconto vendite e il calcolo dell'impatto di un'eliminazione, e
+ * senza indice ogni conteggio scandisce l'intera collezione degli utenti.
  */
 import { Schema, model } from "mongoose";
 import { User as SharedUser } from "../../../shared/types";
@@ -28,9 +32,6 @@ const userSchema = new Schema<IUser>({
 });
 
 userSchema.index({ username: 1, role: 1 }, { unique: true });
-// Chi possiede un contenuto: lo chiedono il resoconto vendite e il calcolo
-// dell'impatto di un'eliminazione. Senza indice ogni conteggio scandisce
-// l'intera collezione degli utenti.
 userSchema.index({ collezione: 1 });
 
 export const UserModel = model<IUser>("User", userSchema);

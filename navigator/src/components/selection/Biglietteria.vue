@@ -16,6 +16,13 @@
  * Il collegamento al marketplace e il selettore del tema stanno qui e non in
  * un'intestazione sempre presente: il marketplace e' un requisito della base
  * (slide 25), ma durante la visita sarebbe solo ingombro.
+ *
+ * Le fasce di durata arrivano da `shared/constants.ts` e non sono riscritte qui:
+ * erano una catena di `if` con le sue soglie, e il marketplace ne aveva altre,
+ * quindi "visita breve" voleva dire due cose diverse nelle due applicazioni.
+ *
+ * Il tono si LEGGE tradotto e si CONFRONTA in italiano: il valore e' quello che
+ * sta nel database e nel filtro, e tradurlo li' spegnerebbe la ricerca.
  */
 import { ref, watch, computed } from "vue";
 import LanguageSelector from "./LanguageSelector.vue";
@@ -61,9 +68,6 @@ const availableLevels = computed(() => [
   ...new Set(visits.value.map((v) => v.level).filter(Boolean)),
 ]);
 
-// Le fasce arrivano da `shared/constants.ts` e non sono riscritte qui: erano
-// una catena di `if` con le sue soglie, e il marketplace ne aveva altre, quindi
-// "visita breve" voleva dire due cose diverse nelle due applicazioni.
 const filteredVisits = computed(() =>
   visits.value.filter((v) => {
     if (levelFilter.value !== "tutti" && v.level !== levelFilter.value)
@@ -135,8 +139,6 @@ function summary(v: Visit): string {
     stops === 1 ? t("1 tappa") : t("{n} tappe", { n: stops }),
     minuti < 1 ? t("meno di 1 min") : t("{n} min", { n: minuti }),
   ];
-  // Il tono si LEGGE tradotto e si CONFRONTA in italiano: il valore e' quello
-  // che sta nel database e nel filtro, tradurlo li' spegnerebbe la ricerca.
   if (v.level) parts.push(t(v.level));
   return parts.join(" · ");
 }

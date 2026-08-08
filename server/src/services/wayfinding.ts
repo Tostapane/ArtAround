@@ -20,32 +20,34 @@
  * (`data-floor-label`) e da qui passa e basta. Un museo puo' avere il Mezzanino
  * e il Piano Nobile, un altro cinque piani numerati: qualunque elenco scritto
  * qui sarebbe l'italiano di un museo solo, imposto a tutti gli altri.
+ *
+ * Una partenza VUOTA vale come l'ingresso: e' dove si e' prima di essersi mossi,
+ * ed e' l'unico punto che ogni pianta dichiara comunque (`data-poi="entrance"`),
+ * perche' e' li' che nasce il sistema di riferimento della localizzazione. Un
+ * `from` sconosciuto resta invece un errore: confonderlo con "non l'ho detto"
+ * farebbe rispondere dall'ingresso a chi ha indicato un punto che non c'e'.
  */
 import { GraphNode, GraphObstacle, MuseumGraph } from "./svgGraph";
 
-/**
- * Una sala del percorso. `floor` serve a sapere se si sale o si scende;
- * `floorLabel` e' la parola con cui il piano si nomina, e viene dalla mappa.
- */
 export interface RouteStep {
   room: string;
-  floor: number;
-  floorLabel: string;
+  floor: number; // serve a sapere se si sale o si scende
+  floorLabel: string; // la parola con cui il piano si nomina, e viene dalla mappa
 }
 
 export interface RouteIR {
   kind: "route" | "obstacles" | "unavailable";
-  reason: string;
+  reason: string; // perche' non si e' potuto rispondere; vuoto negli altri due casi
   from: RouteStep;
-  /**
-   * `label` e' come si chiama la destinazione. Per un servizio la mappa lo sa
-   * (`data-label`), per un'opera no: sul disegno un nodo opera porta il qid e il
-   * titolo sta nel database. `qid` e' vuoto per i servizi, ed e' il modo in cui
-   * chi ha accesso alle opere sa che qui c'e' un nome da andare a prendere.
-   */
-  to: { label: string; qid: string; room: string; floor: number; floorLabel: string };
-  steps: RouteStep[];
-  obstacles: GraphObstacle[];
+  to: {
+    label: string; // come si chiama la destinazione: la mappa lo sa per un servizio, non per un'opera
+    qid: string; // vuoto per i servizi: e' il segno che qui c'e' un nome da cercare nel database
+    room: string;
+    floor: number;
+    floorLabel: string;
+  };
+  steps: RouteStep[]; // le sale da attraversare, la partenza esclusa
+  obstacles: GraphObstacle[]; // solo quelli nelle sale davvero attraversate
 }
 
 export function computeDirections(
@@ -53,11 +55,6 @@ export function computeDirections(
   fromQid: string,
   target: string,
 ): RouteIR {
-  // Partenza VUOTA = l'ingresso. E' dove si e' prima di essersi mossi, ed e'
-  // l'unico punto che ogni pianta dichiara comunque (`data-poi="entrance"`),
-  // perche' e' li' che nasce il sistema di riferimento della localizzazione.
-  // Un `from` sconosciuto resta un errore: confonderlo con "non l'ho detto"
-  // farebbe rispondere dall'ingresso a chi ha indicato un punto che non c'e'.
   const fromNode = fromQid
     ? graph.nodes.find((n) => n.id === fromQid)
     : graph.nodes.find((n) => n.poiType === "entrance");

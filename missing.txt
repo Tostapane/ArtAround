@@ -1,19 +1,14 @@
 MANCANTI
-- perche l'hashtag?
 - rimuovere bullshit e caratteri strani
 - ottimizzazioni
-- svg piu' dettagliati e complessi, opere tonde?
-- adozione mediante unico file di configurazione
-- mettere imagini per scelta museo e per le visite
 - superseed, rework dei prezzi, - gli uffizi hanno tutto gratis
-- eliminare una visita, cosa succede? 
-- limitare agli utenti il numero di visite che puo' creare
 MOBILE
 - sidebar invece cha un footer da mobile?
 - hard reload?
 DA DISCUTERE
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
+- eliminare una visita, cosa succede? 
 - eliminazione di visite da utente, autore 
 - eliminazione di item da autore
 - testare il nuovo sistema di audio su iphone

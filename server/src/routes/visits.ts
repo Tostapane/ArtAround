@@ -14,6 +14,60 @@
  *   a pagamento di altri.
  *
  * `/custom` genera una visita dai vincoli espressi a parole e non salva nulla.
+ * L'ordine delle sue tappe lo decide la MAPPA e non il modello: al modello si
+ * chiede quali opere, e a quello risponde bene, ma in che ordine si attraversa il
+ * museo e' scritto sul disegno (`data-flow`) e non si negozia — chiederglielo nel
+ * prompt vorrebbe dire sperare che obbedisca.
+ *
+ * Le visite PRIVATE non escono da qui se non verso chi le ha composte, e il
+ * filtro sta nella rotta e non nel client: nasconderle disegnando avrebbe
+ * lasciato l'itinerario di un'altra persona dentro la risposta, cioe' privato a
+ * schermo e leggibile negli strumenti di sviluppo. Il confronto e' `$ne` e non
+ * `= "pubblico"` perche' le visite scritte prima che il campo esistesse non ce
+ * l'hanno, e sono tutte pubbliche. `nascostaA` applica la stessa regola alla
+ * singola visita, che ha un indirizzo suo: risponde 404 e non 403, perche' un
+ * "non puoi" confermerebbe comunque che quella visita c'e' e di chi e'.
+ *
+ * Il QUIZ non esce da `GET /:id`. Quella rotta la chiama anche il navigator degli
+ * studenti per caricare la visita guidata, e restituire le domande con dentro
+ * l'indice della risposta corretta significherebbe consegnare il compito svolto.
+ * Le domande le distribuisce la sessione guidata, senza `correct`; l'editor
+ * dell'autore legge il quiz dall'elenco delle visite.
+ *
+ * In salvataggio, tre scelte che non si vedono dal codice:
+ *
+ * Pubblica SOLO la visita di un autore, perche' mettere in vendita e' il suo
+ * mestiere; il visitatore compone un itinerario per se', e il curatore oggi non
+ * ha nessuna strada per arrivare qui — il giorno che l'avesse, il valore prudente
+ * e' quello privato, perche' un ruolo nuovo che pubblica per distrazione si nota
+ * solo quando il suo lavoro e' gia' in vetrina. I ruoli si nominano invece di
+ * scrivere `=== "visitatore" ? … : …`, che sarebbe una domanda a due risposte su
+ * un vocabolario che ne ha tre.
+ *
+ * Il TETTO del visitatore vale sulla creazione e non sul salvataggio, o
+ * modificare un itinerario che si ha gia' diventerebbe impossibile appena
+ * raggiunto il quinto: si guarda percio' se questo `@id` e' gia' nel database,
+ * che e' esattamente la differenza fra creare e riscrivere per una rotta che fa
+ * upsert. Si contano le SUE visite in QUESTO museo — gli Uffizi non devono
+ * togliere il posto al Louvre.
+ *
+ * Le tappe si contano sugli item TROVATI e non sugli id ricevuti: un id che non
+ * esiste non da' errore da nessuna parte, semplicemente non compare, e una visita
+ * fatta di tappe che non si risolvono si apre vuota. Gli id vuoti si tolgono
+ * prima di contare, o il messaggio d'errore nomina la stringa vuota.
+ *
+ * La copertina e' facoltativa, quindi il campo si scrive SEMPRE: `undefined` in
+ * un aggiornamento Mongoose lo salta, e chi toglie l'immagine da una visita gia'
+ * pubblicata non riuscirebbe piu' a levarla; `null` invece la cancella. La
+ * vecchia, se c'era, si toglie anche dal disco. Si carica con la stessa rotta
+ * dell'immagine di un item (`POST /api/items/image`) e finisce nella stessa
+ * cartella: e' lo stesso gesto e lo stesso file, e una seconda rotta identica
+ * sarebbe solo un altro posto in cui sbagliare l'elenco dei formati.
+ *
+ * In eliminazione il CURATORE risponde del catalogo del suo museo, quindi puo'
+ * togliere qualunque visita ci stia dentro, private comprese: e' la stessa
+ * autorita' con cui svuota il museo intero. Si guarda prima della privatezza, o
+ * la regola che nasconde le altrui gli direbbe "non esiste".
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -32,23 +86,14 @@ import {
   AI_LEVEL,
   CUSTOM_LEVEL,
   MAX_VISITE_VISITATORE,
+  DEFAULT_LICENSE,
 } from "../../../shared/constants";
-import { DEFAULT_LICENSE } from "../../../shared/constants";
-// La copertina di una visita si carica con la stessa rotta dell'immagine di un
-// item (`POST /api/items/image`) e finisce nella stessa cartella: e' lo stesso
-// gesto e lo stesso file su disco, e una seconda rotta identica sarebbe solo un
-// altro posto in cui sbagliare il formato ammesso. Di qui serve la cancellazione,
-// perche' una visita eliminata deve portarsi via la sua immagine.
 import { rimuoviImmagine } from "./items";
 
 const router = Router();
 
 const MAX_CUSTOM_ARTWORKS = 30;
 
-/**
- * GET /api/visits
- * Recupera la lista di tutte le visite disponibili nel marketplace (quella ufficiali).
- */
 /**
  * GET /api/visits[?museum=Qxxx][&user=nome]
  * Ritorna: le visite del museo indicato, o tutte se il parametro manca.
@@ -61,12 +106,6 @@ router.get("/", async (req, res) => {
   try {
     const museum = String(req.query.museum || "");
     const username = sessionUser(req).username;
-    // Le visite private non escono da qui se non verso chi le ha composte, e il
-    // filtro sta nella rotta e non nel client: nasconderle disegnando avrebbe
-    // lasciato l'itinerario di un'altra persona dentro la risposta, cioe' privato
-    // a schermo e leggibile negli strumenti di sviluppo.
-    // `$ne` e non `= "pubblico"`: le visite scritte prima che questo campo
-    // esistesse non ce l'hanno, e sono tutte pubbliche.
     const filter: Record<string, unknown> = {
       $or: [{ visibility: { $ne: "privato" } }, { author: username }],
     };
@@ -78,7 +117,7 @@ router.get("/", async (req, res) => {
     for (const v of visits) {
       for (const id of v.itemListElement || []) ids.add(id);
     }
-    const tappe = await ItemModel.find({ "@id": { $in: Array.from(ids) } });
+    const tappe = await ItemModel.find({ "@id": { $in: Array.from(ids) } }).lean();
     const byId = new Map<string, any>();
     for (const t of tappe) byId.set(t["@id"], t);
 
@@ -98,27 +137,16 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * Il quiz non esce da qui. Questa rotta la chiama anche il navigator degli
- * studenti, per caricare la visita guidata: restituire le domande con dentro
- * l'indice della risposta corretta significherebbe consegnare il compito
- * svolto. Le domande le distribuisce la sessione guidata, senza `correct`;
- * l'editor dell'autore legge il quiz dall'elenco delle visite.
- */
-/**
- * Se una visita privata non e' di chi la sta chiedendo.
- *
- * Filtrare l'elenco non basta: una visita ha un indirizzo suo, e chi lo scrive a
- * mano arriva qui senza passare dalla vetrina. Risponde come se non esistesse —
- * 404 e non 403 — perche' un "non puoi" confermerebbe comunque che quella visita
- * c'e' e di chi e'.
- */
 function nascostaA(visit: any, username: string): boolean {
   if (!visit) return false;
   if (visit.visibility !== "privato") return false;
   return visit.author !== username;
 }
 
+/**
+ * GET /api/visits/:id
+ * Ritorna: la visita, SENZA il quiz. 404 anche su una privata altrui.
+ */
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -132,6 +160,11 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/visits/:id/items
+ * Ritorna: le tappe nell'ordine del percorso, col testo protetto dalla regola di
+ * `access.ts`. 404 anche su una privata altrui.
+ */
 router.get("/:id/items", async (req, res) => {
   try {
     const { id } = req.params;
@@ -141,13 +174,15 @@ router.get("/:id/items", async (req, res) => {
       return res.status(404).json({ error: "Visita non trovata" });
 
     const ids = visit.itemListElement || [];
-    const items = await ItemModel.find({ "@id": { $in: ids } }).populate({
-      path: "about",
-      model: "Artwork",
-      foreignField: "@id",
-      localField: "about",
-      justOne: true,
-    });
+    const items = await ItemModel.find({ "@id": { $in: ids } })
+      .populate({
+        path: "about",
+        model: "Artwork",
+        foreignField: "@id",
+        localField: "about",
+        justOne: true,
+      })
+      .lean();
 
     const byId = new Map(items.map((it: any) => [it["@id"], it]));
     const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
@@ -159,6 +194,12 @@ router.get("/:id/items", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/visits/custom  { museumQid, request }
+ * Ritorna: { visit, content } — una visita composta dai vincoli espressi a
+ * parole, che NON viene salvata: vive solo nel client. 502 se il modello non
+ * risponde o se nessuna tappa si e' potuta risolvere.
+ */
 router.post("/custom", async (req, res) => {
   try {
     const { museumQid, request } = req.body;
@@ -184,12 +225,6 @@ router.post("/custom", async (req, res) => {
       return res.status(502).json({ error: "Impossibile generare la visita su misura" });
     }
 
-    /*
-     * L'ordine delle tappe lo decide la mappa, non il modello: al modello si
-     * chiede QUALI opere, e a quello si risponde bene; in che ordine si
-     * attraversa il museo e' scritto sul disegno (`data-flow`) e non si negozia.
-     * Chiederglielo nel prompt vorrebbe dire sperare che obbedisca.
-     */
     const museo = await MuseumModel.findOne({ qid: museumQid });
     plan.artworks = sortByFlow(plan.artworks, museo ? museo.mapPath : "");
 
@@ -240,13 +275,16 @@ router.post("/custom", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/visits
+ * Ritorna: 201. Crea o riscrive la visita di `@id`, calcolando lei la durata
+ * dalle tappe trovate. 400 su titolo, prezzo, tappe assenti o quiz non valido,
+ * 409 sulla parola chiave gia' presa e sul tetto del visitatore.
+ */
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
 
-    // Una tappa senza id non e' una tappa: si toglie qui, cosi' cade nel
-    // controllo che chiede almeno una tappa invece di andare a cercare nel
-    // catalogo un item che si chiama stringa vuota.
     const itemIds: string[] = (
       payload.percorso
         ?.filter((t: any) => t.tipo === "item")
@@ -291,26 +329,9 @@ router.post("/", async (req, res) => {
     const visitId = payload.id || payload["@id"];
     const author = sessionUser(req).username;
     const ruolo = sessionUser(req).role;
-    // Pubblica SOLO la visita di un autore: mettere in vendita e' il suo
-    // mestiere. Il visitatore compone un itinerario per se', e il curatore oggi
-    // non ha nessuna strada per arrivare qui — il giorno che l'avesse, il valore
-    // prudente e' quello privato, perche' un ruolo nuovo che pubblica per
-    // distrazione si nota solo quando il suo lavoro e' gia' in vetrina.
-    // I ruoli si nominano invece di scrivere `=== "visitatore" ? … : …`, che
-    // sarebbe una domanda a due risposte su un vocabolario che ne ha tre.
     let visibility: "pubblico" | "privato" = "privato";
     if (ruolo === "autore") visibility = "pubblico";
 
-    // Il visitatore compone per se', e quel che compone resta: senza un tetto un
-    // museo si riempie di itinerari che nessuno riaprira'. Si contano le SUE
-    // visite in QUESTO museo — gli Uffizi non devono togliere il posto al Louvre.
-    //
-    // Il tetto vale sulla creazione e non sul salvataggio, o modificare un
-    // itinerario che si ha gia' diventerebbe impossibile appena raggiunto il
-    // quinto: si guarda percio' se questo `@id` e' gia' nel database, che e'
-    // esattamente la differenza fra creare e riscrivere per una rotta che fa
-    // upsert. Il conto e' `$ne: "pubblico"` per simmetria con il filtro di
-    // lettura: le visite scritte prima del campo non ce l'hanno e sono d'autore.
     const museoUri = payload.museumUri || payload.ofMuseum;
     if (ruolo === "visitatore") {
       const esiste = visitId
@@ -341,11 +362,6 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
     if (itemIds.length === 0)
       return res.status(400).json({ error: "La visita deve avere almeno una tappa." });
-    // Le tappe si contano sugli item TROVATI, non sugli id ricevuti: un id che
-    // non esiste non da' errore da nessuna parte, semplicemente non compare, e
-    // una visita fatta di tappe che non si risolvono si apre vuota. E' lo stesso
-    // danno silenzioso per cui la cancellazione di un'opera accorcia le visite
-    // invece di lasciarci dentro un buco.
     const trovati = new Set(items.map((it: any) => String(it["@id"])));
     const assenti = itemIds.filter((id) => !trovati.has(id));
     if (assenti.length > 0)
@@ -375,8 +391,6 @@ router.post("/", async (req, res) => {
 
       const authorAccount = await UserModel.findOne({ username: author });
       const owned = new Set(authorAccount?.collezione || []);
-      // Che cosa puo' entrare in una visita guidata e' la stessa domanda di che
-      // cosa puoi leggere: la regola sta in `shared/access.ts`, non riscritta qui.
       for (const it of items as any[]) {
         if (!isReadable(it, author, owned.has(it["@id"]))) {
           return res.status(400).json({
@@ -415,10 +429,6 @@ router.post("/", async (req, res) => {
       }
     }
 
-    // La copertina e' facoltativa, quindi il campo si scrive SEMPRE: `undefined`
-    // in un aggiornamento Mongoose lo salta, e chi toglie l'immagine da una
-    // visita gia' pubblicata non riuscirebbe piu' a levarla. `null` invece la
-    // cancella. La vecchia, se c'era, si toglie anche dal disco.
     const immagine =
       typeof payload.immagine === "string" && payload.immagine.trim() !== ""
         ? payload.immagine.trim()
@@ -427,23 +437,28 @@ router.post("/", async (req, res) => {
     if (precedente?.imagePath && precedente.imagePath !== immagine)
       rimuoviImmagine(precedente.imagePath);
 
+    let chiave: string | null = null;
+    if (accessKey) chiave = accessKey;
+    let domande: any[] | null = null;
+    if (quiz) domande = quiz;
+
     await VisitModel.findOneAndUpdate(
       { "@id": visitId },
       {
         "@id": visitId,
-        name: payload.titolo || payload.name,
+        name,
         level: payload.level || CUSTOM_LEVEL,
         duration,
         price: accessKey ? 0 : payload.prezzo || payload.price,
         author,
         license: payload.licenza || payload.license || DEFAULT_LICENSE,
-        ofMuseum: payload.museumUri || payload.ofMuseum,
+        ofMuseum: museoUri,
         visibility,
         imagePath: immagine,
         itemListElement: itemIds,
         optionalItems,
-        accessKey: accessKey ?? null,
-        quiz: quiz ?? null,
+        accessKey: chiave,
+        quiz: domande,
         logistics,
       },
       { upsert: true },
@@ -456,27 +471,22 @@ router.post("/", async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/visits/:id
+ * Ritorna: { message }. Elimina la visita, la sua copertina dal disco e la riga
+ * dalle collezioni di chi l'aveva presa. Cancella chi l'ha composta e il
+ * curatore; 404 su una privata altrui.
+ */
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const chi = sessionUser(req);
 
-    // Si guarda PRIMA di cancellare, e non basta nascondere il pulsante: la
-    // rotta si chiama anche senza passare dall'interfaccia, e questa cancella
-    // per davvero — via il documento, via la copertina dal disco, via la riga
-    // dalle collezioni di chiunque l'avesse presa. Non si torna indietro.
     const visita = await VisitModel.findOne({ "@id": id });
     if (!visita) return res.status(404).json({ error: "Visita non trovata" });
 
-    // Il curatore risponde del catalogo del suo museo, quindi puo' togliere
-    // qualunque visita ci stia dentro, private comprese: e' la stessa autorita'
-    // con cui svuota il museo intero. Si guarda PRIMA della privatezza, o la
-    // regola che nasconde le altrui glielo direbbe "non esiste" e resterebbe
-    // senza il suo strumento piu' fine, potendo solo cancellare tutto.
     const suo = visita.author === chi.username;
     if (chi.role !== "curatore") {
-      // Una privata altrui risponde come in lettura, cioe' che non esiste: dire
-      // "non e' tua" confermerebbe che c'e' e di chi e'.
       if (nascostaA(visita, chi.username))
         return res.status(404).json({ error: "Visita non trovata" });
       if (!suo)

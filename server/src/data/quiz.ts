@@ -9,7 +9,12 @@
  *
  * Se il museo non offre abbastanza autori o stili diversi per fare tre
  * distrattori, la domanda semplicemente non viene prodotta: meglio un quiz
- * corto di uno con due opzioni identiche.
+ * corto di uno con due opzioni identiche — e' quel che fa `domanda`, che rende
+ * null invece di riempire con quel che trova.
+ *
+ * `valido` scarta "Unknown", che e' quel che Wikidata rende quando l'autore o lo
+ * stile non sono noti: come risposta e' una non-risposta, e come distrattore e'
+ * un regalo.
  */
 export type SeedQuiz = { question: string; options: string[]; correct: number };
 
@@ -27,10 +32,6 @@ function mescola<T>(lista: T[]): T[] {
   return copia;
 }
 
-/**
- * Wikidata restituisce "Unknown" quando l'autore o lo stile non sono noti.
- * Come risposta e' una non-risposta, e come distrattore e' un regalo: si scarta.
- */
 function valido(nome: unknown): nome is string {
   if (typeof nome !== "string") return false;
   const pulito = nome.trim();
@@ -38,7 +39,6 @@ function valido(nome: unknown): nome is string {
   return pulito.toLowerCase() !== "unknown";
 }
 
-/** Una domanda a quattro opzioni: la giusta piu' tre distrattori distinti. */
 function domanda(
   testo: string,
   giusta: string,

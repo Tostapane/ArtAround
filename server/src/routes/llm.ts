@@ -10,8 +10,8 @@ import { additionalDescription } from "../services/llm";
 const router = Router();
 
 /**
- * POST /app/llm/newInfo
- * Richiede una nuova descrizione sulla base di quella attualmente fornita e della richiesta dell'utente
+ * POST /api/llm/newInfo  { previous, userReq, language }
+ * Ritorna: il testo rielaborato, gia' nella lingua chiesta.
  */
 router.post("/newInfo", async (req, res) => {
   try {

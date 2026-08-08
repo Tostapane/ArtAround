@@ -197,7 +197,7 @@ const indiceContenuti = new Map<string, Content>();
 export class AppState {
   // --- Rotta corrente -------------------------------------------------------
   view: View = "avvio";
-  param: string = ""; 
+  param: string = "";
 
   currentUser: string | null = null;
   currentUserRole: UserRole | null = null;
@@ -282,9 +282,9 @@ export class AppState {
   private toastTimer: any = null;
 
   // --- Dati -----------------------------------------------------------------
-  visits: Visit[] = []; 
-  marketItems: Item[] = []; 
-  myItems: Item[] = []; 
+  visits: Visit[] = [];
+  marketItems: Item[] = [];
+  myItems: Item[] = [];
   availableArtworks: Artwork[] = [];
   museums: Museum[] = [];
   selectedMuseum: Museum | null = null;
@@ -2257,7 +2257,7 @@ export class AppState {
    * Gli stessi due filtri della vetrina (tono e durata), ma con una memoria
    * loro.
    *
-   * ⚠️ Non si riusa `marketLevelFilter`/`marketDurationFilter`, e la ragione e'
+   * Non si riusa `marketLevelFilter`/`marketDurationFilter`, e la ragione e'
    * che le due schermate filtrano cose diverse: la durata della vetrina, quando
    * si guardano le visite, e' una fascia di minuti (`breve`, `media`...), che
    * qui non corrisponde a nessuna descrizione. Arrivando da una vetrina filtrata
@@ -2696,7 +2696,7 @@ export class AppState {
    * percio' un'intenzione da tenere da parte fino a dopo il login, non una
    * seconda strada d'ingresso.
    *
-   * ⚠️ Vive in memoria e NON in `localStorage`: e' la porta di questo ingresso.
+   * Vive in memoria e NON in `localStorage`: e' la porta di questo ingresso.
    * Salvandola, un ricaricamento qualunque mesi dopo spedirebbe nell'app da
    * museo chi voleva solo rileggere la vetrina.
    */
@@ -2715,7 +2715,7 @@ export class AppState {
    * ce n'e' uno ricordato si passa lo stesso dalla scelta del museo, ed e' da
    * li' che questa viene richiamata.
    *
-   * ⚠️ L'intenzione si consuma solo quando il viaggio parte davvero. Se il
+   * L'intenzione si consuma solo quando il viaggio parte davvero. Se il
    * biglietto non si conia -- server giu', sessione appena scaduta -- si resta
    * nel marketplace con l'avviso, e il tentativo si potra' rifare; azzerarla
    * prima vorrebbe dire restare in vetrina senza sapere perche'.

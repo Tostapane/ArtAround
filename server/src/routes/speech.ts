@@ -20,8 +20,10 @@ const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 /**
- * POST /app/speech
- * ritorna la trascrizione dell'audio fornito dal frontend
+ * POST /api/speech (multipart, campo `audioFile`)
+ * Ritorna: { mappedTranscript }, cioe' il comando del vocabolario su cui la
+ * frase e' stata mappata, oppure la stringa vuota se non c'era niente da capire.
+ * 503 quando il modello non risponde.
  */
 router.post("/", upload.single("audioFile"), async (req, res) => {
   try {
@@ -42,6 +44,10 @@ router.post("/", upload.single("audioFile"), async (req, res) => {
   }
 });
 
+/**
+ * POST /api/speech/tts  { text, lang }
+ * Ritorna: l'audio MP3 della frase.
+ */
 router.post("/tts", async (req, res) => {
   try {
     const { text, lang } = req.body;

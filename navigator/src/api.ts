@@ -19,6 +19,18 @@
  * Le rotte delle visite guidate usano l'interrogazione periodica; `GuidedEndedError`
  * distingue "la sessione non c'e' piu'" da un errore di rete, perche' le due cose
  * vogliono reazioni diverse.
+ *
+ * Il 401 si gestisce dentro `call` e non nelle chiamate una per una: durante una
+ * visita ognuna sta nel suo `catch`, quindi una sessione scaduta arriverebbe a
+ * schermo come un guasto diverso a seconda di quale bottone si e' premuto. Si
+ * avvisa solo se un biglietto c'era: senza, il 401 e' l'ingresso mancato che
+ * `App.vue` racconta gia' da se'.
+ *
+ * Le due letture della memoria sono avvolte in un `try`: un browser che la nega
+ * non deve far cadere il modulo, o l'eccezione arriva mentre `api` si valuta —
+ * cioe' prima che esista qualcosa in grado di dirlo — e l'applicazione resta
+ * bianca. Senza memoria la sessione dura quanto la pagina, e a rompersi e' solo
+ * il ricaricamento.
  */
 import type { Artwork, Item, Museum, Visit } from "../../shared/types";
 import { apiBase } from "./config";
@@ -31,11 +43,6 @@ const base = () => apiBase();
 const TOKEN_KEY = "artaround-sessione";
 let onExpired: () => void = () => {};
 
-/**
- * Un browser che nega la memoria non deve far cadere il modulo: senza guardia
- * l'eccezione arriva mentre `api` si valuta, cioe' prima che esista qualcosa in
- * grado di dirlo, e l'applicazione resta bianca.
- */
 function leggiToken(): string {
   try {
     return sessionStorage.getItem(TOKEN_KEY) || "";
@@ -50,8 +57,7 @@ function scriviToken(value: string) {
     if (value) sessionStorage.setItem(TOKEN_KEY, value);
     else sessionStorage.removeItem(TOKEN_KEY);
   } catch {
-    // Senza memoria la sessione dura quanto questa pagina, e non e' un errore
-    // da mostrare: quel che rompe e' solo il ricaricamento.
+    /* vedi in testa: senza memoria la sessione dura quanto la pagina */
   }
 }
 
@@ -61,7 +67,6 @@ export function hasSession(): boolean {
   return token !== "";
 }
 
-/** Che cosa fare quando il server dice che la sessione non c'e' piu'. */
 export function onSessionExpired(handler: () => void): void {
   onExpired = handler;
 }
@@ -77,13 +82,6 @@ export async function redeemHandoff(handoff: string): Promise<void> {
   scriviToken(data.token || "");
 }
 
-/**
- * Il 401 si gestisce qui e non nelle chiamate una per una: durante una visita
- * ognuna sta dentro il suo `catch`, quindi una sessione scaduta arriverebbe a
- * schermo come un guasto diverso a seconda di quale bottone si e' premuto.
- * Si avvisa solo se un biglietto c'era: senza, il 401 e' l'ingresso mancato che
- * `App.vue` racconta gia' da se'.
- */
 async function call(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -138,11 +136,6 @@ export async function createCustomVisit(
   return res.json();
 }
 
-/**
- * Visite di un museo, filtrate per chi sta guardando: le gratuite piu' quelle
- * che questa persona possiede. Le visite guidate non compaiono mai, perche' ci
- * si entra con la parola chiave e non scegliendole da un elenco.
- */
 export async function getVisitsByMuseum(qid: string): Promise<Visit[]> {
   const res = await call(
     `${base()}/museums/${encodeURIComponent(qid)}/visits`,
@@ -152,11 +145,6 @@ export async function getVisitsByMuseum(qid: string): Promise<Visit[]> {
   return res.json();
 }
 
-/**
- * Tutte le opere del museo, tappe della visita o no. Servono alla
- * localizzazione: le opere fra cui scegliere sono quelle disegnate sulla pianta,
- * e la pianta non sa niente della visita in corso.
- */
 export async function getMuseumArtworks(qid: string): Promise<Artwork[]> {
   const res = await call(
     `${base()}/museums/${encodeURIComponent(qid)}/artworks`,
@@ -247,7 +235,7 @@ export async function translateTexts(
   return data.translations;
 }
 
-const gsBase = () => `${apiBase()}/guided-sessions`;
+const gsBase = () => `${base()}/guided-sessions`;
 
 export class GuidedEndedError extends Error {
   constructor() {
@@ -261,6 +249,7 @@ async function readGuidedError(res: Response): Promise<string> {
     const data = await res.json();
     if (data && data.error) return data.error;
   } catch {
+    /* risposta non JSON: resta il codice di stato */
   }
   return `Errore ${res.status}`;
 }
@@ -328,10 +317,6 @@ export async function postGuidedLeave(id: string): Promise<void> {
   if (!res.ok) throw new Error(await readGuidedError(res));
 }
 
-/**
- * Quiz di fine visita (modulo 18-27). Le risposte corrette non lasciano mai il
- * server: qui si mandano solo gli indici scelti e si riceve il punteggio.
- */
 export async function postGuidedQuizStart(
   id: string,
   durationSec: number,
@@ -378,5 +363,6 @@ export async function postGuidedAsk(
       body: JSON.stringify({ question, artwork }),
     });
   } catch {
+    /* una domanda persa non ferma la visita: non si riprova e non si avvisa */
   }
 }

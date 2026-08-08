@@ -22,7 +22,22 @@
  *
  * L'utente si legge con `sessionUser` e mai da `req` a mano: aggiungere il campo
  * ai tipi di Express vorrebbe dire un `.d.ts` ambientale, e ts-node quelli non
- * li carica (il motivo sta in cima a `env.ts`).
+ * li carica (il motivo sta in cima a `env.ts`). `sessionUser` solleva se l'utente
+ * manca invece di tornare null: si chiama solo dietro `requireSession`, quindi
+ * l'assenza e' una rotta montata senza guardia — un difetto nostro, da vedere
+ * subito invece che diventare una richiesta anonima servita per sbaglio.
+ *
+ * `destroySession` copre due gesti che sono la stessa operazione, spendere un
+ * biglietto e uscire: la riga sparisce. Il `kind` entra nell'interrogazione e non
+ * in un controllo dopo, perche' `redeem` pretende un biglietto e cancellare prima
+ * di guardare vorrebbe dire che mandargli una sessione qualunque la butta giu';
+ * l'uscita non lo passa, perche' li' va bene qualunque riga sia.
+ *
+ * In `resolveSession` il filtro e' `kind: { $ne: "handoff" }` e non
+ * `kind: "sessione"` perche' le righe scritte prima che il campo esistesse non ce
+ * l'hanno, e sono sessioni vere. Un guasto del database non e' un rifiuto: si
+ * lascia passare senza utente, e la rotta rispondera' 401 come farebbe a un
+ * biglietto sconosciuto.
  */
 import { Request, Response, NextFunction } from "express";
 import { randomUUID } from "crypto";
@@ -36,11 +51,6 @@ export interface SessionUser {
   role: string;
 }
 
-/**
- * Si chiama solo dietro `requireSession`, che garantisce l'utente: se manca e'
- * una rotta montata senza guardia, cioe' un difetto nostro, e va vista subito
- * invece di diventare una richiesta anonima servita per sbaglio.
- */
 export function sessionUser(req: Request): SessionUser {
   const found = (req as any).sessionUser;
   if (!found) throw new Error("Rotta senza requireSession");
@@ -63,14 +73,6 @@ export async function createSession(
   return token;
 }
 
-/**
- * Spendere un biglietto e uscire sono la stessa operazione: la riga sparisce.
- *
- * `kind` lo passa chi sa che cosa si aspetta, ed entra nell'interrogazione e non
- * in un controllo dopo: `redeem` pretende un biglietto, e cancellare prima di
- * guardare vorrebbe dire che mandargli una sessione qualunque la butta giu'.
- * L'uscita non lo passa, perche' li' va bene qualunque riga sia.
- */
 export async function destroySession(
   token: string,
   kind?: SessionKind,
@@ -102,10 +104,6 @@ export async function resolveSession(
   const token = tokenFromHeader(req);
   if (!token) return next();
   try {
-    // Il biglietto di passaggio non vale come intestazione: e' passato per un
-    // indirizzo, quindi e' scritto in posti che una credenziale non deve
-    // toccare. Si confronta con `$ne` e non con `sessione` perche' le righe
-    // scritte prima di questo campo non ce l'hanno, e sono sessioni vere.
     const found = await SessionModel.findOne({
       token,
       kind: { $ne: "handoff" },
@@ -116,8 +114,7 @@ export async function resolveSession(
         role: found.role,
       };
   } catch {
-    // Un guasto del database non e' un rifiuto: la rotta trovera' l'utente
-    // assente e rispondera' 401, come farebbe a un biglietto sconosciuto.
+    /* vedi in testa: un guasto del database non e' un rifiuto */
   }
   next();
 }

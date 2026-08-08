@@ -11,6 +11,12 @@
  *
  * `ofMuseum` sta sull'item e non si risale all'opera: e' il campo con cui si
  * prende il catalogo di un museo, e un item senza opera non ci arriverebbe.
+ *
+ * Gli indici in fondo sono le forme di interrogazione che questo modello riceve
+ * davvero: `@id` (la `findOne` di tutto il codice), `about` (gli item di una
+ * singola opera), `ofMuseum` (il catalogo di un museo), `author` (i contenuti di
+ * un autore, e le vendite). Senza, Mongo apre OGNI documento e scarta a mano, e
+ * il costo cresce col numero di documenti invece che con quello dei risultati.
  */
 import { Schema, model } from "mongoose";
 import { Item as SharedItem } from "../../../shared/types";
@@ -47,12 +53,9 @@ const itemSchema = new Schema<IItem>({
   },
 });
 
-// Indici: le forme di query che questo modello riceve davvero.
-// Senza, Mongo apre OGNI documento e scarta a mano (COLLSCAN): il costo cresce
-// col numero di documenti, non con quello dei risultati.
-itemSchema.index({ "@id": 1 }, { unique: true }); // findOne per @id, dappertutto
-itemSchema.index({ about: 1 }); // gli item di una singola opera
-itemSchema.index({ ofMuseum: 1 }); // il catalogo di un museo
-itemSchema.index({ author: 1 }); // i contenuti di un autore, e le vendite
+itemSchema.index({ "@id": 1 }, { unique: true });
+itemSchema.index({ about: 1 });
+itemSchema.index({ ofMuseum: 1 });
+itemSchema.index({ author: 1 });
 
 export const ItemModel = model<IItem>("Item", itemSchema);

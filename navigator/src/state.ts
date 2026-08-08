@@ -24,6 +24,25 @@
  *   dal modello non le ha dentro, e senza questo si aprirebbe senza dire da che
  *   parte si entra. Le visite seminate ne portano invece una copia, ed e' il
  *   motivo per cui un testo che la visita ha gia' non si ripete.
+ * - `museumArtworks` sono TUTTE le opere del museo e non solo le tappe: la
+ *   localizzazione sceglie fra i nodi disegnati sulla pianta, e la pianta li
+ *   porta tutti. Servono il nome e l'immagine per mostrarli quando la scelta la
+ *   fa il visitatore.
+ * - `posizioneAttiva` parte SPENTA: nessun sensore, nessun permesso chiesto, e le
+ *   indicazioni partono dall'opera aperta. Accesa, i sensori si avviano e le
+ *   indicazioni partono da dove si e', comunque ci si sia arrivati.
+ * - La lingua e' quella gia' scelta, altrimenti l'italiano; la regola sta in
+ *   `shared/` perche' se la pone anche il marketplace, e una risposta diversa
+ *   nelle due applicazioni vorrebbe dire aprirle in due lingue diverse. Questo
+ *   modulo la SPINGE dentro `i18n` invece di farsela leggere da li' con un
+ *   `watch`: quella direzione chiudeva un anello di import (i18n, state, api e di
+ *   nuovo i18n) e faceva partire l'applicazione con `language` non ancora
+ *   inizializzato.
+ * - `stopImage` rende insieme l'indirizzo e IL NOME DI CIO' CHE SI VEDE, che non
+ *   e' il soggetto della tappa: vince l'immagine dell'item perche' l'ha scelta
+ *   l'autore, e in mancanza si ripiega sull'ancora, cioe' sulla foto di dove il
+ *   visitatore si trova. Senza quel nome la Primavera verrebbe annunciata come
+ *   «Rinascimento».
  */
 
 import { ref } from "vue";
@@ -47,11 +66,6 @@ export const museum = ref<Museum>();
 export const map = ref<string>("");
 export const matchedContent = ref<Match[]>([]);
 
-/**
- * Tutte le opere del museo, non solo le tappe: la localizzazione sceglie fra i
- * nodi disegnati sulla pianta, e la pianta li porta tutti. Servono il nome e
- * l'immagine per mostrarli quando la scelta la fa il visitatore.
- */
 export const museumArtworks = ref<Artwork[]>([]);
 
 export function artworkByQid(qid: string): Artwork | null {
@@ -77,14 +91,6 @@ export function setStageView(value: "mappa" | "elenco") {
   localStorage.setItem("artaround-stage", value);
 }
 
-/**
- * Se il visitatore vuole che l'applicazione tenga conto di dove si trova.
- *
- * Parte spenta: nessun sensore, nessun permesso chiesto, e le indicazioni
- * partono dall'opera aperta come hanno sempre fatto. Accendendola, i sensori si
- * avviano e le indicazioni partono da dove si e', comunque ci si sia arrivati,
- * camminando o col teletrasporto.
- */
 export const posizioneAttiva = ref(
   localStorage.getItem("artaround-posizione") === "si",
 );
@@ -98,23 +104,10 @@ export function setPosizioneAttiva(value: boolean) {
 //                                 Lingua
 // ============================================================================
 
-/**
- * Quella gia' scelta, altrimenti l'italiano. La regola sta in `shared/` perche'
- * se la pone anche il marketplace, e una risposta diversa nelle due
- * applicazioni vorrebbe dire aprirle in due lingue diverse.
- */
 export const language = ref<Language>(
   pickLanguage(sessionStorage.getItem(LANG_KEY)),
 );
 
-/**
- * La lingua la spinge questo modulo dentro `i18n` invece di essere letta da li'
- * con un `watch`: quella direzione chiudeva un anello di import
- * (i18n, state, api e di nuovo i18n) e farebbe partire l'applicazione con
- * `language` non ancora inizializzato. Nel verso giusto `i18n` non importa
- * niente e l'anello non si puo' formare; il dettaglio sta nella sua
- * intestazione.
- */
 setLocale(language.value.translate);
 
 export function setLanguage(lang: Language) {
@@ -178,12 +171,6 @@ export function openingNotes(): string[] {
 //                        Le tappe: soggetto e ancora
 // ============================================================================
 
-/**
- * Da item a tappe: l'opera (che il server manda dentro `about`, e che non c'e'
- * per uno stile o un periodo) e l'ancora, cioe' dove si sta mentre si ascolta:
- * la prossima opera del percorso, o quella prima se dopo non ce ne sono.
- * Senza ancora la tappa non avrebbe posizione e la pianta resterebbe indietro.
- */
 export function buildStops(items: Item[]): Match[] {
   const stops: Match[] = [];
   for (const it of items) {
@@ -214,14 +201,12 @@ export function buildStops(items: Item[]): Match[] {
   return stops;
 }
 
-/** Come si chiama il soggetto di una tappa. */
 export function stopName(stop: Match): string {
   if (stop.artwork) return stop.artwork.name;
   if (stop.item.subject) return stop.item.subject;
   return "Contenuto";
 }
 
-/** La riga sotto il nome: l'autore dell'opera, oppure che genere di soggetto e'. */
 export function stopSubtitle(stop: Match): string {
   if (stop.artwork) return stop.artwork.author.name;
   const genere = kindById(stop.item.kind);
@@ -229,18 +214,6 @@ export function stopSubtitle(stop: Match): string {
   return "";
 }
 
-/**
- * L'immagine della tappa e che cosa ritrae, che non sono la stessa cosa.
- *
- * Vince quella dell'item, perche' l'ha scelta l'autore. Quando non c'e', e a un
- * contenuto che parla di uno stile o di un periodo non se ne chiede nessuna, si
- * ripiega sull'ancora, cioe' sull'opera davanti a cui si sta mentre lo si
- * ascolta: non e' un riempitivo, e' la foto di dove il visitatore si trova.
- *
- * Il nome torna insieme all'indirizzo perche' la didascalia deve dire l'opera
- * che si vede e non il soggetto della tappa: altrimenti la Primavera verrebbe
- * annunciata come «Rinascimento».
- */
 export function stopImage(stop: Match): { src: string; name: string } {
   if (stop.item.imagePath) {
     return { src: mediaUrl(stop.item.imagePath), name: stopName(stop) };

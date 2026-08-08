@@ -12,9 +12,31 @@
  *
  * La mappatura dei comandi avviene sugli id, non sulle etichette: le etichette
  * sono testo mostrato e possono cambiare senza rompere il protocollo.
+ *
+ * `descrizione` e' la richiesta comune alle due forme di contenuto: cambia solo
+ * la riga che dice CHE COSA descrivere, un'opera col suo autore oppure un
+ * soggetto che opera non e'. L'autore entra solo se c'e', perche' di un'opera
+ * Wikidata puo' non sapere chi l'ha fatta e li' il campo resta vuoto
+ * (`services/wikidata.ts`): incollandolo comunque, la richiesta finisce con
+ * "realizzata da" e basta, e il modello o si inventa il nome o si scusa. Per un
+ * soggetto entra invece il GENERE, perche' "Caravaggio" come artista o come
+ * periodo darebbe due testi diversi.
+ *
+ * `mapRequest` distingue TRE esiti e non due: il comando riconosciuto, la
+ * stringa vuota se non c'era niente da riconoscere, e null se il modello non ha
+ * risposto affatto. «Non ho capito quel che hai detto» e «il servizio non
+ * risponde» chiedono due cose diverse a chi ascolta — ripetere, oppure smettere
+ * di provare e usare i pulsanti. Il fallimento va percio' reso esplicito:
+ * tornando `undefined` verrebbe tolto dalla risposta da `JSON.stringify`, e il
+ * client leggerebbe `{}` con stato 200, cioe' «ho capito, e non era niente».
  */
 import { GoogleGenAI, Type } from "@google/genai";
-import { options, educationalLevels, secPerArt , WORDS_PER_MINUTE } from "../../../shared/constants";
+import {
+  options,
+  educationalLevels,
+  secPerArt,
+  WORDS_PER_MINUTE,
+} from "../../../shared/constants";
 import { RouteIR } from "./wayfinding";
 import { conTentativi } from "./retry";
 
@@ -29,10 +51,6 @@ function wordsForDuration(duration: number): number {
   return words;
 }
 
-/**
- * La richiesta di una descrizione. Cambia solo la riga che dice CHE COSA
- * descrivere: un'opera con il suo autore, oppure un soggetto che opera non e'.
- */
 async function descrizione(
   cosa: string,
   etichetta: string,
@@ -71,15 +89,6 @@ async function descrizione(
   }
 }
 
-/**
- * L'autore entra nella richiesta solo se c'e'.
- *
- * Di un'opera Wikidata puo' non sapere chi l'ha fatta, e li' il campo resta
- * vuoto (`services/wikidata.ts`). Incollandolo comunque, la richiesta finisce
- * con "realizzata da" e basta: al modello si chiede di descrivere un'opera di
- * un autore il cui nome non e' stato detto, e il testo che torna se lo inventa
- * o si scusa. Senza quella meta' la domanda resta invece una domanda intera.
- */
 export async function createTwistedDescription(
   name: string,
   author: string,
@@ -103,8 +112,6 @@ export async function createDescription(
   return createTwistedDescription(name, author, level, duration, "");
 }
 
-/** Un soggetto che non e' un'opera: il genere entra nella richiesta perche'
- *  "Caravaggio" come artista o come periodo darebbe due testi diversi. */
 export async function createSubjectDescription(
   subject: string,
   kindName: string,
@@ -116,12 +123,13 @@ export async function createSubjectDescription(
 
 export interface PlannedArtwork {
   qid: string;
-  tone: string;
-  durationSec: string;
-  twist: string;
+  tone: string; // uno degli `educationalLevels`: l'elenco chiuso e' nello schema della risposta
+  durationSec: string; // uno dei `secPerArt`, in stringa perche' l'enum dello schema vuole stringhe
+  twist: string; // quale aspetto enfatizzare per QUELL'opera; vuota se non ce n'e' uno
 }
+
 export interface VisitPlan {
-  name: string;
+  name: string; // il nome mnemonico che il modello assegna alla visita
   artworks: PlannedArtwork[];
 }
 
@@ -293,17 +301,6 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
   }
 }
 
-/**
- * Ritorna il comando riconosciuto, la stringa vuota se non c'era niente da
- * riconoscere, e **null se il modello non ha risposto affatto**.
- *
- * I tre casi non si possono confondere, perche' «non ho capito quel che hai
- * detto» e «il servizio non risponde» chiedono due cose diverse a chi ascolta:
- * ripetere, oppure smettere di provare e usare i pulsanti. Il fallimento va
- * quindi restituito esplicitamente: tornando `undefined` verrebbe tolto dalla
- * risposta da `JSON.stringify`, e il client leggerebbe `{}` con stato 200, cioe'
- * «ho capito, e non era niente».
- */
 export async function mapRequest(transcript: string): Promise<string | null> {
   try {
     const range = options.map((o) => o.id);

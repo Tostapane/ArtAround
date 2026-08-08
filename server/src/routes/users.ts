@@ -4,8 +4,9 @@
  * E' qui che nasce la sessione, perche' `login` e `register` sono i due soli
  * punti in cui una password viene verificata: coniarla altrove vorrebbe dire
  * fabbricare un'identita' per un nome qualsiasi. Da qui in poi chi chiede lo
- * dice l'intestazione
- * `Authorization` e mai il percorso; il meccanismo sta in `session.ts`.
+ * dice l'intestazione `Authorization` e mai il percorso; il meccanismo sta in
+ * `session.ts`, e `withSession` e' l'account piu' la stringa con cui d'ora in poi
+ * dira' di essere lui.
  *
  * Il ruolo non si chiede a chi entra: lo deduce il server dalle credenziali, e lo
  * domanda solo nel caso raro in cui le stesse credenziali valgano per piu' profili.
@@ -16,6 +17,16 @@
  * L'acquisto legge il prezzo dal contenuto sul server, mai dal client.
  * I ricavi non vengono accreditati su un portafoglio: si vedono nel resoconto
  * vendite, perche' account autore e visitatore sono separati.
+ *
+ * La registrazione rifiuta `SEED_AUTHOR`: il museo firma i contenuti seminati con
+ * quel nome e `isReadable` da' per letto a un autore quel che ha scritto lui,
+ * quindi chi si registrasse cosi' si ritroverebbe gratis tutto il catalogo a
+ * pagamento, e in vetrina come suo. Il confronto ignora maiuscole e spazi perche'
+ * a decidere non e' l'ortografia ma chi si prende quei contenuti.
+ *
+ * Nell'acquisto il portafoglio sta solo sul visitatore, e lo stesso nome puo'
+ * esistere con un altro ruolo come account distinto: la sessione dice gia' quale
+ * dei due e', quindi non serve chiederlo al database per poterlo dire.
  */
 import { Router } from "express";
 import {
@@ -43,7 +54,6 @@ function sanitize(u: any) {
   };
 }
 
-/** L'account piu' la stringa con cui d'ora in poi dira' di essere lui. */
 async function withSession(u: any) {
   return { ...sanitize(u), token: await createSession(u) };
 }
@@ -65,11 +75,6 @@ router.post("/register", async (req, res) => {
     if (!username || !password || !isValidRole(role))
       return res.status(400).json({ error: "Dati di registrazione non validi" });
 
-    // Il museo firma i contenuti seminati con questo nome, e `isReadable` da'
-    // per letto a un autore quel che ha scritto lui: chi si registrasse cosi'
-    // si ritroverebbe gratis tutto il catalogo a pagamento, e in vetrina come
-    // suo. Il confronto ignora maiuscole e spazi perche' a decidere non e'
-    // l'ortografia ma chi si prende quei contenuti.
     if (String(username).trim().toLowerCase() === SEED_AUTHOR.toLowerCase())
       return res
         .status(409)
@@ -227,9 +232,6 @@ router.post("/buy", requireSession, async (req, res) => {
     const username = who.username;
     const { itemId } = req.body;
 
-    // Il portafoglio sta solo sul visitatore, e lo stesso nome puo' esistere con
-    // un altro ruolo come account distinto. La sessione dice gia' quale dei due
-    // e', quindi non serve chiederlo al database per poterlo dire.
     if (who.role !== "visitatore")
       return res.status(403).json({
         error: `Il profilo con cui sei entrato e' un ${who.role}: i contenuti si comprano da un profilo visitatore, che e' l'unico ad avere un portafoglio.`,
@@ -243,7 +245,7 @@ router.post("/buy", requireSession, async (req, res) => {
       (await VisitModel.findOne({ "@id": itemId }));
 
     const owned = new Set<string>(user.collezione || []);
-    let itemsById = new Map<string, any>();
+    const itemsById = new Map<string, any>();
     if (content && Array.isArray(content.itemListElement)) {
       const tappe = await ItemModel.find({
         "@id": { $in: content.itemListElement },
@@ -301,8 +303,6 @@ router.get("/sales", requireSession, async (req, res) => {
     const rows: any[] = [];
     for (const it of items) {
       const about: any = it.about;
-      // Il nome della riga e' quello del soggetto: l'opera dove c'e', altrimenti
-      // il nome che l'autore ha scritto.
       let nome = it.subject || "Contenuto";
       if (about && typeof about === "object") nome = about.name;
       rows.push({

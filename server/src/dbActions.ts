@@ -8,10 +8,31 @@
  * duplicata.
  *
  * Qui sta anche la risoluzione degli item per le visite su misura.
- * `resolveOrGenerateItem` usa il
- * `twist` come interruttore: senza angolazione particolare riusa un item curato
- * gia' presente, con un'angolazione ne genera uno nuovo che non viene salvato,
- * perche' le visite su misura vivono solo nel client.
+ * `resolveOrGenerateItem` usa il `twist` come interruttore: senza angolazione
+ * particolare riusa un item curato gia' presente, con un'angolazione ne genera
+ * uno nuovo che non viene salvato, perche' le visite su misura vivono solo nel
+ * client.
+ *
+ * `rimuoviTappeDalleVisite` e' la cascata di chi elimina un'opera o una
+ * descrizione dal catalogo, e ACCORCIA invece di cancellare. Prima spariva la
+ * visita intera: una tappa su cento non si risolveva piu', e la risposta era
+ * buttare via anche le altre novantanove, comprese quelle di un autore e quelle
+ * gia' comprate. Una visita non e' fatta della singola tappa. Sparisce solo
+ * quella che rimane SENZA tappe, perche' una visita di zero tappe non e' una
+ * visita e nemmeno il compositore la accetta.
+ *
+ * Accorciare vuol dire rimettere a posto tutto quello che alle tappe era appeso,
+ * o si accorcia il percorso e si rompe il resto:
+ *  - le tappe facoltative, che sono un sottoinsieme delle tappe;
+ *  - le note logistiche, che sono ANCORATE a una tappa ("dopo questa sala, gira
+ *    a destra"): quelle appese a una tappa che se ne va scendono alla tappa
+ *    valida che le precede, e se non ce n'e' diventano note di apertura;
+ *  - la durata, che e' la somma dei tempi delle tappe;
+ *  - le domande del quiz, che nominano un'opera per esteso: se quell'opera non
+ *    si vede piu', la domanda chiede di una cosa che la classe non ha visto.
+ *
+ * Il nome della visita non si tocca: dove porta il conto delle tappe lo rifa'
+ * `testers.ts nomi`, che e' l'unico posto dove quel nome si costruisce.
  */
 import { createHash } from "crypto";
 import { IArtwork, ArtworkModel } from "./models/artwork";
@@ -20,9 +41,8 @@ import { IVisit, VisitModel } from "./models/visit";
 import { createTwistedDescription } from "./services/llm";
 import { IMuseum, MuseumModel } from "./models/museum";
 
-/*
- * ARTWORK
- */
+// --- Opere ------------------------------------------------------------------
+
 export async function insertArtwork(artwork: Partial<IArtwork>) {
   return await ArtworkModel.findOneAndUpdate({ "@id": artwork["@id"] }, artwork, {
     upsert: true,
@@ -106,31 +126,6 @@ export async function deleteVisit(visitId: string) {
     throw new Error("No visit deleted with that ID");
 }
 
-/**
- * Toglie delle tappe dalle visite che le contengono, invece di cancellare le
- * visite.
- *
- * E' la cascata di chi elimina un'opera o una descrizione dal catalogo. Prima
- * spariva la visita intera: una tappa su cento non risolveva piu', e la
- * risposta era buttare via anche le altre novantanove, comprese quelle di un
- * autore e quelle gia' comprate. Una visita non e' fatta della singola tappa,
- * quindi la si accorcia. Sparisce solo quella che rimane SENZA tappe, perche'
- * una visita di zero tappe non e' una visita e nemmeno il compositore la
- * accetta.
- *
- * Accorciare vuol dire rimettere a posto tutto quello che alle tappe era
- * appeso, o si accorcia il percorso e si rompe il resto:
- *  - le tappe facoltative, che sono un sottoinsieme delle tappe;
- *  - le note logistiche, che sono ANCORATE a una tappa ("dopo questa sala, gira
- *    a destra"): quelle appese a una tappa che se ne va scendono alla tappa
- *    valida che le precede, e se non ce n'e' diventano note di apertura;
- *  - la durata, che e' la somma dei tempi delle tappe;
- *  - le domande del quiz, che nominano un'opera per esteso: se quell'opera non
- *    si vede piu', la domanda chiede di una cosa che la classe non ha visto.
- *
- * Il nome della visita non si tocca: dove porta il conto delle tappe lo rifa'
- * `testers.ts nomi`, che e' l'unico posto dove quel nome si costruisce.
- */
 export async function rimuoviTappeDalleVisite(
   itemIds: string[],
   opereRimosse: string[] = [],
@@ -162,8 +157,6 @@ export async function rimuoviTappeDalleVisite(
       continue;
     }
 
-    // La tappa valida che precede ciascuna tappa tolta: e' li' che scendono le
-    // note che le erano appese.
     const scivolaSu = new Map<string, string | null>();
     let ultimaValida: string | null = null;
     for (const id of originali) {

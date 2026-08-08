@@ -6,6 +6,31 @@
  * ne esce, scaricando una copia locale delle immagini e generando le
  * descrizioni mancanti. Un'opera senza immagine (P18) viene saltata: meglio non
  * averla che averla senza volto.
+ *
+ * `locationsFromMap` lega un'opera al suo nodo passando dal QID, e non dalla sua
+ * POSIZIONE nell'elenco del file di configurazione: quella vorrebbe dire tenere
+ * allineati a mano due elenchi, e basterebbe inserirne una in mezzo perche' tutte
+ * quelle dopo finiscano sul nodo sbagliato senza un errore da nessuna parte.
+ * Un'opera che sulla pianta non c'e' resta senza nodo: non compare sulla mappa,
+ * ma il suo contenuto si legge lo stesso.
+ *
+ * `populateItem` NON scrive l'item quando il modello, anche dopo i ritentativi,
+ * non ha prodotto un testo: uno che manca si vede nel conteggio finale e nel log,
+ * uno senza testo diventa una tappa muta dentro una visita e nessuno se ne
+ * accorge finche' non la si apre. Nell'`@id` entra chi ha scritto il contenuto,
+ * ma per il museo si usa il token congelato invece del nome mostrato: il perche'
+ * sta accanto a `SEED_ID_TOKEN`.
+ *
+ * `populateVisit` scrive per esteso `visibility` e `imagePath` invece di
+ * lasciarli al valore di scorta dello schema, perche' `insertVisit` e' un upsert:
+ * su un documento che esiste gia' i valori di scorta non scattano, quindi una
+ * visita gia' seminata resterebbe senza `visibility` per sempre, e una copertina
+ * tolta dal file di configurazione resterebbe attaccata alla visita. Per la stessa
+ * ragione `imagePath` e' la stringa vuota e non `undefined`.
+ *
+ * In `populateMuseum` il file vince su Wikidata, che si interroga solo per i
+ * campi lasciati in bianco. Il nome in particolare e' una scelta e non un dato:
+ * per gli Uffizi Wikidata risponde "Palazzo degli Uffizi", che e' l'edificio.
  */
 import { fetchArtwork, fetchMuseum } from "./services/wikidata";
 import { downloadImage } from "./services/imageDownloader";
@@ -26,16 +51,6 @@ import {
   SEED_ID_TOKEN,
 } from "../../shared/constants";
 
-/**
- * Da qid dell'opera a id del nodo che la rappresenta sulla pianta
- * (`Artwork.locationId`). E' la mappa a dire dove sta un'opera: legarla invece
- * alla sua POSIZIONE nell'elenco del file di configurazione vorrebbe dire tenere
- * allineati a mano due elenchi, e basta inserirne una in mezzo perche' tutte
- * quelle dopo finiscano sul nodo sbagliato senza un errore da nessuna parte.
- *
- * Un'opera che sulla pianta non c'e' resta senza nodo: non compare sulla mappa,
- * ma il suo contenuto si legge lo stesso.
- */
 export function locationsFromMap(mapPath: string): Map<string, string> {
   const positions = new Map<string, string>();
   for (const node of getMuseumGraph(mapPath).nodes) {
@@ -46,9 +61,6 @@ export function locationsFromMap(mapPath: string): Map<string, string> {
   return positions;
 }
 
-/**
- * Popola un artwork nel database ottenendo dati da Wikidata.
- */
 export async function populateArtwork(
   qid: string,
   museum: string,
@@ -104,12 +116,6 @@ export async function populateItem(
     );
     itemAuthor = SEED_AUTHOR;
 
-    /*
-     * Anche dopo i ritentativi il modello puo' non rispondere. In quel caso
-     * NON si scrive l'item: uno che manca si vede nel conteggio finale e nel
-     * log, uno senza testo diventa invece una tappa muta dentro una visita,
-     * e nessuno se ne accorge finche' non la si apre.
-     */
     if (!description || description.trim() === "") {
       console.warn(
         `[seed] item ${atworkQid} (${level}/${duration}s) NON creato: ` +
@@ -119,8 +125,6 @@ export async function populateItem(
     }
   }
 
-  // Chi ha scritto il contenuto entra nell'`@id`, ma per il museo si usa il
-  // token congelato invece del nome mostrato: vedi `SEED_ID_TOKEN`.
   let firma = itemAuthor;
   if (itemAuthor === SEED_AUTHOR) firma = SEED_ID_TOKEN;
   const id = `${atworkQid}-${firma}-${level}-${duration}`;
@@ -160,16 +164,7 @@ export async function populateVisit(
     price: visitPrice,
     author: visitAuthor,
     ofMuseum: museumUri,
-    // Le visite di catalogo sono il catalogo: si vedono tutte, sempre. Va
-    // scritto per esteso e non lasciato al default dello schema, perche'
-    // `insertVisit` e' un upsert e su un documento che esiste gia' i default non
-    // scattano: senza questa riga una visita gia' seminata resterebbe senza il
-    // campo per sempre.
     visibility: "pubblico",
-    // La stringa vuota e non `undefined`: `insertVisit` fa un upsert con
-    // l'oggetto intero, e un campo assente lascerebbe in piedi la copertina
-    // scritta dal giro precedente. Togliere una figura dal file di
-    // configurazione deve toglierla anche dalla visita.
     imagePath: imagePath || "",
     itemListElement: items,
     logistics: logist,
@@ -177,13 +172,6 @@ export async function populateVisit(
   });
 }
 
-/**
- * Scrive nel database il museo descritto dal suo file di configurazione.
- *
- * Il file vince su Wikidata, che si interroga solo per i campi che il curatore
- * ha lasciato in bianco. Il nome in particolare e' una scelta e non un dato: per
- * gli Uffizi Wikidata risponde "Palazzo degli Uffizi", che e' l'edificio.
- */
 export async function populateMuseum(config: MuseumConfig) {
   let name = config.name;
   let created = config.created;

@@ -209,14 +209,14 @@
      una: `--app-bar` la dichiara alta quanto e', ed e' la stessa misura con cui
      e' disegnata.
 
-     ⚠️ IL FONDO E' PIENO, e non e' una scelta d'aspetto rimasta indietro: la
+     IL FONDO E' PIENO, e non e' una scelta d'aspetto rimasta indietro: la
      barra copre quel che le passa sotto, quindi quel che le passa sotto non si
      deve leggere. Traslucida (era il fondo della pagina al 72% piu' una
      sfocatura) le tessere continuavano a vedersi attraverso i filtri, e mezza
      riga sfocata sopra un campo di ricerca si legge come un difetto, non come
      una superficie.
 
-     ⚠️ IL LIVELLO DEVE STARE SOPRA LE TESSERE, e non basta pareggiarle. Una
+     IL LIVELLO DEVE STARE SOPRA LE TESSERE, e non basta pareggiarle. Una
      tessera cliccabile porta `.tessera-intera` a `z-20` e i suoi comandi a
      `z-30`, per sollevarli sopra quel velo: a `z-20` la barra pareggiava il
      velo e perdeva per ordine nel documento (le tessere vengono dopo), mentre
@@ -279,7 +279,7 @@
     collegamento: una destinazione sola, una voce sola nell'elenco dei
     collegamenti.
 
-    ⚠️ Il velo copre tutto quel che gli sta sotto, comandi compresi. Una tessera
+    Il velo copre tutto quel che gli sta sotto, comandi compresi. Una tessera
     che ne ha -- quella di una visita ha *Inizia* e *Sblocca* -- deve tirarli
     sopra con `relative z-30`, o smettono di rispondere e restano solo da
     guardare. Il difetto non da' errori: il clic finisce sul collegamento e la
@@ -306,7 +306,7 @@
     posseduta perderebbe la superficie e resterebbe salvia sul muro, cioe' piu'
     scura delle altre invece che piu' segnata.
 
-    ⚠️ Va su una lastra che NON si accende d'accento al passaggio: dove il bordo
+    Va su una lastra che NON si accende d'accento al passaggio: dove il bordo
     e' gia' un segnale di "ci puoi andare" i due si darebbero fastidio, e li' il
     possesso va detto in un altro modo.
   */
@@ -357,7 +357,7 @@
     descrizioni che differiscono solo per tono e durata: con una tinta sola per
     tutte, sapere quali sono per bambini vuol dire leggere venti parole.
 
-    ⚠️ Il nome della classe si RICAVA dal tono (`toneClass`), non da una tabella:
+    Il nome della classe si RICAVA dal tono (`toneClass`), non da una tabella:
     un tono nuovo in `educationalLevelHints` compare da solo, e finche' nessuno
     gli scrive qui la sua riga resta una pastiglia neutra -- che e' il ripiego
     giusto, perche' l'informazione la porta la parola dentro. Cambiando qui i
@@ -587,17 +587,17 @@
      simmetria a tre: dopo un terzo di giro e' identico a se' stesso, quindi il
      ciclo si richiude senza scatto.
 
-     ⚠️ QUATTRO `<svg>` SOVRAPPOSTI, non quattro `<g>` dentro uno. Chrome non
+     QUATTRO `<svg>` SOVRAPPOSTI, non quattro `<g>` dentro uno. Chrome non
      manda al compositore le trasformazioni INTERNE a un SVG: restano sul thread
      principale, che in queste attese sta costruendo il catalogo, e l'animazione
      si pianta proprio quando serve. Un `<svg>` intero prende invece un layer
      suo. Stesso viewBox su tutti e quattro, quindi si allineano da se'.
 
-     ⚠️ Il ciclo dura 1,4 s perche' il giro comincia al 22%: piu' lungo, e
+     Il ciclo dura 1,4 s perche' il giro comincia al 22%: piu' lungo, e
      un'attesa che si risolve in un secondo mostra i quadri uscire e sparisce
      prima che il cubo abbia girato.
 
-     ⚠️ Non va mai da solo: a "riduci animazioni" (theme.css) resta immobile, e
+     Non va mai da solo: a "riduci animazioni" (theme.css) resta immobile, e
      la frase accanto e' l'unica cosa che dice ancora che si sta aspettando. */
   .marchio-attesa {
     @apply relative inline-block;

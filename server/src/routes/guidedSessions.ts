@@ -39,41 +39,39 @@ const router = Router();
 interface Participant {
   username: string;
   joinedAt: number;
-  lastSeen: number; 
+  lastSeen: number; // l'ultima interrogazione: e' da qui che si deduce la presenza
 }
 
 interface StudentQuestion {
-  username: string; 
-  question: string; 
-  artwork: string; 
-  at: number; 
+  username: string;
+  question: string;
+  artwork: string; // il qid dell'opera davanti a cui e' stata posta; vuoto se non c'era
+  at: number;
 }
 
 interface RuntimeQuizQuestion {
   question: string;
   options: string[];
-  correct: number;
+  correct: number; // non lascia mai il server: la correzione si fa qui
 }
 
 interface Session {
   id: string;
   visitId: string;
   visitName: string;
-  /** La visita ha un quiz preparato dall'autore: solo un sì o un no. */
-  hasQuiz: boolean;
+  hasQuiz: boolean; // la visita ha un quiz preparato dall'autore: solo un si' o un no
   accessKey: string;
-  museum: string; 
+  museum: string; // l'uri del museo, per rifiutare chi digita la parola giusta nel museo sbagliato
   teacher: string;
   stato: "attesa" | "attiva" | "quiz" | "terminata";
-  currentStep: number; 
-  stepStartAt: number | null; 
+  currentStep: number; // la tappa corrente; -1 finche' il docente non fa partire
+  stepStartAt: number | null; // quando far partire l'audio, cosi' i dispositivi vanno insieme
   partecipanti: Map<string, Participant>;
-  pendingQuestions: StudentQuestion[];
-  // --- Quiz di fine visita (fase "quiz"), tutto effimero ---
-  quizQuestions: RuntimeQuizQuestion[] | null; 
-  quizStartAt: number | null; 
-  quizEndsAt: number | null; 
-  quizClosed: boolean; 
+  pendingQuestions: StudentQuestion[]; // coda di consegna, non storico: il docente le ritira
+  quizQuestions: RuntimeQuizQuestion[] | null; // copiate dalla visita all'avvio del quiz
+  quizStartAt: number | null;
+  quizEndsAt: number | null;
+  quizClosed: boolean; // chiuso a mano dal docente, prima della scadenza
   quizAnswers: Map<string, { answers: number[]; score: number }>;
   createdAt: number;
 }
@@ -88,7 +86,7 @@ function gradeQuiz(s: Session, answers: number[]): number {
   const qs = s.quizQuestions || [];
   let score = 0;
   for (let i = 0; i < qs.length; i++) {
-    if (Number(answers?.[i]) === qs[i].correct) score++;
+    if (Number(answers[i]) === qs[i].correct) score++;
   }
   return score;
 }
@@ -96,7 +94,7 @@ function gradeQuiz(s: Session, answers: number[]): number {
 const sessions = new Map<string, Session>();
 const byAccessKey = new Map<string, string>();
 
-const TTL_MS = 5000;
+const PRESENZA_TTL_MS = 5000; // senza un'interrogazione entro questo tempo, lo studente sparisce
 
 function markPresent(s: Session, username: string) {
   const now = Date.now();
@@ -111,7 +109,7 @@ function markPresent(s: Session, username: string) {
 function dropAbsent(s: Session) {
   const now = Date.now();
   for (const [username, p] of s.partecipanti) {
-    if (now - p.lastSeen > TTL_MS) s.partecipanti.delete(username);
+    if (now - p.lastSeen > PRESENZA_TTL_MS) s.partecipanti.delete(username);
   }
 }
 
@@ -138,17 +136,27 @@ function teacherView(s: Session) {
           startAt: s.quizStartAt,
           endsAt: s.quizEndsAt,
           closed: quizClosedNow(s),
-          risultati: [...s.partecipanti.keys()].map((username) => ({
-            username,
-            consegnato: s.quizAnswers.has(username),
-            score: s.quizAnswers.get(username)?.score ?? 0,
-          })),
+          risultati: [...s.partecipanti.keys()].map((username) => {
+            const consegna = s.quizAnswers.get(username);
+            let score = 0;
+            if (consegna) score = consegna.score;
+            return { username, consegnato: Boolean(consegna), score };
+          }),
         }
       : null,
   };
 }
 
 function studentView(s: Session, username?: string) {
+  let giaConsegnato = false;
+  let punteggio: number | null = null;
+  if (username) {
+    const consegna = s.quizAnswers.get(username);
+    if (consegna) {
+      giaConsegnato = true;
+      punteggio = consegna.score;
+    }
+  }
   return {
     id: s.id,
     visitId: s.visitId,
@@ -166,15 +174,19 @@ function studentView(s: Session, username?: string) {
             question: q.question,
             options: q.options,
           })),
-          giaConsegnato: username ? s.quizAnswers.has(username) : false,
-          punteggio: username
-            ? s.quizAnswers.get(username)?.score ?? null
-            : null,
+          giaConsegnato,
+          punteggio,
         }
       : null,
   };
 }
 
+/**
+ * POST /api/guided-sessions  { visitId }
+ * Ritorna: la vista del docente. Apre la sala d'attesa per una visita con parola
+ * chiave; se ce n'era gia' una su quella parola la azzera invece di aprirne una
+ * seconda. Solo l'autore della visita.
+ */
 router.post("/", async (req, res) => {
   try {
     const { visitId } = req.body;
@@ -243,6 +255,12 @@ router.post("/", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/guided-sessions/join  { accessKey, museum }
+ * Ritorna: la vista dello studente, che da questo momento risulta presente.
+ * 409 se la visita esiste ma il docente non ha ancora aperto la sala, o se la
+ * parola chiave e' di un altro museo; 404 se non esiste affatto.
+ */
 router.post("/join", async (req, res) => {
   const { accessKey, museum } = req.body;
   const username = sessionUser(req).username;
@@ -274,6 +292,10 @@ router.post("/join", async (req, res) => {
   res.json(studentView(s, username));
 });
 
+/**
+ * POST /api/guided-sessions/:id/leave
+ * Toglie chi chiama dalla lista dei presenti.
+ */
 router.post("/:id/leave", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
@@ -281,6 +303,11 @@ router.post("/:id/leave", (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * POST /api/guided-sessions/:id/ask  { question, artwork }
+ * Mette la domanda nella coda che il docente ritira alla prossima interrogazione.
+ * Solo docente e partecipanti.
+ */
 router.post("/:id/ask", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
@@ -299,6 +326,10 @@ router.post("/:id/ask", (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * POST /api/guided-sessions/:id/start
+ * Fa partire la visita dalla prima tappa. Solo il docente.
+ */
 router.post("/:id/start", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
@@ -310,6 +341,11 @@ router.post("/:id/start", (req, res) => {
   res.json(teacherView(s));
 });
 
+/**
+ * POST /api/guided-sessions/:id/step  { index, ritardoMs }
+ * Porta tutti sulla tappa `index`. `ritardoMs` sposta in avanti l'istante di
+ * partenza, cosi' i dispositivi fanno partire l'audio insieme. Solo il docente.
+ */
 router.post("/:id/step", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
@@ -324,6 +360,11 @@ router.post("/:id/step", (req, res) => {
   res.json(teacherView(s));
 });
 
+/**
+ * POST /api/guided-sessions/:id/quiz/start  { durationSec }
+ * Copia il quiz della visita nella sessione e apre la fase a tempo (5-3600 s,
+ * 60 s se non detto). Solo il docente; 400 se la visita non ha un quiz.
+ */
 router.post("/:id/quiz/start", async (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
@@ -339,7 +380,7 @@ router.post("/:id/quiz/start", async (req, res) => {
     5,
     Math.min(3600, Number(req.body.durationSec) || 60),
   );
-  const RITARDO_MS = 500; 
+  const RITARDO_MS = 500;
   s.quizQuestions = quiz.map((q) => ({
     question: String(q.question),
     options: (q.options || []).map((o: any) => String(o)),
@@ -353,6 +394,11 @@ router.post("/:id/quiz/start", async (req, res) => {
   res.json(teacherView(s));
 });
 
+/**
+ * POST /api/guided-sessions/:id/quiz/answer  { answers }
+ * Ritorna: { score, total, giaConsegnato }. Si consegna una volta sola, e la
+ * correzione avviene qui: le risposte giuste non lasciano mai il server.
+ */
 router.post("/:id/quiz/answer", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
@@ -377,6 +423,10 @@ router.post("/:id/quiz/answer", (req, res) => {
   res.json({ score, total, giaConsegnato: false });
 });
 
+/**
+ * POST /api/guided-sessions/:id/quiz/end
+ * Chiude il quiz prima della scadenza. Solo il docente.
+ */
 router.post("/:id/quiz/end", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
@@ -395,6 +445,10 @@ router.post("/:id/quiz/end", (req, res) => {
  */
 const CODA_CHIUSURA_MS = 30000;
 
+/**
+ * POST /api/guided-sessions/:id/end
+ * Termina la visita. Solo il docente.
+ */
 router.post("/:id/end", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.json({ ok: true });
@@ -407,13 +461,23 @@ router.post("/:id/end", (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * GET /api/guided-sessions/:id
+ * Ritorna: la vista del docente, e SVUOTA la coda delle domande. E' anche il
+ * battito che fa sparire dalla lista chi non si e' piu' fatto vivo.
+ */
 router.get("/:id", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione terminata o inesistente" });
-  dropAbsent(s); 
+  dropAbsent(s);
   res.json(teacherView(s));
 });
 
+/**
+ * GET /api/guided-sessions/:id/state
+ * Ritorna: la vista dello studente, e vale come "sono ancora qui". 410 quando la
+ * sessione non c'e' piu', che il client distingue da un guasto.
+ */
 router.get("/:id/state", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s)
@@ -424,6 +488,11 @@ router.get("/:id/state", (req, res) => {
   res.json(studentView(s, username));
 });
 
+/**
+ * GET /api/guided-sessions/:id/items
+ * Ritorna: le tappe della visita nell'ordine del percorso, con l'opera popolata.
+ * Solo docente e partecipanti.
+ */
 router.get("/:id/items", async (req, res) => {
   try {
     const s = sessions.get(req.params.id);
@@ -438,13 +507,15 @@ router.get("/:id/items", async (req, res) => {
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
 
     const ids = visit.itemListElement || [];
-    const items = await ItemModel.find({ "@id": { $in: ids } }).populate({
-      path: "about",
-      model: "Artwork",
-      foreignField: "@id",
-      localField: "about",
-      justOne: true,
-    });
+    const items = await ItemModel.find({ "@id": { $in: ids } })
+      .populate({
+        path: "about",
+        model: "Artwork",
+        foreignField: "@id",
+        localField: "about",
+        justOne: true,
+      })
+      .lean();
     const byId = new Map(items.map((it: any) => [it["@id"], it]));
     const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
     res.json(ordered);

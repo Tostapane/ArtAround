@@ -8,9 +8,17 @@
  * I contenuti si leggono dalla rotta di sessione, non dal catalogo: il possesso e'
  * temporaneo e finisce con la visita.
  *
- * `guidedPlannedEnd` distingue una chiusura voluta dal docente da una sessione
- * sparita sotto i piedi: riusare la stessa schermata per entrambe e' il modo in
- * cui un guasto diventa invisibile.
+ * `guidedPlannedEnd` distingue una chiusura voluta dal docente (o l'uscita dello
+ * studente) da una sessione sparita sotto i piedi — server riavviato, rete
+ * caduta: riusare "terminata" per "non sappiamo cos'e' successo" e' il modo in cui
+ * un guasto diventa invisibile. Il server tiene apposta la sessione ancora un
+ * momento dopo il "Termina", con stato "terminata", proprio perche' i client
+ * possano leggerlo.
+ *
+ * L'interrogazione periodica deve restare piu' fitta del tempo entro cui il
+ * server dimentica chi non si fa vivo (`PRESENZA_TTL_MS`, cinque secondi in
+ * `routes/guidedSessions.ts`), o gli studenti fermi sparirebbero a intermittenza
+ * dalla lista del docente.
  */
 import { ref } from "vue";
 import type { Visit } from "../../shared/types";
@@ -68,17 +76,17 @@ export type QuizStudente = {
   total: number;
   endsAt: number | null;
   closed: boolean;
-  domande: { question: string; options: string[] }[];
+  domande: { question: string; options: string[] }[]; // niente `correct`: la correzione sta sul server
   giaConsegnato: boolean;
   punteggio: number | null;
 };
 
 export const guidedQuizDocente = ref<QuizDocente | null>(null);
 export const guidedQuizStudente = ref<QuizStudente | null>(null);
-/** Il voto appena ricevuto dal server: il client non corregge nulla da solo. */
-export const guidedQuizPunteggio = ref<number | null>(null);
-/** La visita ha un quiz preparato dall'autore? Lo sa solo il docente. */
-export const guidedHasQuiz = ref(false);
+export const guidedQuizPunteggio = ref<number | null>(null); // il voto ricevuto: qui non si corregge niente
+export const guidedHasQuiz = ref(false); // la visita ha un quiz preparato dall'autore; lo sa solo il docente
+
+const PASSO_INTERROGAZIONE_MS = 1500; // deve restare sotto la soglia di presenza del server
 
 let pollTimer: number | null = null;
 let contentLoaded = false;
@@ -102,7 +110,7 @@ function applyTeacherView(v: any) {
     guidedQuestions.value.push(...v.nuoveDomande);
   }
   if (v.visitName) guidedVisitName.value = v.visitName;
-  guidedHasQuiz.value = !!v.hasQuiz;
+  guidedHasQuiz.value = Boolean(v.hasQuiz);
   if (v.quiz) guidedQuizDocente.value = v.quiz;
   else guidedQuizDocente.value = null;
   applyStato(v.stato);
@@ -122,11 +130,6 @@ function applyStudentState(s: any) {
   applyStato(s.stato);
 }
 
-/**
- * Il server tiene la sessione ancora un momento dopo il "Termina", con stato
- * "terminata", proprio perche' i client possano leggerlo: e' una chiusura
- * VOLUTA, non la sessione sparita sotto i piedi.
- */
 function applyStato(stato: Stato) {
   if (stato === "terminata") {
     if (guidedStato.value !== "terminata") endLocally(true);
@@ -147,7 +150,7 @@ async function ensureContent(visitId: string) {
 
 function startPolling() {
   stopPolling();
-  pollTimer = window.setInterval(pollOnce, 1500);
+  pollTimer = window.setInterval(pollOnce, PASSO_INTERROGAZIONE_MS);
 }
 
 function stopPolling() {
@@ -171,13 +174,6 @@ async function pollOnce() {
   }
 }
 
-/**
- * La visita e' finita in modo ATTESO (il docente ha premuto Termina, o lo
- * studente e' uscito) oppure la sessione e' semplicemente sparita sotto i piedi
- * (server riavviato, rete caduta). Sono due cose diverse e vanno dette in modo
- * diverso: riusare "terminata" per "non sappiamo cos'e' successo" e' il modo in
- * cui un guasto diventa invisibile.
- */
 export const guidedPlannedEnd = ref(true);
 
 function endLocally(prevista = true) {

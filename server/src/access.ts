@@ -15,6 +15,9 @@
  *
  * Il resto del documento (tono, durata, autore, prezzo) resta pubblico: e' quel
  * che serve per decidere se comprare, ed e' il catalogo.
+ *
+ * `withoutText` rende il documento col testo vuoto piu' `locked`: un testo vuoto
+ * e un testo tolto si distinguono solo cosi'.
  */
 import { UserModel } from "./models/user";
 import { isReadable as regolaDiLettura } from "../../shared/access";
@@ -38,10 +41,6 @@ export function isReadable(
   return regolaDiLettura(item, username, owned.has(item["@id"]));
 }
 
-/**
- * Il documento senza il testo, piu' `locked` per dire che manca apposta: un
- * testo vuoto e un testo tolto si distinguono solo cosi'.
- */
 export function withoutText(item: any): any {
   let plain = item;
   if (item && typeof item.toObject === "function") plain = item.toObject();

@@ -45,6 +45,28 @@
  * scorra l'elenco e non la finestra, l'elenco vuole `min-h-0` e tutto il resto
  * `shrink-0`: senza, a uscire dallo schermo sono i bottoni, cioe' la finestra non
  * si chiude piu'.
+ *
+ * Alcuni dettagli che il codice non dice da se':
+ *
+ * Sul TELEFONO aprire una tappa porta sull'opera, perche' scegliere che cosa
+ * leggere e leggerlo sono lo stesso gesto, e restare sulla pianta vorrebbe dire
+ * che il tocco su un disco non ha fatto niente di visibile.
+ *
+ * "Prossimo" sull'ultima tappa CHIUDE la visita: senza quel ramo non finirebbe
+ * mai. In visita guidata no — li' la chiusura la decide il docente, che dopo
+ * l'ultima opera fa partire il quiz.
+ *
+ * Sulle note d'apertura "Continua" deve CONTINUARE, cioe' portare alla prima
+ * tappa: chiudendo solo il riquadro la visita resterebbe ferma senza niente di
+ * aperto.
+ *
+ * Dire dove si e' RI-ANCORA il sistema di coordinate: da li' in poi i passi si
+ * contano da quel punto e non da dove il GPS credeva di essere.
+ *
+ * Chiedere la strada NON e' andarci: si apre la risposta e la tappa non cambia.
+ * Il bottone del comando puo' essere spento, ma la voce ci arriva lo stesso, e
+ * tacere li' vorrebbe dire che un comando riconosciuto e ripetuto non produce
+ * niente.
  */
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useSensors } from "@/composables/useSensors";
@@ -255,9 +277,6 @@ function selectIndex(i: number) {
   if (!match) return;
   currentArtwork.value = match;
   lastVisitIndex.value = i;
-  // Sul telefono aprire una tappa porta sull'opera: scegliere che cosa leggere e
-  // leggerlo sono lo stesso gesto, e restare sulla pianta vorrebbe dire che il
-  // tocco su un disco non ha fatto niente di visibile.
   vistaMobile.value = "opera";
   const pos = currentPosition.value;
   if (pos > 0) {
@@ -326,9 +345,6 @@ function navigationHandler(direction: string) {
   const base = navBase();
   const target = stepIndex(base, direction === "next" ? 1 : -1);
   if (target < 0) {
-    // Fine del percorso: senza questo ramo la visita non finirebbe mai.
-    // In visita guidata no: li' la chiusura la decide il docente, che dopo
-    // l'ultima opera fa partire il quiz.
     if (
       direction === "next" &&
       lastVisitIndex.value >= 0 &&
@@ -362,8 +378,6 @@ function closeTransition() {
     goToIndex(t.target);
     return;
   }
-  // Note d'apertura: "Continua" deve continuare, cioe' portare alla prima tappa.
-  // Chiudendo solo il riquadro la visita resterebbe ferma senza niente di aperto.
   const primo = stepIndex(-1, 1);
   if (primo >= 0) goToIndex(primo);
 }
@@ -446,8 +460,6 @@ watch(teletrasportoArmato, (armato) => {
 async function goToArtwork(qid: string) {
   showLocator.value = false;
 
-  // Dire dove si e' ri-ancora il sistema di coordinate: da qui in poi i passi
-  // si contano da questo punto, non da dove il GPS credeva di essere.
   const nodo = nodeOf(qid);
   if (nodo) reanchor(nodo.x, nodo.y);
 
@@ -538,11 +550,8 @@ function actionHandler(option: string) {
   if (option === "Prossimo") return navigationHandler("next");
   if (option === "Precedente") return navigationHandler("prev");
 
-  // Chiedere la strada non e' andarci: si apre la risposta, la tappa non cambia.
   if (option === NEXT_STOP_COMMAND) {
     if (!nextAnchorQid.value) {
-      // Il bottone e' spento, ma la voce ci arriva lo stesso: se qui si tacesse,
-      // un comando riconosciuto e ripetuto non produrrebbe niente.
       announce(t("Non c'è una tappa successiva: sei all'ultima."));
       return;
     }

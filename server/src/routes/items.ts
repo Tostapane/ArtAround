@@ -32,6 +32,41 @@
  * Cancella chi l'ha scritta e il curatore, che risponde del catalogo del museo.
  * Senza quella guardia bastava un `@id` per togliere di mezzo il lavoro di
  * chiunque, e con esso le tappe delle visite che lo citavano.
+ *
+ * `GET /author/:authorName` e' l'unica rotta che manda i TESTI senza passare da
+ * `readableItems`, ed e' lecito solo perche' risponde a chi ha scritto quei
+ * contenuti: `isReadable` da' comunque per letto all'autore quel che e' suo,
+ * quindi la regola non e' sospesa, e' gia' soddisfatta. Il nome nell'indirizzo
+ * deve percio' coincidere con quello della sessione, o quella rotta diventa il
+ * modo di leggere gratis tutto il catalogo a pagamento chiedendo
+ * `/author/Museo`. Vale anche per i privati, che di li' passano interi.
+ *
+ * `filtroPubblico` sta in un posto solo perche' le due rotte che elencano il
+ * catalogo devono elencare le stesse cose: cambiando la definizione di pubblico
+ * non possono cambiare a meta'.
+ *
+ * `freeItemId` esiste perche' lo stesso autore puo' scrivere piu' descrizioni
+ * dello stesso tono sulla stessa opera — sono letture diverse dello stesso
+ * quadro, non un errore — mentre l'`@id` e' unico in indice, e senza contatore la
+ * seconda morirebbe su una chiave duplicata. La prima tiene la forma leggibile,
+ * cosi' gli id scritti dal seed restano prevedibili; resta comunque una chiave
+ * opaca, che nessuno spacchetta per leggerci dentro il tono o la durata.
+ *
+ * `rimuoviImmagine` riduce il nome al solo basename: senza quel taglio un
+ * `imagePath` scritto a mano indicherebbe qualunque file sul disco.
+ *
+ * Prezzo e testo li controlla il SERVER, che e' l'unico posto in cui il controllo
+ * vale davvero: un prezzo negativo non e' uno sconto, e' credito regalato a chi
+ * compra la visita che lo contiene.
+ *
+ * Le due guardie dell'eliminazione. `nascostoA`: un contenuto privato che non e'
+ * del suo autore risponde come se non esistesse, perche' dire "non puoi"
+ * confermerebbe comunque che c'e' e di chi e'. `vietato`: possono toccarlo il
+ * curatore, che risponde del catalogo del museo, e l'autore che l'ha scritto — e
+ * il RUOLO si guarda prima della privatezza, o al curatore la regola dei privati
+ * altrui direbbe "non esiste", lasciandolo senza lo strumento fine e con in mano
+ * solo lo svuotamento del museo intero. Nascondere il pulsante non basterebbe: la
+ * rotta si chiama anche senza passare dall'interfaccia.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -45,19 +80,10 @@ import { purchasedBy, readableItems, isReadable } from "../access";
 import { VisitModel } from "../models/visit";
 import { rimuoviTappeDalleVisite } from "../dbActions";
 import { UserModel } from "../models/user";
-import { kindById } from "../../../shared/constants";
-import { DEFAULT_LICENSE } from "../../../shared/constants";
+import { kindById, DEFAULT_LICENSE } from "../../../shared/constants";
 
 const router = Router();
 
-/**
- * Quali item sono quelli pubblici di questo museo: niente privati e, se il museo
- * e' indicato, solo quelli del suo catalogo.
- *
- * Sta in un posto solo perche' le due rotte che elencano il catalogo devono
- * elencare le stesse cose: cambiando la definizione di pubblico non possono
- * cambiare a meta'.
- */
 function filtroPubblico(museum: string): Record<string, unknown> {
   const filter: Record<string, unknown> = { visibility: { $ne: "privato" } };
   if (museum) filter.ofMuseum = `http://www.wikidata.org/entity/${museum}`;
@@ -74,13 +100,15 @@ function filtroPubblico(museum: string): Record<string, unknown> {
 router.get("/", async (req, res) => {
   try {
     const filter = filtroPubblico(String(req.query.museum || ""));
-    const items = await ItemModel.find(filter).populate({
-      path: "about",
-      model: "Artwork",
-      foreignField: "@id",
-      localField: "about",
-      justOne: true,
-    });
+    const items = await ItemModel.find(filter)
+      .populate({
+        path: "about",
+        model: "Artwork",
+        foreignField: "@id",
+        localField: "about",
+        justOne: true,
+      })
+      .lean();
     const user = sessionUser(req).username;
     const owned = await purchasedBy(user);
     res.json(readableItems(items, user, owned));
@@ -108,7 +136,7 @@ router.get("/", async (req, res) => {
 router.get("/metadata", async (req, res) => {
   try {
     const filter = filtroPubblico(String(req.query.museum || ""));
-    const items = await ItemModel.find(filter).select("-text");
+    const items = await ItemModel.find(filter).select("-text").lean();
     res.json(items);
   } catch (error: any) {
     console.error(error);
@@ -118,18 +146,26 @@ router.get("/metadata", async (req, res) => {
 
 /**
  * GET /api/items/author/:authorName
- * Ritorna: gli item di quell'autore, privati compresi, con l'opera popolata.
+ * Ritorna: i PROPRI contenuti, privati compresi e col testo, con l'opera
+ * popolata. 403 a chi chiede quelli di un altro nome.
  */
 router.get("/author/:authorName", async (req, res) => {
   try {
     const { authorName } = req.params;
-    const items = await ItemModel.find({ author: authorName }).populate({
-      path: "about",
-      model: "Artwork",
-      foreignField: "@id",
-      localField: "about",
-      justOne: true,
-    });
+    if (authorName !== sessionUser(req).username)
+      return res
+        .status(403)
+        .json({ error: "Puoi leggere solo i contenuti che hai scritto." });
+
+    const items = await ItemModel.find({ author: authorName })
+      .populate({
+        path: "about",
+        model: "Artwork",
+        foreignField: "@id",
+        localField: "about",
+        justOne: true,
+      })
+      .lean();
     res.json(items);
   } catch (error: any) {
     console.error(error);
@@ -200,11 +236,6 @@ router.post("/image", uploadImmagine.single("immagine"), async (req, res) => {
   }
 });
 
-/**
- * Toglie dal disco l'immagine di un item eliminato. Il nome si riduce al
- * basename: senza quel taglio un `imagePath` scritto a mano indicherebbe
- * qualunque file.
- */
 export function rimuoviImmagine(imagePath: string | undefined) {
   if (!imagePath) return;
   if (!imagePath.startsWith(ITEM_IMAGE_URL)) return;
@@ -225,22 +256,6 @@ function slug(text: string): string {
   return pulito;
 }
 
-/**
- * POST /api/items
- * Ritorna: 201 alla pubblicazione, 200 alla modifica (`editId`), 409 se esiste
- * gia' un item di quell'autore con la stessa coppia (soggetto, tono).
- */
-/**
- * Un `@id` libero a partire da quello leggibile.
- *
- * Lo stesso autore puo' scrivere piu' descrizioni dello stesso tono sulla stessa
- * opera: sono letture diverse dello stesso quadro, non un errore. L'`@id` pero'
- * e' unico in indice, quindi senza questo la seconda morirebbe su una chiave
- * duplicata. La prima descrizione tiene la forma leggibile, cosi' gli id scritti
- * dal seed restano prevedibili, e dalla seconda in poi si aggiunge un contatore.
- * Resta comunque una chiave opaca: nessuno la spacchetta per leggerci dentro il
- * tono o la durata.
- */
 async function freeItemId(base: string): Promise<string> {
   let candidate = base;
   let n = 1;
@@ -251,6 +266,12 @@ async function freeItemId(base: string): Promise<string> {
   return candidate;
 }
 
+/**
+ * POST /api/items
+ * Ritorna: 201 alla pubblicazione, 200 alla modifica (`editId`). In modifica
+ * cambiano solo testo e prezzo: il resto e' identita', o diritti di chi l'ha
+ * gia' adottata.
+ */
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
@@ -258,9 +279,6 @@ router.post("/", async (req, res) => {
     if (payload.tipo !== "Item")
       return res.status(400).json({ error: "Contenuto non riconosciuto." });
 
-    // Il prezzo e il testo li controlla il server, che e' l'unico posto in cui
-    // il controllo vale davvero: un prezzo negativo non e' uno sconto, e'
-    // credito regalato a chi compra la visita che lo contiene.
     if (Number(payload.prezzo) < 0)
       return res.status(400).json({ error: "Il prezzo non puo' essere negativo." });
     const testo = payload.descrizioni?.[0]?.testo;
@@ -275,9 +293,9 @@ router.post("/", async (req, res) => {
       if (esistente.author !== author)
         return res.status(403).json({ error: "Puoi modificare solo i tuoi item." });
       const desc = payload.descrizioni?.[0] || {};
-      esistente.text = desc.testo ?? esistente.text;
-      esistente.price =
-        esistente.visibility === "privato" ? 0 : Number(payload.prezzo) || 0;
+      if (typeof desc.testo === "string") esistente.text = desc.testo;
+      if (esistente.visibility === "privato") esistente.price = 0;
+      else esistente.price = Number(payload.prezzo) || 0;
       await esistente.save();
       return res.status(200).send({ message: "Item aggiornato con successo" });
     }
@@ -348,31 +366,12 @@ router.post("/", async (req, res) => {
 
 // --- Eliminazione a cascata --------------------------------------------------
 
-/**
- * Un contenuto privato non e' del suo autore risponde come se non esistesse.
- * Dire "non puoi" confermerebbe comunque che c'e' e di chi e', ed e' la stessa
- * regola che le visite applicano in lettura.
- */
 function nascostoA(item: any, username: string): boolean {
   if (!item) return false;
   if (item.visibility !== "privato") return false;
   return item.author !== username;
 }
 
-/**
- * Chi puo' toccare questo contenuto: il curatore, che risponde del catalogo del
- * museo, e l'autore che l'ha scritto. Risponde `null` quando si puo' procedere e
- * altrimenti manda gia' la risposta.
- *
- * Si guarda PRIMA di cancellare, e nascondere il pulsante non basta: la rotta si
- * chiama anche senza passare dall'interfaccia, e questa cancella per davvero —
- * via il documento, via l'immagine dal disco, via le tappe dalle visite che lo
- * citano e le righe dalle collezioni di chi l'aveva preso.
- *
- * Il ruolo si guarda prima della privatezza: nell'ordine opposto, al curatore la
- * regola che nasconde i privati altrui direbbe "non esiste", lasciandolo senza lo
- * strumento fine e con in mano solo lo svuotamento del museo intero.
- */
 function vietato(req: any, res: any, item: any): boolean {
   const chi = sessionUser(req);
   if (chi.role === "curatore") return false;
@@ -392,8 +391,6 @@ function vietato(req: any, res: any, item: any): boolean {
 async function measureImpact(itemId: string) {
   const visits = await VisitModel.find({ itemListElement: itemId });
   const visitIds = visits.map((v) => v["@id"]);
-  // Quelle che, tolta questa tappa, resterebbero senza nessuna: spariscono
-  // comunque, perche' una visita di zero tappe non e' una visita.
   const svuotate = visits.filter(
     (v) => (v.itemListElement || []).filter((id) => id !== itemId).length === 0,
   );
@@ -455,7 +452,7 @@ router.get("/:id/impact", async (req, res) => {
  * significa, e non serve nessun conto per ottenerlo: si toglie l'item, e la
  * fermata su quell'opera resta solo se qualcos'altro la teneva.
  *
- * ⚠️ La strada "elimina" e' del solo CURATORE, e non e' una restrizione di
+ * La strada "elimina" e' del solo CURATORE, e non e' una restrizione di
  * comodo: butta via percorsi ALTRUI, comprati e composti da altri, per via di
  * una tappa su cento. Chi risponde del museo puo' deciderlo; un autore
  * risponde di quel che scrive, e la sua cancellazione accorcia.

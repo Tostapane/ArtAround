@@ -11,7 +11,11 @@
  *                  una sala dentro un'altra va scritta prima di quella che la
  *                  circonda.
  *  - nodo-opera    data-qid="Qxxx" [+ data-label]
- *  - nodo-POI      data-poi="exit|emergency_exit|toilet|bar|shop|elevator|stairs"
+ *  - nodo-POI      data-poi="entrance|exit|emergency_exit|toilet|bar|shop|
+ *                  elevator|stairs". `entrance` non e' facoltativo: e' il punto
+ *                  da cui il pathfinding parte quando nessuno ha detto dove si
+ *                  trova (`services/wayfinding.ts`), e una mappa senza non sa
+ *                  rispondere a chi non si e' ancora mosso.
  *  - ostacolo      data-obstacle="steps|door|chairs|object" + data-desc
  *  - collegamento  <line data-edge>: ogni estremo si risolve alla sala che lo
  *                  contiene, non al nodo piu' vicino
@@ -39,37 +43,42 @@
  *    adiacenze si tengono per nome: due omonime diventerebbero una sola;
  *  - i commenti si tolgono prima di scandire, o un <g> nominato in un commento
  *    sposta il conto dei gruppi e con lui il piano di tutto il resto.
+ *
+ * `flowOrder` rende i qid nell'ordine in cui il curatore vuole che si percorra il
+ * museo: `data-flow` sulle sale, e dentro una sala l'ordine in cui sono
+ * disegnate, perche' li' non c'e' niente da percorrere — ci si e' gia'. Le sale
+ * che tacciono vanno in fondo nell'ordine del disegno, quindi una mappa che non
+ * dichiara nessun flusso lascia le opere come stavano. `sortByFlow` applica
+ * quell'ordine a un elenco qualunque di cose che portano un qid, e chi sulla
+ * mappa non c'e' resta in fondo: e' un'opera del catalogo che nessuno ha ancora
+ * collocato, non un errore.
+ *
+ * `elementId` non e' `id`: il primo e' la forma da colorare e numerare nel
+ * navigator, il secondo e' il qid. Un elenco di piani VUOTO e' la condizione
+ * normale di un museo a un piano solo, e da li' discende che di piani non se ne
+ * parli mai.
  */
 import fs from "fs";
 import path from "path";
 
 export interface GraphNode {
-  id: string;
+  id: string; // per un'opera e' il qid: e' con quello che il pathfinding indica una destinazione
   kind: "artwork" | "poi";
   qid: string;
   poiType: string;
   label: string;
   x: number;
   y: number;
-  room: string;
-  /** Il piano: quello della sua sala, o del gruppo che lo contiene. */
-  floor: number;
-  /**
-   * L'attributo `id` dell'elemento SVG, che il navigator usa per ritrovare la
-   * forma da colorare e numerare (`Artwork.locationId`). Non e' `id` qui sopra:
-   * quello, per un'opera, e' il qid, perche' e' con quello che il pathfinding
-   * indica una destinazione.
-   */
-  elementId: string;
+  room: string; // la sala la cui AREA lo contiene, risolta dopo la scansione
+  floor: number; // il piano: quello della sua sala, o del gruppo che lo contiene
+  elementId: string; // l'attributo `id` dell'elemento SVG, cioe' `Artwork.locationId`
 }
 
 export interface GraphRegion {
-  name: string;
+  name: string; // unico su tutta la mappa, piani compresi: le adiacenze si tengono per nome
   neighbors: string[];
-  /** Il piano su cui sta la sala. Senza `data-floor` sulla mappa e' 0. */
-  floor: number;
-  /** L'ordine di visita che il curatore le ha dato. 0 = non dichiarato. */
-  flow: number;
+  floor: number; // senza `data-floor` sulla mappa e' 0
+  flow: number; // l'ordine di visita che il curatore le ha dato; 0 = non dichiarato
 }
 
 export interface GraphObstacle {
@@ -81,20 +90,14 @@ export interface GraphObstacle {
 
 export interface GraphFloor {
   floor: number;
-  /** Come lo chiama il curatore. Un piano senza `data-floor-label` e' "piano N". */
-  label: string;
+  label: string; // come lo chiama il curatore; senza `data-floor-label` e' "piano N"
 }
 
 export interface MuseumGraph {
   nodes: GraphNode[];
   regions: GraphRegion[];
   obstacles: GraphObstacle[];
-  /**
-   * I piani che la mappa dichiara, dal basso in alto. Resta VUOTO se la mappa
-   * non ne dichiara nessuno: un museo a un piano solo non ha piani di cui
-   * parlare, e da questo elenco vuoto discende che non se ne parli mai.
-   */
-  floors: GraphFloor[];
+  floors: GraphFloor[]; // dal basso in alto; VUOTO se la mappa non ne dichiara nessuno
 }
 
 type RegionShape = { floor: number; flow: number } & (
@@ -131,14 +134,6 @@ function parseSvgFile(mapPath: string): MuseumGraph {
   return parseSvg(svg);
 }
 
-/**
- * I qid delle opere nell'ordine in cui il curatore vuole che si percorra il
- * museo: `data-flow` sulle sale, e dentro una sala l'ordine in cui sono
- * disegnate, perche' li' non c'e' niente da percorrere, ci si e' gia'.
- *
- * Le sale senza `data-flow` vanno in fondo nell'ordine del disegno, quindi una
- * mappa che non lo dichiara affatto lascia le opere come stavano.
- */
 export function flowOrder(mapPath: string): string[] {
   const graph = getMuseumGraph(mapPath);
   const flusso = new Map<string, number>();
@@ -149,7 +144,6 @@ export function flowOrder(mapPath: string): string[] {
   opere.forEach((n, i) => posizione.set(n.qid, i));
 
   const ordinate = [...opere].sort((a, b) => {
-    // Una sala senza flusso dichiarato viene dopo tutte quelle che ce l'hanno.
     const fa = flusso.get(a.room) || Number.MAX_SAFE_INTEGER;
     const fb = flusso.get(b.room) || Number.MAX_SAFE_INTEGER;
     if (fa !== fb) return fa - fb;
@@ -158,10 +152,6 @@ export function flowOrder(mapPath: string): string[] {
   return ordinate.map((n) => n.qid);
 }
 
-/**
- * Mette le opere nell'ordine di percorrenza. Chi non e' sulla mappa resta in
- * fondo: e' un'opera del catalogo che nessuno ha ancora collocato, non un errore.
- */
 export function sortByFlow<T extends { qid: string }>(
   items: T[],
   mapPath: string,

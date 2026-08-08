@@ -11,7 +11,7 @@
  * La cartella e' la stessa che vede il server, quindi node_modules/ e i due
  * dist/ restano sul disco quando il processo finisce.
  *
- * ⚠️ Un sito ha un solo slot node: finche' gira questo, il server non puo'
+ * Un sito ha un solo slot node: finche' gira questo, il server non puo'
  * essere acceso. Per gli aggiornamenti: spegnere, buildare, riaccendere.
  *
  * Si rilancia tale e quale a ogni `git pull`, ed e' il giro di tutti i giorni:
@@ -130,6 +130,6 @@ for (const [nome, comando, parte] of passi) {
  * quindi lo si dice a chi legge, che e' l'unico che puo' guardare.
  */
 console.log('\n=== deploy-build: tutto riuscito.');
-console.log('=== ⚠️  Scorri il log qui sopra e cerca "error TS": tsc emette');
+console.log('=== Scorri il log qui sopra e cerca "error TS": tsc emette');
 console.log('===    lo stesso, e un dist/ compilato a meta\' non si lamenta.');
 console.log('=== Ora si puo\' spegnere questo e accendere il server.');

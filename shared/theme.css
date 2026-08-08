@@ -36,7 +36,7 @@
   Il colore non porta comunque l'informazione da solo: dentro la pastiglia c'e'
   sempre il nome del tono.
 
-  ⚠️ Due vicinanze da conoscere prima di ritoccarle: il GIALLO del Medio sta
+  Due vicinanze da conoscere prima di ritoccarle: il GIALLO del Medio sta
   vicino all'ottone del valore, e l'ARANCIO dell'Avanzato al minio dell'allarme.
   Reggono perche' una pastiglia non e' mai ne' un prezzo ne' un errore -- i
   prezzi sono cifre in `.valore`, gli errori stanno in `.avviso` -- ma chi
@@ -175,7 +175,7 @@
    sopra), `accento` e i tre semantici vanno scelti abbastanza scuri da reggere
    come TESTO sulla lastra. La derivazione al buio li schiarisce da se'.
 
-   ⚠️ I quattro toni si misurano DENTRO LA LORO PASTIGLIA, non sulla lastra: li'
+   I quattro toni si misurano DENTRO LA LORO PASTIGLIA, non sulla lastra: li'
    il fondo e' la velatura della loro stessa tinta, che alza il fondo e abbassa
    il rapporto. L'arancio dell'Avanzato e' stato scurito proprio per quello --
    sulla lastra passava, dentro la pastiglia stava a 4.4:1.

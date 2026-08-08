@@ -50,7 +50,7 @@ export function useQRScanner() {
           const code = jsQR(image.data, image.width, image.height);
           if (code && code.data) {
             onResult(code.data);
-            return; 
+            return;
           }
         }
         rafId = requestAnimationFrame(tick);

@@ -79,6 +79,25 @@ export function t(key: string, params?: Record<string, unknown>): string {
 }
 
 /**
+ * Marca una frase come CHIAVE di catalogo dove non la si traduce sul posto.
+ *
+ * Un messaggio che vive in un `ref` ci sta come chiave e non come frase gia'
+ * tradotta, o resta nella lingua che aveva quando ci e' finito dentro: il
+ * catalogo arriva a parte e la lingua puo' cambiare a schermo acceso, quindi a
+ * tradurre e' il legame, con `t(erroreAvvio)`. La chiave pero' cosi' non compare
+ * mai dentro un `t("…")` letterale, e l'estrattore di `languages.ts` le chiavi le
+ * cerca proprio li': senza questo marcatore la darebbe per inesistente, `stato`
+ * la conterebbe fra le orfane e `pota` ne cancellerebbe le traduzioni in tutte e
+ * dodici le lingue, lasciando quel messaggio in italiano per sempre.
+ *
+ * A tempo d'esecuzione non fa niente ed e' giusto cosi': serve a chi legge il
+ * file e all'estrattore, non al programma.
+ */
+export function tKey(phrase: string): string {
+  return phrase;
+}
+
+/**
  * La chiama `state.ts` quando la lingua cambia, e una volta all'avvio. Il
  * catalogo si carica qui, e `locale` si sposta DOPO: e' l'assegnazione a quel
  * `ref` a ridisegnare, quindi spostarlo prima ridisegnerebbe una volta a vuoto,

@@ -1,5 +1,11 @@
 /**
- * Crea i quattro account richiesti dalla specifica.
+ * Crea i quattro account richiesti dalla specifica (slide "Requisiti di
+ * progetto"): autore1, autore2, visitatore1 e visitatore2, con password
+ * "12345678".
+ *
+ * Il ruolo fa parte dell'identita', quindi la chiave d'upsert e' la coppia
+ * (username, role). Idempotente: aggiorna la password di chi c'e' gia' senza
+ * toccarne portafoglio e collezione, che stanno sotto `$setOnInsert`.
  *
  * Cancella anche i documenti rimasti senza ruolo dal vecchio modello "account
  * unico": non potrebbero piu' accedere. Se quegli account servono, si usa invece
@@ -8,15 +14,6 @@
 import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
 import { UserModel } from "../models/user";
-
-/*
- * Seed dei 4 account richiesti dalla spec (slide "Requisiti di progetto"):
- * autore1, autore2 (ruolo autore) e visitatore1, visitatore2 (ruolo
- * visitatore), con password "12345678". Il ruolo fa parte dell'identità: la
- * chiave d'upsert è la coppia (username, role).
- * Idempotente: aggiorna la password se già presenti, senza toccare
- * wallet/collezione esistenti (upsert con $setOnInsert sui campi mutabili).
- */
 
 const utenti = [
   { username: "autore1", password: "12345678", role: "autore" },

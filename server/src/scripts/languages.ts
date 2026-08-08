@@ -6,10 +6,14 @@
  * e si scrivono dodici file JSON.
  *
  * Il modello gira una volta sola, qui, e non davanti al visitatore. Tradurre a
- * runtime darebbe la stessa frase in due modi in due caricamenti, dipenderebbe da
- * una quota che puo' esaurirsi, e non lascerebbe nessun file da correggere quando
- * una parola esce storta. L'applicazione pronuncia le proprie etichette, e una
- * parola che oscilla e' peggio di una sbagliata.
+ * runtime darebbe la stessa frase in due modi in due caricamenti e non
+ * lascerebbe nessun file da correggere quando una parola esce storta.
+ * L'applicazione pronuncia le proprie etichette, e una parola che oscilla e'
+ * peggio di una sbagliata.
+ *
+ * Le richieste partono una dopo l'altra senza pause: il modello e' su un piano a
+ * pagamento, e le uniche divisioni rimaste sono per DIMENSIONE della risposta
+ * (`PER_BATCH`), non per frequenza.
  *
  * Si usa il modello e non il servizio di traduzione che il progetto gia' adopera
  * per i contenuti perche' qui le stringhe sono corte e senza contesto, ed e'
@@ -25,13 +29,28 @@
  * Le revisioni a mano non si perdono: `traduci` riempie solo le chiavi mancanti.
  * Per rifare una traduzione si cancella quella riga dal file, o si passa `--tutto`.
  *
+ * `pota` toglie dai cataloghi le traduzioni di chiavi che nel sorgente non
+ * esistono piu'. Non e' pulizia estetica: una chiave orfana e' una frase che
+ * qualcuno ha riscritto, e lasciarla fa credere a `stato` che il lavoro sia piu'
+ * avanti di quanto sia.
+ *
+ * Da solo NON cancella: elenca e si ferma. Serve `--conferma`, e la ragione e'
+ * che «orfana» qui vuol dire soltanto «l'estrattore non la trova», che non e' la
+ * stessa cosa di «nessuno la mostra piu'». Una frase viva ma raccolta male
+ * risulta orfana identica a una morta, e cancellarla la fa sparire in dodici
+ * lingue senza che niente protesti — il difetto lo si scoprirebbe mesi dopo,
+ * davanti a un messaggio d'errore rimasto in italiano. L'elenco stampato e' li'
+ * per essere LETTO: se una di quelle frasi e' ancora a schermo, la cura non e'
+ * potarla ma marcarla con `tKey()`.
+ *
  * Uso:
- *   npx ts-node src/scripts/languages.ts chiavi     elenca le chiavi trovate nel sorgente
- *   npx ts-node src/scripts/languages.ts residui    le frasi italiane NON ancora avvolte in t()
- *   npx ts-node src/scripts/languages.ts traduci    riempie i buchi nei cataloghi
- *   npx ts-node src/scripts/languages.ts traduci en riempie i buchi di una lingua sola
- *   npx ts-node src/scripts/languages.ts pota       toglie le traduzioni di chiavi che non esistono piu'
- *   npx ts-node src/scripts/languages.ts stato      quante chiavi, quante tradotte, quante orfane
+ *   npx ts-node src/scripts/languages.ts chiavi          elenca le chiavi trovate nel sorgente
+ *   npx ts-node src/scripts/languages.ts residui         le frasi italiane NON ancora avvolte in t()
+ *   npx ts-node src/scripts/languages.ts traduci         riempie i buchi nei cataloghi
+ *   npx ts-node src/scripts/languages.ts traduci en      riempie i buchi di una lingua sola
+ *   npx ts-node src/scripts/languages.ts pota            elenca le orfane, senza toccare niente
+ *   npx ts-node src/scripts/languages.ts pota --conferma e allora le toglie
+ *   npx ts-node src/scripts/languages.ts stato           quante chiavi, quante tradotte, quante orfane
  */
 
 // `./env` va importato PRIMA del client: legge il .env, e senza di lui la chiave
@@ -98,6 +117,18 @@ function allSources(): string[] {
  * database, nel confronto del filtro e nella richiesta al server: si traduce
  * solo quel che si legge. Tradurre il valore vorrebbe dire che un filtro scelto
  * in cinese non trova piu' niente.
+ *
+ * Si raccoglie da `t(...)` e da `tKey(...)`. Il secondo non traduce niente: marca
+ * una frase che E' una chiave ma viene tradotta altrove, tipicamente perche' vive
+ * in un `ref` e a tradurla e' il legame (`navigator/src/i18n.ts`). Senza
+ * riconoscerlo, quelle chiavi risulterebbero inesistenti e `pota` ne
+ * cancellerebbe le traduzioni in tutte le lingue.
+ *
+ * La chiave e' sempre LETTERALE, mai un'espressione: una chiave calcolata non si
+ * potrebbe raccogliere da qui e resterebbe non tradotta, quindi un backtick con
+ * dentro `${}` si segnala invece di finire in catalogo. I backtick servono nei
+ * template — `:aria-label="t(`Scheda dell'opera`)"` e' l'unico modo di scrivere
+ * una stringa con un apostrofo dentro un attributo gia' fra virgolette doppie.
  */
 function keysFromSource(): string[] {
   const found = new Set<string>();
@@ -119,18 +150,10 @@ function keysFromSource(): string[] {
 
   for (const file of allSources()) {
     const text = withoutComments(fs.readFileSync(file, "utf8"));
-    // t("…"), t('…') o t(`…`): la chiave e' letterale e mai un'espressione,
-    // perche' una chiave calcolata non si potrebbe raccogliere da qui e
-    // resterebbe non tradotta.
-    // I backtick servono nei template: `:aria-label="t(`Scheda dell'opera`)"` e'
-    // l'unico modo di scrivere una stringa con un apostrofo dentro un attributo
-    // gia' delimitato da virgolette doppie.
-    const re = /\bt\(\s*(['"`])((?:\\.|(?!\1)[^\\])*?)\1\s*[,)]/g;
+    const re = /\b(?:t|tKey)\(\s*(['"`])((?:\\.|(?!\1)[^\\])*?)\1\s*[,)]/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text))) {
       const key = m[2].replace(/\\(['"`])/g, "$1");
-      // Un backtick con dentro `${}` sarebbe una chiave che cambia a ogni
-      // esecuzione: la si segnala invece di metterla in catalogo.
       if (key.includes("${")) {
         console.warn(`[lingue] chiave calcolata, non traducibile: ${key.slice(0, 60)}`);
         continue;
@@ -356,7 +379,6 @@ async function translateLanguage(code: string, name: string, keys: string[], all
   for (let i = 0; i < missing.length; i += PER_BATCH) {
     const batch = missing.slice(i, i + PER_BATCH);
     writtenTotal += await translateBatch(code, name, batch, catalog);
-    if (i + PER_BATCH < missing.length) await new Promise((r) => setTimeout(r, 6000));
   }
   const lost = missing.length - writtenTotal;
   console.log(
@@ -484,14 +506,37 @@ async function main() {
     return;
   }
 
-  /**
-   * Toglie dai cataloghi le traduzioni di chiavi che nel sorgente non esistono
-   * piu'. Non e' pulizia estetica: una chiave orfana e' una frase che qualcuno ha
-   * riscritto, e lasciarla fa credere a `stato` che il lavoro sia piu' avanti di
-   * quanto sia. Si stampa quel che si toglie, perche' cancellare in silenzio una
-   * traduzione corretta a mano sarebbe il modo peggiore di risparmiare righe.
-   */
   if (command === "pota") {
+    const conferma = process.argv.includes("--conferma");
+
+    const perLingua: { lingua: string; orfane: string[] }[] = [];
+    for (const l of languages) {
+      if (l.translate === SOURCE_LANG) continue;
+      const c = readCatalog(l.translate);
+      const orphans = Object.keys(c).filter((k) => !keys.includes(k));
+      if (orphans.length > 0) perLingua.push({ lingua: l.name, orfane: orphans });
+    }
+    if (perLingua.length === 0) {
+      console.log("Nessuna orfana.");
+      return;
+    }
+
+    const distinte = new Set<string>();
+    for (const r of perLingua) for (const k of r.orfane) distinte.add(k);
+    console.log(`${distinte.size} chiavi orfane, in ${perLingua.length} lingue:\n`);
+    for (const k of [...distinte].sort()) console.log(`  - ${k.slice(0, 90)}`);
+
+    if (!conferma) {
+      console.log(
+        "\nNiente e' stato cancellato. Rileggi l'elenco: una frase che sta " +
+          "ancora\na schermo, qui dentro, vuol dire che l'estrattore non la vede " +
+          "— non che e' morta.\nIn quel caso marcala con tKey() invece di " +
+          "potarla (vedi in testa a questo file).\n\nPer procedere:  npx ts-node " +
+          "src/scripts/languages.ts pota --conferma",
+      );
+      return;
+    }
+
     let removed = 0;
     for (const l of languages) {
       if (l.translate === SOURCE_LANG) continue;
@@ -501,10 +546,9 @@ async function main() {
       for (const k of orphans) delete c[k];
       writeCatalog(l.translate, c);
       removed += orphans.length;
-      console.log(`  ${l.name.padEnd(12)} −${orphans.length}`);
-      for (const k of orphans) console.log(`      ${k.slice(0, 70)}`);
+      console.log(`  ${l.name.padEnd(12)} -${orphans.length}`);
     }
-    console.log(removed === 0 ? "Nessuna orfana." : `\n${removed} traduzioni tolte.`);
+    console.log(`\n${removed} traduzioni tolte.`);
     return;
   }
 
@@ -523,10 +567,6 @@ async function main() {
     console.log(`${keys.length} chiavi, ${targets.length} lingue\n`);
     for (const l of targets) {
       await translateLanguage(l.translate, l.name, keys, all);
-      // Le pause del seed esistono per la stessa ragione: la quota gratuita si
-      // esaurisce, e quando succede ogni richiesta seguente spende i suoi
-      // ritentativi senza produrre niente.
-      await new Promise((r) => setTimeout(r, 6000));
     }
     return;
   }
