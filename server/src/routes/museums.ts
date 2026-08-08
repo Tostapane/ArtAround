@@ -50,9 +50,15 @@ router.get("/", requireSession, async (req, res) => {
     for (const m of museums as any[]) {
       const uri = museumUri(m.qid);
       m.opere = await ArtworkModel.countDocuments({ ofMuseum: uri });
+      // Il numero sulla carta e' la misura del CATALOGO di quel museo, quindi
+      // conta quel che chiunque puo' trovarci: fuori le guidate, che si aprono
+      // con la parola chiave, e fuori le private, che sono l'itinerario di una
+      // persona sola. Contarle darebbe una vetrina piu' ricca di quella che si
+      // apre entrando.
       m.visite = await VisitModel.countDocuments({
         ofMuseum: uri,
         accessKey: { $in: [null, ""] },
+        visibility: { $ne: "privato" },
       });
     }
     res.json(museums);
@@ -135,9 +141,14 @@ router.get("/:qid/visits", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const museumId = `http://www.wikidata.org/entity/${qid}`;
-    const visits = await VisitModel.find({ ofMuseum: museumId });
-
     const username = sessionUser(req).username;
+    // La stessa regola della vetrina, perche' questo e' lo stesso elenco visto
+    // dall'app da museo: le private le cammina solo chi le ha composte.
+    const visits = await VisitModel.find({
+      ofMuseum: museumId,
+      $or: [{ visibility: { $ne: "privato" } }, { author: username }],
+    });
+
     let owned = new Set<string>();
     if (username) {
       const accounts = await UserModel.find({ username });

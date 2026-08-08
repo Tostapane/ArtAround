@@ -74,7 +74,7 @@ export function mediaOrigin(): string {
  * `sessionStorage`.
  */
 export function marketplaceHome(): string {
-  return `${mediaOrigin()}/#/home`;
+  return `${mediaOrigin()}/home`;
 }
 
 export function museumQid(): string {

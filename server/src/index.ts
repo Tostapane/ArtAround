@@ -5,6 +5,10 @@
  * file pubblici (mappe SVG e immagini delle opere), e si collega a MongoDB
  * riprovando finche' non risponde: in docker il database parte insieme a noi.
  *
+ * L'ordine dei `use` e' significativo e non va rimescolato: prima i file veri,
+ * poi /api, e per ultimo il guscio del marketplace, che risponde agli indirizzi
+ * delle sue schermate (in fondo al file, col perche').
+ *
  * La porta arriva dall'ambiente perche' sul server del dipartimento non e' detto
  * che sia la 8000, e perche' cosi' si possono tenere due istanze accese insieme.
  *
@@ -36,6 +40,10 @@ import translateRoutes from "./routes/translate";
 import wayfindingRoutes from "./routes/wayfinding";
 import guidedSessionRoutes from "./routes/guidedSessions";
 import { ArtworkModel } from "./models/artwork";
+import {
+  marketplaceViews,
+  marketplaceLegacyViews,
+} from "../../shared/constants";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8000;
@@ -192,6 +200,39 @@ app.get("/api/config", async (req, res) => {
     navigatorOrigin = `${protocol}://${host}:5173`;
   }
   res.json({ navigatorOrigin, thresholdArtworks: await thresholdFigures() });
+});
+
+/**
+ * Il guscio del marketplace per gli indirizzi delle sue schermate.
+ *
+ * Il marketplace naviga su percorsi veri (`/vetrina`, `/opera/Q12418`), che pero'
+ * esistono solo dentro la pagina gia' aperta: sul disco non c'e' nessun file con
+ * quel nome. Chi ricarica, arriva da un segnalibro o scrive l'indirizzo a mano
+ * prenderebbe 404, e il tasto "indietro" del browser pure. Qui si rimanda lo
+ * stesso `index.html` della radice, che a quel punto legge l'indirizzo e apre la
+ * schermata giusta.
+ *
+ * Riconosce SOLO i nomi di `shared/constants.ts`, che sono quelli del router,
+ * invece di rispondere a tutto: cosi' un file davvero mancante resta un 404 e si
+ * vede, mentre un `catch-all` glielo travestirebbe da pagina buona e la console
+ * direbbe soltanto che il foglio di stile non e' CSS.
+ *
+ * Sta dopo i file statici e dopo `/api`, quindi non puo' rubare niente a
+ * nessuno; e' `app.use` e non una rotta con `*` perche' il carattere jolly ha
+ * cambiato sintassi fra Express 4 e 5, e un elenco che si legge in chiaro non
+ * ha versioni.
+ */
+const schermateMarketplace = new Set<string>([
+  ...marketplaceViews,
+  ...marketplaceLegacyViews,
+]);
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const testa = req.path.split("/")[1] || "";
+  if (!schermateMarketplace.has(testa)) return next();
+  res.sendFile(
+    path.join(__dirname, "../../marketplace/public/index.html"),
+  );
 });
 
 const server = app.listen(PORT, () => {

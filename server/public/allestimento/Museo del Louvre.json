@@ -3,7 +3,14 @@
   "name": "Museo del Louvre",
   "location": "Saint-Germain-l'Auxerrois",
   "created": "1793",
-  "mapPath": "/maps/Museo del Louvre.svg",
+  "mapPath": "/allestimento/Museo del Louvre.svg",
+  "imagePath": "/allestimento/Museo del Louvre.jpeg",
+  "visitImages": {
+    "Infantile": "/allestimento/Museo del Louvre - Infantile.jpg",
+    "Semplice": "/allestimento/Museo del Louvre - Semplice.jpg",
+    "Medio": "/allestimento/Museo del Louvre - Medio.jpg",
+    "Avanzato": "/allestimento/Museo del Louvre - Avanzato.jpg"
+  },
   "activeArtworks": [
     "Q12418",
     "Q597114",

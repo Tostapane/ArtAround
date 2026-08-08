@@ -7,7 +7,7 @@
  *     npx ts-node src/scripts/seed.ts Q51252          semina quel museo
  *     npx ts-node src/scripts/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
  *     npx ts-node src/scripts/seed.ts tutti           semina tutti i musei configurati
- *     npx ts-node src/scripts/seed.ts speciali        le visite dimostrative, su OGNI museo
+ *     npx ts-node src/scripts/seed.ts speciali        la visita guidata del docente, su OGNI museo
  *
  * Due proprieta' che decidono la forma di tutto il file:
  *
@@ -26,8 +26,8 @@
  *
  * Oltre alle opere semina due soggetti che opere non sono, lo stile e l'autore
  * piu' ricorrenti in quel museo, perche' la slide 21 chiede contenuti anche su
- * stili e artisti, e senza nemmeno uno non si possono mostrare. Restano nel
- * catalogo: in quale visita e in quale punto vadano non lo decide il seed.
+ * stili e artisti, e senza nemmeno uno non si possono mostrare. Ognuno apre le
+ * visite di catalogo del suo museo, in testa alle opere: vedi `seedMuseumVisits`.
  */
 import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
@@ -46,6 +46,9 @@ import {
   educationalLevels,
   secPerArt,
   kindById,
+  SEED_AUTHOR,
+  SEED_ID_TOKEN,
+  priceForTone,
 } from "../../../shared/constants";
 import { createSubjectDescription } from "../services/llm";
 import { sortByFlow } from "../services/svgGraph";
@@ -68,24 +71,6 @@ function museumUri(qid: string): string {
 
 function fmt(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, "0")}s`;
-}
-
-/**
- * Il prezzo di una descrizione seminata: uno dei sette scalini fino a 30
- * centesimi, estratto a sorte. Serve a far esistere il commercio nel catalogo,
- * che con tutto gratis non si puo' mostrare: ci vogliono contenuti a pagamento,
- * visite che ne contengono qualcuno, e un portafoglio che cala.
- *
- * I centesimi sono interi e la divisione arriva alla fine, cosi' il valore
- * scritto e' sempre uno dei sette e non un decimale che ci somiglia. Lo zero
- * resta fra le possibilita': un catalogo in cui tutto costa non fa vedere il
- * caso gratuito, che e' quello di partenza.
- */
-const PREZZI_CENTESIMI = [0, 5, 10, 15, 20, 25, 30];
-
-function prezzoCasuale(): number {
-  const i = Math.floor(Math.random() * PREZZI_CENTESIMI.length);
-  return (PREZZI_CENTESIMI[i] as number) / 100;
 }
 
 // ============================================================================
@@ -165,13 +150,13 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
           about: artwork["@id"],
           educationalLevel: level,
           timeRequired: `${duration}`,
-          author: "sistema",
+          author: SEED_AUTHOR,
         });
         if (gia && !force) {
           saltati++;
           continue;
         }
-        await populateItem(qid, level, duration, undefined, prezzoCasuale());
+        await populateItem(qid, level, duration, undefined, priceForTone(level));
         generati++;
         nuoviQui++;
         const elapsed = (Date.now() - startTime) / 1000;
@@ -271,7 +256,7 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
       for (const duration of secPerArt) {
         // Uno per genere, quindi il genere basta a identificarlo: cambiando lo
         // stile piu' ricorrente il documento si aggiorna invece di sdoppiarsi.
-        const id = `${config.qid}-${s.kind}-sistema-${level}-${duration}`;
+        const id = `${config.qid}-${s.kind}-${SEED_ID_TOKEN}-${level}-${duration}`;
         const gia = await ItemModel.findOne({ "@id": id });
         if (gia && !force) continue;
 
@@ -298,8 +283,8 @@ async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
             text,
             timeRequired: `${duration}`,
             educationalLevel: level,
-            author: "sistema",
-            price: prezzoCasuale(),
+            author: SEED_AUTHOR,
+            price: priceForTone(level),
           },
           { upsert: true, new: true, setDefaultsOnInsert: true },
         );
@@ -336,12 +321,20 @@ function inOrdineDiPercorso<T extends { about?: string }>(
 
 /**
  * Una visita per ogni combinazione di tono e durata, con dentro tutte le opere
- * del museo per cui quell'item esiste davvero.
+ * del museo per cui quell'item esiste davvero, precedute dai suoi soggetti.
  *
- * Ci stanno solo opere. Dove mettere un contenuto su uno stile e' una scelta di
- * curatela, mentre questa e' un'enumerazione meccanica del catalogo: i soggetti
- * seminati restano disponibili, e a collocarli in un percorso, nel punto in cui
- * hanno senso, e' chi compone la visita.
+ * Le venti visite di un museo hanno percio' le stesse tappe: a cambiare sono
+ * tono e durata, cioe' come si raccontano e quanto durano, non che cosa si
+ * guarda. E' anche il motivo per cui la copertina si sceglie per tono e non per
+ * visita (`visitImages`): cinque visite che differiscono per la sola durata non
+ * hanno cinque facce diverse.
+ *
+ * I soggetti stanno in TESTA. Un contenuto su uno stile o su un artista non e'
+ * appeso a una parete, quindi non ha un posto nell'ordine di cammino e
+ * `inOrdineDiPercorso` non saprebbe dove metterlo; in mezzo alle sale
+ * spezzerebbe il giro. In apertura invece e' l'inquadramento che si ascolta
+ * prima di muoversi, ed e' la stessa posizione in cui il museo mette un
+ * pannello introduttivo.
  */
 async function seedMuseumVisits(config: MuseumConfig) {
   const uri = museumUri(config.qid);
@@ -357,13 +350,34 @@ async function seedMuseumVisits(config: MuseumConfig) {
       });
       if (items.length === 0) continue;
       const percorso = inOrdineDiPercorso(items, config.mapPath);
+
+      // I soggetti (stile, artista) aprono il cammino invece di stare in mezzo
+      // alle opere: non hanno un posto sulla pianta — non sono appesi a una
+      // parete — quindi `inOrdineDiPercorso` non saprebbe dove metterli, e
+      // infilarli fra due sale spezzerebbe il giro. In testa sono quel che
+      // sono: l'inquadramento che si ascolta prima di cominciare a camminare.
+      const soggetti = await ItemModel.find({
+        timeRequired: `${duration}`,
+        educationalLevel: level,
+        ofMuseum: uri,
+        kind: { $ne: "opera" },
+        author: SEED_AUTHOR,
+      });
+
+      const tappe = [
+        ...soggetti.map((item: any) => item["@id"]),
+        ...percorso.map((item) => item["@id"]),
+      ];
       await populateVisit(
         level,
         duration,
         config.qid,
         uri,
-        percorso.map((item) => item["@id"]),
+        tappe,
         notes,
+        undefined,
+        undefined,
+        config.visitImages ? config.visitImages[level] : undefined,
       );
     }
   }
@@ -425,23 +439,6 @@ async function seedSpecialVisits(config: MuseumConfig) {
   const durataTotale = duration * itemIds.length;
   const notes = openingNotes(config);
 
-  const primoOpzionale = Math.ceil(itemIds.length / 2);
-  const opzionali: string[] = [];
-  for (let i = primoOpzionale; i < itemIds.length; i++) {
-    opzionali.push(itemIds[i]);
-  }
-
-  const visitaOpzionali = {
-    "@id": `visit-opzionali-${config.qid}`,
-    name: "Percorso con contenuti opzionali",
-    level: `${level}`,
-    duration: durataTotale,
-    ofMuseum: uri,
-    itemListElement: itemIds,
-    optionalItems: opzionali,
-    logistics: notes,
-  };
-
   // Il test di competenza di fine visita (slide 33), sulle opere del percorso.
   const opereDellaVisita = await ArtworkModel.find({
     "@id": { $in: items.map((it: any) => it.about) },
@@ -461,14 +458,15 @@ async function seedSpecialVisits(config: MuseumConfig) {
     quiz,
   };
 
+  // Si toglie anche la vecchia "Percorso con contenuti opzionali": era una
+  // visita dimostrativa in vetrina con le stesse tappe delle altre venti, e le
+  // tappe opzionali si mostrano meglio da dove si creano, cioe' il compositore.
   await VisitModel.deleteMany({
-    "@id": { $in: [visitaOpzionali["@id"], visitaGuidata["@id"]] },
+    "@id": { $in: [`visit-opzionali-${config.qid}`, visitaGuidata["@id"]] },
   });
-  await VisitModel.create(visitaOpzionali);
   await VisitModel.create(visitaGuidata);
   console.log(
-    `${config.name}: "${visitaOpzionali.name}" ` +
-      `(${opzionali.length}/${itemIds.length} opzionali) e "${visitaGuidata.name}" ` +
+    `${config.name}: "${visitaGuidata.name}" ` +
       `(parola chiave: «${visitaGuidata.accessKey}», quiz di ${quiz.length} domande).`,
   );
 }
@@ -507,7 +505,7 @@ async function seedDemoAccounts() {
 // ============================================================================
 
 function elenca(configs: MuseumConfig[]) {
-  console.log("Musei configurati in src/data/museums/:\n");
+  console.log("Musei configurati in public/allestimento/:\n");
   for (const c of configs) {
     console.log(
       `  ${c.qid.padEnd(10)} ${c.name.padEnd(32)} ${String(c.activeArtworks.length).padStart(4)} opere  ${c.mapPath}`,

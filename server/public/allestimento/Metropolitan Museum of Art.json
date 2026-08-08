@@ -3,7 +3,14 @@
   "name": "Metropolitan Museum of Art",
   "location": "Manhattan",
   "created": "1870",
-  "mapPath": "/maps/Metropolitan Museum of Art.svg",
+  "mapPath": "/allestimento/Metropolitan Museum of Art.svg",
+  "imagePath": "/allestimento/Metropolitan Museum of Art.jpeg",
+  "visitImages": {
+    "Infantile": "/allestimento/Metropolitan Museum of Art - Infantile.jpg",
+    "Semplice": "/allestimento/Metropolitan Museum of Art - Semplice.jpg",
+    "Medio": "/allestimento/Metropolitan Museum of Art - Medio.jpg",
+    "Avanzato": "/allestimento/Metropolitan Museum of Art - Avanzato.jpg"
+  },
   "activeArtworks": [
     "Q19925045",
     "Q606662",

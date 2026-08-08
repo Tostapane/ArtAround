@@ -56,12 +56,19 @@ const MAX_CUSTOM_ARTWORKS = 30;
 router.get("/", async (req, res) => {
   try {
     const museum = String(req.query.museum || "");
-    const filter = museum
-      ? { ofMuseum: `http://www.wikidata.org/entity/${museum}` }
-      : {};
+    const username = sessionUser(req).username;
+    // Le visite private non escono da qui se non verso chi le ha composte, e il
+    // filtro sta nella rotta e non nel client: nasconderle disegnando avrebbe
+    // lasciato l'itinerario di un'altra persona dentro la risposta, cioe' privato
+    // a schermo e leggibile negli strumenti di sviluppo.
+    // `$ne` e non `= "pubblico"`: le visite scritte prima che questo campo
+    // esistesse non ce l'hanno, e sono tutte pubbliche.
+    const filter: Record<string, unknown> = {
+      $or: [{ visibility: { $ne: "privato" } }, { author: username }],
+    };
+    if (museum) filter.ofMuseum = `http://www.wikidata.org/entity/${museum}`;
     const visits = await VisitModel.find(filter);
 
-    const username = sessionUser(req).username;
     const owned = await purchasedBy(username);
     const ids = new Set<string>();
     for (const v of visits) {
@@ -94,11 +101,27 @@ router.get("/", async (req, res) => {
  * svolto. Le domande le distribuisce la sessione guidata, senza `correct`;
  * l'editor dell'autore legge il quiz dall'elenco delle visite.
  */
+/**
+ * Se una visita privata non e' di chi la sta chiedendo.
+ *
+ * Filtrare l'elenco non basta: una visita ha un indirizzo suo, e chi lo scrive a
+ * mano arriva qui senza passare dalla vetrina. Risponde come se non esistesse —
+ * 404 e non 403 — perche' un "non puoi" confermerebbe comunque che quella visita
+ * c'e' e di chi e'.
+ */
+function nascostaA(visit: any, username: string): boolean {
+  if (!visit) return false;
+  if (visit.visibility !== "privato") return false;
+  return visit.author !== username;
+}
+
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const visit = await VisitModel.findOne({ "@id": id }).select("-quiz");
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
+    if (nascostaA(visit, sessionUser(req).username))
+      return res.status(404).json({ error: "Visita non trovata" });
     res.json(visit);
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nel caricamento della visita" });
@@ -110,6 +133,8 @@ router.get("/:id/items", async (req, res) => {
     const { id } = req.params;
     const visit = await VisitModel.findOne({ "@id": id });
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
+    if (nascostaA(visit, sessionUser(req).username))
+      return res.status(404).json({ error: "Visita non trovata" });
 
     const ids = visit.itemListElement || [];
     const items = await ItemModel.find({ "@id": { $in: ids } }).populate({
@@ -261,6 +286,16 @@ router.post("/", async (req, res) => {
 
     const visitId = payload.id || payload["@id"];
     const author = sessionUser(req).username;
+    const ruolo = sessionUser(req).role;
+    // Pubblica SOLO la visita di un autore: mettere in vendita e' il suo
+    // mestiere. Il visitatore compone un itinerario per se', e il curatore oggi
+    // non ha nessuna strada per arrivare qui — il giorno che l'avesse, il valore
+    // prudente e' quello privato, perche' un ruolo nuovo che pubblica per
+    // distrazione si nota solo quando il suo lavoro e' gia' in vetrina.
+    // I ruoli si nominano invece di scrivere `=== "visitatore" ? … : …`, che
+    // sarebbe una domanda a due risposte su un vocabolario che ne ha tre.
+    let visibility: "pubblico" | "privato" = "privato";
+    if (ruolo === "autore") visibility = "pubblico";
     const name = payload.titolo || payload.name;
     if (typeof name !== "string" || name.trim() === "") {
       return res.status(400).json({ error: "La visita deve avere un titolo." });
@@ -369,6 +404,7 @@ router.post("/", async (req, res) => {
         author,
         license: payload.licenza || payload.license || DEFAULT_LICENSE,
         ofMuseum: payload.museumUri || payload.ofMuseum,
+        visibility,
         imagePath: immagine,
         itemListElement: itemIds,
         optionalItems,
@@ -389,8 +425,32 @@ router.post("/", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    // Si legge prima di cancellare: la copertina sta su disco e il documento e'
-    // l'unico posto che ne conosce il nome.
+    const chi = sessionUser(req);
+
+    // Si guarda PRIMA di cancellare, e non basta nascondere il pulsante: la
+    // rotta si chiama anche senza passare dall'interfaccia, e questa cancella
+    // per davvero — via il documento, via la copertina dal disco, via la riga
+    // dalle collezioni di chiunque l'avesse presa. Non si torna indietro.
+    const visita = await VisitModel.findOne({ "@id": id });
+    if (!visita) return res.status(404).json({ error: "Visita non trovata" });
+
+    // Il curatore risponde del catalogo del suo museo, quindi puo' togliere
+    // qualunque visita ci stia dentro, private comprese: e' la stessa autorita'
+    // con cui svuota il museo intero. Si guarda PRIMA della privatezza, o la
+    // regola che nasconde le altrui glielo direbbe "non esiste" e resterebbe
+    // senza il suo strumento piu' fine, potendo solo cancellare tutto.
+    const suo = visita.author === chi.username;
+    if (chi.role !== "curatore") {
+      // Una privata altrui risponde come in lettura, cioe' che non esiste: dire
+      // "non e' tua" confermerebbe che c'e' e di chi e'.
+      if (nascostaA(visita, chi.username))
+        return res.status(404).json({ error: "Visita non trovata" });
+      if (!suo)
+        return res
+          .status(403)
+          .json({ error: "Puoi eliminare solo le visite che hai composto." });
+    }
+
     const eliminata = await VisitModel.findOneAndDelete({ "@id": id });
     if (!eliminata) {
       return res.status(404).json({ error: "Visita non trovata" });

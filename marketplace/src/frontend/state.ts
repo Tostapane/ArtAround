@@ -2,10 +2,14 @@
  * Il deposito: l'unico stato del marketplace, piu' i metodi che i binding Alpine
  * chiamano. Quel che serve per leggerlo:
  *
- *  1. la navigazione e' un router a frammento. `view` dice quale schermata e'
- *     attiva e la decide l'indirizzo, non un click, quindi il tasto "indietro"
- *     funziona e un ricaricamento non perde il posto. Le finestre modali sono
- *     riservate alle conferme;
+ *  1. la navigazione e' un router su percorsi veri (`/vetrina`, non `#/vetrina`).
+ *     `view` dice quale schermata e' attiva e la decide l'indirizzo, non un
+ *     click, quindi il tasto "indietro" funziona e un ricaricamento non perde il
+ *     posto. Le finestre modali sono riservate alle conferme.
+ *     Il prezzo di quei percorsi e' che il server deve rimandare il guscio per
+ *     ognuno — l'elenco delle schermate sta in `shared/constants.ts` proprio
+ *     perche' lo leggono in due — e che i click sui collegamenti interni vanno
+ *     intercettati, o il browser ricarica invece di cambiare schermata;
  *  2. ruolo e museo arrivano prima dei dati, perche' il catalogo si scarica per
  *     museo (`initApp`);
  *  3. la vetrina e' un elenco solo con dentro visite e opere, quindi una serie
@@ -52,6 +56,8 @@ import {
   percorsoMiniatura,
   SOURCE_LANG,
   WORDS_PER_MINUTE,
+  marketplaceViews,
+  marketplaceLegacyViews,
 } from "../../../shared/constants.js";
 import { isReadable } from "../../../shared/access.js";
 import {
@@ -156,29 +162,21 @@ export interface ArtworkGroup {
   items: Item[];
 }
 
-export type View =
-  // Finche' `start()` non ha risposto non si sa che schermata sia: c'e' un
-  // biglietto in sessionStorage da spendere, e finche' non si sa niente si
-  // disegna niente. Senza questo stato la soglia comparirebbe per un istante a
-  // ogni ricaricamento per poi saltare alla home, cioe' direbbe "non sei
-  // entrato" a chi e' entrato.
-  | "avvio"
-  | "soglia"
-  | "accedi"
-  | "registrati"
-  | "musei"
-  | "home"
-  | "vetrina"
-  | "opera"
-  | "visita"
-  | "libreria"
-  | "componi"
-  | "sumisura"
-  | "nuovo"
-  | "lavori"
-  | "vendite"
-  | "gestione"
-  | "catalogo";
+/**
+ * Le schermate. Si RICAVANO dall'elenco condiviso invece di essere riscritte
+ * qui: quell'elenco lo legge anche il server, per sapere a quali indirizzi deve
+ * rimandare il guscio, e due elenchi da tenere allineati a mano il giorno che
+ * divergono non danno un errore ma una schermata che si apre cliccandola e da'
+ * 404 ricaricandola. Aggiungerne una si fa in `shared/constants.ts`, e da li'
+ * arriva sia il tipo sia la rotta.
+ *
+ * `avvio` sta invece qui perche' non e' un indirizzo: finche' `start()` non ha
+ * risposto non si sa che schermata sia — c'e' un biglietto in sessionStorage da
+ * spendere — e finche' non si sa niente si disegna niente. Senza questo stato la
+ * soglia comparirebbe per un istante a ogni ricaricamento per poi saltare alla
+ * home, cioe' direbbe "non sei entrato" a chi e' entrato.
+ */
+export type View = "avvio" | (typeof marketplaceViews)[number];
 
 /**
  * I contenuti per `@id`: descrizioni del museo, propri e visite.
@@ -343,45 +341,55 @@ export class AppState {
   };
   roleChoice: UserRole[] | null = null;
 
-  private parseHash(): { view: View; param: string } {
-    const raw = (window.location.hash || "").replace(/^#\/?/, "");
+  /**
+   * L'indirizzo in schermata piu' parametro, oppure `null` se quell'indirizzo
+   * non e' del marketplace.
+   *
+   * Il `null` non e' un caso d'errore ma la domanda che serve altrove: chi
+   * intercetta i click deve sapere se un collegamento e' una schermata (da
+   * aprire qui, senza ricaricare) o un indirizzo qualsiasi dello stesso sito
+   * — il foglio dei QR sotto `/api`, un'immagine — che va lasciato al browser.
+   * Chi applica la rotta ripiega invece sulla soglia, che e' dove finisce un
+   * indirizzo scritto a mano che non esiste.
+   */
+  private parsePath(
+    percorso: string,
+  ): { view: View; param: string; tipo: string } | null {
+    const raw = percorso.replace(/^\/+/, "");
     const head = raw.split("/")[0] || "";
     const tail = raw.split("/").slice(1).join("/");
-    const param = decodeURIComponent(tail || "");
-    const knownViews: View[] = [
-      "soglia",
-      "accedi",
-      "registrati",
-      "musei",
-      "home",
-      "vetrina",
-      "opera",
-      "visita",
-      "libreria",
-      "componi",
-      "sumisura",
-      "nuovo",
-      "lavori",
-      "vendite",
-      "gestione",
-      "catalogo",
-    ];
-    for (const candidate of knownViews) {
-      if (head === candidate) return { view: candidate, param };
+    let param = "";
+    // Un `%` isolato nell'indirizzo fa lanciare decodeURIComponent, e da li' non
+    // si riprende: si perderebbe la pagina invece del solo parametro.
+    try {
+      param = decodeURIComponent(tail || "");
+    } catch {
+      param = tail || "";
     }
-    if (head === "visite") {
-      this.marketType = "visite";
-      return { view: "vetrina", param: "" };
+    for (const candidate of marketplaceViews) {
+      if (head === candidate) return { view: candidate, param, tipo: "" };
     }
-    if (head === "opere") {
-      this.marketType = "opere";
-      return { view: "vetrina", param: "" };
+    for (const vecchio of marketplaceLegacyViews) {
+      if (head === vecchio)
+        return { view: "vetrina", param: "", tipo: vecchio };
     }
-    return { view: "soglia", param: "" };
+    if (head === "") return { view: "soglia", param: "", tipo: "" };
+    return null;
+  }
+
+  /** Se un indirizzo dello stesso sito e' una schermata del marketplace. */
+  knownRoute(percorso: string): boolean {
+    return this.parsePath(percorso) !== null;
   }
 
   applyRoute() {
-    const { view, param } = this.parseHash();
+    const letta = this.parsePath(window.location.pathname);
+    const { view, param, tipo } = letta || {
+      view: "soglia" as View,
+      param: "",
+      tipo: "",
+    };
+    if (tipo === "visite" || tipo === "opere") this.marketType = tipo;
     const pubbliche: View[] = ["soglia", "accedi", "registrati"];
 
     if (!this.currentUser) {
@@ -397,7 +405,7 @@ export class AppState {
       return;
     }
     if (pubbliche.includes(view)) {
-      this.goTo(this.roleHome());
+      this.redirectTo(this.roleHome());
       return;
     }
     // La visita su misura NON si salva: vive il tempo in cui la si cammina, e
@@ -408,7 +416,7 @@ export class AppState {
     // Il curatore non e' nominato perche' oggi non ha nessuna strada per
     // arrivarci: il giorno che ne avesse una, la regola e' la stessa.
     if (view === "sumisura" && this.currentUserRole === "autore") {
-      this.goTo(this.roleHome());
+      this.redirectTo(this.roleHome());
       return;
     }
     const cambiata = this.view !== view || this.param !== param;
@@ -438,12 +446,43 @@ export class AppState {
     if (main) main.scrollTop = 0;
   }
 
+  /**
+   * Cambia indirizzo senza ricaricare la pagina.
+   *
+   * `pushState` NON emette nessun evento: al contrario del vecchio indirizzo a
+   * frammento, dove bastava scrivere `location.hash` e ci pensava `hashchange`,
+   * qui la rotta va applicata a mano subito dopo. Scordarsene non da' errore —
+   * l'indirizzo nella barra cambia e la schermata resta quella di prima.
+   *
+   * `popstate` invece arriva da se' quando il browser torna indietro o avanti,
+   * ed e' il solo caso in cui l'indirizzo cambia senza passare di qui.
+   */
+  private navigate(percorso: string, sostituendo: boolean) {
+    if (window.location.pathname !== percorso) {
+      if (sostituendo) window.history.replaceState(null, "", percorso);
+      else window.history.pushState(null, "", percorso);
+    }
+    this.applyRoute();
+  }
+
+  /** Dove ha chiesto di andare chi guarda: una tappa in piu' nella cronologia. */
   goTo(view: View, param?: string) {
-    const nuovo = param
-      ? `#/${view}/${encodeURIComponent(param)}`
-      : `#/${view}`;
-    if (window.location.hash === nuovo) this.applyRoute();
-    else window.location.hash = nuovo;
+    if (param) this.navigate(`/${view}/${encodeURIComponent(param)}`, false);
+    else this.navigate(`/${view}`, false);
+  }
+
+  /**
+   * Dove lo si manda quando ha chiesto una schermata che non puo' avere: senza
+   * museo scelto, o dentro una strada che il suo ruolo non percorre.
+   *
+   * Sostituisce la tappa invece di aggiungerne una, perche' una correzione non
+   * e' un posto in cui si e' stati. Aggiungendola, il tasto "indietro"
+   * riporterebbe all'indirizzo appena rifiutato, che rimanda di nuovo qui: si
+   * torna indietro e non si torna indietro, e l'unico modo di uscire e' chiudere
+   * la scheda.
+   */
+  redirectTo(view: View) {
+    this.navigate(`/${view}`, true);
   }
 
   /**
@@ -566,8 +605,53 @@ export class AppState {
     document.documentElement.lang = codice;
   }
 
+  /**
+   * I click sui collegamenti interni, presi al volo prima che il browser
+   * ricarichi la pagina.
+   *
+   * Con gli indirizzi a frammento non serviva: `#/vetrina` non e' una pagina
+   * diversa, quindi il browser non andava da nessuna parte e restava tutto in
+   * piedi da solo. `/vetrina` invece e' una pagina vera, e un click ci porta
+   * davvero: il server rimanda lo stesso guscio, ma l'applicazione riparte da
+   * zero e ogni schermata si paga il catalogo daccapo. Da qui l'ascoltatore
+   * unico sul documento, che scavalca la navigazione e cambia rotta a mano.
+   *
+   * Quello che NON deve toccare, ed e' il grosso del corpo:
+   *  - i tasti speciali e il tasto centrale, o "apri in una nuova scheda"
+   *    smette di aprire una scheda e apre la schermata al posto di quella;
+   *  - `target` e `download`, che dicono esplicitamente di non restare qui —
+   *    il foglio dei QR del curatore e' fra questi;
+   *  - i frammenti veri: i due salti d'accessibilita' (`#contenuto`,
+   *    `#binario`) e i richiami alle icone SVG cominciano per `#`, non per `/`;
+   *  - qualunque indirizzo che non sia una schermata, `/api/...` compreso:
+   *    lo riconosce `knownRoute`, e se non e' nostro lo si lascia al browser.
+   */
+  private interceptClicks() {
+    document.addEventListener("click", (evento: MouseEvent) => {
+      if (evento.defaultPrevented) return;
+      if (evento.button !== 0) return;
+      if (evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey)
+        return;
+      const partenza = evento.target as Element | null;
+      if (!partenza || typeof partenza.closest !== "function") return;
+      const collegamento = partenza.closest("a");
+      if (!collegamento || !(collegamento instanceof HTMLAnchorElement)) return;
+      if (collegamento.hasAttribute("download")) return;
+      const bersaglio = collegamento.getAttribute("target");
+      if (bersaglio && bersaglio !== "_self") return;
+      const href = collegamento.getAttribute("href") || "";
+      if (!href.startsWith("/") || href.startsWith("//")) return;
+      const indirizzo = new URL(collegamento.href, window.location.origin);
+      if (indirizzo.origin !== window.location.origin) return;
+      if (!this.knownRoute(indirizzo.pathname)) return;
+      evento.preventDefault();
+      this.navigate(indirizzo.pathname, false);
+    });
+  }
+
   async start() {
-    window.addEventListener("hashchange", () => this.applyRoute());
+    window.addEventListener("popstate", () => this.applyRoute());
+    this.interceptClicks();
     // La lingua si assegna dopo aver aspettato il catalogo, e non prima: il
     // motivo sta sul campo `lingua`. Finche' si aspetta non c'e' niente a
     // schermo, perche' `view` vale ancora "avvio".
@@ -639,7 +723,7 @@ export class AppState {
       if (await this.goToNavigatorIfAsked()) return;
       if (this.selectedMuseum) await this.loadCatalogue();
 
-      this.goTo(this.selectedMuseum ? this.roleHome() : "musei");
+      this.redirectTo(this.selectedMuseum ? this.roleHome() : "musei");
       // Il velo resta finche' la schermata non e' davvero a schermo: vedi
       // `afterPaint`.
       await this.afterPaint();
@@ -991,9 +1075,22 @@ export class AppState {
     );
   }
 
+  /**
+   * Se un contenuto si mostra a chi sta guardando. Due motivi per nasconderlo,
+   * e per tutt'e due l'eccezione e' la stessa: chi l'ha scritto lo vede sempre.
+   *
+   *  - la PAROLA CHIAVE: una visita guidata si apre digitandone il nome, non
+   *    trovandola in vetrina;
+   *  - il PRIVATO: l'itinerario che un visitatore compone per se'. Il server
+   *    non lo manda nemmeno (`GET /visits`), quindi qui il caso che resta e'
+   *    il proprio — che nella libreria deve continuare a vedersi, ed e' il
+   *    motivo per cui questa non e' una semplice esclusione.
+   */
   private visibleInMarket(c: any): boolean {
-    if (!c || !c.accessKey) return true;
-    return c.author === this.currentUser;
+    if (!c) return true;
+    if (c.accessKey) return c.author === this.currentUser;
+    if (c.visibility === "privato") return c.author === this.currentUser;
+    return true;
   }
 
   async buy(item: Content) {
@@ -1795,7 +1892,7 @@ export class AppState {
 
   /**
    * Da chiamare con DUE inneschi nel markup, il `$watch` e il caso iniziale:
-   * entrando in #/vendite dall'indirizzo diretto il guardiano non scatta.
+   * entrando in /vendite dall'indirizzo diretto il guardiano non scatta.
    */
   watchSales() {
     if (this.view === "vendite") this.loadSales();
@@ -2212,6 +2309,20 @@ export class AppState {
     return v.imagePath || "";
   }
 
+  /**
+   * La copertina di un museo, se il curatore gliene ha messa una accanto alla
+   * configurazione. Vuoto quando non c'e', e la carta resta di solo testo:
+   * aggiungere un museo non deve avere un requisito grafico.
+   *
+   * L'indirizzo si codifica perche' quei file prendono il nome del museo, che
+   * quasi sempre ha degli spazi ("Galleria degli Uffizi.jpg"). E' lo stesso
+   * motivo per cui il navigator codifica `mapPath` prima di chiedere la pianta.
+   */
+  museumImage(m: any): string {
+    if (!m || !m.imagePath) return "";
+    return encodeURI(m.imagePath);
+  }
+
   /** Il file non si legge qui: lo nomina il server, che risponde con l'indirizzo. */
   async caricaImmagine(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -2235,7 +2346,7 @@ export class AppState {
     if (!nome || nome === "Unknown") return "";
     const chiave = `${genere}:${nome}`;
     for (const i of this.visibleItems()) {
-      if (this.soggettoIdOf(i) === chiave) return `#/opera/${encodeURIComponent(chiave)}`;
+      if (this.soggettoIdOf(i) === chiave) return `/opera/${encodeURIComponent(chiave)}`;
     }
     return "";
   }

@@ -1,5 +1,58 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-08-08, via il cancelletto dagli indirizzi
+
+`#/vetrina` → `/vetrina`. Ragionamento durevole in `state.md` §4.1-bis; qui cosa e' stato
+toccato e cosa resta da provare a mano.
+
+### La premessa che era sbagliata
+
+Il giro prima avevo scritto che togliere il cancelletto avrebbe rotto «il collegamento
+obbligatorio al marketplace». **Non e' vero, e le slide dicono il contrario**: la 30 elenca
+«Accesso al marketplace» fra le voci del *navigator*, cioe' un collegamento che va dal
+navigator al marketplace e non il rovescio; la 19 vuole la selezione del museo «via file di
+configurazione»; la 34 dice che il curatore puo' fare «una versione specifica del navigator
+per il suo museo». Le due applicazioni sono separate e il navigator si apre per conto suo.
+Quel collegamento era **una costante sola** (`navigator/src/config.ts:77`), non una dipendenza.
+
+⚠️ **Resta aperta una cosa che discende da li' e che NON e' stata toccata**: oggi il navigator
+non si puo' aprire da solo — senza biglietto di passaggio non c'e' sessione e si finisce in un
+vicolo cieco. Viene dal giro di irrobustimento delle sessioni del 2026-08-03, non dalle slide,
+e sta scomodo accanto alla 34. Va deciso, non e' un difetto del router.
+
+### Cosa e' cambiato
+
+| file | cosa |
+| --- | --- |
+| `shared/constants.ts` | `marketplaceViews` + `marketplaceLegacyViews`, letti dal router **e** dal server |
+| `marketplace/src/frontend/state.ts` | `parsePath` (torna `null` se non e' nostro), `navigate(percorso, sostituendo)`, `goTo`, nuovo `redirectTo`, `interceptClicks`, `popstate` |
+| `marketplace/public/index.html` | 23 righe: `#/…` → `/…` |
+| `server/src/index.ts` | il guscio per gli indirizzi delle schermate, in fondo a tutto |
+| `navigator/src/config.ts` | `marketplaceHome()`: `/#/home` → `/home` |
+
+### Le tre cose che si imparano solo sbattendoci
+
+- ⚠️ **`pushState` non emette eventi**: la rotta va applicata a mano, e scordarsene cambia
+  l'indirizzo senza cambiare schermata.
+- ⚠️ **Senza intercettare i click il browser ricarica** a ogni voce del binario, catalogo
+  compreso. Il corpo di `interceptClicks` e' quasi tutto eccezioni: tasti speciali, tasto
+  centrale, `target`, `download`, frammenti veri, e tutto cio' che non e' una schermata.
+- ⚠️ **`tsc` emette anche quando fallisce.** Un `error TS2339` e' passato e `dist/` e' stato
+  riscritto lo stesso: `npm run build --prefix marketplace` **non** basta guardarlo uscire, va
+  letto. E' la stessa famiglia del `dist/` stantio.
+
+### Provato, e cosa resta da provare a mano
+
+In chromium via CDP, contro un server di prova sulla 8100 e il catalogo Uffizi (104 opere):
+click vero su una scheda opera, indietro/avanti su `home → vetrina → libreria`, binario, salto
+al contenuto ancora frammento, `stile:Barocco e Rococo` codificata e riletta identica,
+`/api/…` + `target=_blank` + ctrl+click + link esterni **non** intercettati, zero eccezioni.
+Lato server: 200 sulle schermate, 404 conservato su file e rotte inesistenti.
+
+Resta da provare **con le mani**, che il pilota non copre bene: ctrl+click e tasto centrale
+davvero (qui sono eventi sintetici, non input del sistema), il foglio dei QR del curatore che
+si apre in una scheda nuova, e il giro completo marketplace → navigator → ritorno a `/home`.
+
 ## ⏸ Ripresa — 2026-08-07, la visita vuota, il binario, il foglio dei QR, e due domande
 
 Cinque punti: tre correzioni e due domande. Ragionamento durevole in `state.md` §3.1-nonies

@@ -32,6 +32,14 @@ const visitSchema = new Schema<IVisit>({
   // senza diritti dichiarati.
   license: { type: String, default: DEFAULT_LICENSE },
   ofMuseum: String,
+  // Come sull'item: il valore normale e' "pubblico", e a metterlo e' lo schema
+  // perche' non tutte le visite nascono dalla stessa funzione (il seed usa
+  // `VisitModel.create` per conto suo).
+  visibility: {
+    type: String,
+    enum: ["pubblico", "privato"],
+    default: "pubblico",
+  },
   imagePath: { type: String },
   itemListElement: [String],
   optionalItems: [String],

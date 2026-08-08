@@ -21,6 +21,17 @@ Conseguenza da sapere: marketplace e navigator finiscono sulla **stessa origine*
 condividono `sessionStorage`. Il biglietto di passaggio continua a funzionare, ma il navigator
 aperto da solo trova la sessione del marketplace invece di rimandare indietro.
 
+⚠️ **Gli indirizzi del marketplace sono percorsi veri** (`/vetrina`, `/opera/Q12418`), non piu'
+frammenti dopo un `#`. Cambia una cosa che in sviluppo non si vedeva: quegli indirizzi ora
+**arrivano al server**, che deve rispondere col guscio. Lo fa lui, in fondo a `server/src/index.ts`,
+e riconosce solo i nomi elencati in `shared/constants.ts`. Due ricadute per il laboratorio:
+
+- il proxy del dipartimento pubblica il sito su una **radice** (`https://site252627.tw.cs.unibo.it/`),
+  che e' quello che questi indirizzi assumono. Se un giorno finisse sotto un sottopercorso,
+  tutti i riferimenti assoluti (`/dist`, `/images`, `/api`) andrebbero rivisti insieme;
+- il controllo che conta non e' piu' aprire `/` e cliccare: e' **ricaricare** su una schermata
+  interna. Cliccando funziona anche se il server non sapesse niente di quegli indirizzi.
+
 ⚠️ E ne segue una che si vede solo li': **un biglietto che non si riscatta non si nota piu'**.
 In sviluppo il navigator, non trovando nessuna sessione, dice di entrare dal marketplace; in
 laboratorio trova quella del marketplace e prosegue come se niente fosse. Un guasto del
@@ -140,11 +151,53 @@ git pull
 npm run build        # solo se sono cambiati navigator o marketplace
 ```
 
+Se `node` non c'e' sulla macchina nuda, il `build` passa dal container come il primo giorno:
+`start node-22 site252627 deploy-build.js`. **Si rilancia tale e quale**, non solo al primo
+deploy: riconosce le dipendenze gia' installate confrontando l'impronta del `package-lock.json`
+e salta quelle immutate, quindi su un aggiornamento normale fa solo le due compilazioni.
+Ricompilare sempre e' voluto — un `dist/` saltato e' il difetto che si debugga una settimana
+dopo. ⚠️ Ricordarsi che occupa **lo slot node del sito**: spegnere il server, buildare,
+riaccendere.
+
 `nodemon` riavvia da se' quando cambia `server/src`, e **non** quando cambia un `dist/`:
 `nodemon.json` gli fa guardare solo il codice. E' anche il motivo per cui il caricamento
 dell'immagine di un contenuto non fa piu' ripartire il server in mezzo alla richiesta.
 
-`server/.env` e i `dist/` sono in `.gitignore`, quindi un `git pull` non li tocca mai.
+⚠️ **Con `node-22` (cioe' per la consegna e l'esame) il riavvio va fatto a mano**, e questo
+aggiornamento lo pretende: gli indirizzi senza cancelletto hanno toccato `server/src/index.ts`
+e `shared/constants.ts`, che sono codice del server. Un `git pull` seguito dal solo `build`
+lascerebbe in piedi il processo vecchio, che non conosce quegli indirizzi: si naviga bene
+cliccando e si prende **404 ricaricando**.
+
+⚠️ **Anche il marketplace va ricompilato in questo giro**, non solo il navigator: il router
+sta in `state.ts` e l'elenco delle schermate in `shared/`, e sono entrambi dentro
+`marketplace/dist/`.
+
+⚠️ **E questo giro chiede anche una riga sul database**, che e' la sola cosa che un `git pull`
+non puo' sistemare da se'. L'allestimento dei musei (configurazione, pianta, copertina) e'
+passato in `server/public/allestimento/`, ma `mapPath` era stato copiato dentro i documenti al
+momento del seed: il dump in laboratorio dice ancora `/maps/…`, cioe' un indirizzo che non
+esiste piu'. Vetrina e catalogo non se ne accorgono; il navigator smette di disegnare la sala
+e il calcolo del percorso resta senza grafo.
+
+```bash
+cd server && npx ts-node src/scripts/testers.ts musei    # pianta e copertine dai file di configurazione
+cd server && npx ts-node src/scripts/testers.ts private  # visibilita' delle visite, esplicita su tutte
+cd server && npx ts-node src/scripts/testers.ts autore   # firma dei contenuti seminati: "sistema" -> "Museo"
+cd server && npx ts-node src/scripts/testers.ts mappe    # le piante si camminano ancora?
+cd server && npx ts-node src/scripts/testers.ts griglia  # la griglia toni x durate e' completa?
+```
+
+Sono tutte idempotenti: rilanciarle non fa danni, e le prime tre stampano `0` quando non
+c'e' piu' niente da fare. ⚠️ **`autore` va eseguita prima di qualunque seed successivo**: il
+seed riconosce quel che ha gia' scritto cercando l'autore, e finche' nel database c'e' il nome
+vecchio non trova niente e rigenera tutto da capo, migliaia di chiamate al modello comprese.
+
+Vale la nota del passo 4 del primo deploy: se la shell non e' dentro il cluster, Mongo non si
+raggiunge e questi due comandi vanno fatti girare in un container.
+
+`server/.env` e i `dist/` sono in `.gitignore`, quindi un `git pull` non li tocca mai. **Niente
+cambia in `.env`** per questo aggiornamento: `PORT` e `NAVIGATOR_ORIGIN` restano quelli.
 
 ## Controlli, in quest'ordine
 
@@ -154,9 +207,14 @@ dell'immagine di un contenuto non fa piu' ripartire il server in mezzo alla rich
 | `/api/health` | `{"message":"Unified Backend running"}` |
 | `/` | la soglia del marketplace, con lo sciame che compone le opere |
 | `/api/config` | `navigatorOrigin` col tuo indirizzo https, sei `thresholdArtworks` |
+| **`/vetrina` scritto a mano nella barra** | **la pagina si apre** (chiede il museo, che non si ricorda mai: e' voluto). Un **404** qui vuol dire server vecchio, ed e' il primo controllo da fare dopo questo aggiornamento |
+| **ricarica su una schermata interna** | resta dov'era invece di dare 404 |
+| **tasto "indietro" dopo tre schermate** | torna indietro una per volta, senza rimbalzare avanti |
+| **una voce del binario** | cambia schermata **senza** che la pagina lampeggi: se lampeggia, `dist/` e' vecchio e i click non vengono intercettati |
+| `/manca-davvero.css` | ancora **404**: il guscio risponde solo ai nomi delle schermate, non a tutto |
 | entra e apri una visita | finisce su `/navigator/?museum=…&visit=…` |
 | console del browser | nessuna richiesta a `:5173` o `:8000`, nessun avviso di contenuto misto |
-| `/maps/…svg` e `/images/artworks/…jpg` | 200 |
+| `/allestimento/…svg` e `/images/artworks/…jpg` | 200 |
 | «Parla» | funziona: https e' un contesto sicuro |
 
 Log: `logs site252627` da gocker, oppure `/home/web/site252627/log/`.
@@ -180,3 +238,17 @@ Log: `logs site252627` da gocker, oppure `/home/web/site252627/log/`.
 - **Il navigator non trova le API** → e' `apiBase` in `navigator/dist/config.json`: in deploy
   deve restare **vuoto**, cosi' vale la stessa origine. Scriverci un `http://host:8000` su una
   pagina https e' contenuto misto, e il browser lo blocca in silenzio.
+- **404 ricaricando `/vetrina`, ma cliccando si naviga benissimo** → il server e' quello vecchio.
+  Cliccando non se ne accorge nessuno perche' il percorso non esce dal browser; ricaricando
+  invece lo si chiede al server, che non sa cosa sia. Con `nodemon` bastava il `git pull`, con
+  `node-22` va riacceso a mano.
+- **Ogni voce del binario fa lampeggiare la pagina, e il catalogo si ricarica ogni volta** →
+  `marketplace/dist/` e' vecchio: senza `interceptClicks()` i collegamenti sono navigazioni
+  vere e l'applicazione riparte da zero a ogni click. Rifare il build del marketplace.
+- **La pianta non compare nel navigator, e il percorso non si calcola** → i documenti dei musei
+  puntano ancora a `/maps/…`. Succede dopo aver aggiornato senza aver lanciato
+  `testers.ts musei`, o dopo aver ripristinato un dump vecchio. Si vede subito: la carta del
+  museo si apre, la visita parte, e la sala resta vuota.
+- **Il tasto "indietro" non esce piu' da una schermata** → e' il caso che `redirectTo()` esiste
+  per evitare (una correzione di rotta che si impila invece di sostituire). Se ricompare,
+  qualcuno ha rimesso `goTo()` in una delle tre guardie: `state.md` §4.1-bis.

@@ -20,7 +20,11 @@ import { ArtworkModel } from "./models/artwork";
 import { MuseumConfig } from "./data/museumConfigs";
 import { getMuseumGraph } from "./services/svgGraph";
 import { LogisticNote } from "../../shared/types";
-import { DEFAULT_LICENSE } from "../../shared/constants";
+import {
+  DEFAULT_LICENSE,
+  SEED_AUTHOR,
+  SEED_ID_TOKEN,
+} from "../../shared/constants";
 
 /**
  * Da qid dell'opera a id del nodo che la rappresenta sulla pianta
@@ -98,7 +102,7 @@ export async function populateItem(
       level,
       duration,
     );
-    itemAuthor = "sistema";
+    itemAuthor = SEED_AUTHOR;
 
     /*
      * Anche dopo i ritentativi il modello puo' non rispondere. In quel caso
@@ -115,7 +119,11 @@ export async function populateItem(
     }
   }
 
-  const id = `${atworkQid}-${itemAuthor}-${level}-${duration}`;
+  // Chi ha scritto il contenuto entra nell'`@id`, ma per il museo si usa il
+  // token congelato invece del nome mostrato: vedi `SEED_ID_TOKEN`.
+  let firma = itemAuthor;
+  if (itemAuthor === SEED_AUTHOR) firma = SEED_ID_TOKEN;
+  const id = `${atworkQid}-${firma}-${level}-${duration}`;
 
   await insertItem({
     "@id": id,
@@ -140,6 +148,7 @@ export async function populateVisit(
   logist: LogisticNote[],
   visitPrice?: number,
   visitAuthor?: string,
+  imagePath?: string,
 ) {
   const id = `visit-${museum}-${level}-${durationPerArt}`;
   const name = `Visita ${level} · ${durationPerArt}s per opera`;
@@ -151,6 +160,17 @@ export async function populateVisit(
     price: visitPrice,
     author: visitAuthor,
     ofMuseum: museumUri,
+    // Le visite di catalogo sono il catalogo: si vedono tutte, sempre. Va
+    // scritto per esteso e non lasciato al default dello schema, perche'
+    // `insertVisit` e' un upsert e su un documento che esiste gia' i default non
+    // scattano: senza questa riga una visita gia' seminata resterebbe senza il
+    // campo per sempre.
+    visibility: "pubblico",
+    // La stringa vuota e non `undefined`: `insertVisit` fa un upsert con
+    // l'oggetto intero, e un campo assente lascerebbe in piedi la copertina
+    // scritta dal giro precedente. Togliere una figura dal file di
+    // configurazione deve toglierla anche dalla visita.
+    imagePath: imagePath || "",
     itemListElement: items,
     logistics: logist,
     license: DEFAULT_LICENSE,
@@ -185,5 +205,6 @@ export async function populateMuseum(config: MuseumConfig) {
     created,
     location,
     mapPath: config.mapPath,
+    imagePath: config.imagePath,
   });
 }

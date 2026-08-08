@@ -423,7 +423,7 @@
                     {id:'vetrina',  ico:'#ico-visite',   label:t('Vetrina')},
                     {id:'libreria', ico:'#ico-libreria', label:t('Libreria')}
                   ]" :key="v.id">
-                  <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
+                  <a :href="'/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
                     :aria-current="view === v.id ? 'page' : false">
                     <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
                     <span x-text="v.label"></span>
@@ -439,7 +439,7 @@
                     {id:'componi', ico:'#ico-componi', label:t('Crea visita')},
                     {id:'vendite', ico:'#ico-vendite', label:t('Vendite')}
                   ]" :key="v.id">
-                  <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
+                  <a :href="'/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
                     :aria-current="view === v.id ? 'page' : false">
                     <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
                     <span x-text="v.label"></span>
@@ -453,7 +453,7 @@
                     {id:'gestione', ico:'#ico-museo',  label:t('Il museo')},
                     {id:'catalogo', ico:'#ico-lavori', label:t('Catalogo')}
                   ]" :key="v.id">
-                  <a :href="'#/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
+                  <a :href="'/' + v.id" class="voce-binario" :class="view === v.id ? 'voce-attiva' : ''"
                     :aria-current="view === v.id ? 'page' : false">
                     <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true"><use :href="v.ico" /></svg>
                     <span x-text="v.label"></span>
@@ -509,14 +509,29 @@
             <h1 class="font-display text-title-1" x-text="t(`Scegli il museo`)"></h1>
             <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <template x-for="m in museums" :key="m.qid">
-                <button type="button" @click="selectMuseum(m)" class="lastra filo-accento p-6 text-left"
+                <!-- La copertina la posa il curatore accanto alla configurazione
+                     ed e' FACOLTATIVA: senza, la carta e' quella di sempre, di
+                     solo testo. `rotta` copre il file dichiarato ma assente —
+                     la carta torna al testo invece di aprire un buco, che e' lo
+                     stato in cui si sta finche' le immagini non sono scaricate. -->
+                <button type="button" @click="selectMuseum(m)" x-data="{ rotta: false }"
+                  class="lastra filo-accento group relative flex flex-col overflow-hidden text-left transition-colors hover:border-accent"
                   :aria-label="t(`Entra nel museo {nome}`, { nome: m.name })">
-                  <h2 class="font-display text-title-2 leading-tight" x-text="m.name"></h2>
-                  <p class="mt-1 text-small text-muted" x-show="m.location" x-text="m.location"></p>
-                  <p class="tabular mt-4 text-caption uppercase tracking-wider text-muted" x-text="museumSummary(m)"></p>
-                  <span class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent">
-                    <span x-text="t(`Entra`)"></span> <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
-                  </span>
+                  <template x-if="museumImage(m) && !rotta">
+                    <span class="dissolvenza">
+                      <img :src="museumImage(m)" @error="rotta = true" alt="" loading="lazy"
+                        class="group-hover:scale-[1.04]">
+                    </span>
+                  </template>
+                  <div class="flex flex-1 flex-col p-6"
+                    :class="museumImage(m) && !rotta ? 'relative -mt-16' : ''">
+                    <h2 class="font-display text-title-2 leading-tight" x-text="m.name"></h2>
+                    <p class="mt-1 text-small text-muted" x-show="m.location" x-text="m.location"></p>
+                    <p class="tabular mt-4 text-caption uppercase tracking-wider text-muted" x-text="museumSummary(m)"></p>
+                    <span class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent">
+                      <span x-text="t(`Entra`)"></span> <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
+                    </span>
+                  </div>
                 </button>
               </template>
             </div>
@@ -533,7 +548,7 @@
             </h1>
 
             <div class="mt-8 grid gap-4 md:grid-cols-2">
-              <a href="#/sumisura" class="lastra filo-accento filo-iride flex flex-col p-6">
+              <a href="/sumisura" class="lastra filo-accento filo-iride flex flex-col p-6">
                 <span class="tessera-iride">
                   <svg class="h-6 w-6" aria-hidden="true"><use href="#ico-scintilla" /></svg>
                 </span>
@@ -543,7 +558,7 @@
                   <span x-text="t(`Descrivi la visita`)"></span> <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
                 </span>
               </a>
-              <a href="#/vetrina" @click="setMarketType('visite')" class="lastra filo-accento flex flex-col p-6">
+              <a href="/vetrina" @click="setMarketType('visite')" class="lastra filo-accento flex flex-col p-6">
                 <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-visite" /></svg>
                 <h2 class="mt-4 font-display text-title-2" x-text="t(`Scegli una visita pronta`)"></h2>
                 <p class="mt-2 flex-1 text-small text-muted" x-text="t(`Percorsi già composti, gratuiti o a pagamento.`)"></p>
@@ -551,7 +566,7 @@
                   <span x-text="t(`Vedi le visite`)"></span> <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-avanti" /></svg>
                 </span>
               </a>
-              <a href="#/componi" @click="openComposer()" class="lastra filo-accento flex flex-col p-6">
+              <a href="/componi" @click="openComposer()" class="lastra filo-accento flex flex-col p-6">
                 <svg class="h-8 w-8 text-accent" aria-hidden="true"><use href="#ico-componi" /></svg>
                 <h2 class="mt-4 font-display text-title-2" x-text="t(`Componi il tuo percorso`)"></h2>
                 <p class="mt-2 flex-1 text-small text-muted" x-text="t(`Scegli tu le opere, l'ordine e cosa è opzionale.`)"></p>
@@ -590,7 +605,7 @@
                   <template x-for="v in myVisits().slice(0, 4)" :key="v['@id']">
                     <li class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                       <div class="min-w-0 flex-1">
-                        <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
+                        <a :href="'/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
                         <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                       </div>
                       <template x-if="visitUsable(v)">
@@ -599,7 +614,7 @@
                         </button>
                       </template>
                       <template x-if="!visitUsable(v)">
-                        <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario shrink-0" x-text="t(`Completa`)"></a>
+                        <a :href="'/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario shrink-0" x-text="t(`Completa`)"></a>
                       </template>
                     </li>
                   </template>
@@ -701,20 +716,20 @@
                           </button>
                         </template>
                         <template x-if="!visitUsable(v) && inLibrary(v)">
-                          <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario relative z-30" x-text="t(`Completa`)"></a>
+                          <a :href="'/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario relative z-30" x-text="t(`Completa`)"></a>
                         </template>
                         <template x-if="!inLibrary(v) && canBuy()">
                           <button type="button" @click="buy(v)" class="btn-primario relative z-30" :aria-label="'Sblocca ' + v.name" x-text="t(`Sblocca`)"></button>
                         </template>
                         <template x-if="!inLibrary(v) && !canBuy()">
-                          <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario relative z-30" x-text="t(`Apri`)"></a>
+                          <a :href="'/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario relative z-30" x-text="t(`Apri`)"></a>
                         </template>
                       </div>
                     </div>
                     <!-- Ultimo figlio della tessera: la copre tutta, copertina
                          compresa, cosi' si apre la scheda toccandola in
                          qualunque punto e non solo sul titolo. -->
-                    <a :href="'#/visita/' + encodeURIComponent(v['@id'])"
+                    <a :href="'/visita/' + encodeURIComponent(v['@id'])"
                       class="tessera-intera"
                       :aria-label="t(`Apri {nome}`, { nome: v.name })"></a>
                   </article>
@@ -750,7 +765,7 @@
                       </p>
                     </div>
                     <!-- Ultimo figlio della tessera: copre tutto, figura compresa. -->
-                    <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
+                    <a :href="'/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
                       class="tessera-intera"
                       :aria-label="t(`Apri {nome}`, { nome: g.artwork.name || 'senza titolo' })"></a>
                   </article>
@@ -767,7 +782,7 @@
           </section>
 
           <section x-show="view === 'opera'" x-data="{ rotta: false }">
-            <a href="#/vetrina" class="btn-fantasma -ml-3 mb-6">
+            <a href="/vetrina" class="btn-fantasma -ml-3 mb-6">
               <svg class="h-5 w-5" aria-hidden="true"><use href="#ico-indietro" /></svg> <span x-text="t(`Torna alle opere`)"></span>
             </a>
             <template x-if="currentArtwork()">
@@ -1116,7 +1131,7 @@
                 <label for="cerca-lib" class="sr-only" x-text="t(`Cerca nella libreria`)"></label>
                 <input id="cerca-lib" type="search" x-model="librarySearch" :placeholder="t(`Cerca…`)">
               </div>
-              <a href="#/componi" @click="openComposer()" class="btn-secondario shrink-0">
+              <a href="/componi" @click="openComposer()" class="btn-secondario shrink-0">
                 <svg class="h-4 w-4" aria-hidden="true"><use href="#ico-componi" /></svg> <span x-text="t(`Componi una visita`)"></span>
               </a>
             </div>
@@ -1126,7 +1141,7 @@
               <template x-for="v in myVisits()" :key="v['@id']">
                 <li class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                   <div class="min-w-0 flex-1">
-                    <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
+                    <a :href="'/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
                     <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                     <p x-show="!visitUsable(v)" class="mt-1 text-caption text-muted"
                       x-text="'Contiene ' + mancantiDi(v) + ' contenuti da sbloccare'"></p>
@@ -1141,20 +1156,20 @@
                       x-text="unlockVisitLabel(v)"></button>
                   </template>
                   <template x-if="!visitUsable(v) && !canBuy()">
-                    <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario shrink-0" x-text="t(`Apri`)"></a>
+                    <a :href="'/visita/' + encodeURIComponent(v['@id'])" class="btn-secondario shrink-0" x-text="t(`Apri`)"></a>
                   </template>
                 </li>
               </template>
             </ul>
             <div x-show="myVisits().length === 0" class="vuoto mt-4">
               <p x-text="t(`Non hai ancora visite.`)"></p>
-              <a href="#/vetrina" @click="setMarketType('visite')" class="btn-primario mt-4" x-text="t(`Vai alle visite`)"></a>
+              <a href="/vetrina" @click="setMarketType('visite')" class="btn-primario mt-4" x-text="t(`Vai alle visite`)"></a>
             </div>
 
             <h2 class="mt-12 font-display text-title-2" x-text="t(`Descrizioni`)"></h2>
             <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <template x-for="g in myItemGroups()" :key="g.artwork['@id']">
-                <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
+                <a :href="'/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
                   class="lastra riga-figurata filo-accento" x-data="{ rotta: false }">
                   <span class="figura-riga">
                     <img x-show="artworkImage(g.artwork) && !rotta" :src="miniatura(artworkImage(g.artwork))" @error="rotta = true" alt="" loading="lazy">
@@ -1169,7 +1184,7 @@
             </div>
             <div x-show="myItemGroups().length === 0" class="vuoto mt-4">
               <p x-text="t(`Non hai ancora descrizioni.`)"></p>
-              <a href="#/vetrina" @click="setMarketType('opere')" class="btn-primario mt-4" x-text="t(`Sfoglia le opere`)"></a>
+              <a href="/vetrina" @click="setMarketType('opere')" class="btn-primario mt-4" x-text="t(`Sfoglia le opere`)"></a>
             </div>
           </section>
 
@@ -1199,7 +1214,7 @@
                   <template x-for="v in workVisits()" :key="v['@id']">
                     <li class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                       <div class="min-w-0 flex-1">
-                        <a :href="'#/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
+                        <a :href="'/visita/' + encodeURIComponent(v['@id'])" class="font-display text-title-3 link-scuro" x-text="v.name"></a>
                         <p class="tabular text-small text-muted" x-text="visitSummary(v)"></p>
                         <p class="mt-1 flex flex-wrap items-center gap-2">
                           <span x-show="v.accessKey" class="pastiglia pastiglia-ametista">
@@ -1231,7 +1246,7 @@
                 <h2 class="font-display text-title-2" x-text="t(`Descrizioni`)"></h2>
                 <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <template x-for="g in workItemGroups()" :key="g.artwork['@id']">
-                    <a :href="'#/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
+                    <a :href="'/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
                       class="lastra riga-figurata filo-accento" x-data="{ rotta: false }">
                       <span class="figura-riga">
                         <img x-show="artworkImage(g.artwork) && !rotta" :src="miniatura(artworkImage(g.artwork))" @error="rotta = true" alt="" loading="lazy">
@@ -1427,7 +1442,7 @@
 
             <p class="mt-6 text-small text-muted">
               <span x-text="t(`Una visita su misura non si salva in libreria: vive il tempo che la percorri. Per tenerne una,`)"></span>
-              <a href="#/componi" @click="openComposer()" class="link" x-text="t(`componila dal catalogo`)"></a>.
+              <a href="/componi" @click="openComposer()" class="link" x-text="t(`componila dal catalogo`)"></a>.
             </p>
           </section>
 
@@ -1444,7 +1459,7 @@
                   <svg class="h-6 w-6" aria-hidden="true"><use href="#ico-scintilla" /></svg>
                 </span>
                 <p class="flex-1 text-small" x-text="t(`Non hai voglia di sceglierle una per una? Descrivi la visita che vorresti e la trovi già composta.`)"></p>
-                <a href="#/sumisura" class="btn-secondario shrink-0" x-text="t(`Raccontala a parole`)"></a>
+                <a href="/sumisura" class="btn-secondario shrink-0" x-text="t(`Raccontala a parole`)"></a>
               </div>
             </template>
 

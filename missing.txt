@@ -6,13 +6,12 @@ MANCANTI
 - adozione mediante unico file di configurazione
 - mettere imagini per scelta museo e per le visite
 - superseed, rework dei prezzi, - gli uffizi hanno tutto gratis
-http://localhost:8000/#/componi da autore le cose da selezionare rendono la pagina lunghissima
+- eliminare una visita, cosa succede? 
+- limitare agli utenti il numero di visite che puo' creare
+- ❯ so now just the author an the curator can remove visits, what about itms? are they protected?
+  we should expose a way for authors to delete their visits too (both visitors that created a
 MOBILE
 - hard reload?
-- rendere impossibile creare visite senza alcun item
-- ti fa entrare dando per scontata la scelta del museo
-- light mode selettore navigator
-- simbolo di caricamento?
 DA DISCUTERE
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 

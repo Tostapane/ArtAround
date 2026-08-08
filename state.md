@@ -87,7 +87,7 @@ Twelve items of feedback, seven of them defects found by using the thing:
 | quiz: server + authoring done, **no navigator UI** | teacher starts it, watches submissions land and grades in real time, closes it; student answers, submits once, sees the score. Correction stays server-side, and `GET /visits/:id` no longer ships `correct` to the students' browsers |
 | `POST /:id/end` deleted the session instantly, so a **planned** close reached every student as a 410, i.e. "the session vanished" | the session lingers 30s in state `terminata`; the clients read it and say "La visita è finita" |
 | the seeded guided visit had **no quiz**, so slide 33's "test sensato di competenza" was unmet by a fresh seed | `server/src/data/quiz.ts` builds one **from the visit's own artworks** — author, style, "which of these is by X", distractors drawn from the same museum, `Unknown` filtered out. No hand-written question, so it holds for any museum |
-| "Il banco" | "Home" (route `#/home`), plus the soglia and the login lost the university strapline, the dead theme toggle and the profile line |
+| "Il banco" | "Home" (route `/home`), plus the soglia and the login lost the university strapline, the dead theme toggle and the profile line |
 
 ### 0.3 What the 2026-08-05 pass closed
 
@@ -305,7 +305,7 @@ shared/components.css  component vocabulary, imported by BOTH apps
 - **A framework** in the navigator ✔ (Vue 3, `<script setup>`, no router, no store library).
 - **Node-only server** ✔; MongoDB only ✔; two docker containers (`mongo:7.0` + `node:22`) ✔.
 - **Genericity** ✔: no museum-specific code anywhere. A museum = a DB document + a JSON
-  config in `server/src/data/museums/` + an annotated SVG in `server/public/maps/`.
+  config in `server/public/allestimento/` + an annotated SVG beside it, same name.
 
 ### 1.1 The genericity mechanism (the heavily-weighted criterion)
 
@@ -1624,9 +1624,9 @@ interruption leaves complete artworks rather than artworks with no face. `popula
 skips artworks with no Wikidata P18 image. `locationId` is looked up in the map (§1.1) and
 re-checked on every run, so moving a node on the plan and re-seeding is enough to move an artwork.
 
-- `seed.ts speciali` adds the two visits the homogeneous seed cannot produce, on **ogni** museo
-  configurato: a visit with `optionalItems` (second half of the stops) and the **guided visit**
-  "Visita guidata del docente", plus the accounts `docente1` (autore) and `studente1..3`
+- `seed.ts speciali` adds the visit the homogeneous seed cannot produce, on **ogni** museo
+  configurato: the **guided visit** "Visita guidata del docente", plus the accounts
+  `docente1` (autore) and `studente1..3`
   (visitatore), password `12345678`. Gli account si creano una volta sola, fuori dal giro sui
   musei: sono persone, non arredo di un museo.
   ⚠️ **La parola chiave porta il qid** — `Fenice rossa Q6373`, `Fenice rossa Q51252`… — e non
@@ -1663,9 +1663,119 @@ codice e non il dato.
 | Visite con `quiz` | 4 guidate (3 domande l'una) piu' 4 composte a mano |
 | Visite con `optionalItems` | **4** |
 
-⚠️ **Rilanciarlo non duplica niente**: gli `@id` sono `visit-guidata-<qid>` e
-`visit-opzionali-<qid>`, quindi il comando riscrive le visite di quel museo e lascia stare le
-altre. Verificato eseguendolo due volte di fila: 44 visite prima e dopo.
+⚠️ **Rilanciarlo non duplica niente**: l'`@id` e' `visit-guidata-<qid>`, quindi il comando
+riscrive la visita di quel museo e lascia stare le altre.
+
+### 3.5-ter La visita di un visitatore e' sua e basta *(2026-08-08)*
+
+`Visit.visibility` (`"pubblico" | "privato"`), sul modello di quella che l'item aveva gia'.
+**Pubblica solo la visita di un AUTORE**: mettere in vendita e' il suo mestiere (slide 22:
+licenza, prezzo, adozioni, vendite), mentre il visitatore compone un itinerario per se'. La
+slide 18-27 chiedeva gia' "contenuti privati e non resi pubblici" per la docente, quindi il
+meccanismo serviva comunque: qui si estende dalla descrizione alla visita.
+
+Prima non era cosi': misurato, `aa` (visitatore) aveva due itinerari senza parola chiave, e
+`visitatore1` ne vedeva uno in vetrina. Chiuse da `testers.ts private`, che guarda il ruolo di
+oggi di chi le ha scritte — per una visita gia' esistente e' l'unica informazione che c'e'.
+
+⚠️ **Si scrive alla creazione, non si ricava dal ruolo a ogni lettura.** Un ruolo puo' cambiare,
+e chi diventasse autore domani si ritroverebbe pubblicati gli itinerari che aveva composto per
+se'. Il campo registra una decisione presa in un momento, non una proprieta' di chi guarda.
+
+⚠️ **I ruoli si nominano.** `visibility` parte da `"privato"` e diventa pubblica solo sul ramo
+`ruolo === "autore"`: un `=== "visitatore" ? … : …` sarebbe una domanda a due risposte su un
+vocabolario che ne ha tre, ed e' il difetto che `guidelines.md` racconta col curatore finito
+sotto "Visitatore". Un ruolo nuovo cade percio' nel valore prudente.
+
+⚠️ **Il campo c'e' su TUTTE le visite, anche dove non serviva.** I filtri chiedono
+`$ne: "privato"` apposta per non dipendere da un campo che le visite piu' vecchie non avevano,
+quindi le 84 gia' scritte funzionavano senza; restare cosi' pero' voleva dire due modi di dire
+"pubblico", di cui uno invisibile — chi cercasse `{visibility: "pubblico"}` per avere il
+catalogo si sarebbe trovato **zero risultati e nessun errore**. Il seed da solo non le
+sistemava: `insertVisit` e' un upsert, e su un documento che esiste gia' i default dello schema
+non scattano. Le riempie `testers.ts private` (84 su 86; le altre 2 erano gia' private).
+
+⚠️ **Il filtro sta nella ROTTA, non nel disegno.** `GET /visits` manda le private solo al loro
+autore (`$or: [{visibility: {$ne: "privato"}}, {author: username}]`); nasconderle in
+`shownVisits()` le avrebbe lasciate dentro la risposta, cioe' private a schermo e leggibili
+negli strumenti di sviluppo. `$ne` e non `= "pubblico"` perche' le visite scritte prima che il
+campo esistesse non ce l'hanno, e sono tutte pubbliche.
+
+⚠️ **Filtrare l'ELENCO non bastava, e il buco si e' visto solo provandolo.** Una visita ha un
+indirizzo suo: `GET /visits/:id` e `/:id/items` non guardavano la visibilita', quindi chi
+scriveva l'indirizzo a mano si prendeva la visita altrui **e tutti i suoi testi**; e
+`GET /museums/:qid/visits` — che e' l'elenco da cui l'app da museo fa scegliere la visita —
+non la guardava nemmeno lui. Chiusi tutti e tre. Rispondono **404 e non 403**: un "non puoi"
+confermerebbe comunque che quella visita esiste e di chi e'.
+Provato: da estraneo 404/404 e la privata sparita dall'elenco del navigator; dal suo autore
+200/200 e presente; la pubblica sempre 200.
+
+⚠️ **Cancellare una visita ora ha una guardia, e prima non ne aveva NESSUNA.** Misurato:
+`visitatore2` cancellava la visita privata di `visitatore1` — una che non poteva nemmeno
+vedere — e rispondeva 200. Valeva anche per le ottanta di catalogo: bastava un id. I pulsanti
+erano gia' nascosti a chi non e' l'autore, quindi nell'uso normale non succedeva niente, ma la
+rotta si chiama anche senza passare dall'interfaccia, e li' si cancella per davvero: documento,
+copertina sul disco, e la riga dalle collezioni di chiunque l'avesse presa.
+
+| chi | su cosa | esito |
+| --- | --- | --- |
+| l'autore | la sua | 200 |
+| il curatore | qualunque visita del museo, private comprese | 200 |
+| un estraneo | una privata | 404, come in lettura |
+| un estraneo | una pubblica | 403 |
+
+⚠️ **Il ruolo si guarda PRIMA della privatezza.** Nell'ordine opposto — provato, e sbagliava —
+al curatore la regola che nasconde le private altrui rispondeva "non esiste", lasciandolo senza
+lo strumento fine e con in mano solo `DELETE /museums/:qid/contents`, che svuota il museo
+intero.
+
+⚠️ **I conti del curatore contano ANCHE le private** (`impattoOpera`, `measureImpact`): dicono
+quante visite si accorcerebbero cancellando un'opera, e nasconderle darebbe un numero falso a
+chi sta per fare un danno irreversibile.
+
+⚠️ **`visibleInMarket()` non e' una semplice esclusione**: la libreria del visitatore passa di
+li' (`myVisits()`), e la sua visita e' "in libreria" per costruzione (`inLibrary`, un `ItemList`
+di cui e' autore). Escludendo le private senza l'eccezione del proprietario, chi la compone la
+perderebbe — e' l'unico posto da cui ci arriva.
+
+**Provato per intero.** Via API: visitatore1 crea → `privato`, autore1 crea → `pubblico`;
+visitatore2 riceve solo la pubblica. In chromium: la privata compare nella libreria del suo
+autore e nella sua vetrina, mentre visitatore2 non la vede **e non la riceve** (20 visite contro
+21). Il contatore della carta del museo esclude private e guidate, cosi' il numero e' la misura
+del catalogo e non della propria cartella. Prezzo e licenza erano gia' nascosti al visitatore
+nel compositore (`currentUserRole === 'autore' && !draft.guidata`): li' non serviva niente.
+
+### 3.5-bis Le visite di catalogo: copertina per tono, soggetti in testa *(2026-08-08)*
+
+Tre modifiche a come il seed costruisce le venti visite di un museo.
+
+**Il "Percorso con contenuti opzionali" non si semina piu'.** Era una ventunesima visita in
+vetrina con le stesse tappe delle altre venti, e le tappe opzionali non le perde: restano nel
+compositore (`visits.ts` legge `t.opzionale`) e nel navigator, che le disegna tratteggiate e
+offre l'interruttore «Includi le {n} tappe opzionali» (`Stage.vue`). ⚠️ Il prezzo e' che quella
+dimostrazione ora va *composta*, non aperta: non c'e' piu' una visita pronta con opzionali
+dentro. `seed.ts speciali` cancella anche quelle gia' scritte.
+
+**I due soggetti aprono ogni visita.** Stile e artista piu' ricorrenti erano seminati e
+restavano fuori da tutti i percorsi: le visite contenevano solo `opera` — misurato, 104 tappe
+tutte dello stesso genere. Ora stanno **in testa**, prima delle opere, perche' un contenuto su
+uno stile non e' appeso a una parete: non ha posto nell'ordine di cammino, e in mezzo alle sale
+spezzerebbe il giro. Sono 2 tappe in piu' per visita.
+
+**La copertina si sceglie per TONO**, non per visita: `visitImages` nel file di configurazione
+e' una mappa tono → percorso, e le cinque durate di uno stesso tono condividono la figura. Il
+taglio viene da un fatto misurato: le venti visite di catalogo di un museo **hanno le stesse
+tappe**, cambiano solo tono e durata, quindi venti facce diverse direbbero una differenza che
+non c'e'. Le assegna il seed, e anche `testers.ts musei`, perche' cambiare una figura non puo'
+costare un giro di chiamate al modello.
+
+⚠️ **La guidata era gia' fuori dalla vetrina**, e non serviva farci niente: `visibleInMarket()`
+nasconde ogni visita con `accessKey` a chiunque non ne sia l'autore, e il contatore della carta
+del museo le esclude con `accessKey: {$in: [null, ""]}`. Verificato in chromium: 21 visite in
+vetrina, la guidata assente.
+
+⚠️ **Ma `GET /api/visits` manda `...v.toObject()`**, quindi la parola chiave arriva al client
+di chiunque: la si legge negli strumenti di sviluppo. La tessera e' nascosta, il segreto no.
 
 Quel che la vecchia versione di questa nota temeva non e' piu' vero da tempo: il database
 copre tutti e quattro i toni al 100%, `Infantile` compreso, quindi la funzione trova gli item
@@ -1683,21 +1793,113 @@ non e' stato rieseguito**. Non serve rifare il seed completo (lento: 8 item LLM 
 > `dashboard`/`my_collection`/`my_works` plus four stacked modals — no longer exists.
 
 Single `x-data="appData()"` root over the `AppState` singleton
-(`marketplace/src/frontend/state.ts`). **`vista` is driven by a hash router**, so every
+(`marketplace/src/frontend/state.ts`). **`view` is driven by a path router**, so every
 screen has an address, the back button works, and a reload keeps its place. Alpine, its
 focus and collapse plugins are **served locally** from `public/vendor/`.
 
-⚠️ **Il cancelletto c'e' anche in laboratorio, e la ragione e' che il marketplace e' servito
-come file statici.** `index.html` arriva da un `express.static` montato sulla radice: risponde
-`/` e nient'altro, quindi `/vetrina` e' un **404** (provato: 404 su `/vetrina`, `/libreria`,
-`/opera/Q12418`; 200 solo su `/`). L'indirizzo dopo il `#` invece non viaggia — il browser non
-lo manda al server — percio' funziona identico in sviluppo, dietro nginx e sotto
-`site2526XX.tw.cs.unibo.it`, che e' una radice come la nostra. Toglierlo non e' impossibile ma
-si paga altrove: vuol dire `history.pushState` piu' una rotta *catch-all* che rimanda
-`index.html`, e quella catch-all deve stare **dopo** e **fuori** da `/api`, `/images`, `/maps`,
-`/dist`, `/i18n` e `/navigator`, o si mangia il navigator e le immagini. E' un blocco in piu'
-da tenere allineato a mano ogni volta che nasce un montaggio statico, in cambio di un carattere
-nell'indirizzo. Resta il cancelletto.
+### 4.1-bis Via il cancelletto: indirizzi veri *(2026-08-08)*
+
+Gli indirizzi erano `#/vetrina`; ora sono `/vetrina`. Il cancelletto era rimasto perche' il
+marketplace e' servito da `express.static` montato sulla radice, che risponde `/` e nient'altro:
+`/vetrina` dava **404**. Sono cambiati quattro pezzi, e i primi tre sono piccoli:
+
+| dove | cosa |
+| --- | --- |
+| `state.ts` | `parseHash` → `parsePath(percorso)`, che legge `location.pathname` e torna `null` se l'indirizzo non e' una schermata; `goTo` usa `history.pushState`; `hashchange` → `popstate` |
+| `index.html` | 23 righe di `href`: `#/…` → `/…`. **Nient'altro cominciava per `#/`**, percio' i due salti d'accessibilita' (`#contenuto`, `#binario`) e i 27 richiami alle icone SVG (`#ico-…`, `#marchio-…`) sono rimasti frammenti veri |
+| `shared/constants.ts` | nuovi `marketplaceViews` e `marketplaceLegacyViews` |
+| `server/src/index.ts` | il guscio per gli indirizzi delle schermate, in fondo a tutto |
+
+⚠️ **`pushState` non emette nessun evento.** Col frammento bastava scrivere `location.hash` e
+ci pensava `hashchange`; qui la rotta va applicata a mano subito dopo, e scordarsene non da'
+errore: l'indirizzo nella barra cambia e la schermata resta quella di prima.
+
+⚠️ **I click sui collegamenti interni vanno intercettati, o il browser ricarica.** `#/vetrina`
+non era una pagina diversa e il browser non andava da nessuna parte; `/vetrina` lo e', e senza
+`interceptClicks()` ogni voce del binario farebbe ripartire l'applicazione da zero, catalogo
+compreso. L'ascoltatore e' unico e sul documento, e il grosso del corpo e' quello che **non**
+deve toccare: tasti speciali e tasto centrale (o "apri in una nuova scheda" smette di aprire
+una scheda), `target`/`download` (il foglio dei QR del curatore e' fra questi), i frammenti
+veri, e qualunque indirizzo che non sia una schermata — `/api/…` compreso, riconosciuto da
+`knownRoute`.
+
+⚠️ **L'elenco delle schermate e' in `shared/` perche' lo leggono in due**: il router, per sapere
+cosa disegnare, e il server, per sapere che `/vetrina` non e' un file mancante. Se divergessero
+non ne uscirebbe un errore ma un indirizzo che funziona cliccandolo e da' 404 ricaricandolo.
+Il server riconosce **solo** quei nomi invece di rispondere a tutto: cosi' un file davvero
+mancante resta un 404 e si vede, mentre un catch-all cieco lo travestirebbe da pagina buona.
+
+**Il tipo `View` si RICAVA da quell'elenco** (`"avvio" | (typeof marketplaceViews)[number]`,
+con `as const` sull'array), quindi i due non possono piu' divergere: una schermata si aggiunge
+in un posto solo. Provato togliendo `catalogo` dall'elenco — la compilazione si ferma su
+`Record<View, string>` in `state.ts`, invece di lasciar passare una schermata irraggiungibile.
+
+⚠️ **Le correzioni di rotta sostituiscono, non impilano** — `redirectTo()` con `replaceState`,
+non `goTo()`. Sono i tre punti dove si viene mandati altrove senza averlo chiesto: l'approdo di
+`initApp` (`musei` o la casa del ruolo), la guardia che respinge una schermata pubblica a chi e'
+gia' entrato, e quella che tiene l'autore fuori da `sumisura`. Impilandole, il tasto "indietro"
+riporterebbe all'indirizzo appena rifiutato, che rimanda di nuovo avanti: si torna indietro e
+non si torna indietro, e l'unico modo di uscire e' chiudere la scheda.
+
+**Provato in chromium** (CDP, catalogo Uffizi da 104 opere): click su una scheda opera →
+`/opera/Q3698238` senza ricaricare; indietro/avanti sulla catena `home → vetrina → libreria`;
+binario, salto al contenuto ancora frammento; `stile:Barocco e Rococo` → `/opera/stile%3ABarocco%20e%20Rococo`
+e ritorno identico; `/api/…`, `target=_blank`, ctrl+click e link esterni non intercettati; zero
+eccezioni JS. Lato server: 200 su `/`, `/vetrina`, `/opera/Q12418`, `/gestione`, `/visite`,
+`/opere`; **404 conservato** su `/non-esiste`, `/api/inventata`, `/dist/manca.css`,
+`/images/manca.jpg`.
+
+Non e' stato spostato niente sotto `/marketplace`: il navigator non ha un router (vive su
+`/navigator/?museum=…`), quindi non c'era una simmetria da costruire, e la radice resta
+l'indirizzo che il dipartimento pubblica.
+
+### 4.1-ter Un museo sta in un posto solo *(2026-08-08)*
+
+Aggiungere un museo voleva dire posare due file in due cartelle diverse — il JSON in
+`server/src/data/museums/`, la SVG in `server/public/maps/` — e la copertina ne avrebbe
+aggiunta una terza. Ora **l'allestimento di un museo sono tre file omonimi in
+`server/public/allestimento/`**: `<Nome>.json`, `<Nome>.svg`, `<Nome>.jpg`.
+
+Il trasloco e' costato una riga di codice, e il motivo e' che `mapPath` era gia' fatto bene:
+e' una stringa **dichiarata nel JSON** che vale a un tempo come indirizzo HTTP e come percorso
+su disco — `svgGraph` la risolve contro `public/`, il navigator la chiede all'origine — e
+nessuno dei suoi trenta lettori aveva `/maps/` scritto dentro. Seed, `testers`, wayfinding,
+rotte e navigator sono rimasti intatti: e' cambiato `CONFIG_DIR` e sono cambiate quattro
+stringhe nei JSON.
+
+**Il formato dell'immagine non e' vincolato** — jpg, jpeg, png, webp — perche' `imagePath` e'
+*dichiarato* nel JSON e non dedotto da una convenzione: il curatore scrive come si chiama il
+suo file. Provato: png, webp e jpeg escono da `express.static` col loro `Content-Type` giusto.
+Il prezzo di una stringa scritta a mano e' che un ".jpg" scritto sopra un file salvato in .png
+non da' nessun errore e la carta torna al solo testo, cioe' allo stesso aspetto che ha un museo
+senza copertina; `testers.ts musei` percio' controlla che il file dichiarato esista davvero e
+lo dice, perche' dei due silenzi uno solo e' voluto. E quando il nome coincide ma l'estensione
+no — il caso normale, visto che `.jpg` e `.jpeg` sono lo stesso formato con due nomi e quale
+esca lo decide chi scarica — nomina **il file che c'e' sul disco**, cosi' l'avviso e' gia' la
+riga da scrivere. Non corregge il file: la configurazione e' un ingresso, e niente nel server
+la riscrive.
+
+`imagePath` e' il campo nuovo, **facoltativo**: senza, la carta del museo resta di solo testo.
+Pretenderlo vorrebbe dire che aggiungere un museo ha un requisito grafico, e la regola e' che
+ne abbia il meno possibile. La carta riusa la tessera delle visite — `.dissolvenza` piu' il
+titolo che risale dentro la sua coda — e il ripiego su `@error` copre il caso del file
+dichiarato ma assente.
+
+⚠️ **La cartella non si chiama `musei`, e non e' estetica.** `musei` e' anche il nome della
+schermata che sceglie il museo, e il server rimanda il guscio del marketplace agli indirizzi
+delle schermate: le due cose si sarebbero divise la stessa radice. Misurato prima di
+rinominare — `/musei/<Nome>.jpg` mancante rispondeva **200 con 143 KB di `index.html`** invece
+di 404, cioe' un'immagine rotta travestita da pagina buona, che e' proprio il difetto che la
+lista bianca di §4.1-bis esiste per evitare. Regola generale: **nessun nome di schermata puo'
+coincidere con una cartella sotto `server/public/`.**
+
+⚠️ **`mapPath` si copia nel documento al seed e poi non si rilegge piu'**, quindi spostare i
+file non basta: il database continua a chiedere la pianta all'indirizzo vecchio. Realinea
+`npx ts-node src/scripts/testers.ts musei`, che e' idempotente (seconda esecuzione: 0 cambiati)
+e non tocca nome, luogo e anno, che il curatore puo' aver corretto dopo il seed. Verificato:
+quattro musei riallineati, quattro piante ancora percorribili, `/allestimento/<Nome>.svg` 200
+con `image/svg+xml`, un `.jpg` mancante 404, e la carta che mostra la copertina quando c'e' e
+il solo testo quando non c'e'.
 
 ### 4.1 Chrome
 
@@ -1914,7 +2116,7 @@ altri due invariati, e la mista resta raggiungibile sotto `Misto`.
 | La durata era un filtro solo per due grandezze diverse | **contestuale**, come nel catalogo del curatore (§4.15): minuti per le visite, i due secondi veri (`secPerArt`) per le descrizioni, e su *Tutto* non compare, con una riga che dice perche' |
 
 I due indirizzi vecchi **rispondono ancora** e arrivano con la specie gia' scelta:
-`#/visite` apre la vetrina sulle visite, `#/opere` sulle opere. Erano scritti in giro per
+`/visite` apre la vetrina sulle visite, `/opere` sulle opere. Erano scritti in giro per
 l'app e in qualunque segnalibro, e un indirizzo che smette di funzionare rimanda alla soglia
 senza spiegare niente.
 
@@ -2177,7 +2379,7 @@ col suo nome; sullo schermo no.
 > italiano *curatela* è un istituto giuridico — l'amministrazione dei beni di un incapace, o
 > la procedura fallimentare — e non ha niente a che vedere con i musei. `curatore` invece è
 > il termine corretto e resta il nome del ruolo. Il vocabolario dell'interfaccia è parola
-> d'uso comune: `#/gestione`, «Gestione del museo».
+> d'uso comune: `/gestione`, «Gestione del museo».
 
 **`gestione`** — quattro cifre (opere, descrizioni, visite, visite guidate), poi la parte che
 serve davvero: **la copertura**. Una barra per tono, «quante opere hanno almeno una

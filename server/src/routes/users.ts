@@ -30,6 +30,7 @@ import { UserModel } from "../models/user";
 import { ItemModel } from "../models/item";
 import { conto } from "../pricing";
 import { VisitModel } from "../models/visit";
+import { SEED_AUTHOR } from "../../../shared/constants";
 
 const router = Router();
 
@@ -63,6 +64,16 @@ router.post("/register", async (req, res) => {
     const { username, password, role } = req.body;
     if (!username || !password || !isValidRole(role))
       return res.status(400).json({ error: "Dati di registrazione non validi" });
+
+    // Il museo firma i contenuti seminati con questo nome, e `isReadable` da'
+    // per letto a un autore quel che ha scritto lui: chi si registrasse cosi'
+    // si ritroverebbe gratis tutto il catalogo a pagamento, e in vetrina come
+    // suo. Il confronto ignora maiuscole e spazi perche' a decidere non e'
+    // l'ortografia ma chi si prende quei contenuti.
+    if (String(username).trim().toLowerCase() === SEED_AUTHOR.toLowerCase())
+      return res
+        .status(409)
+        .json({ error: `"${SEED_AUTHOR}" è riservato: scegli un altro username.` });
 
     const already = await UserModel.findOne({ username, role });
     if (already)

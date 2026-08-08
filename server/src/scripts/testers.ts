@@ -12,6 +12,11 @@
  *   npx ts-node src/scripts/testers.ts logistica
  *   npx ts-node src/scripts/testers.ts generi
  *   npx ts-node src/scripts/testers.ts mappe
+ *   npx ts-node src/scripts/testers.ts musei
+ *   npx ts-node src/scripts/testers.ts griglia
+ *   npx ts-node src/scripts/testers.ts private
+ *   npx ts-node src/scripts/testers.ts autore
+ *   npx ts-node src/scripts/testers.ts prezzi
  *   npx ts-node src/scripts/testers.ts percorso
  *   npx ts-node src/scripts/testers.ts miniature
  *   npx ts-node src/scripts/testers.ts buchi
@@ -19,6 +24,8 @@
  */
 
 import { MONGO_URI } from "../env";
+import fs from "fs";
+import path from "path";
 import mongoose from "mongoose";
 import { ItemModel } from "../models/item";
 import { VisitModel } from "../models/visit";
@@ -35,8 +42,50 @@ import {
   DEFAULT_LICENSE,
   educationalLevels,
   formatDuration,
+  secPerArt,
+  SEED_AUTHOR,
+  priceForTone,
 } from "../../../shared/constants";
 import { UserRole } from "../../../shared/types";
+
+/** La radice dei file serviti: `mapPath` e `imagePath` sono relativi a questa. */
+const PUBLIC_DIR = path.join(__dirname, "..", "..", "public");
+
+/**
+ * Che cosa non va in una copertina dichiarata, in una riga, oppure "" se va bene.
+ *
+ * I percorsi delle figure si scrivono a mano nel file di configurazione, e il
+ * modo in cui sbagliano quasi sempre e' l'ESTENSIONE: `.jpg` e `.jpeg` sono lo
+ * stesso formato con due nomi, e quale dei due esca dipende da chi ha scaricato
+ * il file, non da noi. Cercando lo stesso nome con un'altra estensione si passa
+ * da "manca" a "manca perche' l'hai chiamato cosi'", che e' la differenza fra
+ * un avviso e un'istruzione.
+ *
+ * Non si corregge il file da qui: la configurazione e' un INGRESSO, e niente nel
+ * server la riscrive (vedi la testa di `museumConfigs.ts`). Correggerla di
+ * nascosto vorrebbe dire che quel file non e' piu' la fonte di quel che si vede.
+ */
+function guaioCopertina(percorso: string): string {
+  if (fs.existsSync(path.join(PUBLIC_DIR, percorso))) return "";
+  const suDisco = path.join(PUBLIC_DIR, percorso);
+  const cartella = path.dirname(suDisco);
+  const nudo = path.basename(percorso, path.extname(percorso));
+  let omonimi: string[] = [];
+  try {
+    omonimi = fs
+      .readdirSync(cartella)
+      .filter((f) => f !== path.basename(percorso))
+      .filter((f) => path.basename(f, path.extname(f)) === nudo);
+  } catch {
+    // Cartella illeggibile: se ne lamenta gia' loadMuseumConfigs.
+  }
+  if (omonimi.length > 0)
+    return (
+      `dichiara ${percorso}, ma sul disco c'e' ${path.dirname(percorso)}/${omonimi[0]}` +
+      ` — cambia quella riga nel file di configurazione`
+    );
+  return `dichiara ${percorso}, ma quel file non c'e'`;
+}
 
 /** Oltre questo, due tappe consecutive non sono piu' un passo ma un ritorno. */
 const SALE_FRA_DUE_TAPPE = 2;
@@ -205,6 +254,297 @@ export async function migrateLogistics() {
   console.log(`Visite con note logistiche convertite: ${changed}.`);
 }
 
+/**
+ * Riporta nei documenti dei musei quel che dice oggi la loro configurazione:
+ * la pianta e la copertina.
+ *
+ * Serve perche' quei due campi si copiano nel documento al momento del seed e
+ * poi non si rileggono piu': cambiare `mapPath` nel JSON non tocca il database,
+ * e il museo continua a chiedere una pianta all'indirizzo vecchio. Non e' un
+ * guasto che si vede subito — la vetrina e il catalogo funzionano lo stesso —
+ * ma il navigator non disegna piu' la sala e il calcolo del percorso resta
+ * senza grafo.
+ *
+ * Non tocca nient'altro del museo: nome, luogo e anno restano quelli che ci
+ * sono, perche' li puo' aver corretti il curatore dopo il seed.
+ */
+export async function migrateMuseumPaths() {
+  let cambiati = 0;
+  for (const config of loadMuseumConfigs()) {
+    const museo = await MuseumModel.findOne({ qid: config.qid });
+    if (!museo) {
+      console.log(`  ${config.name}: non e' nel database, salto.`);
+      continue;
+    }
+    // Il file dichiarato e quello sul disco devono essere lo stesso, estensione
+    // compresa: `imagePath` si scrive a mano, e un ".jpg" scritto sopra un file
+    // salvato in .png non da' nessun errore — la carta del museo torna al solo
+    // testo, che e' esattamente quello che fa anche una copertina non messa.
+    // Dei due silenzi solo uno e' voluto, quindi l'altro si dice qui.
+    if (config.imagePath) {
+      const guaio = guaioCopertina(config.imagePath);
+      if (guaio)
+        console.log(`  ! ${config.name}: ${guaio}. La carta restera' di solo testo.`);
+    }
+    const vecchiaMappa = museo.mapPath || "";
+    const vecchiaCopertina = museo.imagePath || "";
+    const nuovaCopertina = config.imagePath || "";
+    if (vecchiaMappa === config.mapPath && vecchiaCopertina === nuovaCopertina)
+      continue;
+
+    museo.mapPath = config.mapPath;
+    museo.imagePath = nuovaCopertina;
+    await museo.save();
+    cambiati++;
+    console.log(
+      `  ${config.name}: mappa ${vecchiaMappa || "(vuota)"} -> ${config.mapPath}` +
+        `, copertina ${vecchiaCopertina || "(vuota)"} -> ${nuovaCopertina || "(vuota)"}`,
+    );
+  }
+  console.log(`Musei riallineati alla configurazione: ${cambiati}.`);
+  await migrateVisitCovers();
+}
+
+/**
+ * Porta nelle visite seminate la copertina che il file di configurazione da' al
+ * loro tono.
+ *
+ * Le assegna anche il seed, ma il seed rifa' i testi: cambiare una figura non
+ * puo' costare un giro di chiamate al modello, quindi la stessa assegnazione
+ * vive anche qui. Tocca solo le visite di catalogo — quelle che il seed genera,
+ * riconoscibili dall'`@id` — e lascia stare quelle composte dagli autori, che
+ * la copertina se la scelgono caricandola.
+ */
+async function migrateVisitCovers() {
+  let cambiate = 0;
+  for (const config of loadMuseumConfigs()) {
+    const copertine = config.visitImages;
+    if (!copertine) continue;
+    for (const tono of Object.keys(copertine)) {
+      const guaio = guaioCopertina(copertine[tono]);
+      if (guaio) console.log(`  ! ${config.name} / ${tono}: ${guaio}.`);
+      const esito = await VisitModel.updateMany(
+        { "@id": new RegExp(`^visit-${config.qid}-${tono}-`), level: tono },
+        { $set: { imagePath: copertine[tono] } },
+      );
+      cambiate += esito.modifiedCount;
+    }
+  }
+  console.log(`Visite di catalogo con la copertina del loro tono: ${cambiate}.`);
+}
+
+/**
+ * Se il seed ha davvero prodotto tutta la griglia: per ogni opera attiva di ogni
+ * museo, un contenuto per OGNI tono e OGNI durata.
+ *
+ * Il seed e' interrompibile e riprendibile, quindi la domanda "e' finito?" non
+ * ha risposta guardandolo girare: la risposta e' qui, ed e' un conteggio. Le
+ * opere si dividono in tre, e la terza colonna e' quella che conta: un'opera a
+ * meta' griglia vuol dire un seed caduto in mezzo a quell'opera, ed e' l'unico
+ * caso in cui rilanciare non basta — quella va rifatta con `--force`.
+ *
+ * Conta i contenuti di `sistema`, non tutti: quelli scritti dagli autori vivono
+ * sulle stesse opere ma non devono coprire nessuna griglia.
+ */
+export async function checkItemGrid() {
+  const durate = secPerArt.map((d) => `${d}`);
+  const attesiPerOpera = educationalLevels.length * secPerArt.length;
+
+  for (const config of loadMuseumConfigs()) {
+    const uri = `http://www.wikidata.org/entity/${config.qid}`;
+    const items = await ItemModel.find({
+      kind: "opera",
+      author: SEED_AUTHOR,
+      ofMuseum: uri,
+    }).select("about educationalLevel timeRequired");
+
+    const visti = new Set(
+      items.map(
+        (i: any) => `${i.about}|${i.educationalLevel}|${i.timeRequired}`,
+      ),
+    );
+
+    const complete: string[] = [];
+    const parziali: { qid: string; n: number }[] = [];
+    const assenti: string[] = [];
+    // Le caselle riempite si contano SULLE OPERE ATTIVE, non sui contenuti che
+    // stanno nel database: se un'opera esce da `activeArtworks` i suoi contenuti
+    // restano li', e sommarli direbbe "non manca niente" mentre in vetrina
+    // mancano opere intere.
+    let riempite = 0;
+    for (const qid of config.activeArtworks) {
+      let n = 0;
+      for (const tono of educationalLevels) {
+        for (const durata of durate) {
+          if (visti.has(`http://www.wikidata.org/entity/${qid}|${tono}|${durata}`))
+            n++;
+        }
+      }
+      riempite += n;
+      if (n === attesiPerOpera) complete.push(qid);
+      else if (n === 0) assenti.push(qid);
+      else parziali.push({ qid, n });
+    }
+
+    const attesi = config.activeArtworks.length * attesiPerOpera;
+    const orfani = items.length - riempite;
+    console.log(
+      `\n${config.name} — ${config.activeArtworks.length} opere attive, ` +
+        `${educationalLevels.length} toni x ${secPerArt.length} durate = ${attesi} contenuti attesi`,
+    );
+    console.log(
+      `  complete ${complete.length}   parziali ${parziali.length}   assenti ${assenti.length}` +
+        `   (caselle riempite ${riempite}/${attesi}, ne mancano ${attesi - riempite})`,
+    );
+    if (orfani > 0)
+      console.log(
+        `  ${orfani} contenuti di opere non piu' in activeArtworks: restano nel ` +
+          `database e non si vedono in vetrina.`,
+      );
+    if (parziali.length > 0) {
+      console.log(
+        `  ! ${parziali.length} opere a meta' griglia: ` +
+          parziali.slice(0, 8).map((p) => `${p.qid}=${p.n}/${attesiPerOpera}`).join(", "),
+      );
+      console.log(
+        `    Rilanciare il seed NON le completa: sono opere che il catalogo da' per fatte.` +
+          `\n    Esegui:  npx ts-node src/scripts/seed.ts ${config.qid} --force`,
+      );
+    }
+    if (assenti.length > 0) {
+      console.log(
+        `  ${assenti.length} opere ancora da fare: ` +
+          assenti.slice(0, 8).join(", ") +
+          (assenti.length > 8 ? " …" : ""),
+      );
+      console.log(
+        `    Esegui:  npx ts-node src/scripts/seed.ts ${config.qid}` +
+          `   (il seed stampa la sua stima mentre gira)`,
+      );
+    }
+    if (parziali.length === 0 && assenti.length === 0)
+      console.log("  griglia completa.");
+  }
+  console.log("");
+}
+
+/**
+ * Chiude le visite composte da chi non e' autore.
+ *
+ * Da oggi la visibilita' si scrive alla creazione (`POST /visits`), ma le visite
+ * gia' nel database non ce l'hanno e valgono percio' pubbliche: l'itinerario che
+ * un visitatore aveva composto per se' e' rimasto in vetrina a tutti. Qui si
+ * guarda il RUOLO DI OGGI di chi l'ha scritta, che per una visita gia' esistente
+ * e' l'unica informazione disponibile.
+ *
+ * Non tocca le visite seminate (autore `sistema`) ne' quelle di un autore: le
+ * prime sono il catalogo, le seconde sono in vendita.
+ */
+export async function migrateVisitVisibility() {
+  const visits = await VisitModel.find({ visibility: { $ne: "privato" } });
+  let chiuse = 0;
+  for (const v of visits) {
+    if (!v.author || v.author === SEED_AUTHOR) continue;
+    const account = await UserModel.findOne({ username: v.author });
+    if (!account) {
+      console.log(`  ${v["@id"]}: autore "${v.author}" non e' un account, salto.`);
+      continue;
+    }
+    if (account.role === "autore") continue;
+    v.visibility = "privato";
+    await v.save();
+    chiuse++;
+    console.log(
+      `  ${v["@id"]}: composta da ${v.author} (${account.role}) -> privata.`,
+    );
+  }
+  console.log(`Visite passate a privata: ${chiuse}.`);
+
+  // Le altre si scrivono "pubblico" per esteso. Funzionerebbero anche senza —
+  // i filtri chiedono `$ne: "privato"` proprio per non dipendere da un campo che
+  // le visite piu' vecchie non hanno — ma restare senza vorrebbe dire due modi
+  // di dire la stessa cosa, di cui uno invisibile: chi un giorno cercasse
+  // `{visibility: "pubblico"}` per avere il catalogo si troverebbe con zero
+  // risultati e nessun errore. Il seed da solo non le sistema: `insertVisit` e'
+  // un upsert, e su un documento che esiste gia' i valori di default non
+  // scattano.
+  const esito = await VisitModel.updateMany(
+    { visibility: { $exists: false } },
+    { $set: { visibility: "pubblico" } },
+  );
+  console.log(`Visite senza il campo, ora esplicitamente pubbliche: ${esito.modifiedCount}.`);
+}
+
+/**
+ * Da `sistema` a `Museo` nel nome dell'autore dei contenuti seminati.
+ *
+ * ⚠️ **Va eseguita PRIMA del prossimo seed.** Il seed riconosce quel che ha gia'
+ * scritto cercando `author: SEED_AUTHOR`: finche' nel database c'e' ancora
+ * "sistema" non trova niente, e rigenera da capo ogni descrizione — migliaia di
+ * chiamate al modello, e altrettanti documenti doppi.
+ *
+ * Non tocca gli `@id`, che restano `…-sistema-…`: sono indirizzi permanenti a
+ * cui puntano le tappe delle visite e le librerie (vedi `SEED_ID_TOKEN`).
+ */
+export async function migrateSeedAuthor() {
+  const vecchio = "sistema";
+  const item = await ItemModel.updateMany(
+    { author: vecchio },
+    { $set: { author: SEED_AUTHOR } },
+  );
+  const visite = await VisitModel.updateMany(
+    { author: vecchio },
+    { $set: { author: SEED_AUTHOR } },
+  );
+  console.log(
+    `Autore dei contenuti seminati "${vecchio}" -> "${SEED_AUTHOR}": ` +
+      `${item.modifiedCount} contenuti, ${visite.modifiedCount} visite.`,
+  );
+  const rimasti = await ItemModel.countDocuments({ author: vecchio });
+  if (rimasti > 0) console.log(`  ! ne restano ${rimasti} col nome vecchio.`);
+}
+
+/**
+ * Riporta i prezzi del catalogo del museo sul listino per tono.
+ *
+ * I contenuti seminati prima avevano un prezzo estratto a sorte: due
+ * descrizioni della stessa opera potevano costare 5 e 30 centesimi senza che la
+ * differenza volesse dire niente. Ora il prezzo segue il tono (`priceByTone`), e
+ * questa funzione riscrive quel che c'e' gia'.
+ *
+ * Tocca SOLO quel che ha scritto il museo: i contenuti degli autori hanno il
+ * prezzo che ha deciso il loro autore, e non e' cosa nostra.
+ *
+ * ⚠️ Non restituisce e non ritira niente a chi ha gia' comprato: un acquisto e'
+ * gia' avvenuto, e il portafoglio non si ricalcola all'indietro. Cambia quanto
+ * costera' da adesso — compreso il totale delle visite, che si somma sulle
+ * tappe non possedute.
+ */
+export async function migrateSeedPrices() {
+  const prima = await ItemModel.aggregate([
+    { $match: { author: SEED_AUTHOR } },
+    { $group: { _id: "$price", n: { $sum: 1 } } },
+    { $sort: { _id: 1 } },
+  ]);
+  console.log(
+    "  prezzi prima: " +
+      prima.map((r: any) => `${r._id}€ x${r.n}`).join(", "),
+  );
+
+  let cambiati = 0;
+  for (const tono of educationalLevels) {
+    const esito = await ItemModel.updateMany(
+      { author: SEED_AUTHOR, educationalLevel: tono, price: { $ne: priceForTone(tono) } },
+      { $set: { price: priceForTone(tono) } },
+    );
+    cambiati += esito.modifiedCount;
+    console.log(
+      `  ${tono.padEnd(10)} -> ${priceForTone(tono).toFixed(2)}€   (${esito.modifiedCount} riscritti)`,
+    );
+  }
+  console.log(`Contenuti del museo riprezzati: ${cambiati}.`);
+}
+
 export async function requiredAccounts() {
   const users: { username: string; role: UserRole }[] = [
     { username: "autore1", role: "autore" },
@@ -339,7 +679,7 @@ async function migrateUnknowns() {
  * per cambiare un campo.
  */
 async function migrateLicenses() {
-  const generati = { author: "sistema" };
+  const generati = { author: SEED_AUTHOR };
   const prima = await ItemModel.distinct("license", generati);
   const r = await ItemModel.updateMany(
     { ...generati, license: { $ne: DEFAULT_LICENSE } },
@@ -349,7 +689,7 @@ async function migrateLicenses() {
   console.log(`  prima: ${prima.map((l) => JSON.stringify(l)).join(" | ")}`);
   console.log(`  ora:   ${JSON.stringify(DEFAULT_LICENSE)}`);
 
-  const altrui = await ItemModel.distinct("license", { author: { $ne: "sistema" } });
+  const altrui = await ItemModel.distinct("license", { author: { $ne: SEED_AUTHOR } });
   console.log(`Licenze dei contenuti d'autore, non toccate: ${altrui.length === 0 ? "(nessun contenuto d'autore)" : altrui.join(" | ")}`);
 }
 
@@ -634,6 +974,11 @@ const COMMANDS: Record<string, () => Promise<void>> = {
   licenze: migrateLicenses,
   account: requiredAccounts,
   mappe: checkMaps,
+  musei: migrateMuseumPaths,
+  griglia: checkItemGrid,
+  private: migrateVisitVisibility,
+  autore: migrateSeedAuthor,
+  prezzi: migrateSeedPrices,
   percorso: migrateVisitOrder,
   miniature: migrateThumbs,
   async tutto() {
@@ -642,6 +987,10 @@ const COMMANDS: Record<string, () => Promise<void>> = {
     await migrateLogistics();
     await migrateKinds();
     await migrateUnknowns();
+    await migrateMuseumPaths();
+    await migrateVisitVisibility();
+    await migrateSeedAuthor();
+    await migrateSeedPrices();
     await migrateVisitOrder();
     await migrateThumbs();
     await requiredAccounts();

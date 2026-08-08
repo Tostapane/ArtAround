@@ -23,6 +23,7 @@ const museumSchema = new Schema<IMuseum>({
   created: String,
   location: String,
   mapPath: String,
+  imagePath: String,
 });
 
 export const MuseumModel = model<IMuseum>("Museum", museumSchema);

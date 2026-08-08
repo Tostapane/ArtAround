@@ -3,7 +3,14 @@
   "name": "British Museum",
   "location": "Camden",
   "created": "1753",
-  "mapPath": "/maps/British Museum.svg",
+  "mapPath": "/allestimento/British Museum.svg",
+  "imagePath": "/allestimento/British Museum.jpeg",
+  "visitImages": {
+    "Infantile": "/allestimento/British Museum - Infantile.jpg",
+    "Semplice": "/allestimento/British Museum - Semplice.jpg",
+    "Medio": "/allestimento/British Museum - Medio.jpg",
+    "Avanzato": "/allestimento/British Museum - Avanzato.jpg"
+  },
   "activeArtworks": [
     "Q137925932",
     "Q110812274",

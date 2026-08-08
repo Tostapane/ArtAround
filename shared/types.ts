@@ -66,6 +66,12 @@ export interface Museum {
   location: string;
   mapPath: string;
   /**
+   * La copertina che il curatore sceglie per il suo museo, mostrata sulla carta
+   * con cui lo si sceglie. Facoltativa: senza, la carta resta di solo testo —
+   * aggiungere un museo non deve avere un requisito grafico.
+   */
+  imagePath?: string;
+  /**
    * Quante opere e quante visite in vetrina ha il museo. Li conta il server,
    * perche' il client scarica il catalogo di UN museo alla volta e quindi non
    * potrebbe piu' contare quelli che non ha scaricato.
@@ -142,6 +148,16 @@ export interface Visit {
   /** Una stringa nuda vale come nota d'apertura, senza ancoraggio a una tappa. */
   logistics: (string | LogisticNote)[];
   author?: string;
+  /**
+   * "privato": fuori dal catalogo e non vendibile, la vede solo chi l'ha
+   * composta. E' lo stato delle visite che nascono da un visitatore, che
+   * compone un itinerario per se' e non un prodotto da mettere in vendita —
+   * vendere e' il mestiere dell'autore (slide 22: licenza, prezzo, adozioni,
+   * vendite). Si scrive alla creazione e non si ricava dal ruolo a ogni
+   * lettura: un ruolo puo' cambiare, e chi diventasse autore domani si
+   * ritroverebbe pubblicati gli itinerari che aveva scritto per se'.
+   */
+  visibility?: "pubblico" | "privato";
   accessKey?: string;
   quiz?: QuizQuestion[];
   /*

@@ -3,7 +3,14 @@
   "name": "Galleria degli Uffizi",
   "location": "Firenze",
   "created": "1581",
-  "mapPath": "/maps/Galleria degli Uffizi.svg",
+  "mapPath": "/allestimento/Galleria degli Uffizi.svg",
+  "imagePath": "/allestimento/Galleria degli Uffizi.jpeg",
+  "visitImages": {
+    "Infantile": "/allestimento/Galleria degli Uffizi - Infantile.jpeg",
+    "Semplice": "/allestimento/Galleria degli Uffizi - Semplice.jpg",
+    "Medio": "/allestimento/Galleria degli Uffizi - Medio.jpeg",
+    "Avanzato": "/allestimento/Galleria degli Uffizi - Avanzato.jpg"
+  },
   "logistics": [
     "L'ingresso e' da Piazzale degli Uffizi 6, sotto il porticato di levante: il biglietto va ritirato al banco dell'Atrio anche se e' stato comprato prima.",
     "Il guardaroba e' gratuito ed e' obbligatorio per zaini e ombrelli; si trova al piano terra, lungo il Portico di Levante.",

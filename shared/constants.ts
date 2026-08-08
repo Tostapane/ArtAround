@@ -46,6 +46,34 @@ export const educationalLevelHints: Record<string, string> = {
 export const educationalLevels = Object.keys(educationalLevelHints);
 
 /**
+ * Quanto costa una descrizione seminata dal museo, in euro, secondo il TONO.
+ *
+ * Il prezzo segue la profondita' e non il caso: i due toni divulgativi sono
+ * gratuiti — chi entra per la prima volta, e i bambini, non incontrano un
+ * listino — e si paga la competenza, poco per il pubblico curioso e un po' di
+ * piu' per il lessico specialistico. Un catalogo cosi' mostra tutte e tre le
+ * situazioni che servono a far vedere il commercio: contenuti gratis, contenuti
+ * a pagamento, e visite che mescolano gli uni e gli altri.
+ *
+ * Sta accanto ai toni perche' e' una riga per tono, come `educationalLevelHints`:
+ * aggiungerne uno vuol dire aggiungere una riga anche qui. Chi non la trovasse
+ * resta GRATIS — `priceForTone` sotto — perche' fra i due errori possibili far
+ * pagare per distrazione e' quello che nessuno perdona.
+ */
+export const priceByTone: Record<string, number> = {
+  Infantile: 0,
+  Semplice: 0,
+  Medio: 0.15,
+  Avanzato: 0.25,
+};
+
+export function priceForTone(tone: string): number {
+  const prezzo = priceByTone[tone];
+  if (typeof prezzo !== "number") return 0;
+  return prezzo;
+}
+
+/**
  * Durate di una singola descrizione usate da seed e pianificatore, in secondi.
  *
  * ⚠️ Il costo del seed e' opere x toni x durate, e ogni item e' una chiamata al
@@ -445,3 +473,96 @@ export function formatDuration(totalSeconds: number): string {
  * ha dichiarato, quindi il numero deve essere uno solo.
  */
 export const WORDS_PER_MINUTE = 100;
+
+// ============================================================================
+//                       Le schermate del marketplace
+// ============================================================================
+
+/**
+ * I nomi di schermata che compaiono nell'indirizzo del marketplace.
+ *
+ * Stanno fra le costanti condivise, e non nel router che li consuma, perche' a
+ * riconoscerli sono DUE processi: il router del browser, per sapere quale
+ * schermata disegnare, e il server, per sapere che `/vetrina` non e' un file
+ * mancante ma una schermata da aprire. Se i due elenchi divergessero non ne
+ * uscirebbe un errore ma un indirizzo che funziona cliccandolo e da' 404
+ * ricaricandolo, cioe' il difetto che si nota solo davanti alla commissione.
+ *
+ * `avvio` non e' qui: e' lo stato di chi non ha ancora letto la sessione, non
+ * una schermata a cui si arriva da un indirizzo.
+ *
+ * Sono in italiano di proposito (guidelines.md §3): un indirizzo e' superficie
+ * utente, e questa applicazione parla italiano.
+ *
+ * ⚠️ Un nome qui dentro non puo' coincidere con una cartella sotto
+ * `server/public/`: il server rimanda il guscio del marketplace a questi
+ * indirizzi, e la schermata si mangerebbe i file mancanti di quella cartella,
+ * rispondendo 200 con dentro `index.html` invece di un 404. E' il motivo per cui
+ * l'allestimento dei musei non sta in `public/musei/`.
+ *
+ * ⚠️ `as const` non e' decorativo: da qui il marketplace RICAVA il tipo `View`
+ * (`"avvio" | (typeof marketplaceViews)[number]`). Aggiungere una schermata si
+ * fa quindi in un posto solo, e toglierne una accende un errore di compilazione
+ * in ogni punto che la nomina. Senza, i due elenchi sarebbero da tenere
+ * allineati a mano e il giorno che divergono non protesta niente: la schermata
+ * esiste, ma il suo indirizzo apre la soglia e ricaricando da' 404.
+ */
+export const marketplaceViews = [
+  "soglia",
+  "accedi",
+  "registrati",
+  "musei",
+  "home",
+  "vetrina",
+  "opera",
+  "visita",
+  "libreria",
+  "componi",
+  "sumisura",
+  "nuovo",
+  "lavori",
+  "vendite",
+  "gestione",
+  "catalogo",
+] as const;
+
+/**
+ * Nomi che portano alla vetrina scegliendo cosa mostrarci. Erano due schermate
+ * separate e oggi sono una sola con un filtro; restano riconosciuti perche' un
+ * indirizzo gia' scritto da qualche parte non deve diventare una pagina persa.
+ */
+export const marketplaceLegacyViews = ["visite", "opere"] as const;
+
+// ============================================================================
+//                        Chi firma quel che semina il museo
+// ============================================================================
+
+/**
+ * Il nome che compare come autore dei contenuti generati dal seed.
+ *
+ * E' insieme un'etichetta e una CHIAVE: si legge a schermo sotto ogni
+ * descrizione del catalogo, e i comandi di `testers.ts` ci filtrano sopra per
+ * distinguere quel che ha scritto il museo da quel che hanno scritto gli autori
+ * (la griglia dei toni, le licenze, la visibilita'). Sta qui e non ripetuto in
+ * cinque punti perche' cambiarlo va fatto in un colpo solo: cambiarlo a meta'
+ * non da' errore, fa sparire i contenuti dai conteggi.
+ *
+ * ⚠️ Non deve esistere un account con questo nome. `isReadable` da' per letto
+ * un contenuto a chi ne e' l'autore, quindi chi si registrasse cosi' si
+ * ritroverebbe gratis tutto il catalogo a pagamento; per questo la
+ * registrazione lo rifiuta.
+ */
+export const SEED_AUTHOR = "Museo";
+
+/**
+ * Il pezzo che compare dentro l'`@id` dei contenuti seminati
+ * (`Q3698238-sistema-Infantile-15`). E' CONGELATO e non segue `SEED_AUTHOR`.
+ *
+ * Un `@id` e' un indirizzo permanente: le visite ci puntano in
+ * `itemListElement` e le librerie in `collezione`, per valore. Rinominarlo
+ * vorrebbe dire riscrivere anche quelle due, e nel mezzo ogni tappa e ogni
+ * acquisto resterebbe appeso a un contenuto che non esiste piu' — un prezzo
+ * altissimo per cambiare una parola che nessuno legge, perche' l'`@id` non si
+ * mostra da nessuna parte. Il nome dell'autore invece si vede, e quello cambia.
+ */
+export const SEED_ID_TOKEN = "sistema";
