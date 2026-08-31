@@ -115,7 +115,8 @@ node -e "require('net').connect(27017,'mongo_site252627').on('connect',()=>conso
 Se risponde `NO`, la strada e' far girare lo script **dentro** un container, che e' quel che
 gocker sa fare: un file alla radice di `html/` e `start node-22 site252627 <file>.js`. La
 cartella e' la stessa che vede il server, quindi il file lo si scrive da qui e si committa
-come qualunque altro.
+come qualunque altro. Per le migrazioni quel file esiste gia' ed e' `deploy-db.js`; per un
+comando diverso da quelli di serie gli si passa il nome (`... deploy-db.js percorso`).
 
 ⚠️ **Verificare presto se il container esce su internet.** Gemini, le tre API Google
 (riconoscimento, sintesi, traduzione) e Wikidata stanno fuori. Se il cluster non lascia
@@ -153,11 +154,10 @@ npm run build        # solo se sono cambiati navigator o marketplace
 
 Se `node` non c'e' sulla macchina nuda, il `build` passa dal container come il primo giorno:
 `start node-22 site252627 deploy-build.js`. **Si rilancia tale e quale**, non solo al primo
-deploy: riconosce le dipendenze gia' installate confrontando l'impronta del `package-lock.json`
-e salta quelle immutate, quindi su un aggiornamento normale fa solo le due compilazioni.
-Ricompilare sempre e' voluto — un `dist/` saltato e' il difetto che si debugga una settimana
-dopo. ⚠️ Ricordarsi che occupa **lo slot node del sito**: spegnere il server, buildare,
-riaccendere.
+deploy: reinstalla le dipendenze, rifa' le due compilazioni e ricostruisce `sources/`. La
+reinstallazione e' la parte lenta e quasi sempre inutile, ma un `npm install` di troppo costa
+minuti e uno di meno costa un `tsc: not found` a meta' del passo dopo. ⚠️ Ricordarsi che
+occupa **lo slot node del sito**: spegnere il server, buildare, riaccendere.
 
 `nodemon` riavvia da se' quando cambia `server/src`, e **non** quando cambia un `dist/`:
 `nodemon.json` gli fa guardare solo il codice. E' anche il motivo per cui il caricamento
@@ -188,6 +188,17 @@ cd server && npx ts-node src/scripts/testers.ts mappe    # le piante si camminan
 cd server && npx ts-node src/scripts/testers.ts griglia  # la griglia toni x durate e' completa?
 ```
 
+In laboratorio quei cinque comandi **non si lanciano cosi'**: la shell di ssh non e' dentro il
+cluster e Mongo non risponde. Ci pensa `deploy-db.js`, che e' per gli script quel che `index.js`
+e' per il server, e senza argomenti fa esattamente quell'elenco in quell'ordine:
+
+```bash
+(gocker): start node-22 site252627 deploy-db.js
+(gocker): logs site252627
+```
+
+Occupa **lo slot node** come il build: spegnere il server, lanciarlo, riaccendere.
+
 Sono tutte idempotenti: rilanciarle non fa danni, e le prime tre stampano `0` quando non
 c'e' piu' niente da fare. ⚠️ **`autore` va eseguita prima di qualunque seed successivo**: il
 seed riconosce quel che ha gia' scritto cercando l'autore, e finche' nel database c'e' il nome
@@ -215,6 +226,7 @@ cambia in `.env`** per questo aggiornamento: `PORT` e `NAVIGATOR_ORIGIN` restano
 | entra e apri una visita | finisce su `/navigator/?museum=…&visit=…` |
 | console del browser | nessuna richiesta a `:5173` o `:8000`, nessun avviso di contenuto misto |
 | `/allestimento/…svg` e `/images/artworks/…jpg` | 200 |
+| `/sources/` | l'elenco dei sorgenti. Un **404** vuol dire che `deploy-build.js` non e' stato rilanciato dopo l'aggiornamento: la cartella la costruisce lui, e non e' nel repository |
 | «Parla» | funziona: https e' un contesto sicuro |
 
 Log: `logs site252627` da gocker, oppure `/home/web/site252627/log/`.
@@ -249,6 +261,8 @@ Log: `logs site252627` da gocker, oppure `/home/web/site252627/log/`.
   puntano ancora a `/maps/…`. Succede dopo aver aggiornato senza aver lanciato
   `testers.ts musei`, o dopo aver ripristinato un dump vecchio. Si vede subito: la carta del
   museo si apre, la visita parte, e la sala resta vuota.
+- **`/sources` da' 404** → la cartella non c'e': la scrive `deploy-build.js` in coda al build,
+  quindi e' un build saltato. Non e' un guasto del sito, ma la consegna la chiede.
 - **Il tasto "indietro" non esce piu' da una schermata** → e' il caso che `redirectTo()` esiste
   per evitare (una correzione di rotta che si impila invece di sostituire). Se ricompare,
   qualcuno ha rimesso `goTo()` in una delle tre guardie: `state.md` §4.1-bis.
