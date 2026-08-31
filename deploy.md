@@ -14,7 +14,7 @@ In locale il browser parla con **tre** cose: Vite (`:5173`), Express (`:8000`) e
 | marketplace | Express `:8000` | Express, stessa origine |
 | API | `http://host:8000/api` | `/api`, stessa origine |
 | Mongo | `localhost:27017` | `mongo_site252627:27017`, **solo da dentro il cluster** |
-| porta di Express | 8000 | **3000**, che e' quella che gocker pubblica: `PORT` in `server/.env` |
+| porta di Express | 8000 | **8000**, la stessa: e' il container che esporta `PORT=8000`, ed e' quella che il proxy pubblica. Non va scritta da nessuna parte |
 | https | no | si', e **non lo impostiamo noi**: lo termina il proxy del dipartimento davanti al container, che parla in chiaro col nostro processo |
 
 Conseguenza da sapere: marketplace e navigator finiscono sulla **stessa origine**, quindi
@@ -73,18 +73,22 @@ fra le `dependencies` del server, applicato all'altra meta' del lavoro.
 sopravvive a ogni `git pull`:
 
 ```
-PORT=3000
 MONGO_URI=mongodb://site252627:LA_PASSWORD@mongo_site252627:27017/site252627?authSource=admin
 NAVIGATOR_ORIGIN=https://site252627.tw.cs.unibo.it/navigator
 GEMINI_API_KEY=…
 GOOGLE_API_KEY=…
 ```
 
-`PORT` **e' la riga che decide se il sito risponde**: gocker pubblica una porta sola per
-sito e pretende che lo script si metta in ascolto proprio li' (il numero lo dice il suo
-banner d'accesso, ed e' 3000). Senza, il server parte sulla 8000 come in sviluppo, non
-sbaglia niente e non dice niente: davanti c'e' un proxy che bussa dove non c'e' nessuno.
+**`PORT` non va messa**, ed e' l'errore che questo file ha insegnato per tre settimane.
+Il container esporta gia' `PORT=8000`: e' cosi' che dice allo script dove mettersi in
+ascolto, ed e' la porta che il proxy pubblica. Scrivere `PORT=3000` nel file porta a un
+**502**, cioe' il proxy che trova il container acceso e nessuno in ascolto dove bussa.
 Il codice legge `process.env.PORT` e ripiega su 8000, quindi in locale non cambia niente.
+
+Da `cc7aae2` **quel che dice il file vince su quel che dice l'ambiente** (`server/src/env.ts`):
+dotenv, da solo, non sovrascrive una variabile gia' presente, ed e' il motivo per cui una
+riga `PORT` scritta li' sembrava non avere alcun effetto. Ora l'ha, il che vuol dire che
+scriverla sbagliata fa danno: se non c'e' una ragione precisa, non si tocca.
 
 La password e' quella che ha stampato `start mongo site252627`. **Il resto della riga non
 va indovinato**: l'applicazione d'esempio di Company resta sul disco dopo il clone (passo 1)
@@ -197,13 +201,15 @@ Vale la nota del passo 4 del primo deploy: se la shell non e' dentro il cluster,
 raggiunge e questi due comandi vanno fatti girare in un container.
 
 `server/.env` e i `dist/` sono in `.gitignore`, quindi un `git pull` non li tocca mai. **Niente
-cambia in `.env`** per questo aggiornamento: `PORT` e `NAVIGATOR_ORIGIN` restano quelli.
+cambia in `.env`** per questo aggiornamento: `NAVIGATOR_ORIGIN` resta quello, e `PORT` non
+c'e' e non ci va.
 
 ## Controlli, in quest'ordine
 
 | | atteso |
 | --- | --- |
-| i log all'avvio | `on port 3000`. Se dice 8000, manca `PORT` e il resto della tabella non ha senso di essere provato |
+| l'**ora** di `log/lastout` | e' di adesso. Se e' vecchia, quel che c'e' scritto sotto e' di un processo di ore fa e non dice niente su questo avvio: e' il primo controllo, prima di leggere qualunque riga |
+| i log all'avvio | `on port 8000` |
 | `/api/health` | `{"message":"Unified Backend running"}` |
 | `/` | la soglia del marketplace, con lo sciame che compone le opere |
 | `/api/config` | `navigatorOrigin` col tuo indirizzo https, sei `thresholdArtworks` |
@@ -221,9 +227,25 @@ Log: `logs site252627` da gocker, oppure `/home/web/site252627/log/`.
 
 ## Le cose che si rompono, e perche'
 
-- **Il sito non risponde affatto, e i log non dicono niente di sbagliato** → manca `PORT=3000`
-  in `server/.env`. Il processo e' vivo e in ascolto, ma su una porta che nessuno pubblica.
-  Nei log si legge `ArtAround Unified Backend on port 8000`: e' quello il segnale.
+- **`503` contro `502`**, ed e' la distinzione che fa risparmiare ore. **503**: non c'e'
+  nessun container acceso — il proxy non trova niente dietro di se'. **502**: il container
+  c'e' e nessuno ascolta dove il proxy bussa, cioe' una porta sbagliata (`PORT` in `.env`,
+  che non ci va: la esporta il container).
+- **`start` non fa niente e non lo dice.** Se un container del sito c'e' gia', `start` torna
+  al prompt senza un messaggio e senza avviare nulla: si continua a leggere il log del
+  processo di prima, che dice cose giuste su un avvio vecchio. **Guardare l'ORA di
+  `log/lastout` prima del testo** e' l'unico modo di accorgersene. Al contrario, dopo uno
+  `stop` (che stampa "Site removed") capita che il `start` seguente non prenda: la coppia che
+  rimette in piedi il sito e' `start mongo <sito>` e poi `start node-22 <sito> index.js`.
+- **`logs` e `list` non dicono lo stato.** `logs` si attacca solo a un container vivo e
+  risponde `No such service` quando e' morto — che e' un'informazione, ma arriva uguale
+  quando `start` non ha fatto niente; `list` elenca i siti che possiedi, non quel che gira.
+  Lo stato vero sono l'ora di `log/lastout` e `log/lasterr`, che sopravvivono al container.
+- **Il server non parte e nei log c'e' `Cannot find module 'X'`** → `node_modules` sulla
+  macchina e' anteriore all'ultima dipendenza aggiunta. `ts-node` compila all'avvio, quindi
+  una dipendenza mancante non e' un difetto a runtime: e' un server che non parte affatto.
+  Si risolve solo rilanciando `deploy-build.js`, ed e' il motivo per cui va rilanciato a ogni
+  aggiornamento e non solo quando cambia il frontend.
 - **`tsc: not found` / `vite: not found` durante `npm run build`** → le devDependencies non
   sono state installate. `npm run setup` le chiede esplicitamente; se qualcuno ha installato
   a mano con `--omit=dev` o con `NODE_ENV=production`, rifare `npm run setup`.
