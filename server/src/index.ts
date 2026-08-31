@@ -24,6 +24,10 @@
  *
  * Le scelte incorporate nella catena dei middleware, nell'ordine in cui compaiono:
  *
+ *   compression   il catalogo di un museo grande e' JSON molto ripetitivo (le
+ *                 stesse licenze, gli stessi livelli, lo stesso museo su
+ *                 migliaia di descrizioni): comprimerlo lo riduce di oltre
+ *                 trenta volte, senza toccare ne' rotte ne' client.
  *   resolveSession legge il biglietto se c'e' e non rifiuta niente: a rifiutare
  *                 e' requireSession, rotta per rotta.
  *   /images       cache lunga e immutabile: il nome di un'immagine E' la sua
@@ -71,6 +75,7 @@ import mongoose from "mongoose";
 import path from "path";
 import fs from "fs";
 import cors from "cors";
+import compression from "compression";
 
 import { resolveSession, requireSession } from "./session";
 import artworkRoutes from "./routes/artworks";
@@ -93,6 +98,7 @@ const app = express();
 const PORT = Number(process.env.PORT) || 8000;
 
 app.use(cors());
+app.use(compression());
 app.use(express.json());
 
 app.use("/api", resolveSession);
