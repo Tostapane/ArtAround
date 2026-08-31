@@ -51,18 +51,23 @@ export async function appartieneAlMuseo(
   museumQid: string,
 ): Promise<boolean> {
   const query = `ASK { wd:${artworkQid} wdt:P195/wdt:P361* wd:${museumQid} }`;
-  const url = "https://query.wikidata.org/sparql?query=" + encodeURIComponent(query);
+  const url =
+    "https://query.wikidata.org/sparql?query=" + encodeURIComponent(query);
   try {
-    const data = await conTentativi(`Wikidata, collezione di ${artworkQid}`, async () => {
-      const response = await fetch(url, {
-        headers: {
-          Accept: "application/sparql-results+json",
-          "User-Agent": "ArtAroundMuseumApp",
-        },
-      });
-      if (!response.ok) throw new Error(`Wikidata error: ${response.statusText}`);
-      return response.json();
-    });
+    const data = await conTentativi(
+      `Wikidata, collezione di ${artworkQid}`,
+      async () => {
+        const response = await fetch(url, {
+          headers: {
+            Accept: "application/sparql-results+json",
+            "User-Agent": "ArtAroundMuseumApp",
+          },
+        });
+        if (!response.ok)
+          throw new Error(`Wikidata error: ${response.statusText}`);
+        return response.json();
+      },
+    );
     return data.boolean === true;
   } catch {
     return true;
@@ -107,18 +112,21 @@ export async function fetchArtwork(
     "https://query.wikidata.org/sparql?query=" +
     encodeURIComponent(sparqlQuery);
 
-  const data = await conTentativi(`Wikidata, opera ${wikiDataUri}`, async () => {
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/sparql-results+json",
-        "User-Agent": "ArtAroundMuseumApp",
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`Wikidata error: ${response.statusText}`);
-    }
-    return response.json();
-  });
+  const data = await conTentativi(
+    `Wikidata, opera ${wikiDataUri}`,
+    async () => {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/sparql-results+json",
+          "User-Agent": "ArtAroundMuseumApp",
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Wikidata error: ${response.statusText}`);
+      }
+      return response.json();
+    },
+  );
   const binding = data.results.bindings[0];
 
   if (!binding) return null;
@@ -156,18 +164,21 @@ export async function fetchMuseum(
     "https://query.wikidata.org/sparql?query=" +
     encodeURIComponent(sparqlQuery);
 
-  const data = await conTentativi(`Wikidata, museo ${wikiDataUri}`, async () => {
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/sparql-results+json",
-        "User-Agent": "ArtAroundMuseumApp",
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`Wikidata error: ${response.statusText}`);
-    }
-    return response.json();
-  });
+  const data = await conTentativi(
+    `Wikidata, museo ${wikiDataUri}`,
+    async () => {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/sparql-results+json",
+          "User-Agent": "ArtAroundMuseumApp",
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Wikidata error: ${response.statusText}`);
+      }
+      return response.json();
+    },
+  );
   const binding = data.results.bindings[0];
 
   if (!binding) return null as any;

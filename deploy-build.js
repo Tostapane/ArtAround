@@ -2,8 +2,9 @@
  * deploy-build.js — `npm run setup` + `npm run build`, ma dentro un container.
  *
  * Sulla macchina di laboratorio node non esiste: sta solo dentro le immagini che
- * gocker accende. Questo file esiste per farci passare i due comandi di
- * installazione e compilazione, che altrimenti non avrebbero un interprete.
+ * gocker accende. Questo file esiste per farci passare i comandi di installazione
+ * e compilazione, che altrimenti non avrebbero un interprete. In coda ricostruisce
+ * anche `sources/` per la rotta omonima.
  *
  *   (gocker): start node-22 site252627 deploy-build.js
  *   (gocker): logs site252627
@@ -121,6 +122,38 @@ for (const [nome, comando, parte] of passi) {
     console.error('!!! i passi successivi non vengono eseguiti');
     process.exit(1);
   }
+}
+
+/*
+ * sources/ — i file di progetto per la rotta /sources: niente node_modules,
+ * dist/, .env, cache, cartelle degli editor, ne' i JPEG delle opere scaricati
+ * dal seed. Copia voce per voce (cpSync rifiuta una destinazione dentro
+ * l'origine); un errore qui non ferma il deploy.
+ */
+const sorgenti = path.join(root, 'sources');
+const fuori = ['node_modules', '.git', '.npm-cache', 'dist', 'dist-ssr',
+  'sources', '.claude', '.vscode', '.idea', 'cypress'];
+function tieni(p) {
+  const n = path.basename(p);
+  if (fuori.includes(n)) return false;
+  if (n === '.env' || n.startsWith('.env.') || n.endsWith('.local')) return false;
+  if (n.endsWith('.tsbuildinfo') || n.endsWith('.swp') || n === '.DS_Store') return false;
+  if (n.endsWith('.md')) return false; // note interne di progetto, fuori da /sources
+  return path.relative(root, p) !== path.join('server', 'public', 'images');
+}
+
+console.log('\n--- istantanea sorgenti: sources/');
+try {
+  fs.rmSync(sorgenti, { recursive: true, force: true });
+  fs.mkdirSync(sorgenti);
+  for (const v of fs.readdirSync(root)) {
+    if (!tieni(path.join(root, v))) continue;
+    fs.cpSync(path.join(root, v), path.join(sorgenti, v), { recursive: true, filter: tieni });
+  }
+  try { execSync("chmod -R u=rwX,go=rX '" + sorgenti + "'"); } catch {}
+  console.log('--- istantanea sorgenti: OK');
+} catch (e) {
+  console.error('!!! istantanea sorgenti fallita: ' + e.message + ' (il deploy prosegue)');
 }
 
 /*

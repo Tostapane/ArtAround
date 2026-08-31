@@ -1,8 +1,12 @@
 /**
  * Documento Mongoose di un account.
  *
- * L'identita' e' la coppia (username, ruolo): lo stesso nome puo' esistere come
- * autore e come curatore, e sono account distinti e non collegati.
+ * L'identita' e' l'USERNAME, e un nome vale per una persona sola: non esistono
+ * un autore e un visitatore omonimi. La regola non e' cosmetica, e' quella che
+ * rende vere tutte le guardie sui contenuti: `Item.author` e `Visit.author`
+ * sono un nome nudo, senza il ruolo accanto, quindi finche' due account
+ * potevano condividerlo bastava entrare con l'altro profilo per cancellare le
+ * descrizioni del primo e per leggerne le private.
  * I ruoli sono tre: visitatore (consuma), autore (produce), curatore (risponde
  * del museo). Solo il visitatore ha un portafoglio e una collezione; sugli
  * altri due i campi restano assenti, non a zero.
@@ -31,7 +35,7 @@ const userSchema = new Schema<IUser>({
   collezione: { type: [String], default: [] },
 });
 
-userSchema.index({ username: 1, role: 1 }, { unique: true });
+userSchema.index({ username: 1 }, { unique: true });
 userSchema.index({ collezione: 1 });
 
 export const UserModel = model<IUser>("User", userSchema);

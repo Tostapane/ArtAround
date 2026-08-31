@@ -81,6 +81,7 @@ import { VisitModel } from "../models/visit";
 import { rimuoviTappeDalleVisite } from "../dbActions";
 import { UserModel } from "../models/user";
 import { kindById, DEFAULT_LICENSE } from "../../../shared/constants";
+import { ImpactReport } from "../../../shared/types";
 
 const router = Router();
 
@@ -425,14 +426,15 @@ router.get("/:id/impact", async (req, res) => {
     if (vietato(req, res, item)) return;
 
     const impact = await measureImpact(id);
-    res.json({
+    const rapporto: ImpactReport = {
       id,
       author: item.author,
       educationalLevel: item.educationalLevel,
       visite: impact.visite,
       svuotate: impact.svuotate,
       adozioni: impact.adozioni,
-    });
+    };
+    res.json(rapporto);
   } catch (error: any) {
     console.error("[BACKEND ERROR] impatto eliminazione item:", error);
     res.status(500).json({ error: error.message || "Errore interno del server" });

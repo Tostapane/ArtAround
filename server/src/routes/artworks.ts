@@ -61,6 +61,7 @@ import { appartieneAlMuseo } from "../services/wikidata";
 import { locationsFromMap, populateArtwork } from "../manager";
 import { rimuoviTappeDalleVisite } from "../dbActions";
 import { rimuoviImmagine } from "./items";
+import { ArtworkImpactReport } from "../../../shared/types";
 
 const router = Router();
 
@@ -238,7 +239,7 @@ router.get("/:qid/impact", async (req, res) => {
     if (!artwork) return res.status(404).json({ error: "Opera non trovata" });
 
     const impatto = await impattoOpera(artwork["@id"]);
-    res.json({
+    const rapporto: ArtworkImpactReport = {
       qid,
       nome: artwork.name,
       descrizioni: impatto.itemIds.length,
@@ -250,7 +251,8 @@ router.get("/:qid/impact", async (req, res) => {
       })),
       svuotate: impatto.svuotate.map((v: any) => ({ id: v["@id"], name: v.name })),
       adozioni: impatto.adozioni,
-    });
+    };
+    res.json(rapporto);
   } catch (error: any) {
     console.error("[BACKEND ERROR] impatto eliminazione opera:", error);
     res.status(500).json({ error: "Errore nel calcolo dell'impatto" });

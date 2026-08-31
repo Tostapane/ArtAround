@@ -1,9 +1,10 @@
 /**
  * Punto d'ingresso del server.
  *
- * Monta le rotte sotto /api, serve staticamente il marketplace (la radice) e i
- * file pubblici (mappe SVG e immagini delle opere), e si collega a MongoDB
- * riprovando finche' non risponde: in docker il database parte insieme a noi.
+ * Monta le rotte sotto /api, serve staticamente il marketplace (la radice), i
+ * file pubblici (mappe SVG e immagini delle opere) e i sorgenti in sola lettura
+ * su /sources, e si collega a MongoDB riprovando finche' non risponde: in docker
+ * il database parte insieme a noi.
  *
  * L'ordine dei `use` e' significativo e non va rimescolato: prima i file veri,
  * poi /api, e per ultimo il guscio del marketplace, che risponde agli indirizzi
@@ -120,6 +121,27 @@ app.use(
   express.static(path.join(__dirname, "../../navigator/dist")),
 );
 app.use("/i18n", express.static(path.join(__dirname, "../../shared/i18n")));
+
+// /sources: i sorgenti in sola lettura (richiesti dalla consegna). La cartella
+// la genera deploy-build.js senza node_modules/dist/.env; qui l'elenco cartelle.
+const sourcesDir = path.join(__dirname, "../../sources");
+app.use("/sources", (req, res, next) => {
+  const abs = path.join(sourcesDir, req.path);
+  if (path.relative(sourcesDir, abs).startsWith("..")) return res.sendStatus(400);
+  try {
+    if (!fs.statSync(abs).isDirectory()) return next();
+  } catch {
+    return next();
+  }
+  res.type("html").send(
+    fs
+      .readdirSync(abs)
+      .sort()
+      .map((n) => `<a href="${path.posix.join(req.baseUrl, req.path, n)}">${n}</a>`)
+      .join("<br>"),
+  );
+});
+app.use("/sources", express.static(sourcesDir, { dotfiles: "deny" }));
 
 const connectWithRetry = () => {
   console.log("Attempting to connect to MongoDB...");

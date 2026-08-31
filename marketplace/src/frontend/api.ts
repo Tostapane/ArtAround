@@ -15,24 +15,22 @@
  * pero' al ricaricamento e all'andata e ritorno verso il navigator, che stanno
  * nella stessa scheda: e' proprio quel viaggio a non funzionare senza.
  *
- * Il login puo' rispondere 300 quando le stesse credenziali valgono per due
- * profili: non e' un errore, e' una domanda.
  */
 import {
+  ArtworkImpactReport,
   Content,
   Artwork,
+  ImpactReport,
   Item,
   Museum,
+  MuseumOverview,
+  SaleRow,
   User,
   UserRole,
   Visit,
 } from '../../../shared/types.js';
 
 export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
-
-/** Risposta del login quando le stesse credenziali valgono per due profili:
- *  il server non sceglie al posto nostro, restituisce le opzioni. */
-export type ScelteRuolo = { scelta: true; ruoli: UserRole[] };
 
 // --- Il biglietto -------------------------------------------------------------
 
@@ -112,17 +110,12 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async login(
-    username: string,
-    password: string,
-    role?: UserRole,
-  ): Promise<UserDTO | ScelteRuolo> {
+  async login(username: string, password: string): Promise<UserDTO> {
     const response = await call('/api/users/login', {
       method: 'POST',
       headers: JSON_HEADERS,
-      body: JSON.stringify({ username, password, role }),
+      body: JSON.stringify({ username, password }),
     });
-    if (response.status === 300) return response.json();
     if (!response.ok)
       throw new Error(
         await readError(response, 'Credenziali non valide. Controlla username e password.'),
@@ -190,7 +183,7 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async fetchSales(): Promise<any[]> {
+  async fetchSales(): Promise<SaleRow[]> {
     const response = await call('/api/users/sales');
     if (!response.ok) throw new Error('Errore caricamento vendite');
     return response.json();
@@ -270,7 +263,7 @@ export const ArtAPI = {
 
   // --- Gestione del museo -------------------------------------------------------------
 
-  async fetchOverview(qid: string): Promise<any> {
+  async fetchOverview(qid: string): Promise<MuseumOverview> {
     const response = await call(`/api/museums/${encodeURIComponent(qid)}/overview`);
     if (!response.ok) throw new Error("Errore caricamento del quadro d'insieme");
     return response.json();
@@ -282,7 +275,7 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async impattoItem(id: string): Promise<any> {
+  async impattoItem(id: string): Promise<ImpactReport> {
     const response = await call(`/api/items/${encodeURIComponent(id)}/impact`);
     if (!response.ok)
       throw new Error(await readError(response, "Errore nel calcolo dell'impatto"));
@@ -310,7 +303,7 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async impattoOpera(qid: string): Promise<any> {
+  async impattoOpera(qid: string): Promise<ArtworkImpactReport> {
     const response = await call(
       `/api/artworks/${encodeURIComponent(qid)}/impact`,
     );

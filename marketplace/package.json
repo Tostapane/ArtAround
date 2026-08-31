@@ -6,6 +6,8 @@
     "build": "npm run build:ts && npm run build:css",
     "build:ts": "tsc",
     "build:css": "tailwindcss -i ./src/frontend/style.css -o ./dist/style.css --minify",
+    "watch": "npm run watch:ts & npm run watch:css",
+    "watch:ts": "tsc --watch --preserveWatchOutput",
     "watch:css": "tailwindcss -i ./src/frontend/style.css -o ./dist/style.css --watch"
   },
   "dependencies": {

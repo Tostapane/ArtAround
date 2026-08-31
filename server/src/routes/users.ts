@@ -42,6 +42,7 @@ import { ItemModel } from "../models/item";
 import { conto } from "../pricing";
 import { VisitModel } from "../models/visit";
 import { SEED_AUTHOR } from "../../../shared/constants";
+import { SaleRow } from "../../../shared/types";
 
 const router = Router();
 
@@ -80,11 +81,11 @@ router.post("/register", async (req, res) => {
         .status(409)
         .json({ error: `"${SEED_AUTHOR}" è riservato: scegli un altro username.` });
 
-    const already = await UserModel.findOne({ username, role });
+    const already = await UserModel.findOne({ username });
     if (already)
       return res
         .status(409)
-        .json({ error: `Esiste già un ${role} con questo username` });
+        .json({ error: "Questo username è già preso. Scegline un altro." });
 
     const user = await UserModel.create({
       username,
@@ -99,42 +100,26 @@ router.post("/register", async (req, res) => {
 });
 
 /**
- * POST /api/users/login  { username, password, role? }
- * Ritorna: l'account senza password piu' il `token` di sessione; 300
- * { scelta, ruoli } se le stesse credenziali valgono per piu' profili e il ruolo
- * non e' stato dichiarato.
+ * POST /api/users/login  { username, password }
+ * Ritorna: l'account senza password piu' il `token` di sessione.
+ *
+ * Il ruolo non si chiede e non si dichiara: un username appartiene a un account
+ * solo, quindi le credenziali bastano a dire chi entra e con che poteri. Questa
+ * rotta rispondeva anche 300 { scelta, ruoli } per far scegliere fra due
+ * profili omonimi, e quel caso non esiste piu'.
  */
 router.post("/login", async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, password } = req.body;
     if (!username || !password)
       return res.status(400).json({ error: "Inserisci username e password" });
 
-    if (role) {
-      if (!isValidRole(role))
-        return res.status(400).json({ error: "Ruolo non valido" });
-      const user = await UserModel.findOne({ username, password, role });
-      if (!user)
-        return res.status(401).json({
-          error: "Credenziali non valide. Controlla username e password.",
-        });
-      return res.json(await withSession(user));
-    }
-
-    const candidates = (await UserModel.find({ username, password })).filter(
-      (u) => isValidRole(u.role),
-    );
-    if (candidates.length === 0)
+    const user = await UserModel.findOne({ username, password });
+    if (!user)
       return res.status(401).json({
         error: "Credenziali non valide. Controlla username e password.",
       });
-    if (candidates.length === 1)
-      return res.json(await withSession(candidates[0]));
-
-    res.status(300).json({
-      scelta: true,
-      ruoli: candidates.map((u) => u.role),
-    });
+    res.json(await withSession(user));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore in login" });
   }
@@ -300,7 +285,7 @@ router.get("/sales", requireSession, async (req, res) => {
     });
     const visits = await VisitModel.find({ author: username });
 
-    const rows: any[] = [];
+    const rows: SaleRow[] = [];
     for (const it of items) {
       const about: any = it.about;
       let nome = it.subject || "Contenuto";
@@ -313,6 +298,8 @@ router.get("/sales", requireSession, async (req, res) => {
         educationalLevel: it.educationalLevel,
         price: it.price || 0,
         license: it.license || "n/d",
+        adozioni: 0,
+        ricavo: 0,
       });
     }
     for (const v of visits) {
@@ -323,6 +310,8 @@ router.get("/sales", requireSession, async (req, res) => {
         ofMuseum: v.ofMuseum,
         price: v.price || 0,
         license: v.license || "n/d",
+        adozioni: 0,
+        ricavo: 0,
       });
     }
 

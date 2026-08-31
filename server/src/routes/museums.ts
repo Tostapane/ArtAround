@@ -64,6 +64,7 @@ import { educationalLevels } from "../../../shared/constants";
 import { findMuseumConfig } from "../data/museumConfigs";
 import { sortByFlow } from "../services/svgGraph";
 import { rimuoviImmagine } from "./items";
+import { MuseumOverview } from "../../../shared/types";
 const router = Router();
 
 function museumUri(qid: string): string {
@@ -355,7 +356,7 @@ router.get("/:qid/overview", requireSession, async (req, res) => {
     const visitatori = await UserModel.countDocuments({ role: "visitatore" });
     const curatori = await UserModel.countDocuments({ role: "curatore" });
 
-    res.json({
+    const quadro: MuseumOverview = {
       conteggi: {
         opere: artworks.length,
         item: items.length,
@@ -369,7 +370,8 @@ router.get("/:qid/overview", requireSession, async (req, res) => {
         perTono,
       },
       account: { autori, visitatori, curatori },
-    });
+    };
+    res.json(quadro);
   } catch (err: any) {
     console.error("[BACKEND ERROR] overview museo:", err);
     res.status(500).json({ error: err.message || "Errore nel quadro d'insieme" });

@@ -12,8 +12,13 @@
  * `Visit.duration` e' il totale, non il per-opera; `accessKey` marca una visita
  * come guidata, quindi gratuita e fuori dal catalogo.
  *
- * L'identita' di un User e' la coppia (username, role): lo stesso nome puo'
- * esistere come autore e come visitatore, e sono due account scollegati.
+ * L'identita' di un User e' l'USERNAME, e un nome vale per un account solo: non
+ * possono esistere un autore e un visitatore omonimi. E' la regola che tiene in
+ * piedi ogni guardia sui contenuti, perche' `Item.author` e `Visit.author` sono
+ * un nome nudo e non portano il ruolo accanto: chi firma una descrizione la
+ * firma col nome, e quel nome identifica una persona sola. Finche' la coppia
+ * (username, role) e' stata l'identita', entrare con l'altro profilo omonimo
+ * bastava a cancellare le descrizioni del primo e a leggerne le private.
  *
  * Tre campi hanno un perche' che non sta in una riga:
  *
@@ -154,6 +159,95 @@ export interface Visit {
   mancanti?: number; // quante tappe mancano a chi chiede: calcolato, non salvato
   costoMancanti?: number; // quanto costano quelle tappe: calcolato, non salvato
   totale?: number; // quanto pagherebbe in tutto: calcolato, non salvato
+}
+
+// ============================================================================
+//                   Risposte calcolate: conti, non documenti
+// ============================================================================
+
+/**
+ * Le risposte che il server non legge da Mongo ma CALCOLA per chi chiede:
+ * l'impatto di un'eliminazione, il quadro d'insieme del museo, il resoconto
+ * vendite. Non sono documenti e non hanno un modello, ma sono lo stesso un
+ * accordo fra le due sponde, quindi stanno qui per la ragione dei tipi accanto
+ * e di `access.ts`: un accordo scritto in due posti si rompe da solo senza che
+ * niente lo segnali.
+ *
+ * Che quel silenzio non sia teorico lo dice la storia di `svuotate`: il server
+ * ha cominciato a mandarlo, il tipo dalla parte del client non l'ha mai saputo,
+ * e chi doveva leggerlo se l'e' preso con un `as any` — cioe' spegnendo proprio
+ * il controllo che avrebbe segnalato lo scarto. Le rotte qui sotto DICHIARANO
+ * ora quel che rispondono, cosi' togliere un campo da una parte accende un
+ * errore dall'altra invece di una colonna vuota a schermo.
+ */
+
+/** Una visita che nomina il contenuto che si sta per eliminare. */
+export interface VisitaCitata {
+  id: string;
+  name: string;
+  author: string | null;
+  guidata: boolean;
+}
+
+/** Una visita ridotta a nome e id: quelle che resterebbero senza tappe. */
+export interface VisitaNominata {
+  id: string;
+  name: string;
+}
+
+/** Cosa sparirebbe eliminando una DESCRIZIONE: `GET /api/items/:id/impact`. */
+export interface ImpactReport {
+  id: string;
+  author: string;
+  educationalLevel: string;
+  visite: VisitaCitata[];
+  svuotate: VisitaNominata[]; // quelle che resterebbero a zero tappe: spariscono comunque
+  adozioni: number;
+}
+
+/**
+ * Cosa sparirebbe togliendo un'OPERA: `GET /api/artworks/:qid/impact`.
+ * E' un'altra forma e non una variante della precedente: un'opera non ha un
+ * tono ne' un autore che l'abbia scritta, e porta invece il conto delle
+ * descrizioni che ne parlano.
+ */
+export interface ArtworkImpactReport {
+  qid: string;
+  nome: string;
+  descrizioni: number;
+  visite: VisitaCitata[];
+  svuotate: VisitaNominata[];
+  adozioni: number;
+}
+
+/** Il quadro d'insieme del curatore: `GET /api/museums/:qid/overview`. */
+export interface MuseumOverview {
+  conteggi: {
+    opere: number;
+    item: number;
+    itemPrivati: number;
+    visite: number;
+    visiteGuidate: number;
+  };
+  copertura: {
+    opereTotali: number;
+    senzaDescrizione: { qid: string; name: string }[];
+    perTono: { tono: string; opere: number }[];
+  };
+  account: { autori: number; visitatori: number; curatori: number };
+}
+
+/** Una riga del resoconto vendite: `GET /api/users/sales`. */
+export interface SaleRow {
+  id: string;
+  type: "Item" | "Visita";
+  name: string;
+  ofMuseum?: string;
+  educationalLevel?: string; // solo sulle descrizioni: una visita non ha un tono suo
+  price: number;
+  license: string;
+  adozioni: number; // quante collezioni lo contengono
+  ricavo: number; // adozioni x prezzo
 }
 
 /** Una tappa della visita. */

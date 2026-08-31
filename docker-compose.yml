@@ -27,11 +27,18 @@ services:
       - /app/marketplace/node_modules
     depends_on:
       - mongodb
+    # Il marketplace non ha un server di sviluppo: il browser esegue sempre e solo
+    # `dist/`. La prima compilazione sta nella catena `&&` perche' un marketplace
+    # che non compila deve fermare l'avvio invece di farsi servire vecchio; il
+    # watcher che la segue tiene poi `dist/` allineato ai sorgenti per il resto
+    # della sessione. Senza, `dist/` resta quello dell'istante in cui il
+    # contenitore e' partito e si passa il pomeriggio a leggere il JS di stamattina.
     command: >
       sh -c "npm install --prefix navigator &&
               npm install --prefix server &&
               npm install --prefix marketplace &&
               npm run build --prefix marketplace &&
+              (npm run watch --prefix marketplace &) &&
               (npm run dev --prefix navigator -- --host &) &&
               npm run start --prefix server"
 

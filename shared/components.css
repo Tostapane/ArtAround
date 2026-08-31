@@ -252,6 +252,24 @@
     @apply border-accent;
     background-color: var(--accent-velo);
   }
+  /*
+    L'anello di fuoco sta sulla LASTRA, non sul radio che contiene.
+
+    Il controllo vero e' `sr-only`, cioe' ritagliato a un pixel: e' nell'ordine
+    di tabulazione e riceve il fuoco regolarmente, ma il contorno che il tema
+    gli disegna addosso viene ritagliato via insieme a lui. Chi naviga da
+    tastiera arriva quindi sulla scelta e non vede succedere niente, che e' il
+    modo piu' facile di avere una tastiera che funziona e sembra rotta.
+
+    `:has()` non ha una ricaduta: dove manca, la regola e' invalida e si torna
+    al comportamento di prima, cioe' nessun anello. Non c'e' niente da perdere
+    di piu'.
+  */
+  .scelta:has(:focus-visible) {
+    outline: 3px solid var(--focus-ink);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px var(--focus-halo);
+  }
 
   /* --- Comandi del vocabolario controllato (scheda del navigator) -------- */
   .comando {

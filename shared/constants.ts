@@ -516,10 +516,7 @@ export const MAX_VISITE_VISITATORE = 5;
  * rispondendo 200 con dentro `index.html` invece di un 404. E' il motivo per cui
  * l'allestimento dei musei non sta in `public/musei/`.
  *
- * `as const` non e' decorativo: da qui il marketplace RICAVA il tipo `View`
- * (`"avvio" | (typeof marketplaceViews)[number]`). Aggiungere una schermata si
- * fa quindi in un posto solo, e toglierne una accende un errore di compilazione
- * in ogni punto che la nomina. Senza, i due elenchi sarebbero da tenere
+ * Senza, const i due elenchi sarebbero da tenere
  * allineati a mano e il giorno che divergono non protesta niente: la schermata
  * esiste, ma il suo indirizzo apre la soglia e ricaricando da' 404.
  */

@@ -39,3 +39,6 @@ CLAUDE.md
 
 # cache di npm creata da deploy-build.js dentro il container
 .npm-cache/
+
+# istantanea dei sorgenti, ricostruita da deploy-build.js a ogni build
+/sources/
