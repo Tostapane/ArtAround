@@ -104,7 +104,7 @@ inservibile una funzione appena finita.
 | il navigator non gestiva il **401** in nessun punto: a sessione scaduta restava una pianta che non risponde | avviso unico e una strada per rientrare (§"Le sessioni") |
 | entrare negli Uffizi costava **8,2 secondi**, e sembrava lentezza dell'accesso | un indice fuori dallo stato: **1,2 s** (§1.1-sexies) |
 | non si sapeva fin dove regge un museo | misurato fino a diecimila item, col punto che cede e il rimedio (§1.1-quinquies) |
-| `deploy.md` non nominava la porta, e diceva anzi 8000 | `PORT=3000`, piu' le quattro cose che il laboratorio non perdona (`deploy.md`) |
+| `deploy.md` non nominava la porta, e diceva anzi 8000 | le quattro cose che il laboratorio non perdona (`deploy.md`). ⚠️ Nello stesso giro `deploy.md` passo' a `PORT=3000`, **e era sbagliato**: il container esporta gia' `PORT=8000` e quella e' la porta pubblicata. Corretto il 31/08 dopo la prima prova sul sito vivo (`28220cf`) |
 | le logistiche del museo le vedeva **solo chi apriva una visita seminata**: una composta nel marketplace o dal modello si apriva senza dire da che parte si entra | le legge il navigator dalla configurazione, quindi valgono per ogni visita del museo (§5.3-septies) |
 
 ### 0.4 What the 2026-08-05 graphic pass closed
