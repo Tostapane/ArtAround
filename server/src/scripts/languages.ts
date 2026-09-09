@@ -1,60 +1,8 @@
 /**
- * LINGUE: i cataloghi dell'interfaccia del navigator.
- *
- * Non tocca il database: per questo non sta in `testers.ts`, che dichiara in testa
- * di essere l'utilita' che i dati esistenti li riallinea. Qui si legge il sorgente
- * e si scrivono dodici file JSON.
- *
- * Il modello gira una volta sola, qui, e non davanti al visitatore. Tradurre a
- * runtime darebbe la stessa frase in due modi in due caricamenti e non
- * lascerebbe nessun file da correggere quando una parola esce storta.
- * L'applicazione pronuncia le proprie etichette, e una parola che oscilla e'
- * peggio di una sbagliata.
- *
- * Le richieste partono una dopo l'altra senza pause: il modello e' su un piano a
- * pagamento, e le uniche divisioni rimaste sono per DIMENSIONE della risposta
- * (`PER_BATCH`), non per frequenza.
- *
- * Si usa il modello e non il servizio di traduzione che il progetto gia' adopera
- * per i contenuti perche' qui le stringhe sono corte e senza contesto, ed e'
- * proprio li' che una traduzione automatica sbaglia: "tappa" da sola e' un tappo,
- * una sosta o una frazione di gara, "vetrina" e' una finestra di negozio. Al
- * modello si possono passare il glossario e il contesto museale, cosa che a
- * `translateTexts` non si puo' dire.
- *
- * I contenuti restano invece dove sono, perche' sono dati: crescono quando un
- * autore pubblica e non si possono enumerare in anticipo. L'interfaccia sta nel
- * sorgente e quindi si enumera, ed e' quella la riga che divide le due strade.
- *
- * Le revisioni a mano non si perdono: `traduci` riempie solo le chiavi mancanti.
- * Per rifare una traduzione si cancella quella riga dal file, o si passa `--tutto`.
- *
- * `pota` toglie dai cataloghi le traduzioni di chiavi che nel sorgente non
- * esistono piu'. Non e' pulizia estetica: una chiave orfana e' una frase che
- * qualcuno ha riscritto, e lasciarla fa credere a `stato` che il lavoro sia piu'
- * avanti di quanto sia.
- *
- * Da solo NON cancella: elenca e si ferma. Serve `--conferma`, e la ragione e'
- * che «orfana» qui vuol dire soltanto «l'estrattore non la trova», che non e' la
- * stessa cosa di «nessuno la mostra piu'». Una frase viva ma raccolta male
- * risulta orfana identica a una morta, e cancellarla la fa sparire in dodici
- * lingue senza che niente protesti, il difetto lo si scoprirebbe mesi dopo,
- * davanti a un messaggio d'errore rimasto in italiano. L'elenco stampato e' li'
- * per essere LETTO: se una di quelle frasi e' ancora a schermo, la cura non e'
- * potarla ma marcarla con `tKey()`.
- *
- * Uso:
- *   npx ts-node src/scripts/languages.ts chiavi          elenca le chiavi trovate nel sorgente
- *   npx ts-node src/scripts/languages.ts residui         le frasi italiane NON ancora avvolte in t()
- *   npx ts-node src/scripts/languages.ts traduci         riempie i buchi nei cataloghi
- *   npx ts-node src/scripts/languages.ts traduci en      riempie i buchi di una lingua sola
- *   npx ts-node src/scripts/languages.ts pota            elenca le orfane, senza toccare niente
- *   npx ts-node src/scripts/languages.ts pota --conferma e allora le toglie
- *   npx ts-node src/scripts/languages.ts stato           quante chiavi, quante tradotte, quante orfane
+ * Raccoglie dai sorgenti le chiavi italiane, verifica i cataloghi e traduce quelle
+ * mancanti. La radice deriva da questo file perche' deve scandire .ts e .vue e gira
+ * quindi soltanto con ts-node.
  */
-
-// `./env` va importato PRIMA del client: legge il .env, e senza di lui la chiave
-// arriva vuota e il modello risponde "API key should be set" a ogni richiesta.
 import "../env";
 import fs from "fs";
 import path from "path";
@@ -75,14 +23,6 @@ const MODEL = "gemini-3.1-flash-lite";
 const ROOT = path.resolve(__dirname, "../../..");
 const CATALOGS_DIR = path.join(ROOT, "shared/i18n");
 
-/**
- * Dove si cercano le frasi. Le due applicazioni condividono i cataloghi, quindi
- * vanno scandite tutte e due: se ne saltasse una, `pota` prenderebbe le sue
- * chiavi per orfane e le cancellerebbe.
- *
- * Il marketplace ha una pagina sola, e le sue frasi stanno per meta' dentro
- * l'HTML (nelle espressioni Alpine) e per meta' nei moduli TypeScript.
- */
 const SOURCE_DIRS = [
   path.join(ROOT, "navigator/src"),
   path.join(ROOT, "marketplace/src/frontend"),
@@ -101,35 +41,7 @@ function allSources(): string[] {
 }
 
 // ============================================================================
-//                          Raccolta delle chiavi
-// ============================================================================
 
-/**
- * Le chiavi sono le stringhe passate a `t(...)`, piu' gli elenchi di
- * `shared/constants.ts`. Questi vanno presi a parte perche' nel codice compaiono
- * come `t(o.label)`, `t(v.level)`, `t(toneHints[tono])` e `t(b.label)`: la
- * chiave sta nei DATI, e una scansione del testo non la vedrebbe mai. E' il
- * prezzo di una chiave calcolata, ed e' anche il motivo per cui quei dati
- * stanno tutti in quel file: una chiave calcolata scritta altrove resterebbe
- * fuori dal catalogo, e `pota` cancellerebbe le sue traduzioni come orfane.
- *
- * I TONI si traducono ma non cambiano di valore: `Medio` resta `Medio` nel
- * database, nel confronto del filtro e nella richiesta al server: si traduce
- * solo quel che si legge. Tradurre il valore vorrebbe dire che un filtro scelto
- * in cinese non trova piu' niente.
- *
- * Si raccoglie da `t(...)` e da `tKey(...)`. Il secondo non traduce niente: marca
- * una frase che E' una chiave ma viene tradotta altrove, tipicamente perche' vive
- * in un `ref` e a tradurla e' il legame (`navigator/src/i18n.ts`). Senza
- * riconoscerlo, quelle chiavi risulterebbero inesistenti e `pota` ne
- * cancellerebbe le traduzioni in tutte le lingue.
- *
- * La chiave e' sempre LETTERALE, mai un'espressione: una chiave calcolata non si
- * potrebbe raccogliere da qui e resterebbe non tradotta, quindi un backtick con
- * dentro `${}` si segnala invece di finire in catalogo. I backtick servono nei
- * template, `:aria-label="t(`Scheda dell'opera`)"` e' l'unico modo di scrivere
- * una stringa con un apostrofo dentro un attributo gia' fra virgolette doppie.
- */
 function keysFromSource(): string[] {
   const found = new Set<string>();
 
@@ -165,13 +77,6 @@ function keysFromSource(): string[] {
   return [...found].sort((a, b) => a.localeCompare(b, "it"));
 }
 
-/**
- * Toglie i commenti prima di scandire. Non e' una pulizia: le intestazioni di
- * questo progetto spiegano il codice citandolo, quindi un `t("Esci")` scritto in
- * un commento d'esempio finirebbe nei cataloghi come chiave vera. Le stringhe
- * vanno saltate per intero, o un apostrofo italiano dentro un commento
- * ("perche'") aprirebbe un letterale che non si chiude piu'.
- */
 function withoutComments(src: string): string {
   let out = "";
   let i = 0;
@@ -216,23 +121,6 @@ function withoutComments(src: string): string {
   return out;
 }
 
-/**
- * Le frasi italiane che nessuno ha avvolto in `t()`.
- *
- * E' il complemento dell'avviso del runtime e i due non si sostituiscono: quello
- * dice che una chiave non ha traduzione, questo che una frase non e' mai diventata
- * una chiave. Una stringa scritta a mano non chiede nessuna traduzione, quindi il
- * runtime non la vedra' mai, ed e' cosi' che questo lavoro si sfalda quando si
- * aggiunge una schermata.
- *
- * Guarda solo dove finisce il testo che si vede: i nodi dei template, i quattro
- * attributi visibili, `announce()`, `riferisci()` e le assegnazioni a `*.value`.
- * Cercando ogni letterale italiano si otterrebbero decine di risultati tutti
- * deliberati, cioe' gli id dei comandi (che il modello confronta), i prompt
- * scritti per il modello e non per il visitatore e i `console.error`: un controllo
- * da rigiudicare a mano ogni volta non e' un controllo, e conviene che dica zero
- * quando e' pulito.
- */
 function strayStrings(): { file: string; text: string }[] {
   const stray: { file: string; text: string }[] = [];
   const ITALIANO = /[a-zA-ZàèéìòùÀÈÉÌÒÙ]{2,}/;
@@ -241,12 +129,6 @@ function strayStrings(): { file: string; text: string }[] {
     if (file.endsWith("i18n.ts")) continue;
     const src = fs.readFileSync(file, "utf8");
 
-    // Le espressioni `{{ }}` si tolgono PRIMA dei tag: un `<` dentro un confronto
-    // (`{{ n < 0 ? … }}`) sembrerebbe l'inizio di un tag e mangerebbe fino al primo
-    // `>` utile. E il taglio dei tag salta le virgolette, o un `>` dentro un
-    // attributo (`v-if="n > 0"`) spezzerebbe il tag a meta'.
-    // In un `.vue` il testo visibile sta dentro <template>; in `index.html` e'
-    // tutta la pagina, e il <head> non porta frasi da tradurre.
     let grezzo: string;
     if (file.endsWith(".html")) {
       grezzo = (src.match(/<body[^>]*>([\s\S]*)<\/body>/) || ["", ""])[1]!;
@@ -301,8 +183,6 @@ function walkFiles(dir: string, acc: string[] = []): string[] {
 }
 
 // ============================================================================
-//                              Traduzione
-// ============================================================================
 
 function catalogPath(code: string): string {
   return path.join(CATALOGS_DIR, `${code}.json`);
@@ -322,15 +202,6 @@ function writeCatalog(code: string, data: Record<string, string>) {
   fs.writeFileSync(catalogPath(code), JSON.stringify(sorted, null, 2) + "\n");
 }
 
-/**
- * Il glossario e' la ragione per cui qui c'e' un modello e non un traduttore: sono
- * le parole che, prese da sole, questa applicazione le fa dire sbagliate.
- *
- * Le voci si spiegano, non si traducono. Scrivendo accanto a una voce una resa
- * in un'altra lingua il modello ricopia quella invece di cercare la parola giusta
- * della lingua d'arrivo: da «tappa (stop)» il giapponese esce ステーション, cioe' la
- * fermata del treno.
- */
 const GLOSSARY = `
 - "tappa" = una sosta del percorso di visita davanti a un'opera; NON un tappo, non una
   frazione di gara, non una fermata di mezzi pubblici
@@ -357,13 +228,6 @@ const GLOSSARY = `
 - "Avanzato" = il tono per chi la materia la conosce gia', col lessico degli studiosi
 `.trim();
 
-/**
- * Quante chiavi per richiesta. Non e' una manopola di prestazione: chiedendole
- * tutte in un colpo la risposta sfonda il tetto dei token e arriva un JSON
- * troncato, cioe' non valido. Succede soprattutto su cinese, giapponese e
- * coreano, dove i valori pesano in token piu' di quanto sembrino in caratteri;
- * un blocco piccolo costa qualche richiesta in piu' e non fallisce.
- */
 const PER_BATCH = 40;
 
 async function translateLanguage(code: string, name: string, keys: string[], all: boolean) {
@@ -441,14 +305,11 @@ ${JSON.stringify(missing, null, 1)}`;
       written++;
     }
   }
-  // Si scrive a ogni blocco, non alla fine: un'interruzione a meta' lascia
-  // tradotto quel che era gia' tornato invece di buttarlo via.
+
   writeCatalog(code, catalog);
   return written;
 }
 
-// ============================================================================
-//                                  CLI
 // ============================================================================
 
 async function main() {

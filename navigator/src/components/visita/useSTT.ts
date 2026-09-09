@@ -1,38 +1,7 @@
 /**
- * STT: la voce dell'utente diventa testo. PCM a 16 kHz, identico su ogni browser.
- *
- * E' la meta' che ascolta e sta accanto a `useTTS.ts`, che e' quella che parla.
- *
- * Non si usa `MediaRecorder` perche' sceglie lui il formato, e su Safari, cioe'
- * su ogni iPhone, sceglie MP4/AAC, che il riconoscimento di Google non accetta.
- * Non c'e' nessun formato che Safari sappia produrre e il server sappia leggere,
- * quindi chiedergli un mime type diverso sposta soltanto il punto in cui
- * fallisce. Si scende invece alla Web Audio API, a cui non si chiede un file ma
- * i campioni: si portano a 16 kHz mono, ci si scrive un'intestazione WAV e il
- * server riceve sempre LINEAR16. Un percorso solo, nessun ramo per piattaforma,
- * perche' il ramo che nessuno riesce a provare e' quello che si rompe.
- *
- * Tre passaggi che sembrano superflui e non lo sono:
- *  - la frequenza del contesto non si puo' imporre, quindi si accetta quella che
- *    da' e si scende facendo la MEDIA dei campioni accorpati. Tenerne uno ogni
- *    tre e' aliasing: le frequenze alte rientrano travestite da basse, proprio
- *    nella banda in cui si capisce una parola;
- *  - `resume()` va chiamato dentro il gesto dell'utente, o su iOS il contesto
- *    nasce sospeso e si registra silenzio;
- *  - il nodo di elaborazione non gira senza una destinazione, ma collegarlo agli
- *    altoparlanti rimanderebbe il microfono nelle casse: in mezzo va un guadagno
- *    a zero.
- *
- * `createScriptProcessor` e' deprecato ma e' l'unico accesso ai campioni
- * presente ovunque, iOS compreso, senza servire un modulo separato.
- *
- * `getUserMedia` vuole un contesto sicuro: su `http://<ip-lan>:5173` il microfono
- * non c'e' comunque, ed e' il motivo per cui il codice si puo' anche digitare.
- *
- * `levels` e' la traccia disegnata mentre si registra: senza, un microfono muto e
- * uno che funziona hanno lo stesso aspetto. Il callback arriva una decina di
- * volte al secondo, troppo poco perche' la scia scorra, quindi ogni buffer viene
- * misurato a pezzi (`WINDOWS` valori per callback invece di uno).
+ * Registra la voce come PCM WAV mono a 16 kHz per dare al server lo stesso formato
+ * su ogni browser. Usa Web Audio perche' MediaRecorder su Safari produce AAC, non
+ * accettato dal riconoscimento configurato.
  */
 import { ref } from "vue";
 import { STT_SAMPLE_RATE } from "../../../../shared/constants";
@@ -52,8 +21,7 @@ export const levels = ref<number[]>([]);
 const BUFFER_SIZE = 4096;
 const BARS = 16;
 const WINDOWS = 2;
-// La voce a distanza di braccio sta intorno a 0.1: senza scala le barre
-// resterebbero schiacciate sul fondo anche parlando forte.
+
 const SCALE = 6;
 
 let stream: MediaStream | null = null;
@@ -63,8 +31,6 @@ let processor: ScriptProcessorNode | null = null;
 let chunks: Float32Array[] = [];
 let inputRate = 0;
 
-// ============================================================================
-//                          Presa dei campioni
 // ============================================================================
 
 export const startRecording = async () => {
@@ -166,8 +132,6 @@ function loudness(input: Float32Array): number[] {
   return out;
 }
 
-// ============================================================================
-//                          Dai campioni al WAV
 // ============================================================================
 
 function concat(parts: Float32Array[]): Float32Array {

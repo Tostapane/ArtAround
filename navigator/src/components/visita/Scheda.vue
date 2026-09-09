@@ -1,40 +1,7 @@
 <script setup lang="ts">
 /**
- * La scheda: la didascalia dell'opera e i comandi, in un pannello sempre aperto.
- *
- * Non e' una finestra ne' un foglio che si apre: e' meta' fissa dello schermo,
- * colonna accanto alla pianta da `lg` in su e fascia sotto di essa sul telefono.
- * Le due domande del visitatore hanno cosi' una risposta ciascuna, tutte e due in
- * vista, senza comandi da scoprire per passare dall'una all'altra.
- *
- * Dall'alto in basso, nell'ordine in cui la si usa: lingua, opera, barra della
- * voce e dell'avanzamento, Chiedi/Orientati. Lingua e barra si cercano senza
- * guardare, quindi stanno ai bordi e non si spostano; opera e comandi si
- * spartiscono il resto in proporzione fissa, e con una risposta aperta la
- * proporzione si ribalta, perche' quella risposta e' il motivo per cui si e'
- * premuto.
- *
- * Senza nessuna tappa aperta al posto dell'opera c'e' la porta d'ingresso della
- * visita: un pannello sempre presente deve dire cosa fare anche quando non c'e'
- * niente da leggere. Le domande invece funzionano da subito, perche'
- * `riferimento` vale l'ultima tappa raggiunta.
- *
- * Chiedi e Orientati sono separati perche' rispondono sistemi diversi: l'LLM per
- * l'opera, il grafo della mappa per l'edificio.
- *
- * SUL TELEFONO LE DUE META' SI DIVIDONO, e `sezione` dice quale delle due si sta
- * guardando: la scheda intera in 55dvh voleva dire due centimetri di testo
- * dell'opera sopra due colonne di pastiglie, cioe' nessuna delle due leggibile.
- * Sono percio' due schede del guscio (`Visita.vue`), e qui restano due blocchi
- * che si accendono e si spengono. Da `lg` in su NON cambia niente: la colonna e'
- * alta quanto lo schermo e le due meta' ci stanno insieme, che e' il motivo per
- * cui questo pannello e' sempre aperto. Ogni blocco porta quindi la sua regola
- * scritta due volte, `hidden` per il telefono e `lg:` per rimetterlo, e non un
- * `matchMedia`: la larghezza la sa gia' il foglio di stile.
- *
- * La barra della voce e dell'avanzamento non si spegne mai: e' il comando, non il
- * contenuto, e cercarlo cambiando scheda vorrebbe dire perdere "Prossimo" proprio
- * mentre si sta leggendo la risposta a una domanda.
+ * Pannello persistente dell'opera con testo, voce, avanzamento e domande. Sul
+ * telefono separa contenuto e comandi; su schermi larghi li mostra insieme.
  */
 import { computed, ref, watch } from "vue";
 import Pannello from "./Pannello.vue";
@@ -60,12 +27,11 @@ const props = defineProps<{
   guidedStudent: boolean;
   guidedTeacher: boolean;
   richiesta: string;
-  /** La destinazione, se la domanda non la porta con se': servizio o opera. */
+
   target: string;
-  /** Se esiste una tappa successiva verso cui si possa chiedere la strada. */
+
   canAskNext: boolean;
-  /** Quale meta' si sta guardando sul telefono: `opera` o `domande`. Da `lg` in
-   *  su non decide niente, perche' li' si vedono tutt'e due. */
+
   sezione: string;
 }>();
 
@@ -85,7 +51,6 @@ const nextLabel = computed(() => {
 
 // --- L'opera -----------------------------------------------------------------
 
-/** Cambiando tappa il testo riparte dall'inizio: la colonna non scorre da se'. */
 const opera = ref<HTMLElement | null>(null);
 const imgBroken = ref(false);
 watch(
@@ -101,7 +66,6 @@ const immagine = computed(() => {
   return stopImage(props.content);
 });
 
-/** Lo stile, che ce l'ha solo un'opera: sotto al nome sta accanto all'autore. */
 const stile = computed(() => {
   if (!props.content) return "";
   const a = props.content.artwork;
@@ -142,13 +106,7 @@ const stile = computed(() => {
       ]"
     >
       <template v-if="content">
-        <!-- Sul telefono l'intestazione e' una didascalia da museo, con l'opera
-             a sinistra del titolo, perche' la colonna e' bassa e una foto a piena
-             larghezza se la prenderebbe tutta, lasciando fuori proprio il testo.
-             Sfuma verso il titolo invece di finire con un angolo netto: cosi' e'
-             la stessa lingua della vetrina e delle righe d'elenco. Da `lg` in su
-             c'e' l'altezza per l'opera intera, e li' si contiene invece di
-             ritagliare -- la maschera si toglie da se'. -->
+
         <div class="flex items-start gap-3 p-4 lg:block lg:p-0">
           <img
             v-if="immagine.src && !imgBroken"
@@ -186,7 +144,7 @@ const stile = computed(() => {
         <p class="measure px-4 pb-4 text-body lg:pt-4">{{ fields[2] }}</p>
       </template>
 
-      <!-- PORTA D'INGRESSO: nessuna tappa aperta -->
+      <!-- PORTA D'INGRESSO -->
       <div v-else class="p-4">
         <button
           v-if="azione"
@@ -201,7 +159,7 @@ const stile = computed(() => {
       </div>
     </div>
 
-    <!-- BARRA: voce e avanzamento -->
+    <!-- BARRA -->
     <div class="flex shrink-0 items-center gap-2 border-t border-line p-3">
       <button
         v-if="!guidedStudent"

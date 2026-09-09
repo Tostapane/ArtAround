@@ -1,22 +1,7 @@
 <script setup lang="ts">
 /**
- * LA VISITA GUIDATA: sala d'attesa, conduzione, quiz, chiusura.
- *
- * La sala d'attesa e' una schermata PROIETTATA: viene letta a voce alta in una
- * stanza e trenta persone la guardano insieme, percio' la parola chiave ha la
- * dimensione di un'insegna.
- *
- * Durante la visita i comandi di CONDUZIONE (chi c'e', chi ha chiesto cosa,
- * termina) stanno in una barra dedicata, separati dai comandi di visita: un
- * docente che preme "Prossimo" sta muovendo trenta persone, e la scheda lo dice
- * con parole sue.
- *
- * Quattro fasi, non tre. La fase "quiz" ha una sua schermata anche se
- * l'interfaccia del quiz non c'e' ancora: senza, all'avvio del quiz tutti
- * vedrebbero "Visita terminata" a meta' visita, che e' una cosa falsa. E la
- * chiusura distingue "il docente ha terminato" da "la sessione e' sparita":
- * riusare la stessa frase per entrambe e' il modo in cui un guasto diventa
- * invisibile.
+ * Interfaccia della visita sincronizzata: attesa, conduzione, quiz e chiusura.
+ * Docente e studente vedono controlli diversi sullo stesso stato.
  */
 import { computed, onUnmounted, ref, watch } from "vue";
 import Visita from "./visita/Visita.vue";
@@ -133,14 +118,7 @@ function backHome() {
 }
 
 // ---------------------------------------------------------------------------
-//                          Quiz di fine visita
-// ---------------------------------------------------------------------------
 
-/**
- * La correzione e' sempre del server: qui si tengono solo le scelte, e il voto
- * arriva dalla risposta. Il conto alla rovescia e' informativo: la scadenza
- * vera la controlla il server, che rifiuta le consegne in ritardo.
- */
 const quizDurata = ref(120);
 const risposte = ref<number[]>([]);
 const inviando = ref(false);
@@ -465,9 +443,7 @@ async function consegna() {
     </div>
   </template>
 
-  <!-- ===================== QUIZ DI FINE VISITA ===================== -->
-
-  <!-- DOCENTE: il tabellone dei risultati -->
+  <!-- DOCENTE -->
   <div
     v-else-if="guidedStato === 'quiz' && isTeacher"
     class="min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
@@ -552,7 +528,7 @@ async function consegna() {
     </div>
   </div>
 
-  <!-- STUDENTE: il compito -->
+  <!-- STUDENTE -->
   <div
     v-else-if="guidedStato === 'quiz'"
     class="min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"

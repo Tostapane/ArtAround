@@ -1,11 +1,6 @@
 /**
- * Lettura ad alta voce.
- *
- * La sintesi e' del server; qui si riproduce soltanto. Il testo dev'essere GIA'
- * nella lingua scelta: la traduzione avviene a monte, questo non traduce.
- *
- * Un contatore annulla le letture ancora in volo, cosi' una richiesta vecchia non
- * interrompe quella nuova.
+ * Riproduce l'MP3 sintetizzato dal server. Un contatore invalida le richieste
+ * precedenti, evitando che una risposta lenta interrompa la lettura corrente.
  */
 import { ref } from "vue";
 import { getSpeechAudio } from "@/api";

@@ -1,26 +1,7 @@
 <script setup lang="ts">
 /**
- * Il comando vocale.
- *
- * Sta nel piede della scheda ed e' sempre visibile: per chi non vede e'
- * l'ingresso principale all'applicazione, non un'alternativa da scovare in fondo
- * a un pannello.
- *
- * Ogni cambio di stato viene annunciato, e il comando riconosciuto si ripete
- * prima di eseguirlo. L'esito negativo si annuncia E si scrive: annunciandolo
- * soltanto, chi guarda lo schermo vedrebbe "Sto capendo...", poi di nuovo
- * "Parla", e nient'altro. Il messaggio scritto non ha pero' `role="alert"`,
- * perche' `announce` ha gia' detto la stessa frase e due regioni vive la
- * farebbero leggere due volte.
- *
- * Quel messaggio racconta l'ultimo tentativo, non la visita: `tappa` serve a
- * sapere quando e' passato di moda, o un "Non ho capito" resterebbe scritto sotto
- * al microfono per tutto il percorso, come fosse il commento all'opera aperta.
- *
- * Mentre si registra il pulsante disegna il volume che il microfono sente: e'
- * l'unico segno che distingue "ti sto ascoltando" da un permesso concesso a un
- * dispositivo muto. Per lo screen reader e' `aria-hidden`, perche' una traccia
- * che cambia dieci volte al secondo non si legge e l'avvio e' gia' annunciato.
+ * Acquisisce un comando vocale, ne mostra lo stato e lo inoltra al vocabolario
+ * controllato. Il livello del microfono rende visibile una registrazione muta.
  */
 import { ref, watch, onUnmounted, computed } from "vue";
 import { sendAudioToBackend } from "@/api";
@@ -95,8 +76,7 @@ watch(finalBlob, async (blob) => {
       riferisci(t("Non ho capito. Prova a ripetere, oppure usa i pulsanti."));
     }
   } catch {
-    // Il server distingue "non ho capito" da "non rispondo": qui si arriva solo
-    // nel secondo caso, e ripetere la frase non servirebbe a niente.
+
     riferisci(t("Il comando vocale non è disponibile ora. Usa i pulsanti qui sopra."));
   } finally {
     processing.value = false;

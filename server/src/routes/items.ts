@@ -1,72 +1,7 @@
 /**
- * Rotte dei contenuti (item).
- *
- * L'elenco pubblico esclude i privati, che esistono solo per le visite guidate
- * del loro autore, e si restringe a un museo con `?museum=Qxxx`.
- *
- * Gli elenchi sono due e la differenza e' il testo: `GET /items` porta i
- * documenti interi ed e' la primitiva completa, `GET /items/metadata` gli stessi
- * item senza testo, per le schermate che mostrano solo i metadati. Il testo e'
- * la parte piu' pesante del catalogo e non se ne legge nessuno finche' non se ne
- * apre uno: quello si chiede a `GET /artworks/:qid/items`.
- *
- * Il soggetto non e' per forza un'opera (slide 21): lo dice `genere`. Un'opera si
- * cerca nel database e porta con se' museo e immagine, ogni altro soggetto arriva
- * come nome scritto dall'autore. L'immagine e' facoltativa: una tappa su uno
- * stile si ascolta davanti a un'opera vera, la sua ancora, e il navigator mostra
- * quella.
- *
- * Sullo stesso soggetto e con lo stesso tono se ne possono scrivere quante se ne
- * vuole, e a distinguerle e' l'`@id`, che dalla seconda porta un contatore
- * (`freeItemId`). In modifica cambiano solo testo e prezzo, perche' il resto e'
- * identita' o diritti di chi l'ha adottata: per questo si sbriga prima di
- * risolvere il soggetto, che li' non serve.
- *
- * L'eliminazione e' a cascata: un item citato da una visita lascerebbe una tappa
- * che non si risolve, e una tappa irrisolvibile non da' errore, semplicemente
- * non compare. La visita si ACCORCIA quindi della sua tappa, cioe' salta
- * l'opera che quella descrizione raccontava, se nel percorso non ce n'e'
- * un'altra sulla stessa opera, e sparisce solo se resta senza nessuna tappa.
- * `GET /:id/impact` lo dichiara prima di chiedere conferma.
- *
- * Cancella chi l'ha scritta e il curatore, che risponde del catalogo del museo.
- * Senza quella guardia bastava un `@id` per togliere di mezzo il lavoro di
- * chiunque, e con esso le tappe delle visite che lo citavano.
- *
- * `GET /author/:authorName` e' l'unica rotta che manda i TESTI senza passare da
- * `readableItems`, ed e' lecito solo perche' risponde a chi ha scritto quei
- * contenuti: `isReadable` da' comunque per letto all'autore quel che e' suo,
- * quindi la regola non e' sospesa, e' gia' soddisfatta. Il nome nell'indirizzo
- * deve percio' coincidere con quello della sessione, o quella rotta diventa il
- * modo di leggere gratis tutto il catalogo a pagamento chiedendo
- * `/author/Museo`. Vale anche per i privati, che di li' passano interi.
- *
- * `filtroPubblico` sta in un posto solo perche' le due rotte che elencano il
- * catalogo devono elencare le stesse cose: cambiando la definizione di pubblico
- * non possono cambiare a meta'.
- *
- * `freeItemId` esiste perche' lo stesso autore puo' scrivere piu' descrizioni
- * dello stesso tono sulla stessa opera, sono letture diverse dello stesso
- * quadro, non un errore, mentre l'`@id` e' unico in indice, e senza contatore la
- * seconda morirebbe su una chiave duplicata. La prima tiene la forma leggibile,
- * cosi' gli id scritti dal seed restano prevedibili; resta comunque una chiave
- * opaca, che nessuno spacchetta per leggerci dentro il tono o la durata.
- *
- * `rimuoviImmagine` riduce il nome al solo basename: senza quel taglio un
- * `imagePath` scritto a mano indicherebbe qualunque file sul disco.
- *
- * Prezzo e testo li controlla il SERVER, che e' l'unico posto in cui il controllo
- * vale davvero: un prezzo negativo non e' uno sconto, e' credito regalato a chi
- * compra la visita che lo contiene.
- *
- * Le due guardie dell'eliminazione. `nascostoA`: un contenuto privato che non e'
- * del suo autore risponde come se non esistesse, perche' dire "non puoi"
- * confermerebbe comunque che c'e' e di chi e'. `vietato`: possono toccarlo il
- * curatore, che risponde del catalogo del museo, e l'autore che l'ha scritto, e
- * il RUOLO si guarda prima della privatezza, o al curatore la regola dei privati
- * altrui direbbe "non esiste", lasciandolo senza lo strumento fine e con in mano
- * solo lo svuotamento del museo intero. Nascondere il pulsante non basterebbe: la
- * rotta si chiama anche senza passare dall'interfaccia.
+ * Rotte dei contenuti: catalogo, pubblicazione, immagini ed eliminazione. Il server
+ * protegge testo, prezzo, privatezza e cascata; autore e curatore hanno poteri
+ * distinti sullo stesso item.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -96,8 +31,7 @@ function filtroPubblico(museum: string): Record<string, unknown> {
 
 /**
  * GET /api/items[?museum=Qxxx]
- * Ritorna: gli item pubblici del museo indicato (o tutti senza parametro), con
- * l'opera (`about`) popolata dove c'e'.
+ * Ritorna: gli item pubblici del museo, o tutti senza parametro, con `about` popolato.
  */
 router.get("/", async (req, res) => {
   try {
@@ -122,18 +56,8 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/items/metadata[?museum=Qxxx]
- * Ritorna: gli stessi item di `GET /items` ma senza il campo `text` e senza
- * l'opera popolata dentro ognuno. E' il catalogo per decidere, cioe' tono,
- * durata, autore, licenza e prezzo: i metadati che la slide 21 chiede.
- *
- * Il campo `text` viene omesso e non svuotato perche' i due casi sono diversi:
- * `access.ts withoutText` manda `text: ""` con `locked: true` per dire che non
- * si puo' leggere, mentre qui il testo non c'e' perche' non e' stato chiesto. Il
- * client li distingue guardando se la proprieta' esiste, e una descrizione
- * gratuita non deve mai sembrare sotto chiave.
- *
- * L'opera non viene popolata perche' il client ha gia' scaricato le opere del
- * museo, e ripeterla dentro ognuna delle sue descrizioni la manda otto volte.
+ * Ritorna: gli item pubblici senza `text` ne' opera popolata, mantenendo tono, durata, autore,
+ * licenza e prezzo.
  */
 router.get("/metadata", async (req, res) => {
   try {
@@ -148,8 +72,7 @@ router.get("/metadata", async (req, res) => {
 
 /**
  * GET /api/items/author/:authorName
- * Ritorna: i PROPRI contenuti, privati compresi e col testo, con l'opera
- * popolata. 403 a chi chiede quelli di un altro nome.
+ * Ritorna: i propri contenuti, privati compresi e col testo; 403 per un altro autore.
  */
 router.get("/author/:authorName", async (req, res) => {
   try {
@@ -177,9 +100,7 @@ router.get("/author/:authorName", async (req, res) => {
 
 /**
  * GET /api/items/:id/text
- * Ritorna: { text, locked }, il testo di una sola descrizione.
- * `/artworks/:qid/items` le porta un'opera per volta, e un contenuto che parla di
- * uno stile non ha nessuna opera da cui farsi trovare.
+ * Ritorna: { text, locked } per qualunque contenuto, anche senza opera associata.
  */
 router.get("/:id/text", async (req, res) => {
   try {
@@ -204,7 +125,6 @@ router.get("/:id/text", async (req, res) => {
 const ITEM_IMAGE_DIR = path.join(SERVER_ROOT, "public/images/items");
 const ITEM_IMAGE_URL = "/images/items/";
 
-/** Elenco chiuso: il nome del file lo scrive il server, estensione compresa. */
 const FORMATI: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -270,9 +190,7 @@ async function freeItemId(base: string): Promise<string> {
 
 /**
  * POST /api/items
- * Ritorna: 201 alla pubblicazione, 200 alla modifica (`editId`). In modifica
- * cambiano solo testo e prezzo: il resto e' identita', o diritti di chi l'ha
- * gia' adottata.
+ * Ritorna: 201 alla pubblicazione, 200 alla modifica; con `editId` cambiano solo testo e prezzo.
  */
 router.post("/", async (req, res) => {
   try {
@@ -414,10 +332,7 @@ async function measureImpact(itemId: string) {
 
 /**
  * GET /api/items/:id/impact
- * Ritorna: { visite[], adozioni }, cioe' cosa sparirebbe eliminando questo item.
- * Serve a dichiararlo prima di chiedere conferma. Non scrive nulla.
- * Stessa prerogativa della cancellazione: elenca i nomi delle visite che lo
- * citano, private comprese, quindi risponde a chi potrebbe cancellarlo davvero.
+ * Ritorna: { visite[], adozioni }, senza scrivere, per anticipare la cascata.
  */
 router.get("/:id/impact", async (req, res) => {
   try {
@@ -444,21 +359,8 @@ router.get("/:id/impact", async (req, res) => {
 
 /**
  * DELETE /api/items/:id[?visite=accorcia|elimina]
- * Ritorna: { visiteAccorciate[], visiteEliminate[], adozioniRimosse }. Elimina
- * la descrizione; `visite` dice che fare di quelle che la citano: "accorcia"
- * (predefinito) toglie la tappa e lascia in piedi il percorso, "elimina" le
- * butta via intere. Una visita che resterebbe senza tappe sparisce comunque.
- *
- * Accorciare vuol dire che la visita SALTA l'opera di cui la descrizione
- * parlava, a meno che nel percorso non ci sia un'altra tappa sulla stessa
- * opera, che resta e la fa visitare lo stesso. E' quel che la tappa tolta
- * significa, e non serve nessun conto per ottenerlo: si toglie l'item, e la
- * fermata su quell'opera resta solo se qualcos'altro la teneva.
- *
- * La strada "elimina" e' del solo CURATORE, e non e' una restrizione di
- * comodo: butta via percorsi ALTRUI, comprati e composti da altri, per via di
- * una tappa su cento. Chi risponde del museo puo' deciderlo; un autore
- * risponde di quel che scrive, e la sua cancellazione accorcia.
+ * Elimina l'item; accorcia le visite citanti o, su richiesta, le elimina. Ritorna la cascata
+ * applicata; una visita rimasta vuota sparisce sempre.
  */
 router.delete("/:id", async (req, res) => {
   try {

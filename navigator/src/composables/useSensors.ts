@@ -1,32 +1,8 @@
 /**
- * I SENSORI DEL DEVICE: posizione e orientamento.
- *
- * L'unico posto con gli effetti collaterali del browser, cioe' permessi,
- * ascoltatori e `watchPosition`, come `useQRScanner` lo e' per la fotocamera. La
- * geometria sta in `localization.ts` e non sa che questi esistano.
- *
- * DUE STRADE PER UNA BUSSOLA SOLA. Android e Chrome danno `alpha` riferito al
- * nord su `deviceorientationabsolute`; iOS lo da' su `deviceorientation` come
- * `webkitCompassHeading`, e prima vuole `requestPermission()` DENTRO il gesto
- * dell'utente: per questo si parte dal tocco che apre "Dove sono?" e non al
- * caricamento della pagina. Se nessuna delle due strada da' un riferimento
- * assoluto la bussola resta spenta: `alpha` relativo e' un numero che sembra una
- * direzione senza esserlo, e una bussola sicura di se' e sbagliata e' peggio di
- * nessuna bussola, perche' salta il pannello di scelta invece di mostrarlo.
- *
- * IL TELEFONO NON E' PIATTO. `alpha` da solo e' una bussola solo tenendo il
- * telefono orizzontale; davanti a un quadro lo si tiene dritto, e allora la
- * direzione guardata e' quella della fotocamera posteriore. Si costruisce la
- * matrice di rotazione da alpha/beta/gamma, si prende l'asse della fotocamera e
- * lo si proietta sul piano orizzontale. Quando il telefono torna quasi piatto
- * quell'asse punta al pavimento e la proiezione non dice piu' niente: li' si usa
- * la direzione del bordo superiore, che e' la bussola classica.
- *
- * Su iOS `webkitCompassHeading` e' gia' un rilevamento ORARIO dal nord, mentre
- * `alpha` gira al contrario: si riporta ad alpha assoluto, cosi' sotto resta una
- * formula sola invece di due rami per piattaforma.
+ * Isola permessi e ascoltatori di posizione e orientamento. Normalizza le API
+ * Android e iOS e ignora orientamenti relativi, che sembrerebbero direzioni assolute
+ * senza esserlo.
  */
-
 import { ref } from "vue";
 import { applyFix, bussola } from "@/localization";
 import { t } from "@/i18n";
@@ -48,7 +24,7 @@ export function useSensors() {
 
     let alpha = e.alpha;
     if (typeof vendor.webkitCompassHeading === "number") {
-      // per ios
+
       alpha = 360 - vendor.webkitCompassHeading;
     } else if (!e.absolute) {
       return null;

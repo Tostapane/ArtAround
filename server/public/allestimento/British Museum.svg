@@ -1,55 +1,8 @@
 <svg viewBox="0 -1040 1200 2040" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="145">
-  <!--
-    PIANTA DEL BRITISH MUSEUM, DUE LIVELLI.
-
-    La struttura dei dati e' quella che services/svgGraph.ts sa leggere: data-room
-    (aree = sale), data-qid (nodi-opera), data-poi (servizi), data-obstacle
-    (ostacoli), data-edge (collegamenti fra sale), data-floor sul gruppo di ogni
-    piano. Tutto il resto e' disegno, e il parser lo ignora perche' non ha
-    attributi data-*.
-
-    L'EDIFICIO e' un quadrilatero pieno con una corte coperta nel mezzo, il Great
-    Court, e in mezzo alla corte il tamburo circolare della Reading Room. La
-    Reading Room e' dichiarata PRIMA del Great Court: le aree si valutano in
-    ordine di documento e vince la prima che contiene il punto, quindi una sala
-    dentro un'altra va scritta per prima o sparisce sotto quella che la circonda.
-    Al piano superiore la corte non ha pavimento: il quadrato tratteggiato e' il
-    vuoto, non e' una sala, e le sale del piano si tengono per mano in cerchio
-    tutto intorno.
-
-    LA LOCALIZZAZIONE nasce da due dati e da nient'altro: data-width-m dice
-    quanti metri e' larga la pianta (qui 145 su 1200 unita', cioe' poco piu' di otto unita'
-    per metro) e data-poi="entrance" dice da dove si entra, che e' il punto in
-    cui si mette il visitatore prima di qualunque misura. Il nord della Terra e'
-    il su del disegno per definizione: nessuna pianta ha coordinate vere, e la
-    bussola del telefono si legge rispetto al foglio.
-
-    I due piani sono impilati in verticale, non affiancati, perche' data-width-m
-    deve restare la larghezza di UN piano. Lo scalone che li unisce e' un
-    data-edge FUORI dai gruppi: dentro, allargherebbe il getBBox di quel piano
-    fino all'altro e l'inquadratura per piano del navigator mostrerebbe mezzo
-    disegno vuoto.
-
-    Due regole da rispettare se si sposta qualcosa:
-      1. Niente transform sugli elementi con data-*: il parser legge cx/cy oppure
-         x/y/width/height cosi' come sono scritti. Le etichette ruotate possono
-         averlo perche' sono solo disegno.
-      2. Il centro di un servizio o di un ostacolo decide in quale sala ricade:
-         cambiando la misura di un quadrato vanno ricalcolati x e y per tenere
-         fermo il centro.
-  -->
+  <!-- Pianta del British Museum su due piani. Il parser legge data-room, data-qid, data-poi, data-obstacle, data-edge, data-floor e data-width-m. Non trasformare gli elementi data-*; le aree contenute precedono quelle che le circondano e gli archi fra piani restano fuori dai gruppi. -->
 
   <style>
-    /*
-      I colori arrivano dal tema dell'app (shared/theme.css): la mappa viene
-      inserita NELLA pagina, non in un iframe, quindi le variabili del documento
-      cascano qui dentro e il tema scuro segue da se'. I valori di ripiego
-      servono solo se si apre il file da solo nel browser.
-
-      Ogni regola sta dentro :where(), cioe' a specificita' zero: le classi che
-      il navigator aggiunge a caldo (nodo-opera, nodo-corrente, nodo-opzionale)
-      devono sempre vincere su quello che si scrive qui.
-    */
+    /* Token del tema; :where() lascia prevalere gli stati runtime. */
     :where(.museum-map) {
       --carta: var(--surface, #ffffff);
       --grafite: var(--text, #353535);
@@ -64,12 +17,7 @@
       font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
     }
 
-    /*
-      Un nodo opera e' un cerchio di raggio 10: lasciando rimpicciolire la pianta
-      fino alla larghezza dello schermo, su un telefono verrebbe un paio di
-      pixel, non lo si centra col dito e non ci si legge dentro il numero della
-      tappa. Sotto questa soglia la pianta smette quindi di stringersi e scorre.
-    */
+    /* Dimensione minima per nodi toccabili su telefono. */
     :where(.museum-map) { min-width: 600px; }
 
     :where(.museum-map) .foglio {
@@ -93,12 +41,7 @@
       opacity: 0.5;
     }
 
-    /*
-      Sale: carta appena tinta. Le tinte escono dalla palette e sono diluite
-      tanto da leggersi come carta colorata, mai come un comando. Due sale
-      confinanti non si distinguono per la sola TINTA: cambia anche quanto e'
-      forte la mescolanza, cosi' restano diverse anche in scala di grigi.
-    */
+    /* Le sale restano distinguibili senza affidarsi al solo colore. */
     :where(.museum-map) .sala {
       fill: color-mix(in oklab, var(--carta) var(--forza, 88%), var(--tinta, var(--carta)));
     }
@@ -150,11 +93,7 @@
       opacity: 0.12;
     }
 
-    /*
-      Opere: dischi (e qualche quadrato dove il pezzo e' una scultura o un
-      oggetto). Questo e' l'aspetto A RIPOSO: quando l'opera e' una tappa della
-      visita in corso il navigator la ricolora e ci scrive dentro il numero.
-    */
+    /* Aspetto inattivo dei nodi opera; il navigator marca le tappe. */
     :where(.museum-map) .nodo-arte {
       fill: color-mix(in oklab, var(--carta) 42%, var(--tenue));
       stroke: var(--carta);
@@ -162,10 +101,7 @@
       paint-order: stroke;
     }
 
-    /*
-      Servizi: quadrati arrotondati. La forma, non solo il colore, li separa
-      dalle opere: si riconoscono anche senza distinguere le tinte.
-    */
+    /* La forma distingue i servizi dalle opere. */
     :where(.museum-map) .nodo-servizio {
       fill: var(--ardesia);
       stroke: var(--carta);
@@ -614,11 +550,7 @@
     </g>
   </g>
 
-  <!--
-    I vani scale che uniscono i piani. Stanno FUORI dai gruppi dei piani:
-    dentro, il getBBox del gruppo si allungherebbe fino all'altro piano e
-    l'inquadratura per piano mostrerebbe mezzo disegno vuoto.
-  -->
+  <!-- Collegamenti fra piani -->
   <g class="arco" id="nav-edges-piani">
     <line data-edge="" x1="800" y1="300" x2="600" y2="-210" /> <!-- Great Court (terra) <-> Scalone Sud (primo) -->
   </g>

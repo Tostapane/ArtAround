@@ -1,12 +1,6 @@
 /**
- * Documento Mongoose di un'opera.
- *
- * `IArtwork` estende il tipo condiviso con i due campi Schema.org che stanno
- * solo sul documento salvato.
- *
- * Gli indici sono le forme di interrogazione che questo modello riceve davvero
- * (il perche' sta in `models/item.ts`): per qid, e per museo. `@id` e' gia'
- * `unique` sul campo, quindi Mongoose gli fa l'indice da se'.
+ * Schema Mongoose delle opere e indici per identificativo e museo, le due forme con
+ * cui il catalogo le interroga.
  */
 import { Schema, model } from "mongoose";
 import { Artwork as SharedArtwork } from "../../../shared/types";

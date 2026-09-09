@@ -1,15 +1,9 @@
+/* Stili propri del navigator; token e componenti generici restano in shared/. */
 @import "tailwindcss";
-/* Token e componenti: un'unica fonte condivisa col marketplace.
-   Non aggiungere qui colori o componenti generici: vanno in shared/. */
+
 @import "../../../shared/theme.css";
 @import "../../../shared/components.css";
 
-/*
-  LA SALA: solo cio' che esiste unicamente nell'app da museo.
-  L'app si usa in piedi, con una mano, dentro un edificio: l'altezza reale
-  della finestra (dvh) e le safe-area dei telefoni sono un requisito, non un
-  dettaglio (prelude.md §6 C6).
-*/
 @layer base {
   html,
   body,
@@ -18,7 +12,7 @@
   }
 
   body {
-    /* Niente rimbalzo elastico: sotto c'e' una mappa, non una pagina che scorre */
+
     overscroll-behavior-y: none;
   }
 }

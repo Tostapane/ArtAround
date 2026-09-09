@@ -1,11 +1,4 @@
-/**
- * Documento Mongoose di un museo.
- *
- * `IMuseum` estende il tipo condiviso con i due campi Schema.org che stanno solo
- * sul documento salvato. Non tutti i campi del tipo hanno una colonna qui:
- * `logistics` sta nel file di configurazione e `opere`/`visite` sono conteggi che
- * la rotta calcola, quindi ne' gli uni ne' gli altri si salvano.
- */
+/** Materializza in Mongo i musei configurati per servirli senza rileggere Wikidata. */
 import { Schema, model } from "mongoose";
 import { Museum as SharedMuseum } from "../../../shared/types";
 

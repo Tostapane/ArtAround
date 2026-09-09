@@ -1,20 +1,6 @@
 /**
- * Il quiz della visita guidata, costruito DALLE OPERE della visita.
- *
- * La slide 33 chiede che almeno una visita sincronizzata abbia "un test sensato
- * di competenza alla fine": sensato vuol dire che le domande parlano di cio' che
- * si e' appena visto, e i distrattori sono altri autori e altri stili dello
- * stesso museo, non nomi inventati. Nessuna domanda e' scritta a mano, percio'
- * la regola vale per qualunque museo si configuri in `public/allestimento/`.
- *
- * Se il museo non offre abbastanza autori o stili diversi per fare tre
- * distrattori, la domanda semplicemente non viene prodotta: meglio un quiz
- * corto di uno con due opzioni identiche, e' quel che fa `domanda`, che rende
- * null invece di riempire con quel che trova.
- *
- * `valido` scarta "Unknown", che e' quel che Wikidata rende quando l'autore o lo
- * stile non sono noti: come risposta e' una non-risposta, e come distrattore e'
- * un regalo.
+ * Costruisce il quiz guidato dalle opere visitate e usa distrattori reali dello
+ * stesso museo. Una domanda senza alternative distinte viene omessa.
  */
 export type SeedQuiz = { question: string; options: string[]; correct: number };
 

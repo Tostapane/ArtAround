@@ -1,69 +1,8 @@
 <svg viewBox="0 -1360 1500 2000" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="150">
-  <!--
-    PIANTA DELLA GALLERIA DEGLI UFFIZI, TRE PIANI.
-
-    La struttura dei dati e' quella che services/svgGraph.ts sa leggere e non va
-    cambiata: data-room (aree = sale), data-qid (nodi-opera), data-poi (servizi),
-    data-obstacle (ostacoli), data-edge (collegamenti fra sale), data-floor sul
-    gruppo di ogni piano. Tutto il resto (stile, griglia, battenti delle porte,
-    legenda) e' solo disegno, e il parser lo ignora perche' non ha attributi data-*.
-
-    L'EDIFICIO. Due bracci lunghi e paralleli attorno al piazzale, uniti in fondo
-    dal braccio sull'Arno: la U e' aperta verso nord, cioe' verso Piazza della
-    Signoria, che qui e' a destra. Il braccio in basso e' quello di levante e
-    porta l'ingresso; quello in alto e' di ponente e finisce sulla terrazza che
-    sta sopra la Loggia dei Lanzi. Ogni braccio e' un corridoio che guarda il
-    piazzale e una fila di sale dietro: e' il motivo per cui da una sala all'altra
-    si passa SEMPRE dal corridoio, e per cui i corridoi sono sale a tutti gli
-    effetti (senza, nessun percorso potrebbe attraversarli).
-
-    IL PERCORSO, che e' quello vero e che i data-flow numerano dall'inizio alla
-    fine: si entra al piano terra, si sale con lo Scalone Vasariano al secondo
-    piano, si percorre il braccio di levante dal Duecento fino alla Tribuna, si
-    attraversa il corridoio sull'Arno, si torna indietro lungo il braccio di
-    ponente fino alla terrazza, si scende con la Scala del Buontalenti al primo
-    piano fra le Sale Rosse e il Caravaggio, e si esce dal bookshop al piano
-    terra. Atrio e bookshop NON sono collegati fra loro: chi cerca l'uscita
-    attraversa la galleria, ed e' quello che il grafo deve dire.
-
-    I PIANI sono impilati in verticale, non affiancati, perche' data-width-m e'
-    la larghezza del viewBox in metri e deve restare la larghezza di UN piano.
-    L'edificio e' lungo 140 metri e largo 48: dieci unita' di disegno valgono un
-    metro. Il collegamento fra un piano e l'altro (il vano scale) sta FUORI dai
-    due gruppi: dentro, allargherebbe il getBBox di quel piano fino all'altro e
-    l'inquadratura per piano del navigator mostrerebbe mezzo edificio vuoto.
-
-    data-width-m e data-poi="entrance" (dove nasce il sistema di coordinate
-    all'apertura) servono alla localizzazione: la nota estesa sta in
-    "British Museum.svg".
-
-    Tre regole da rispettare se si sposta qualcosa:
-      1. L'ORDINE delle aree conta: vince la PRIMA che contiene il punto, quindi
-         una sala contenuta in un'altra va scritta prima di quella che la circonda.
-      2. Niente transform sugli elementi con data-*: il parser legge cx/cy oppure
-         x/y/width/height cosi' come sono scritti nel file. Le etichette ruotate
-         possono averlo perche' sono solo disegno.
-      3. Il centro di un servizio/ostacolo decide in quale sala ricade: cambiando
-         la misura di un quadrato vanno ricalcolati x e y per tenere fermo il centro.
-      4. I nomi delle sale sono unici sui tre piani, altrimenti due omonime
-         diventano una sola sala e con loro un passaggio che nessuno ha disegnato.
-
-    data-label sui nodi-opera non serve al disegno: e' il titolo che le
-    indicazioni pronunciano, ed e' l'unico modo di ritrovare un'opera fra
-    centoquattro leggendo il file.
-  -->
+  <!-- Pianta degli Uffizi su tre piani. Il parser legge data-room, data-qid, data-poi, data-obstacle, data-edge, data-floor e data-width-m. Non trasformare gli elementi data-*; i nomi delle sale sono unici e gli archi fra piani restano fuori dai gruppi. -->
 
   <style>
-    /*
-      I colori arrivano dal tema dell'app (shared/theme.css): la mappa viene
-      inserita NELLA pagina, non in un iframe, quindi le variabili del documento
-      cascano qui dentro e il tema scuro segue da se'. I valori di ripiego
-      servono solo se si apre il file da solo nel browser.
-
-      Ogni regola sta dentro :where(), cioe' a specificita' zero: le classi che
-      il navigator aggiunge a caldo (nodo-opera, nodo-corrente, nodo-opzionale)
-      devono sempre vincere su quello che si scrive qui.
-    */
+    /* Token del tema; :where() lascia prevalere gli stati runtime. */
     :where(.museum-map) {
       --carta: var(--surface, #ffffff);
       --grafite: var(--text, #353535);
@@ -78,14 +17,7 @@
       font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
     }
 
-    /*
-      Un nodo opera e' un cerchio di raggio 10 su un disegno largo 1500 unita':
-      lasciando rimpicciolire la pianta fino alla larghezza dello schermo, su un
-      telefono verrebbe un paio di pixel, non lo si centra col dito e non ci si
-      legge dentro il numero della tappa. Sotto i 750 px la pianta smette quindi
-      di stringersi e scorre, che e' la stessa proporzione delle altre piante:
-      1500 sta a 750 come 1240 sta a 620.
-    */
+    /* Dimensione minima per nodi toccabili su telefono. */
     :where(.museum-map) { min-width: 750px; }
 
     /* Il foglio su cui e' disegnata la pianta */
@@ -102,12 +34,7 @@
       opacity: 0.14;
     }
 
-    /*
-      Sale: carta appena tinta. Le tinte escono dalla palette e sono diluite
-      tanto da leggersi come carta colorata, mai come un comando. Due sale
-      confinanti non si distinguono per la sola TINTA: cambia anche quanto e'
-      forte la mescolanza, cosi' restano diverse anche in scala di grigi.
-    */
+    /* Le sale restano distinguibili senza affidarsi al solo colore. */
     :where(.museum-map) .sala {
       fill: color-mix(in oklab, var(--carta) var(--forza, 88%), var(--tinta, var(--carta)));
     }
@@ -166,11 +93,7 @@
       opacity: 0.12;
     }
 
-    /*
-      Opere: dischi (e qualche quadrato dove il pezzo e' una scultura o una teca).
-      Questo e' l'aspetto A RIPOSO: quando l'opera e' una tappa della visita in
-      corso il navigator la ricolora e ci scrive dentro il numero.
-    */
+    /* Aspetto inattivo dei nodi opera; il navigator marca le tappe. */
     :where(.museum-map) .nodo-arte {
       fill: color-mix(in oklab, var(--carta) 42%, var(--tenue));
       stroke: var(--carta);
@@ -178,10 +101,7 @@
       paint-order: stroke;
     }
 
-    /*
-      Servizi: quadrati arrotondati. La forma, non solo il colore, li separa
-      dalle opere: si riconoscono anche senza distinguere le tinte.
-    */
+    /* La forma distingue i servizi dalle opere. */
     :where(.museum-map) .nodo-servizio {
       fill: var(--ardesia);
       stroke: var(--carta);
@@ -1071,11 +991,7 @@
     </g>
   </g>
 
-  <!--
-    I due vani scale che uniscono i piani. Stanno FUORI dai gruppi dei piani:
-    dentro, il getBBox del gruppo si allungherebbe fino all'altro piano e
-    l'inquadratura per piano mostrerebbe mezzo disegno vuoto.
-  -->
+  <!-- Collegamenti fra piani -->
   <g class="arco" id="nav-edges-piani">
     <line data-edge="" x1="1390" y1="440" x2="1390" y2="-890" /> <!-- Scalone Vasariano (terra) <-> Approdo dello Scalone (secondo) -->
     <line data-edge="" x1="1240" y1="-1245" x2="1240" y2="-565" /> <!-- Scala del Buontalenti (secondo) <-> Pianerottolo (primo) -->

@@ -1,63 +1,10 @@
 /**
+ * Rotte dei musei e dell'allestimento. Viste pubbliche, biglietteria, foglio QR e
+ * strumenti del curatore condividono il museo ma applicano visibilita' e
+ * autorizzazioni diverse sul server.
+ */
+/**
  * Rotte dei musei.
- *
- * `/overview` e `/items` sono le due letture del CURATORE, e la guardia sta in
- * ciascuna: la prima da' conteggi e copertura del catalogo, la seconda tutti gli
- * item del museo, privati compresi. E' quest'ultimo dettaglio a distinguerla da
- * `GET /api/items`, che invece li nasconde, ed e' anche il motivo per cui non
- * puo' restare aperta: elencare i privati di tutti a chiunque abbia una sessione
- * e' esattamente il contrario di cosa vuol dire "privato".
- *
- * Il testo pero' di li' non passa comunque (`-text`), e non e' una restrizione
- * aggiunta al ruolo: quella schermata mostra tono, durata, prezzo e licenza, e
- * il testo non lo legge nessuno. Ometterlo e' la stessa scelta di
- * `GET /items/metadata`, e su un catalogo da duemila descrizioni e' anche la
- * differenza fra una risposta leggera e una che porta tutto il museo.
- *
- * `/config` legge il museo dal FILE DI CONFIGURAZIONE del curatore invece che dal
- * database: e' quello il file che si modifica per adattare il navigator.
- * `/visits` filtra per chi guarda: le visite guidate non compaiono mai (ci si
- * entra con la parola chiave) e quelle a pagamento solo a chi le possiede. Porta
- * anche il CONTO di ciascuna, come `GET /api/visits`: possedere una visita non
- * vuol dire poterla percorrere, perche' le sue tappe si pagano una per una e una
- * visita gratuita puo' contenerne a pagamento. Senza quel numero la biglietteria
- * avvierebbe un percorso le cui schede arrivano vuote: i testi non escono
- * comunque (`access.ts`), ma chi ci finisce vede un'applicazione rotta invece di
- * una tappa da sbloccare. Il conto si fa qui e non nel navigator perche' e' lo
- * stesso `conto()` che addebita: due conti separati si allontanano.
- * `/qrcodes` produce il foglio stampabile da ritagliare e affiancare alle opere.
- * L'elenco porta i CONTEGGI di opere e visite: da quando il client scarica il
- * catalogo di un museo alla volta, non puo' piu' contare quelli che non ha. Il
- * numero sulla carta misura il CATALOGO, quindi conta quel che chiunque puo'
- * trovarci: fuori le guidate, che si aprono con la parola chiave, e fuori le
- * private, che sono l'itinerario di una persona sola. Contarle darebbe una
- * vetrina piu' ricca di quella che si apre entrando.
- *
- * I due conteggi si fanno con due AGGREGAZIONI e non con due `countDocuments`
- * per museo: quelle sono due interrogazioni sempre, mentre un conto dentro il
- * ciclo ne fa due per ogni museo configurato, cioe' cresce con l'unica cosa che
- * in questo progetto e' fatta per crescere.
- *
- * `/topics` non legge niente di memorizzato: uno stile esiste finche' un'opera lo
- * dichiara. Serve a suggerire un nome a chi scrive un contenuto che non parla di
- * un'opera, perche' scritto uguale quel contenuto e la pastiglia dello stile sulla
- * pagina dell'opera si ritrovano. Scarta "Unknown" e gli indirizzi di nodo anonimo
- * (`.well-known/genid/…`), che sono buchi di Wikidata e non nomi.
- *
- * In `/overview` la copertura misura le OPERE descritte, quindi un contenuto che
- * non ha un `about` non conta: uno su uno stile direbbe che un'opera in piu' e'
- * stata descritta.
- *
- * Lo svuotamento di `DELETE /:qid/contents` e' la stessa cascata di
- * `DELETE /api/items/:id` allargata al museo: cancellare gli item senza le visite
- * che li citano lascerebbe tappe che non si risolvono, e una tappa che non si
- * risolve non da' errore, semplicemente non compare. Percio' se ne va anche tutto
- * cio' che vi puntava, comprese le righe nelle collezioni di chi li aveva presi.
- * Restano fuori, di proposito, il DOCUMENTO del museo, cosi' il museo resta
- * selezionabile con zero opere invece di sparire fino al prossimo seed, e le
- * IMMAGINI delle opere su disco, che il seed ha scaricato da Wikidata e che
- * ricostruire costa una chiamata per opera; spariscono invece quelle caricate a
- * mano dagli autori, che appartengono all'item e a nient'altro.
  */
 import { Router } from "express";
 import { requireSession, sessionUser } from "../session";
@@ -90,8 +37,7 @@ function escapeHtml(value: string): string {
 
 /**
  * GET /api/museums
- * Ritorna: tutti i musei del database, ognuno col conteggio delle sue opere e
- * delle visite che compaiono in vetrina.
+ * Ritorna: tutti i musei con i conteggi delle opere e delle visite pubbliche.
  */
 router.get("/", requireSession, async (req, res) => {
   try {
@@ -127,8 +73,7 @@ router.get("/", requireSession, async (req, res) => {
 
 /**
  * GET /api/museums/:qid/config
- * Ritorna: il museo come sta nel FILE DI CONFIGURAZIONE del curatore, non nel
- * database: e' quello il file che si modifica per adattare il navigator.
+ * Ritorna: l'allestimento del curatore letto dal file, non il documento del database.
  */
 router.get("/:qid/config", requireSession, async (req, res) => {
   try {
@@ -164,8 +109,7 @@ router.get("/:qid/artworks", requireSession, async (req, res) => {
 
 /**
  * GET /api/museums/:qid/topics
- * Ritorna: [{name, kind}], i soggetti che il catalogo del museo gia' nomina,
- * cioe' gli stili e gli autori delle sue opere.
+ * Ritorna: [{name, kind}], cioe' stili e autori gia' nominati dal catalogo.
  */
 router.get("/:qid/topics", requireSession, async (req, res) => {
   try {
@@ -201,10 +145,7 @@ router.get("/:qid/topics", requireSession, async (req, res) => {
 
 /**
  * GET /api/museums/:qid/visits
- * Ritorna: le visite del museo percorribili da chi chiede. E' la stessa regola
- * della vetrina, perche' questo e' lo stesso elenco visto dall'app da museo: le
- * guidate non compaiono mai (ci si entra con la parola chiave), le private le
- * cammina solo chi le ha composte, quelle a pagamento solo chi le possiede.
+ * Ritorna: le visite percorribili da chi chiama; esclude guidate, private altrui e acquisti mancanti.
  */
 router.get("/:qid/visits", requireSession, async (req, res) => {
   try {
@@ -253,11 +194,6 @@ router.get("/:qid/visits", requireSession, async (req, res) => {
 /**
  * GET /api/museums/:qid/qrcodes
  * Ritorna: il foglio stampabile, una pagina HTML.
- *
- * E' l'unica rotta del file senza `requireSession`, e non per dimenticanza: si
- * apre come pagina, quindi a chiederla e' il browser e non il nostro codice, e a
- * una navigazione non si puo' attaccare un'intestazione. Non ci si perde niente,
- * perche' sono indirizzi di opere e il foglio nasce per essere appeso al muro.
  */
 router.get("/:qid/qrcodes", async (req, res) => {
   try {
@@ -401,9 +337,7 @@ router.get("/:qid/overview", requireSession, async (req, res) => {
 
 /**
  * GET /api/museums/:qid/items
- * Ritorna: TUTTI gli item del museo, privati compresi e SENZA il testo, con
- * l'opera popolata. E' la differenza con `GET /api/items`, che i privati li
- * nasconde. Solo il curatore.
+ * Ritorna: tutti gli item, privati compresi, senza testo e con opera popolata. Solo il curatore.
  */
 router.get("/:qid/items", requireSession, async (req, res) => {
   try {
@@ -433,10 +367,8 @@ router.get("/:qid/items", requireSession, async (req, res) => {
 
 /**
  * DELETE /api/museums/:qid/contents
- * Ritorna: quante opere, descrizioni e visite sono state eliminate.
- * Svuota il catalogo di UN museo. Solo il curatore, e solo il museo chiesto, che
- * si prende dal PERCORSO e mai dal corpo. NON tocca il documento del museo, cosi'
- * resta selezionabile con zero opere, ne' le immagini delle opere su disco.
+ * Svuota il catalogo indicato senza eliminare museo o immagini delle opere. Solo il curatore;
+ * ritorna i conteggi della cascata.
  */
 router.delete("/:qid/contents", requireSession, async (req, res) => {
   try {

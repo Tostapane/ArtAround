@@ -1,30 +1,9 @@
 /**
- * TESTERS: utilità che toccano il database.
- *
- * Tutto ciò che modifica dati esistenti vive qui e solo qui: il seed ricostruisce
- * da zero (e costa ore di chiamate all'LLM), queste funzioni invece riallineano
- * quello che c'è già. Sono idempotenti: eseguirle due volte non fa danni.
- *
- * Uso:
- *
- *     npx ts-node src/scripts/testers.ts <comando>
- *
- * L'elenco dei comandi non e' ricopiato qui: e' `COMMANDS`, in fondo al file, e un
- * comando sconosciuto lo stampa. Senza argomenti si esegue `stato`, che e' il
- * quadro d'insieme e nomina il comando da lanciare per ogni cosa fuori posto.
- * `tutto` li esegue tutti in fila e chiude con `stato`.
- *
- * Ogni comando porta sopra di se' che cosa riallinea e perche', che e' quel che si
- * va a cercare aprendo un file di comandi, la stessa eccezione che vale per le
- * rotte (`guidelines.md` §2).
- *
- * Un comando solo, `mappe`, non ha bisogno del database: legge file, quindi puo'
- * girare su una copia appena scaricata PRIMA del seed. E' li' che serve, perche'
- * aggiungere un museo e' un JSON piu' un SVG e poi ore di seed, e sapere prima se
- * la pianta si cammina evita di scoprirlo dopo.
+ * Collaudi e migrazioni idempotenti di database e piante. I comandi che riscrivono
+ * dati restano separati dai resoconti per poterli eseguire esplicitamente nel
+ * container di laboratorio.
  */
-
-import { MONGO_URI } from "../env";
+import { MONGO_URI, SERVER_ROOT } from "../env";
 import fs from "fs";
 import path from "path";
 import mongoose from "mongoose";
@@ -49,23 +28,8 @@ import {
 } from "../../../shared/constants";
 import { UserRole } from "../../../shared/types";
 
-/** La radice dei file serviti: `mapPath` e `imagePath` sono relativi a questa. */
-const PUBLIC_DIR = path.join(__dirname, "..", "..", "public");
+const PUBLIC_DIR = path.join(SERVER_ROOT, "public");
 
-/**
- * Che cosa non va in una copertina dichiarata, in una riga, oppure "" se va bene.
- *
- * I percorsi delle figure si scrivono a mano nel file di configurazione, e il
- * modo in cui sbagliano quasi sempre e' l'ESTENSIONE: `.jpg` e `.jpeg` sono lo
- * stesso formato con due nomi, e quale dei due esca dipende da chi ha scaricato
- * il file, non da noi. Cercando lo stesso nome con un'altra estensione si passa
- * da "manca" a "manca perche' l'hai chiamato cosi'", che e' la differenza fra
- * un avviso e un'istruzione.
- *
- * Non si corregge il file da qui: la configurazione e' un INGRESSO, e niente nel
- * server la riscrive (vedi la testa di `museumConfigs.ts`). Correggerla di
- * nascosto vorrebbe dire che quel file non e' piu' la fonte di quel che si vede.
- */
 function guaioCopertina(percorso: string): string {
   if (fs.existsSync(path.join(PUBLIC_DIR, percorso))) return "";
   const suDisco = path.join(PUBLIC_DIR, percorso);
@@ -77,9 +41,7 @@ function guaioCopertina(percorso: string): string {
       .readdirSync(cartella)
       .filter((f) => f !== path.basename(percorso))
       .filter((f) => path.basename(f, path.extname(f)) === nudo);
-  } catch {
-    // Cartella illeggibile: se ne lamenta gia' loadMuseumConfigs.
-  }
+  } catch {}
   if (omonimi.length > 0)
     return (
       `dichiara ${percorso}, ma sul disco c'e' ${path.dirname(percorso)}/${omonimi[0]}` +
@@ -88,7 +50,6 @@ function guaioCopertina(percorso: string): string {
   return `dichiara ${percorso}, ma quel file non c'e'`;
 }
 
-/** Oltre questo, due tappe consecutive non sono piu' un passo ma un ritorno. */
 const SALE_FRA_DUE_TAPPE = 2;
 
 const TONE_MAP: Record<string, string> = {
@@ -255,25 +216,6 @@ export async function migrateLogistics() {
   console.log(`Visite con note logistiche convertite: ${changed}.`);
 }
 
-/**
- * Riporta nei documenti dei musei quel che dice oggi la loro configurazione:
- * la pianta e la copertina.
- *
- * Serve perche' quei due campi si copiano nel documento al momento del seed e
- * poi non si rileggono piu': cambiare `mapPath` nel JSON non tocca il database,
- * e il museo continua a chiedere una pianta all'indirizzo vecchio. Non e' un
- * guasto che si vede subito, la vetrina e il catalogo funzionano lo stesso,
- * ma il navigator non disegna piu' la sala e il calcolo del percorso resta
- * senza grafo.
- *
- * Non tocca nient'altro del museo: nome, luogo e anno restano quelli che ci
- * sono, perche' li puo' aver corretti il curatore dopo il seed.
- *
- * Avverte anche sulle copertine dichiarate e non trovate: `imagePath` si scrive a
- * mano, e un ".jpg" scritto sopra un file salvato in .png non da' nessun errore,
- * la carta del museo torna al solo testo, che e' esattamente quel che fa anche una
- * copertina non messa. Dei due silenzi solo uno e' voluto, quindi l'altro si dice.
- */
 export async function migrateMuseumPaths() {
   let cambiati = 0;
   for (const config of loadMuseumConfigs()) {
@@ -306,16 +248,6 @@ export async function migrateMuseumPaths() {
   await migrateVisitCovers();
 }
 
-/**
- * Porta nelle visite seminate la copertina che il file di configurazione da' al
- * loro tono.
- *
- * Le assegna anche il seed, ma il seed rifa' i testi: cambiare una figura non
- * puo' costare un giro di chiamate al modello, quindi la stessa assegnazione
- * vive anche qui. Tocca solo le visite di catalogo, quelle che il seed genera,
- * riconoscibili dall'`@id`, e lascia stare quelle composte dagli autori, che
- * la copertina se la scelgono caricandola.
- */
 async function migrateVisitCovers() {
   let cambiate = 0;
   for (const config of loadMuseumConfigs()) {
@@ -334,22 +266,6 @@ async function migrateVisitCovers() {
   console.log(`Visite di catalogo con la copertina del loro tono: ${cambiate}.`);
 }
 
-/**
- * Se il seed ha davvero prodotto tutta la griglia: per ogni opera attiva di ogni
- * museo, un contenuto per OGNI tono e OGNI durata.
- *
- * Il seed e' interrompibile e riprendibile, quindi la domanda "e' finito?" non
- * ha risposta guardandolo girare: la risposta e' qui, ed e' un conteggio. Le
- * opere si dividono in tre, e la terza colonna e' quella che conta: un'opera a
- * meta' griglia vuol dire un seed caduto in mezzo a quell'opera, ed e' l'unico
- * caso in cui rilanciare non basta, quella va rifatta con `--force`.
- *
- * Conta i contenuti di `sistema`, non tutti: quelli scritti dagli autori vivono
- * sulle stesse opere ma non devono coprire nessuna griglia. E le caselle riempite
- * si contano SULLE OPERE ATTIVE e non sui contenuti che stanno nel database: se
- * un'opera esce da `activeArtworks` i suoi contenuti restano li', e sommarli
- * direbbe "non manca niente" mentre in vetrina mancano opere intere.
- */
 export async function checkItemGrid() {
   const durate = secPerArt.map((d) => `${d}`);
   const attesiPerOpera = educationalLevels.length * secPerArt.length;
@@ -428,26 +344,6 @@ export async function checkItemGrid() {
   console.log("");
 }
 
-/**
- * Chiude le visite composte da chi non e' autore.
- *
- * Da oggi la visibilita' si scrive alla creazione (`POST /visits`), ma le visite
- * gia' nel database non ce l'hanno e valgono percio' pubbliche: l'itinerario che
- * un visitatore aveva composto per se' e' rimasto in vetrina a tutti. Qui si
- * guarda il RUOLO DI OGGI di chi l'ha scritta, che per una visita gia' esistente
- * e' l'unica informazione disponibile.
- *
- * Non tocca le visite seminate (autore `sistema`) ne' quelle di un autore: le
- * prime sono il catalogo, le seconde sono in vendita.
- *
- * Alle altre scrive "pubblico" per esteso. Funzionerebbero anche senza, i filtri
- * chiedono `$ne: "privato"` proprio per non dipendere da un campo che le visite
- * piu' vecchie non hanno, ma restare senza vorrebbe dire due modi di dire la
- * stessa cosa, di cui uno invisibile: chi un giorno cercasse
- * `{visibility: "pubblico"}` per avere il catalogo si troverebbe con zero
- * risultati e nessun errore. Il seed da solo non le sistema, perche' `upsertVisit`
- * e' un upsert e su un documento che esiste gia' i valori di scorta non scattano.
- */
 export async function migrateVisitVisibility() {
   const visits = await VisitModel.find({ visibility: { $ne: "privato" } });
   let chiuse = 0;
@@ -475,17 +371,6 @@ export async function migrateVisitVisibility() {
   console.log(`Visite senza il campo, ora esplicitamente pubbliche: ${esito.modifiedCount}.`);
 }
 
-/**
- * Da `sistema` a `Museo` nel nome dell'autore dei contenuti seminati.
- *
- * **Va eseguita PRIMA del prossimo seed.** Il seed riconosce quel che ha gia'
- * scritto cercando `author: SEED_AUTHOR`: finche' nel database c'e' ancora
- * "sistema" non trova niente, e rigenera da capo ogni descrizione, migliaia di
- * chiamate al modello, e altrettanti documenti doppi.
- *
- * Non tocca gli `@id`, che restano `…-sistema-…`: sono indirizzi permanenti a
- * cui puntano le tappe delle visite e le librerie (vedi `SEED_ID_TOKEN`).
- */
 export async function migrateSeedAuthor() {
   const vecchio = "sistema";
   const item = await ItemModel.updateMany(
@@ -504,22 +389,6 @@ export async function migrateSeedAuthor() {
   if (rimasti > 0) console.log(`  ! ne restano ${rimasti} col nome vecchio.`);
 }
 
-/**
- * Riporta i prezzi del catalogo del museo sul listino per tono.
- *
- * I contenuti seminati prima avevano un prezzo estratto a sorte: due
- * descrizioni della stessa opera potevano costare 5 e 30 centesimi senza che la
- * differenza volesse dire niente. Ora il prezzo segue il tono (`priceByTone`), e
- * questa funzione riscrive quel che c'e' gia'.
- *
- * Tocca SOLO quel che ha scritto il museo: i contenuti degli autori hanno il
- * prezzo che ha deciso il loro autore, e non e' cosa nostra.
- *
- * Non restituisce e non ritira niente a chi ha gia' comprato: un acquisto e'
- * gia' avvenuto, e il portafoglio non si ricalcola all'indietro. Cambia quanto
- * costera' da adesso, compreso il totale delle visite, che si somma sulle
- * tappe non possedute.
- */
 export async function migrateSeedPrices() {
   const prima = await ItemModel.aggregate([
     { $match: { author: SEED_AUTHOR } },
@@ -576,11 +445,6 @@ export async function requiredAccounts() {
   }
 }
 
-/**
- * Riallinea gli item scritti quando un contenuto poteva parlare solo di un'opera:
- * `kind` e' "opera" e il museo si legge dall'opera che descrivono. Senza, non
- * appartengono a nessun catalogo e spariscono dal marketplace senza un errore.
- */
 async function migrateKinds() {
   const artworks = await ArtworkModel.find().select("@id ofMuseum");
   const museoDi = new Map<string, string>();
@@ -617,18 +481,6 @@ async function migrateKinds() {
   );
 }
 
-/**
- * Toglie dalle opere i buchi di Wikidata scritti come se fossero nomi.
- *
- * Sono di due forme: la parola "Unknown", e l'indirizzo di un nodo anonimo
- * (`.well-known/genid/…`), che e' quel che Wikidata risponde per un'entita'
- * senza etichetta. Da oggi `services/wikidata.ts` non li scrive piu', ma un
- * riseed non li ripulisce: quando l'opera esiste gia' il seed le aggiorna solo
- * la posizione sulla pianta. Vanno percio' riallineati qui.
- *
- * Il campo diventa una stringa vuota e non sparisce: le viste si chiedono gia'
- * se c'e' un valore, e rispondono con `n/d` o nascondendo la riga.
- */
 async function migrateUnknowns() {
   const artworks = await ArtworkModel.find();
   let autori = 0;
@@ -660,24 +512,6 @@ async function migrateUnknowns() {
   );
 }
 
-/**
- * Allinea la licenza dei contenuti GENERATI a `DEFAULT_LICENSE`.
- *
- * Serve perche' il seed la licenza non l'ha mai scritta: gli item nati prima di
- * questa correzione portano il vecchio default dello schema, che era per giunta
- * un indirizzo (`https://creativecommons.org/licenses/by/4.0/`) mentre tutto il
- * resto del sistema usa il codice. A schermo usciva l'indirizzo per esteso.
- *
- * Tocca SOLO quel che ha scritto il museo (`author: "sistema"`). I contenuti di
- * un autore non si toccano: la sua licenza l'ha scelta lui, e cambiargliela
- * sotto i piedi e' l'unica cosa che questo comando non deve poter fare.
- *
- * Non serve dopo un seed nuovo -- da adesso la licenza la scrive il seed --
- * ma serve su un database gia' popolato, perche' il seed **salta gli item che
- * esistono gia'**: riseminare senza `--force` non la riscriverebbe, e con
- * `--force` rigenererebbe anche tutti i testi, cioe' ore di chiamate al modello
- * per cambiare un campo.
- */
 async function migrateLicenses() {
   const generati = { author: SEED_AUTHOR };
   const prima = await ItemModel.distinct("license", generati);
@@ -695,28 +529,6 @@ async function migrateLicenses() {
 
 // --- Piante e percorsi ------------------------------------------------------
 
-/**
- * Il collaudo di una pianta: le regole che il parser non puo' far rispettare.
- *
- * `svgGraph.ts` legge quel che il curatore ha annotato e non giudica: un nodo
- * fuori da ogni sala, una sala irraggiungibile o un percorso che salta da
- * un'ala all'altra sono disegni leciti. Nessuno di questi da' errore: la mappa
- * si carica, il percorso si calcola, e la cosa sbagliata si vede soltanto
- * camminando. Ogni controllo qui sotto e' un modo di sbagliare gia' successo.
- *
- * Il piu' importante e' l'ULTIMO, ed e' quello che sembra piu' innocuo.
- * `data-flow` non e' una classifica, e' un CAMMINO: numeri crescenti dicono
- * solo che nessuna sala si visita due volte, non che la 25 sia accanto alla 24.
- * In una galleria di sale in fila la differenza non si vede; in un edificio a
- * piu' ali o a piu' piani, una numerazione crescente puo' mandare il visitatore
- * avanti e indietro per mezzo museo a ogni tappa. La distanza fra due numeri
- * consecutivi deve percio' essere UNA sala (c'e' una porta) o DUE (si passa dal
- * corridoio, che e' una sala anche lui).
- *
- * Il controllo guarda il GRAFO, non il disegno: non sa dire se un'opera sta
- * nella sala giusta o se l'ordine ha senso per un curatore. Dice se la pianta
- * e' percorribile, che e' l'unica meta' verificabile da una macchina.
- */
 function problemiDellaMappa(graph: MuseumGraph, qidAttesi: string[]): string[] {
   const problemi: string[] = [];
 
@@ -821,7 +633,6 @@ function distanzaFraSale(
   return Infinity;
 }
 
-/** Il collaudo di tutte le piante configurate. Non tocca il database. */
 async function checkMaps() {
   let totale = 0;
   for (const config of loadMuseumConfigs()) {
@@ -844,16 +655,6 @@ async function checkMaps() {
   );
 }
 
-/**
- * Le visite SEMINATE che non sono nell'ordine in cui il museo si attraversa,
- * con l'ordine giusto accanto. La usano il resoconto (che segnala) e la
- * migrazione (che riscrive), cosi' "qual e' l'ordine giusto" e' scritto una
- * volta sola.
- *
- * Guarda SOLO i `@id` che cominciano per `visit-`, il prefisso del seed: quelle
- * d'autore (`tour-…`) e quelle su misura (`custom-…`) hanno l'ordine che ha
- * scelto qualcuno, e non e' cosa da riallineare.
- */
 async function ordiniDaCorreggere(): Promise<
   { visita: any; ordinati: string[] }[]
 > {
@@ -886,22 +687,6 @@ async function ordiniDaCorreggere(): Promise<
   return daFare;
 }
 
-/**
- * Rimette le tappe delle visite seminate nell'ordine in cui il museo si
- * attraversa.
- *
- * Il seed le scriveva nell'ordine in cui il database restituiva gli item, che
- * non e' un ordine: il percorso rimbalzava da una sala all'altra, e da quando
- * le piante hanno i piani saliva e scendeva le scale a ogni tappa. Da oggi il
- * seed le ordina da se' (`inOrdineDiPercorso`), ma le visite gia' scritte
- * restano come sono: rifarle costerebbe ore di chiamate al modello per
- * rigenerare testi che vanno benissimo, mentre qui si riscrive solo l'elenco.
- * Serve anche dopo ogni ritocco ai `data-flow` di una pianta.
- *
- * Dove ci sono tappe opzionali, quelle tornano a essere la seconda meta' del
- * cammino, che e' la regola del seed: tenendo il vecchio insieme diventerebbero
- * tappe sparse a caso lungo il nuovo giro.
- */
 async function migrateVisitOrder() {
   const daFare = await ordiniDaCorreggere();
   for (const { visita, ordinati } of daFare) {
@@ -916,25 +701,12 @@ async function migrateVisitOrder() {
   );
 }
 
-const PAUSA_WIKIMEDIA_MS = 500; // sotto questa cadenza Wikimedia risponde 429, e i ritentativi non bastano
+const PAUSA_WIKIMEDIA_MS = 500;
 
 function pausa(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Scrive le miniature che mancano alle opere gia' sul disco.
- *
- * Le figure sono state scaricate per mesi in un formato solo, quindi una
- * tessera larga 324 px riceveva l'originale da 960: da 7 a 16 volte i pixel che
- * puo' mostrare, e su un telefono molti di piu'. Da oggi il seed scrive la
- * coppia (`imageDownloader`), ma i file gia' scritti restano soli, e il client
- * la miniatura la NOMINA senza chiedere se c'e', quindi senza questo giro
- * quelle tessere resterebbero vuote.
- *
- * Costa richieste HTTP a Wikimedia e nessuna chiamata al modello: minuti, non
- * le ore di un seed. Ed e' ripetibile: chi la miniatura ce l'ha si salta.
- */
 async function migrateThumbs() {
   const opere = await ArtworkModel.find({
     imagePath: { $regex: "^/images/artworks/" },

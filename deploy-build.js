@@ -1,19 +1,7 @@
 /*
- * deploy-build.js — installazione e build, ma dentro un container.
- *
- * Sulla macchina di laboratorio node non esiste: sta solo dentro le immagini che
- * gocker accende. Questo file esiste per farci passare i comandi di installazione
- * e compilazione, che altrimenti non avrebbero un interprete. In coda ricostruisce
- * `sources/`, che e' quel che la rotta omonima serve.
- *
- *   (gocker): start node-22 site252627 deploy-build.js
- *   (gocker): logs site252627
- *
- * La cartella e' la stessa che vede il server, quindi node_modules/ e i tre
- * dist/ restano sul disco quando il processo finisce.
- *
- * Un sito ha un solo slot node: finche' gira questo, il server non puo'
- * essere acceso. Per gli aggiornamenti: spegnere, buildare, riaccendere.
+ * Installa e compila le tre applicazioni nel container di dipartimento, dove
+ * sposta anche la cache npm in una cartella scrivibile. Infine ricrea sources/;
+ * il server va avviato separatamente perche' usa lo stesso slot Node.
  */
 
 const { execSync } = require('child_process');
@@ -22,22 +10,12 @@ const path = require('path');
 
 const root = __dirname;
 
-/*
- * Dentro il container HOME non e' scrivibile: npm prova a creare la sua cache
- * in /.npm e prende EACCES, fallendo con codice 243 dopo aver scaricato tutto.
- * Cache e home vanno quindi spostate sotto /webapp, che e' la cartella montata
- * e l'unica su cui abbiamo diritto di scrittura.
- */
 const ambiente = {
   ...process.env,
   HOME: root,
   npm_config_cache: path.join(root, '.npm-cache'),
 };
 
-// I comandi sono quelli di package.json, spezzati uno per riga: se qualcosa
-// fallisce vogliamo sapere quale passo, non che «setup» e' andato male.
-// --no-audit --no-fund: due giri di rete in meno per passo, su una macchina
-// dove l'installazione e' gia' la parte lenta.
 const passi = [
   ['dipendenze server',      'npm install --include=dev --no-audit --no-fund --prefix server'],
   ['dipendenze marketplace', 'npm install --include=dev --no-audit --no-fund --prefix marketplace'],
@@ -56,22 +34,12 @@ for (const [nome, comando] of passi) {
     execSync(comando, { cwd: root, stdio: 'inherit', env: ambiente });
     console.log('--- ' + nome + ': OK');
   } catch (errore) {
-    // Uscire con codice diverso da zero: un fallimento silenzioso qui
-    // diventerebbe una pagina bianca su /navigator/ mezz'ora piu' tardi.
     console.error('\n!!! ' + nome + ' FALLITO (uscita ' + errore.status + ')');
     console.error('!!! i passi successivi non vengono eseguiti');
     process.exit(1);
   }
 }
 
-/*
- * sources/ — i file di progetto per la rotta /sources, che la consegna chiede in
- * sola lettura. Fuori restano node_modules, i tre dist/, .env, le cache, le
- * cartelle degli editor, le note interne (.md) e gli 88 MB di JPEG scaricati dal
- * seed, che sono dati e non sorgenti. La copia e' voce per voce perche' cpSync
- * rifiuta una destinazione dentro l'origine; un errore qui non ferma il deploy,
- * perche' il sito funziona lo stesso e la cartella si rifa' al build dopo.
- */
 const sorgenti = path.join(root, 'sources');
 const fuori = ['node_modules', '.git', '.npm-cache', 'dist', 'dist-ssr',
   'sources', '.claude', '.vscode', '.idea', 'cypress'];
@@ -92,7 +60,6 @@ try {
     if (!tieni(path.join(root, v))) continue;
     fs.cpSync(path.join(root, v), path.join(sorgenti, v), { recursive: true, filter: tieni });
   }
-  // 755 sulle cartelle e 644 sui file: e' quel che chiede il README della consegna.
   try { execSync("chmod -R u=rwX,go=rX '" + sorgenti + "'"); } catch {}
   console.log('--- istantanea sorgenti: OK');
 } catch (e) {
@@ -100,8 +67,4 @@ try {
 }
 
 console.log('\n=== deploy-build: tutto riuscito.');
-console.log('=== avvio del server compilato tramite index.js');
-
-// Avviarlo nello stesso processo rende visibile nel log qualunque errore del
-// launcher; quando resta acceso, questo container e' gia' il server del sito.
-require('./index.js');
+console.log('=== Ora si puo\' spegnere questo e accendere il server.');

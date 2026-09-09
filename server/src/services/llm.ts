@@ -1,34 +1,7 @@
 /**
- * Tutte le chiamate al modello generativo.
- *
- * Quattro usi, come chiede la specifica: creare descrizioni mancanti, mappare una
- * richiesta vocale libera su un comando del vocabolario, comporre una visita dai
- * vincoli dell'utente, e verbalizzare un percorso gia' calcolato.
- *
- * La regola che tiene insieme il tutto: il codice deterministico possiede la
- * CORRETTEZZA, il modello possiede l'INTERPRETAZIONE e la lingua. Per questo il
- * pianificatore risponde in JSON con tono e durata presi da un elenco chiuso, e
- * per questo le indicazioni di percorso arrivano gia' calcolate dal grafo.
- *
- * La mappatura dei comandi avviene sugli id, non sulle etichette: le etichette
- * sono testo mostrato e possono cambiare senza rompere il protocollo.
- *
- * `descrizione` e' la richiesta comune alle due forme di contenuto: cambia solo
- * la riga che dice CHE COSA descrivere, un'opera col suo autore oppure un
- * soggetto che opera non e'. L'autore entra solo se c'e', perche' di un'opera
- * Wikidata puo' non sapere chi l'ha fatta e li' il campo resta vuoto
- * (`services/wikidata.ts`): incollandolo comunque, la richiesta finisce con
- * "realizzata da" e basta, e il modello o si inventa il nome o si scusa. Per un
- * soggetto entra invece il GENERE, perche' "Caravaggio" come artista o come
- * periodo darebbe due testi diversi.
- *
- * `mapRequest` distingue TRE esiti e non due: il comando riconosciuto, la
- * stringa vuota se non c'era niente da riconoscere, e null se il modello non ha
- * risposto affatto. «Non ho capito quel che hai detto» e «il servizio non
- * risponde» chiedono due cose diverse a chi ascolta, ripetere, oppure smettere
- * di provare e usare i pulsanti. Il fallimento va percio' reso esplicito:
- * tornando `undefined` verrebbe tolto dalla risposta da `JSON.stringify`, e il
- * client leggerebbe `{}` con stato 200, cioe' «ho capito, e non era niente».
+ * Unico accesso a Gemini per generazione, rielaborazione, comandi, indicazioni e
+ * pianificazione. Il server valida le strutture prodotte invece di affidare al
+ * modello identita' e ordine del catalogo.
  */
 import { GoogleGenAI, Type } from "@google/genai";
 import {
@@ -123,13 +96,13 @@ export async function createSubjectDescription(
 
 export interface PlannedArtwork {
   qid: string;
-  tone: string; // uno degli `educationalLevels`: l'elenco chiuso e' nello schema della risposta
-  durationSec: string; // uno dei `secPerArt`, in stringa perche' l'enum dello schema vuole stringhe
-  twist: string; // quale aspetto enfatizzare per QUELL'opera; vuota se non ce n'e' uno
+  tone: string;
+  durationSec: string;
+  twist: string;
 }
 
 export interface VisitPlan {
-  name: string; // il nome mnemonico che il modello assegna alla visita
+  name: string;
   artworks: PlannedArtwork[];
 }
 

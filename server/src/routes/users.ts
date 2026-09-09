@@ -1,34 +1,7 @@
 /**
- * Rotte degli account.
- *
- * E' qui che nasce la sessione, perche' `login` e `register` sono i due soli
- * punti in cui una password viene verificata: coniarla altrove vorrebbe dire
- * fabbricare un'identita' per un nome qualsiasi. Da qui in poi chi chiede lo
- * dice l'intestazione `Authorization` e mai il percorso; il meccanismo sta in
- * `session.ts`, e `withSession` e' l'account piu' la stringa con cui d'ora in poi
- * dira' di essere lui.
- *
- * Il ruolo non si chiede a chi entra: un username appartiene a un account solo,
- * quindi le credenziali bastano a dire chi entra e con che poteri. In
- * registrazione va invece dichiarato, perche' decide che account nasce, ma non
- * fa parte dell'identita': il conflitto (409) e' sul solo username. Vale
- * globalmente perche' `Item.author` e `Visit.author` sono un nome nudo, senza il
- * ruolo accanto: con due omonimi, entrare con l'altro profilo basterebbe a
- * cancellare le descrizioni del primo e a leggerne le private.
- * Il portafoglio nasce solo sul visitatore: autore e curatore non comprano.
- * L'acquisto legge il prezzo dal contenuto sul server, mai dal client.
- * I ricavi non vengono accreditati su un portafoglio: si vedono nel resoconto
- * vendite, perche' account autore e visitatore sono separati.
- *
- * La registrazione rifiuta `SEED_AUTHOR`: il museo firma i contenuti seminati con
- * quel nome e `isReadable` da' per letto a un autore quel che ha scritto lui,
- * quindi chi si registrasse cosi' si ritroverebbe gratis tutto il catalogo a
- * pagamento, e in vetrina come suo. Il confronto ignora maiuscole e spazi perche'
- * a decidere non e' l'ortografia ma chi si prende quei contenuti.
- *
- * Nell'acquisto il portafoglio sta solo sul visitatore, quindi a un autore si
- * risponde che quei contenuti si comprano da un profilo visitatore invece di
- * mandarlo contro un 404 che descrive una query.
+ * Rotte di account, sessione, acquisti e vendite. L'identita' arriva dal token; solo
+ * il visitatore compra, e acquistare una visita include le tappe in un'operazione
+ * verificata dal server.
  */
 import { Router } from "express";
 import {
@@ -69,8 +42,7 @@ function isValidRole(role: any): boolean {
 
 /**
  * POST /api/users/register  { username, password, role }
- * Ritorna: l'account creato senza password, piu' il `token` di sessione. 409 se
- * l'username e' gia' preso, con qualunque ruolo.
+ * Ritorna: account senza password e token; 409 se l'username e' gia' preso.
  */
 router.post("/register", async (req, res) => {
   try {
@@ -104,11 +76,6 @@ router.post("/register", async (req, res) => {
 /**
  * POST /api/users/login  { username, password }
  * Ritorna: l'account senza password piu' il `token` di sessione.
- *
- * Il ruolo non si chiede e non si dichiara: un username appartiene a un account
- * solo, quindi le credenziali bastano a dire chi entra e con che poteri. Questa
- * rotta rispondeva anche 300 { scelta, ruoli } per far scegliere fra due
- * profili omonimi, e quel caso non esiste piu'.
  */
 router.post("/login", async (req, res) => {
   try {
@@ -129,9 +96,7 @@ router.post("/login", async (req, res) => {
 
 /**
  * GET /api/users/me
- * Ritorna: l'account di chi ha la sessione. Serve al ricaricamento della pagina:
- * il biglietto sopravvive nella memoria della scheda, il resto no, e portafoglio
- * e collezione vanno riletti com'e' adesso e non com'erano all'accesso.
+ * Ritorna: l'account corrente, riletto per aggiornare portafoglio e collezione.
  */
 router.get("/me", requireSession, async (req, res) => {
   const who = sessionUser(req);
@@ -145,11 +110,7 @@ router.get("/me", requireSession, async (req, res) => {
 
 /**
  * POST /api/users/handoff
- * Ritorna: { handoff }, da mettere nel collegamento al navigator.
- * Se ne conia uno per ogni viaggio, non uno per accesso: un biglietto vale una
- * volta sola, e uno per accesso lascerebbe senza il secondo viaggio.
- * Nasce di tipo `handoff`, quindi si spende qui sotto e non vale come
- * intestazione: viaggia in un indirizzo, e un indirizzo lo leggono in troppi.
+ * Ritorna: { handoff }, biglietto breve e monouso per aprire il navigator.
  */
 router.post("/handoff", requireSession, async (req, res) => {
   try {
@@ -162,9 +123,7 @@ router.post("/handoff", requireSession, async (req, res) => {
 
 /**
  * POST /api/users/redeem  { handoff }
- * Ritorna: l'account senza password piu' il `token` con cui il navigator parlera'
- * da qui in avanti. Spendere il biglietto lo cancella, quindi un ricaricamento
- * non lo rigioca.
+ * Consuma l'handoff e ritorna account senza password e token del navigator.
  */
 router.post("/redeem", async (req, res) => {
   try {
@@ -187,8 +146,7 @@ router.post("/redeem", async (req, res) => {
 
 /**
  * POST /api/users/logout
- * Chiude la sessione di chi chiama. Idempotente: senza biglietto non c'e' niente
- * da chiudere, e la risposta e' la stessa.
+ * Chiude la sessione corrente; l'operazione e' idempotente.
  */
 router.post("/logout", async (req, res) => {
   await endSession(req);
@@ -199,19 +157,7 @@ router.post("/logout", async (req, res) => {
 
 /**
  * POST /api/users/buy  { itemId }
- * Ritorna: l'account aggiornato (portafoglio e collezione). 400 se il credito
- * non basta; il prezzo lo legge il server dal contenuto, mai dal client.
- *
- * A comprare e' chi ha la sessione, non un nome nell'indirizzo: quando il nome
- * stava nel percorso, scriverne un altro spendeva il portafoglio di un altro.
- *
- * COMPRARE UNA VISITA COMPRA LE SUE TAPPE: senza le descrizioni non e'
- * percorribile, quindi pagarla e poi vedersi chiedere altri soldi per il suo
- * contenuto e' comprarla due volte. Il conto lo fa `pricing.ts`, che e' lo
- * stesso che `GET /visits` usa per dirlo in anticipo.
- *
- * NON SI COMPRA A RATE: se il credito non basta per il totale non si prende
- * niente. Mezza visita non e' una visita.
+ * Ritorna: account con portafoglio e collezione aggiornati; 400 se il credito non basta.
  */
 router.post("/buy", requireSession, async (req, res) => {
   try {
@@ -269,10 +215,6 @@ router.post("/buy", requireSession, async (req, res) => {
 /**
  * GET /api/users/sales
  * Ritorna: una riga per contenuto pubblicato da chi chiede, con adozioni e ricavo.
- *
- * Le adozioni si contano con UNA query e un conteggio in memoria. Una query per
- * riga sarebbe piu' breve da scrivere ma il numero di richieste crescerebbe col
- * catalogo dell'autore, e ognuna sarebbe a sua volta una scansione di `users`.
  */
 router.get("/sales", requireSession, async (req, res) => {
   try {

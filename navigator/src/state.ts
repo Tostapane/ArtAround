@@ -1,50 +1,8 @@
 /**
- * Stato globale del navigator.
- *
- * Reattivo e condiviso, senza libreria di store: l'app ha una sola visita alla
- * volta e pochi stati, quindi dei `ref` esportati bastano.
- *
- * Cose da sapere:
- * - `matchedContent` sono le tappe, costruite da `buildStops` in un punto solo:
- *   l'opera arriva gia' dentro l'item dal server (`about` espanso), e qui si
- *   aggiunge l'ancora, cioe' dove si sta quando la tappa non e' un'opera. Le
- *   visite su misura e quelle guidate passano dalla stessa funzione, e
- *   `contentVisitId` impedisce a `loadVisitContent` di sovrascriverle.
- * - `stageView` ricorda se si guardava la mappa o l'elenco: sono due modi pari
- *   di navigare la stessa visita, non un contenuto e la sua barra laterale.
- * - `includeOptional` spento fa saltare le tappe opzionali ad avanti/indietro,
- *   ma restano apribili da elenco, mappa o QR: e' la lettura della slide 23,
- *   "se rimane tempo, o su domanda del visitatore".
- * - `notesAfter` e `openingNotes` leggono le indicazioni logistiche ancorate
- *   alla tappa che seguono: sono scritte per il visitatore, e la slide 21 le
- *   vuole al momento in cui servono, cioe' fra una tappa e la successiva.
- * - Le note d'APERTURA hanno due sorgenti. Quelle del museo (ingresso,
- *   biglietto, guardaroba) valgono per ogni sua visita, quindi si leggono dalla
- *   configurazione e non dalla visita: una visita composta nel marketplace o
- *   dal modello non le ha dentro, e senza questo si aprirebbe senza dire da che
- *   parte si entra. Le visite seminate ne portano invece una copia, ed e' il
- *   motivo per cui un testo che la visita ha gia' non si ripete.
- * - `museumArtworks` sono TUTTE le opere del museo e non solo le tappe: la
- *   localizzazione sceglie fra i nodi disegnati sulla pianta, e la pianta li
- *   porta tutti. Servono il nome e l'immagine per mostrarli quando la scelta la
- *   fa il visitatore.
- * - `posizioneAttiva` parte SPENTA: nessun sensore, nessun permesso chiesto, e le
- *   indicazioni partono dall'opera aperta. Accesa, i sensori si avviano e le
- *   indicazioni partono da dove si e', comunque ci si sia arrivati.
- * - La lingua e' quella gia' scelta, altrimenti l'italiano; la regola sta in
- *   `shared/` perche' se la pone anche il marketplace, e una risposta diversa
- *   nelle due applicazioni vorrebbe dire aprirle in due lingue diverse. Questo
- *   modulo la SPINGE dentro `i18n` invece di farsela leggere da li' con un
- *   `watch`: quella direzione chiudeva un anello di import (i18n, state, api e di
- *   nuovo i18n) e faceva partire l'applicazione con `language` non ancora
- *   inizializzato.
- * - `stopImage` rende insieme l'indirizzo e IL NOME DI CIO' CHE SI VEDE, che non
- *   e' il soggetto della tappa: vince l'immagine dell'item perche' l'ha scelta
- *   l'autore, e in mancanza si ripiega sull'ancora, cioe' sulla foto di dove il
- *   visitatore si trova. Senza quel nome la Primavera verrebbe annunciata come
- *   «Rinascimento».
+ * Stato reattivo del navigator, senza libreria di store. Costruisce le tappe in un
+ * solo punto e separa percorso, vista, lingua e posizione per riusarli anche nelle
+ * visite guidate e su misura.
  */
-
 import { ref } from "vue";
 import type { Artwork, Item, Visit, Museum, Match } from "../../shared/types";
 import {
@@ -57,8 +15,6 @@ import { getMuseum, getMuseumArtworks, getVisitItems } from "./api";
 import { mediaOrigin } from "./config";
 import { setLocale } from "./i18n";
 
-// ============================================================================
-//                            Visita, museo, mappa
 // ============================================================================
 
 export const visit = ref<Visit>();
@@ -82,8 +38,6 @@ let contentVisitId = "";
 let museumLoadingPromise: Promise<void> | null = null;
 
 // ============================================================================
-//                             Palcoscenico
-// ============================================================================
 
 export const stageView = ref<"mappa" | "elenco">(
   (localStorage.getItem("artaround-stage") as "mappa" | "elenco") || "mappa",
@@ -104,8 +58,6 @@ export function setPosizioneAttiva(value: boolean) {
 }
 
 // ============================================================================
-//                                 Lingua
-// ============================================================================
 
 export const language = ref<Language>(
   pickLanguage(sessionStorage.getItem(LANG_KEY)),
@@ -120,8 +72,6 @@ export function setLanguage(lang: Language) {
 }
 
 // ============================================================================
-//                            Tappe opzionali
-// ============================================================================
 
 export const includeOptional = ref(false);
 
@@ -131,8 +81,6 @@ export function isOptionalItem(itemId: string): boolean {
   return visit.value.optionalItems.includes(itemId);
 }
 
-// ============================================================================
-//                         Indicazioni logistiche
 // ============================================================================
 
 export function notesAfter(itemId: string): string[] {
@@ -170,8 +118,6 @@ export function openingNotes(): string[] {
   return notes;
 }
 
-// ============================================================================
-//                        Le tappe: soggetto e ancora
 // ============================================================================
 
 export function buildStops(items: Item[]): Match[] {
@@ -234,8 +180,6 @@ function mediaUrl(src: string): string {
   return mediaOrigin() + src;
 }
 
-// ============================================================================
-//                          Caricamento e pulizia
 // ============================================================================
 
 export function clearVisit() {

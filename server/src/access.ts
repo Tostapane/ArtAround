@@ -1,23 +1,7 @@
 /**
- * Il TESTO di una descrizione: chi lo riceve e chi no.
- *
- * Il marketplace vende contenuti, quindi il testo di una descrizione a pagamento
- * non puo' viaggiare verso chi non l'ha comprata: gli elenchi ne mandavano il
- * documento intero, e bastava guardare la risposta per leggere quel che era in
- * vendita. Qui c'e' l'applicazione della regola alle tre rotte che servono testi
- * (`GET /items`, `GET /visits/:id/items`, `GET /artworks/:qid/preview`), che
- * cosi' non possono rispondere in tre modi diversi alla stessa domanda.
- *
- * **La regola in se' sta in `shared/access.ts`**, perche' la applica anche il
- * marketplace e vale solo se le due sponde ne usano una sola. Qui restano le
- * due cose che sono del server: dove si va a vedere che cosa uno ha comprato, e
- * come si toglie un testo da un documento lasciandone il resto.
- *
- * Il resto del documento (tono, durata, autore, prezzo) resta pubblico: e' quel
- * che serve per decidere se comprare, ed e' il catalogo.
- *
- * `withoutText` rende il documento col testo vuoto piu' `locked`: un testo vuoto
- * e un testo tolto si distinguono solo cosi'.
+ * Applica ai documenti la regola condivisa di lettura prima di inviare i testi. I
+ * metadati restano pubblici; un testo negato e' locked per distinguerlo da uno non
+ * richiesto.
  */
 import { UserModel } from "./models/user";
 import { isReadable as regolaDiLettura } from "../../shared/access";

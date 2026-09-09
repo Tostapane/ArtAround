@@ -1,61 +1,7 @@
 /**
- * Riempimento del database a partire dai file di configurazione dei musei.
- *
- * Si esegue un museo alla volta:
- *
- *     npx ts-node src/scripts/seed.ts                 elenca i musei configurati
- *     npx ts-node src/scripts/seed.ts Q51252          semina quel museo
- *     npx ts-node src/scripts/seed.ts Q51252 --force  rigenera anche gli item gia' scritti
- *     npx ts-node src/scripts/seed.ts tutti           semina tutti i musei configurati
- *     npx ts-node src/scripts/seed.ts speciali        la visita guidata del docente, su OGNI museo
- *
- * Due proprieta' che decidono la forma di tutto il file:
- *
- * RIPRENDIBILE. Ogni item e' una chiamata all'LLM: un museo da cento opere sono
- * duemila chiamate, e in una corsa cosi' lunga qualcosa si interrompe sempre. Il
- * seed salta quel che trova gia' scritto, quindi rilanciarlo riparte da dove si
- * era fermato invece di rifare tutto.
- *
- * Fra due chiamate al modello non c'e' nessuna pausa, e la sola che resta e'
- * quella verso Wikimedia, che i suoi limiti li fa ancora rispettare. Le
- * chiamate al modello sono su un piano a pagamento, e rallentare apposta un
- * seed che dura ore per un limite che non scatta piu' era tempo regalato.
- *
- * ADDITIVO. Semina il museo chiesto e non tocca gli altri. Cancellare tutto per
- * aggiungere un museo vorrebbe dire rigenerare anche i contenuti degli altri
- * tre, e con essi gli acquisti e le visite composte a mano che vi puntano.
- *
- * Le immagini si scaricano subito dopo l'opera, non in una passata finale: cosi'
- * un'interruzione lascia opere complete, non opere senza volto.
- *
- * Oltre alle opere semina due soggetti che opere non sono, lo stile e l'autore
- * piu' ricorrenti in quel museo, perche' la slide 21 chiede contenuti anche su
- * stili e artisti, e senza nemmeno uno non si possono mostrare. Quali siano lo
- * decide il CATALOGO e non un elenco scritto qui, cosi' un museo di arte
- * contemporanea non semina il Rinascimento; l'immagine e' quella di un'opera che
- * porta quel valore, cioe' la piu' vicina che il museo abbia.
- *
- * I soggetti stanno in TESTA alle visite di catalogo. Un contenuto su uno stile o
- * su un artista non e' appeso a una parete, quindi non ha un posto nell'ordine di
- * cammino e `inOrdineDiPercorso` non saprebbe dove metterlo; infilato fra due
- * sale spezzerebbe il giro. In apertura invece e' l'inquadramento che si ascolta
- * prima di muoversi, cioe' la stessa posizione in cui il museo mette un pannello
- * introduttivo. Le indicazioni logistiche del museo diventano per lo stesso
- * motivo note d'APERTURA (`after: null`): ingresso, biglietto e guardaroba si
- * sanno prima della prima tappa, non fra una tappa e l'altra.
- *
- * Le venti visite di un museo hanno percio' le stesse tappe: a cambiare sono tono
- * e durata, come si racconta e quanto dura, non che cosa si guarda. E' anche il
- * motivo per cui la copertina si sceglie per tono e non per visita
- * (`visitImages`): cinque visite che differiscono per la sola durata non hanno
- * cinque facce diverse.
- *
- * `inOrdineDiPercorso` esiste perche' il database rende gli item nell'ordine in
- * cui sono stati scritti, che non e' un ordine: una visita seminata cosi' rimbalza
- * da una sala all'altra e, da quando le piante hanno i piani, sale e scende le
- * scale a ogni tappa. L'ordine di percorrenza sta sulla mappa (`data-flow`) ed e'
- * lo stesso che mette in fila il catalogo; qui si applica alle tappe, che sono
- * item e non opere, passando per il qid dell'opera di cui l'item parla.
+ * Orchestra il seed ripetibile di musei, opere, griglia tono-durata, visite di
+ * catalogo e visite guidate con quiz. Le modalita' completano una parte senza
+ * rigenerare le chiamate gia' riuscite.
  */
 import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
@@ -88,7 +34,7 @@ import {
 } from "../data/museumConfigs";
 import { costruisciQuiz } from "../data/quiz";
 
-const PAUSA_IMMAGINE_MS = 1000; // la pausa fra due scaricamenti, per non far scattare il 429 di Wikimedia
+const PAUSA_IMMAGINE_MS = 1000;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -100,8 +46,6 @@ function fmt(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${String(Math.round(seconds % 60)).padStart(2, "0")}s`;
 }
 
-// ============================================================================
-//                              Seed di un museo
 // ============================================================================
 
 function openingNotes(config: MuseumConfig): LogisticNote[] {
@@ -196,8 +140,6 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
   );
 }
 
-// ============================================================================
-//                        Soggetti che non sono opere
 // ============================================================================
 
 function piuRicorrente(
@@ -355,32 +297,7 @@ async function seedMuseumVisits(config: MuseumConfig) {
 }
 
 // ============================================================================
-//                            Visite dimostrative
-// ============================================================================
 
-/*
- * La visita che il seed omogeneo non sa produrre, su OGNI museo configurato: la
- * VISITA GUIDATA del docente (modulo 18-27), protetta da parola chiave, col quiz
- * costruito sulle opere della visita stessa. Cancella per strada anche la vecchia
- * "Percorso con contenuti opzionali": era una visita dimostrativa in vetrina con
- * le stesse tappe delle altre venti, e le tappe opzionali si mostrano meglio da
- * dove si creano, cioe' il compositore.
- *
- * Il docente e gli studenti sono gli stessi per tutti i musei e si creano una
- * volta sola, fuori dal giro: sono persone, non arredo di un museo.
- *
- * Idempotente: gli `@id` portano il qid, quindi rilanciarlo riscrive le visite
- * di quel museo e lascia stare le altre. Un museo non ancora seminato non ha
- * item da cui pescare: lo dice e passa oltre, invece di scrivere una visita
- * vuota.
- *
- * LA PAROLA CHIAVE PORTA IL QID, e non e' un vezzo. `POST /visits` rifiuta con
- * 409 due visite guidate che condividano la parola, e le sale aperte stanno in
- * una mappa indicizzata proprio su quella: una parola sola per quattro musei
- * vorrebbe dire che l'ultima sala aperta si prende gli studenti delle altre, e
- * che a chi arriva dal museo sbagliato risponde un 409 senza spiegazione. Il
- * qid e' l'unico campo unico per costruzione fra quelli che il curatore scrive.
- */
 const PAROLA_CHIAVE_GUIDATA = "Fenice rossa";
 const DOCENTE = "docente1";
 const STUDENTI = ["studente1", "studente2", "studente3"];
@@ -466,8 +383,6 @@ async function seedDemoAccounts() {
   );
 }
 
-// ============================================================================
-//                                   Comandi
 // ============================================================================
 
 function elenca(configs: MuseumConfig[]) {

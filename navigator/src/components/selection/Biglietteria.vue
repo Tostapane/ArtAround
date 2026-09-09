@@ -1,47 +1,7 @@
 <script setup lang="ts">
 /**
- * LA BIGLIETTERIA: si sceglie una visita da un elenco.
- *
- * La slide 25 chiede "selezione di una delle molteplici forme di visita
- * disponibili", quindi la schermata e' un elenco e non un prodotto cartesiano di
- * livello per durata: scegliendo da due menu, le visite che condividono la stessa
- * coppia sarebbero irraggiungibili e il nome della visita, che e' l'unica cosa
- * che una persona riconosce, non comparirebbe mai. Livello e durata restano come
- * filtri, dove non possono produrre un vicolo cieco silenzioso.
- *
- * L'elenco e' consapevole di chi guarda: senza utente si vedono solo le visite
- * gratuite, e quelle guidate non compaiono mai (ci si entra con la parola
- * chiave, non scegliendole da una lista).
- *
- * Possedere una visita non vuol dire poterla percorrere: le tappe si pagano una
- * per una, quindi una visita gratuita puo' contenerne a pagamento e a una gia'
- * comprata l'autore puo' averne aggiunta una dopo. Il server allega a ciascuna
- * quante gliene mancano; qui la riga resta visibile ma non avvia, perche' dal
- * museo non si compra e sparire in silenzio dall'elenco sarebbe peggio: chi ha
- * pagato quella visita la cercherebbe senza trovarla. I testi mancanti non
- * uscirebbero comunque dal server, ma la scheda arriverebbe vuota senza dire
- * perche'.
- *
- * Il collegamento al marketplace e il selettore del tema stanno qui e non in
- * un'intestazione sempre presente: il marketplace e' un requisito della base
- * (slide 25), ma durante la visita sarebbe solo ingombro.
- *
- * Le fasce di durata arrivano da `shared/constants.ts` e non sono riscritte qui:
- * erano una catena di `if` con le sue soglie, e il marketplace ne aveva altre,
- * quindi "visita breve" voleva dire due cose diverse nelle due applicazioni.
- *
- * Il tono si LEGGE tradotto e si CONFRONTA in italiano: il valore e' quello che
- * sta nel database e nel filtro, e tradurlo li' spegnerebbe la ricerca.
- *
- * La schermata sta tutta dentro il guscio e a scorrere e' il solo elenco: i filtri
- * che lo governano devono restare a portata mentre lo si percorre. Il contenitore
- * che scorre vuole `relative`, o gli `sr-only` che contiene, assoluti e senza
- * coordinate, si posano sulla pagina invece che dentro di lui e la allungano.
- *
- * La visita su misura sta dietro un bottone: e' una seconda strada per la stessa
- * scelta, non una riga dell'elenco, e tenerla aperta sulla schermata costerebbe
- * altezza proprio all'elenco per cui si e' entrati. Porta l'iride, che e' il segno
- * con cui tutt'e due le applicazioni la nominano.
+ * Seleziona una visita percorribile o ne richiede una su misura. Tono e durata
+ * filtrano visite reali, mentre costi e contenuti mancanti arrivano dal server.
  */
 import { ref, watch, computed } from "vue";
 import LanguageSelector from "./LanguageSelector.vue";
@@ -102,27 +62,12 @@ const hasActiveFilters = computed(
   () => levelFilter.value !== "tutti" || durationFilter.value !== "tutti",
 );
 
-/**
- * LA VISITA IN CORSO STA IN CIMA, e si riconosce dal fondo.
- *
- * I titoli seminati di un museo si somigliano tutti, "Visita Infantile · 15s
- * per opera", "Visita Infantile · 30s per opera", quindi in mezzo a venti righe
- * uguali quella che si sta gia' percorrendo era irriconoscibile, e sceglierla di
- * nuovo la faceva ripartire invece di riprenderla. Qui la riga cambia di segno e
- * di gesto insieme: fondo alla velatura d'accento, la pastiglia "Riprendi" al
- * posto della freccia, e il clic emette `resume`.
- *
- * L'ordine non e' un `sort`: si stacca l'elemento e lo si rimette davanti. Un
- * comparatore avrebbe riordinato anche tutto il resto, e l'ordine in cui le
- * visite arrivano dal server e' quello del percorso del museo.
- */
 const currentId = computed(() => (visit.value ? visit.value["@id"] : ""));
 
 function isCurrent(v: Visit): boolean {
   return currentId.value !== "" && v["@id"] === currentId.value;
 }
 
-/** Quante tappe non si possono ancora leggere, secondo il conto del server. */
 function mancanti(v: Visit): number {
   if (typeof v.mancanti !== "number") return 0;
   return v.mancanti;
@@ -139,19 +84,12 @@ const orderedVisits = computed(() => {
   return [corrente, ...resto];
 });
 
-/** In corso: si riprende. Le altre si avviano, se sono complete. */
 function apri(v: Visit) {
   if (incompleta(v)) return;
   if (isCurrent(v)) emit("resume");
   else emit("start", v);
 }
 
-/**
- * Il riquadro di rientro serve solo alla visita che l'elenco NON puo' mostrare:
- * una su misura, che nel database non esiste, o una aperta da un collegamento
- * diretto. Quando invece e' li' dentro, la sua riga dice gia' tutto, e due
- * strade per lo stesso gesto a due centimetri di distanza sono una in piu'.
- */
 const resumeFuoriElenco = computed(() => {
   if (!visit.value) return false;
   return !visits.value.some((v) => v["@id"] === currentId.value);
@@ -255,10 +193,7 @@ async function createCustom() {
         </button>
       </div>
 
-      <!-- RIENTRO: uscire da una visita non la chiude, la lascia dov'era. Senza
-           questa riga non c'era nessuna strada per tornarci, e per una visita su
-           misura o aperta da un collegamento diretto nemmeno una seconda strada:
-           quelle nell'elenco qui sotto non ci sono. -->
+      <!-- RIENTRO -->
       <button
         v-if="resumeFuoriElenco && visit"
         type="button"
@@ -274,10 +209,6 @@ async function createCustom() {
         <span class="pastiglia pastiglia-accento shrink-0">{{ t("Riprendi") }}</span>
       </button>
 
-      <!-- La lingua sta con i filtri e non sopra di loro: e' un controllo della
-           stessa taglia, e a schermo intero occupava piu' spazio del titolo. Il
-           valore ("Italiano", "中文") si legge da se', quindi l'etichetta resta
-           allo screen reader come per gli altri due. -->
       <div class="mt-8 flex flex-wrap gap-3">
         <LanguageSelector id="f-lingua" :etichetta="false" />
         <div>
@@ -315,10 +246,6 @@ async function createCustom() {
         }}
       </p>
 
-      <!-- L'elenco. Quella in corso sta in cima e ha un fondo suo: e' l'unica
-           riga che non avvia niente ma RIPRENDE, e in mezzo a venti titoli che si
-           somigliano ("Visita Infantile · 15s per opera") non c'era modo di
-           riconoscerla. -->
       <ul v-if="!loading && orderedVisits.length" class="mt-4 flex flex-col gap-3">
         <li v-for="v in orderedVisits" :key="v['@id']">
           <button

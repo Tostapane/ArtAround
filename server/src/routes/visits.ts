@@ -1,73 +1,10 @@
 /**
+ * Rotte di catalogo, composizione e visite su misura. Il server valida tappe e
+ * accesso, calcola durata e visibilita' e ancora la logistica; il quiz corretto non
+ * esce nella lettura degli studenti.
+ */
+/**
  * Rotte delle visite.
- *
- * Il salvataggio fa tre cose non ovvie:
- * - calcola sempre lui la durata totale, sommando i tempi degli item davvero
- *   trovati: un totale mandato dal client non si accetta e quello pianificato
- *   non si usa, o una visita con tappe di lunghezza diversa dichiarerebbe una
- *   durata che le sue tappe non fanno;
- * - ancora ogni nota logistica alla tappa che segue, cosi' il navigator puo'
- *   mostrarla al momento giusto (slide 21); una nota che perde il suo posto non
- *   puo' piu' dire come si va da un'opera alla successiva;
- * - per le visite guidate verifica che la parola chiave sia unica e che ogni item
- *   sia gratuito o dell'autore: altrimenti la parola chiave regalerebbe contenuti
- *   a pagamento di altri.
- *
- * `/custom` genera una visita dai vincoli espressi a parole e non salva nulla.
- * L'ordine delle sue tappe lo decide la MAPPA e non il modello: al modello si
- * chiede quali opere, e a quello risponde bene, ma in che ordine si attraversa il
- * museo e' scritto sul disegno (`data-flow`) e non si negozia, chiederglielo nel
- * prompt vorrebbe dire sperare che obbedisca.
- *
- * Le visite PRIVATE non escono da qui se non verso chi le ha composte, e il
- * filtro sta nella rotta e non nel client: nasconderle disegnando avrebbe
- * lasciato l'itinerario di un'altra persona dentro la risposta, cioe' privato a
- * schermo e leggibile negli strumenti di sviluppo. Il confronto e' `$ne` e non
- * `= "pubblico"` perche' le visite scritte prima che il campo esistesse non ce
- * l'hanno, e sono tutte pubbliche. `nascostaA` applica la stessa regola alla
- * singola visita, che ha un indirizzo suo: risponde 404 e non 403, perche' un
- * "non puoi" confermerebbe comunque che quella visita c'e' e di chi e'.
- *
- * Il QUIZ non esce da `GET /:id`. Quella rotta la chiama anche il navigator degli
- * studenti per caricare la visita guidata, e restituire le domande con dentro
- * l'indice della risposta corretta significherebbe consegnare il compito svolto.
- * Le domande le distribuisce la sessione guidata, senza `correct`; l'editor
- * dell'autore legge il quiz dall'elenco delle visite.
- *
- * In salvataggio, tre scelte che non si vedono dal codice:
- *
- * Pubblica SOLO la visita di un autore, perche' mettere in vendita e' il suo
- * mestiere; il visitatore compone un itinerario per se', e il curatore oggi non
- * ha nessuna strada per arrivare qui, il giorno che l'avesse, il valore prudente
- * e' quello privato, perche' un ruolo nuovo che pubblica per distrazione si nota
- * solo quando il suo lavoro e' gia' in vetrina. I ruoli si nominano invece di
- * scrivere `=== "visitatore" ? … : …`, che sarebbe una domanda a due risposte su
- * un vocabolario che ne ha tre.
- *
- * Il TETTO del visitatore vale sulla creazione e non sul salvataggio, o
- * modificare un itinerario che si ha gia' diventerebbe impossibile appena
- * raggiunto il quinto: si guarda percio' se questo `@id` e' gia' nel database,
- * che e' esattamente la differenza fra creare e riscrivere per una rotta che fa
- * upsert. Si contano le SUE visite in QUESTO museo, gli Uffizi non devono
- * togliere il posto al Louvre.
- *
- * Le tappe si contano sugli item TROVATI e non sugli id ricevuti: un id che non
- * esiste non da' errore da nessuna parte, semplicemente non compare, e una visita
- * fatta di tappe che non si risolvono si apre vuota. Gli id vuoti si tolgono
- * prima di contare, o il messaggio d'errore nomina la stringa vuota.
- *
- * La copertina e' facoltativa, quindi il campo si scrive SEMPRE: `undefined` in
- * un aggiornamento Mongoose lo salta, e chi toglie l'immagine da una visita gia'
- * pubblicata non riuscirebbe piu' a levarla; `null` invece la cancella. La
- * vecchia, se c'era, si toglie anche dal disco. Si carica con la stessa rotta
- * dell'immagine di un item (`POST /api/items/image`) e finisce nella stessa
- * cartella: e' lo stesso gesto e lo stesso file, e una seconda rotta identica
- * sarebbe solo un altro posto in cui sbagliare l'elenco dei formati.
- *
- * In eliminazione il CURATORE risponde del catalogo del suo museo, quindi puo'
- * togliere qualunque visita ci stia dentro, private comprese: e' la stessa
- * autorita' con cui svuota il museo intero. Si guarda prima della privatezza, o
- * la regola che nasconde le altrui gli direbbe "non esiste".
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -96,11 +33,8 @@ const MAX_CUSTOM_ARTWORKS = 30;
 
 /**
  * GET /api/visits[?museum=Qxxx][&user=nome]
- * Ritorna: le visite del museo indicato, o tutte se il parametro manca.
- * Con `user`, ogni visita porta anche il conto per quella persona (`mancanti`,
- * `costoMancanti`, `totale`), cosi' il client scrive un numero che gli e' stato
- * dato invece di rifarne uno suo. Le tappe di tutte le visite si leggono con una
- * query sola, perche' una per visita crescerebbe col catalogo.
+ * Ritorna: le visite del museo, o tutte; con `user` include mancanti e costi personali calcolati in
+ * blocco dal server.
  */
 router.get("/", async (req, res) => {
   try {
@@ -162,8 +96,7 @@ router.get("/:id", async (req, res) => {
 
 /**
  * GET /api/visits/:id/items
- * Ritorna: le tappe nell'ordine del percorso, col testo protetto dalla regola di
- * `access.ts`. 404 anche su una privata altrui.
+ * Ritorna: le tappe ordinate col testo protetto; 404 anche su una visita privata altrui.
  */
 router.get("/:id/items", async (req, res) => {
   try {
@@ -196,9 +129,7 @@ router.get("/:id/items", async (req, res) => {
 
 /**
  * POST /api/visits/custom  { museumQid, request }
- * Ritorna: { visit, content }, una visita composta dai vincoli espressi a
- * parole, che NON viene salvata: vive solo nel client. 502 se il modello non
- * risponde o se nessuna tappa si e' potuta risolvere.
+ * Ritorna: { visit, content }, senza salvare; 502 se il modello fallisce o non risolve tappe.
  */
 router.post("/custom", async (req, res) => {
   try {
@@ -277,9 +208,7 @@ router.post("/custom", async (req, res) => {
 
 /**
  * POST /api/visits
- * Ritorna: 201. Crea o riscrive la visita di `@id`, calcolando lei la durata
- * dalle tappe trovate. 400 su titolo, prezzo, tappe assenti o quiz non valido,
- * 409 sulla parola chiave gia' presa e sul tetto del visitatore.
+ * Ritorna: 201 dopo aver validato e calcolato la durata; 400 sui dati, 409 su parola guidata o tetto.
  */
 router.post("/", async (req, res) => {
   try {
@@ -473,9 +402,7 @@ router.post("/", async (req, res) => {
 
 /**
  * DELETE /api/visits/:id
- * Ritorna: { message }. Elimina la visita, la sua copertina dal disco e la riga
- * dalle collezioni di chi l'aveva presa. Cancella chi l'ha composta e il
- * curatore; 404 su una privata altrui.
+ * Elimina visita, copertina e adozioni; consentito ad autore e curatore, 404 su una privata altrui.
  */
 router.delete("/:id", async (req, res) => {
   try {

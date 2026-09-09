@@ -1,22 +1,10 @@
 <!doctype html>
 <html lang="it">
-  <head>
-    <!--
-    IL MARKETPLACE: pagina unica. Alpine da /vendor, TypeScript compilato da
-    /dist, nessun impacchettatore. Ogni schermata ha un indirizzo: decide `view`,
-    guidato dal router a frammento in state.ts. [x-cloak] sulla radice evita che
-    le schermate compaiano impilate prima che Alpine parta.
-
-    Le espressioni Alpine sono stringhe: nessun compilatore le controlla e un
-    nome sbagliato fallisce in silenzio a schermo. Dopo ogni modifica ai
-    binding, ricontrollare che ogni chiamata risolva a un membro di AppState. E
-    per i dati che arrivano entrando in una schermata servono DUE inneschi, il
-    `$watch` e il caso iniziale: entrando dall'indirizzo diretto non scatta.
-
-    Sui radio serve `x-model.boolean`: senza il modificatore il valore che torna
-    e' la stringa "false", che e' vera, e ogni `if` prende il ramo
-    sbagliato per sempre.
+  <!--
+    Marketplace Alpine a pagina unica con route History API. I binding sono
+    stringhe runtime; i18next precede il modulo e x-cloak protegge il primo paint.
   -->
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
@@ -38,7 +26,7 @@
         } catch (e) {}
       })();
     </script>
-    <!-- Prima del modulo: `i18next` deve stare su window quando app.js si valuta. -->
+
     <script defer src="/vendor/i18next-26.3.6.min.js"></script>
     <script type="module" src="/dist/marketplace/src/frontend/app.js"></script>
     <script defer src="/vendor/alpine-focus-3.15.0.min.js"></script>
@@ -64,40 +52,16 @@
           stroke-linejoin="round"
         ></g>
       </defs>
-      <!-- MARCHIO: l'ANGOLO DELLA SALA, con un quadro appeso su ognuna delle tre
-         facce. E' una figura ambigua della famiglia del cubo di Necker: la si
-         legge come l'angolo dentro cui si sta e come uno spigolo che sporge in
-         fuori, e le due letture non si tengono insieme. Dice il pezzo di museo
-         che nessuno disegna -- non il quadro, la stanza -- e i tre quadri
-         dicono che le opere sono piu' d'una: un catalogo, non un'opera sola.
-
-         I tre spigoli interni vanno dal centro ai DUE VERTICI ALTI E A
-         QUELLO IN BASSO, e non ce n'e' un'altra terna che funzioni: puntandoli
-         al vertice in cima o a quello in basso a sinistra si ottengono tratti
-         che tagliano le facce invece di disegnare il punto in cui i muri si
-         toccano, e l'ambiguita' sparisce perche' quelle righe ancorano la
-         lettura. L'elenco delle facce e quello degli spigoli devono percio'
-         essere d'accordo, e nessuno dei due controlla l'altro.
-
-         Ogni quadro e' doppio: la cornice e la sua battuta. E' quel che gli da'
-         profondita' ed e' anche il suo costo, dichiarato scegliendolo -- sotto
-         i 28 px i due rombi si impastano. -->
+      <!-- MARCHIO -->
       <symbol id="ico-marchio" viewBox="0 0 64 64">
-        <!-- Il marchio intero e' la somma delle sue quattro parti, e non le
-           ridisegna: sono `<use>` annidati, che e' quel che tiene UNA sola copia
-           della geometria pur potendo montare ogni pezzo da solo.
-           Perche' i pezzi esistano separati, vedi `.marchio-attesa` in
-           `shared/components.css`: l'attesa li monta come quattro `<svg>`
-           sovrapposti, perche' quelli il compositore li sa muovere da solo. -->
+
         <use href="#marchio-cubo" />
         <use href="#marchio-quadro-destra" />
         <use href="#marchio-quadro-sinistra" />
         <use href="#marchio-quadro-alto" />
       </symbol>
 
-      <!-- LE QUATTRO PARTI. Divise per FACCIA e non per tipo di tratto: ogni
-         quadro e' cornice piu' battuta e si stacca lungo la normale della sua
-         faccia, quindi e' quello che si muove insieme. -->
+      <!-- PARTI DEL MARCHIO -->
       <symbol id="marchio-cubo" viewBox="0 0 64 64">
         <g
           fill="none"
@@ -498,10 +462,7 @@
     </svg>
 
     <div x-data="appData()" x-init="start()" x-cloak class="min-h-[100dvh]">
-      <!-- I due salti servono a scavalcare il binario con la tastiera, e compaiono
-         solo dove il binario c'e': soglia, accesso e registrazione non montano il
-         guscio, quindi li' punterebbero a un elemento display:none e non
-         porterebbero da nessuna parte. -->
+
       <a
         href="#contenuto"
         class="salta"
@@ -538,13 +499,7 @@
         <div
           class="relative flex min-h-[100dvh] flex-col justify-between p-6 sm:p-10 lg:p-16"
         >
-          <!-- LA LINGUA SI SCEGLIE QUI, prima di entrare. E' la schermata che si
-             legge per prima, e l'applicazione apre sempre in italiano finche'
-             nessuno ha scelto: senza questo campo, chi l'italiano non lo legge
-             dovrebbe accedere per trovare il selettore nel binario. I nomi sono
-             scritti ciascuno nella propria lingua, cosi' si riconoscono senza
-             dover prima leggere l'italiano. Resta in cima anche sul telefono:
-             e' lo sciame a scansarsi, vedi `bounds()` in `app.ts`. -->
+          <!-- LINGUA -->
           <div class="flex justify-start">
             <div class="w-44">
               <label
@@ -583,10 +538,7 @@
               class="measure mt-8 text-title-3 text-on-structure/85"
               x-text="t(`Prepara, scopri e vivi la visita di un museo, alla tua maniera. Scegli un percorso già pronto, componi il tuo, o fatti guidare.`)"
             ></p>
-            <!-- DUE PORTE, un accesso solo: la scelta e' dove si va DOPO aver
-               detto chi si e', perche' il navigator sta su un'altra origine e
-               l'unico modo che ha di sapere chi e' entrato e' il biglietto che
-               si conia di qua. -->
+            <!-- ACCESSO -->
             <div class="mt-10 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
@@ -629,9 +581,7 @@
             :class="entryTarget === 'navigator' ? 'mb-2' : 'mb-8'"
             x-text="t(`Accedi`)"
           ></h1>
-          <!-- Chi ha scelto l'app da museo se lo deve ritrovare scritto: dopo
-             l'accesso si esce da qui, e un salto non annunciato sembra un
-             errore. -->
+
           <p
             class="mb-8 text-small text-muted"
             x-show="entryTarget === 'navigator'"
@@ -836,21 +786,11 @@
       </section>
 
       <div x-show="guscioMontato()" class="lg:flex">
-        <!-- Barra compatta (solo telefono).
-           Il livello e' quello del guscio, sopra i comandi delle tessere: quelli
-           stanno a `z-30` per sollevarsi sopra il velo di `.tessera-intera`, e a
-           parita' vincevano per ordine nel documento, cioe' Sblocca passava
-           sopra credito, tema e uscita. Vale anche per il binario qui sotto, che
-           in basso se li ritrova addosso allo stesso modo. -->
+        <!-- BARRA COMPATTA -->
         <header
           class="sticky top-0 z-40 flex h-[var(--app-bar)] items-center justify-between gap-3 border-b border-line bg-structure px-4 text-on-structure lg:hidden"
         >
-          <!-- Il MARCHIO al posto della parola: il piede del binario, dove la
-             lingua sta da sempre, e' `lg:block`, quindi su un telefono il campo
-             non c'era proprio e si poteva scegliere la lingua solo sulla soglia,
-             cioe' prima di entrare e mai piu'. Qui la riga e' larga 390 px e la
-             parola scritta per esteso non lasciava lo spazio: il segno dice la
-             stessa cosa, e come bersaglio passa da 91x25 a 44x44. -->
+          <!-- MARCHIO COMPATTO -->
           <button
             type="button"
             @click="goHome()"
@@ -1041,10 +981,7 @@
 
             <!-- Piede del binario (solo schermo largo) -->
             <div class="mt-auto hidden px-6 pb-7 lg:block">
-              <!-- LINGUA: i nomi sono scritti ciascuno nella propria lingua, cosi'
-                 si riconoscono senza dover prima leggere l'italiano. Il campo
-                 siede sulla struttura e non sulla lastra, quindi prende la
-                 variante che non si porta dietro il fondo dell'applicazione. -->
+              <!-- LINGUA -->
               <div class="mb-4">
                 <label
                   for="lingua-binario"
@@ -1115,7 +1052,7 @@
           class="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-10"
         >
           <div class="mx-auto max-w-5xl">
-            <!-- ---------- SCELTA DEL MUSEO ---------- -->
+            <!-- SCELTA DEL MUSEO -->
             <section x-show="view === 'musei'">
               <h1
                 class="font-display text-title-1"
@@ -1123,11 +1060,7 @@
               ></h1>
               <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <template x-for="m in museums" :key="m.qid">
-                  <!-- La copertina la posa il curatore accanto alla configurazione
-                     ed e' FACOLTATIVA: senza, la carta e' quella di sempre, di
-                     solo testo. `rotta` copre il file dichiarato ma assente,
-                     la carta torna al testo invece di aprire un buco, che e' lo
-                     stato in cui si sta finche' le immagini non sono scaricate. -->
+
                   <button
                     type="button"
                     @click="selectMuseum(m)"
@@ -1184,7 +1117,7 @@
               </div>
             </section>
 
-            <!-- ---------- LA HOME (visitatore) ---------- -->
+            <!-- LA HOME (visitatore) -->
             <section x-show="view === 'home'">
               <h1 class="font-display text-title-1">
                 <span
@@ -1384,7 +1317,7 @@
               </template>
             </section>
 
-            <!-- ---------- LA VETRINA: visite e opere in un posto solo ---------- -->
+            <!-- LA VETRINA: visite e opere in un posto solo -->
             <section x-show="view === 'vetrina'">
               <h1 class="font-display text-title-1" x-text="t(`Vetrina`)"></h1>
               <p class="mt-1 text-small text-muted">
@@ -1477,15 +1410,13 @@
                 </div>
               </div>
 
-              <!-- La durata di una visita sta in minuti, quella di una descrizione in
-                 secondi: un filtro solo per tutt'e due sarebbe una trappola. -->
               <p
                 x-show="marketType === 'tutti'"
                 class="mt-2 text-caption text-muted"
                 x-text="t(`Scegli Visite, Opere o Soggetti per filtrare anche per durata.`)"
               ></p>
 
-              <!-- ---------- LE VISITE ---------- -->
+              <!-- LE VISITE -->
               <section
                 x-show="shownVisits().length > 0"
                 class="mt-10"
@@ -1503,13 +1434,7 @@
                       class="lastra group relative flex flex-col overflow-hidden transition-colors hover:border-accent"
                       x-data="{ rotta: false }"
                     >
-                      <!-- CON COPERTINA la tessera e' quella di un'opera: la stessa
-                         dissolvenza, e il titolo che risale dentro la sua coda.
-                         SENZA, la copertina E' il titolo, sulla struttura: e'
-                         come le visite si sono sempre viste, e resta il ripiego
-                         perche' una visita non ha una fotografia per natura.
-                         `rotta` copre il caso dell'immagine che non si carica:
-                         la tessera torna al titolo invece di aprire un buco. -->
+                      <!-- VISITA CON COPERTINA -->
                       <template x-if="visitImage(v) && !rotta">
                         <span class="dissolvenza">
                           <img
@@ -1553,10 +1478,7 @@
                             class="valore font-display text-title-3"
                             x-text="visitPrice(v)"
                           ></span>
-                          <!-- I comandi si tirano SOPRA il velo del collegamento
-                             (z-30 contro z-20), o se li mangerebbe: e' la ragione
-                             per cui la tessera di una visita non poteva usarlo
-                             prima che i suoi bottoni fossero sollevati. -->
+
                           <template x-if="visitUsable(v)">
                             <button
                               type="button"
@@ -1595,9 +1517,7 @@
                           </template>
                         </div>
                       </div>
-                      <!-- Ultimo figlio della tessera: la copre tutta, copertina
-                         compresa, cosi' si apre la scheda toccandola in
-                         qualunque punto e non solo sul titolo. -->
+
                       <a
                         :href="'/visita/' + encodeURIComponent(v['@id'])"
                         class="tessera-intera"
@@ -1608,7 +1528,7 @@
                 </div>
               </section>
 
-              <!-- ---------- LE OPERE, con le loro descrizioni ---------- -->
+              <!-- LE OPERE, con le loro descrizioni -->
               <section
                 x-show="shownArtworks().length > 0"
                 class="mt-10"
@@ -1629,8 +1549,7 @@
                       class="lastra group relative flex flex-col overflow-hidden transition-colors hover:border-accent"
                       x-data="{ rotta: false }"
                     >
-                      <!-- La figura non e' piu' un collegamento suo: a portare alla
-                         scheda e' il titolo, stirato su tutta la tessera. -->
+
                       <span class="dissolvenza">
                         <img
                           x-show="artworkImage(g.artwork) && !rotta"
@@ -1641,8 +1560,7 @@
                           class="group-hover:scale-[1.04]"
                         />
                       </span>
-                      <!-- Il testo risale dentro la coda della dissolvenza: il titolo
-                         raggiunge l'immagine invece di essere annunciato sotto di lei. -->
+
                       <div class="relative -mt-16 flex flex-1 flex-col p-5">
                         <h3
                           class="font-display text-title-3 leading-tight"
@@ -1666,7 +1584,7 @@
                           ></span>
                         </p>
                       </div>
-                      <!-- Ultimo figlio della tessera: copre tutto, figura compresa. -->
+
                       <a
                         :href="'/opera/' + encodeURIComponent(g.artwork.qid || g.artwork['@id'])"
                         class="tessera-intera"
@@ -1705,17 +1623,9 @@
               </a>
               <template x-if="currentArtwork()">
                 <div>
-                  <!-- L'INTESTAZIONE E' UNA FASCIA, non due colonne alte uguali: il
-                   quadro sta a sinistra con la sua altezza, il testo gli si
-                   affianca al centro. In due colonne l'immagine dettava
-                   l'altezza e sotto le tre righe di scheda restava mezzo
-                   schermo vuoto. -->
+                  <!-- INTESTAZIONE DELL'OPERA -->
                   <div class="flex flex-col gap-6 sm:flex-row sm:items-center">
-                    <!-- La figura si stringe con un'ALTEZZA massima, non con una
-                     larghezza: il catalogo ha quadri sdraiati e quadri in piedi,
-                     e un vincolo sulla larghezza lascia il verticale alto il
-                     doppio dell'orizzontale. Col tetto in altezza tutte le opere
-                     occupano la stessa fascia, qualunque proporzione abbiano. -->
+
                     <div class="sm:w-64 sm:shrink-0 lg:w-72">
                       <img
                         x-show="artworkImage(currentArtwork()) && !rotta"
@@ -1736,16 +1646,13 @@
                         class="font-display text-title-1 leading-tight"
                         x-text="currentArtwork().name"
                       ></h1>
-                      <!-- Il conto e' quello MOSTRATO, non quello totale: e' la
-                       risposta al filtro appena scelto. -->
+
                       <p
                         class="tabular mt-2 text-small text-muted"
                         role="status"
                         x-text="artworkItemsCount()"
                       ></p>
-                      <!-- Le voci della scheda stanno in RIGA e vanno a capo da
-                       sole: sono due o tre parole ciascuna, e incolonnate
-                       lasciavano vuota tutta la larghezza che avevano. -->
+
                       <dl
                         class="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-small"
                       >
@@ -1753,8 +1660,7 @@
                           <dt class="text-muted" x-text="t(`Genere`)"></dt>
                           <dd x-text="kindName(currentArtwork().kind)"></dd>
                         </div>
-                        <!-- Autore e stile portano ai contenuti che ne parlano, se
-                         qualcuno ne ha scritti: sono soggetti anche loro. -->
+
                         <div class="flex gap-2" x-show="!currentArtwork().kind">
                           <dt class="text-muted" x-text="t(`Autore`)"></dt>
                           <dd>
@@ -1770,11 +1676,7 @@
                             ></span>
                           </dd>
                         </div>
-                        <!-- Lo stile sparisce quando non c'e': Wikidata non lo
-                         dichiara per quasi meta' del catalogo, e una riga che
-                         ripete "n/d" su tante opere e' rumore, non un dato.
-                         L'autore invece resta, perche' manca di rado e li' il
-                         vuoto e' una notizia. -->
+
                         <div
                           class="flex gap-2"
                           x-show="!currentArtwork().kind && nomeStile()"
@@ -1795,10 +1697,7 @@
                         </div>
                       </dl>
 
-                      <!-- I DUE FILTRI della vetrina, con le voci di quest'opera.
-                       Le tendine compaiono solo se c'e' davvero qualcosa da
-                       separare: su un'opera con un tono solo sarebbero due menu
-                       da una voce. -->
+                      <!-- FILTRI DELL'OPERA -->
                       <div class="mt-6 flex flex-wrap items-center gap-3">
                         <div x-show="artworkLevels().length > 1">
                           <label
@@ -1854,16 +1753,6 @@
                     </div>
                   </div>
 
-                  <!-- Le descrizioni prendono tutta la larghezza della schermata, e
-                   sono la stessa griglia della vetrina: un'opera ne ha una
-                   ventina, e in colonna sola si scorreva per due schermate con
-                   mezzo schermo vuoto accanto. La terza colonna arriva solo da
-                   `xl`, dove una tessera resta abbastanza larga da tenere i due
-                   bottoni sulla stessa riga.
-
-                   `items-start` perche' aprendo una descrizione la griglia
-                   allungherebbe tutta la riga: le vicine resterebbero vuote
-                   alte quanto il testo appena aperto. -->
                   <ul
                     class="mt-10 grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3"
                   >
@@ -1903,10 +1792,7 @@
                         </div>
 
                         <div class="mt-4 flex flex-wrap items-center gap-2">
-                          <!-- Si legge quel che si PUO' leggere (canRead), non quel che
-                           si e' preso (inLibrary): una descrizione gratuita il server
-                           la manda comunque, e nasconderla dietro "Ottieni" era
-                           chiedere di prendere per avere quel che si aveva gia'. -->
+
                           <template x-if="canRead(it)">
                             <button
                               type="button"
@@ -1934,8 +1820,7 @@
                               x-text="t(`Sblocca`)"
                             ></button>
                           </template>
-                          <!-- Tenerla e' un'altra cosa dal leggerla: la libreria e' quel
-                           che ti sei preso, e ci si arriva anche da gratis. -->
+
                           <template
                             x-if="canRead(it) && !inLibrary(it) && canBuy()"
                           >
@@ -1961,9 +1846,7 @@
                               <span x-text="t(`Modifica`)"></span>
                             </button>
                           </template>
-                          <!-- Elimina chi l'ha scritta, e il curatore su qualunque
-                           descrizione del suo museo. La conferma dice prima
-                           quali visite si accorciano. -->
+
                           <template x-if="canDeleteItem(it)">
                             <button
                               type="button"
@@ -1994,10 +1877,7 @@
                           class="mt-4 border-t border-line pt-4"
                         >
                           <p class="measure text-body" x-text="it.text"></p>
-                          <!-- `break-words`: i contenuti seminati prima della
-                           migrazione portano la licenza scritta come indirizzo,
-                           che in una colonna da 300 px e' una parola sola piu'
-                           larga della tessera. -->
+
                           <p
                             class="mt-3 break-words text-caption uppercase tracking-wider text-muted"
                           >
@@ -2019,9 +1899,6 @@
                     </template>
                   </ul>
 
-                  <!-- Due vuoti diversi: un'opera senza descrizioni chiede di
-                   scriverne una, un filtro che non trova niente chiede di
-                   togliere il filtro. -->
                   <div x-show="artworkItems().length === 0" class="vuoto mt-6">
                     <p x-text="t(`Quest'opera non ha ancora descrizioni.`)"></p>
                     <button
@@ -2051,7 +1928,7 @@
               </div>
             </section>
 
-            <!-- ---------- SCHEDA VISITA ---------- -->
+            <!-- SCHEDA VISITA -->
             <section x-show="view === 'visita'">
               <button
                 type="button"
@@ -2065,9 +1942,7 @@
               </button>
               <template x-if="currentVisit()">
                 <div x-data="{ rotta: false }">
-                  <!-- La copertina, se c'e', apre la pagina come la figura apre
-                     quella di un'opera: tetto in ALTEZZA, perche' la carica chi
-                     compone e puo' avere qualunque proporzione. -->
+
                   <img
                     x-show="visitImage(currentVisit()) && !rotta"
                     :src="visitImage(currentVisit())"
@@ -2157,9 +2032,7 @@
                         <span x-text="t(`Modifica`)"></span>
                       </button>
                     </template>
-                    <!-- Il curatore risponde del catalogo del museo, quindi il
-                       comando c'e' anche per lui su una visita che non e' sua:
-                       e' la stessa autorita' con cui svuota il museo intero. -->
+
                     <template x-if="canDeleteVisit(currentVisit())">
                       <button
                         type="button"
@@ -2234,19 +2107,7 @@
                     </ul>
                   </template>
 
-                  <!-- IL PERCORSO E' UNA GRIGLIA DI TESSERE, la stessa forma con
-                     cui le opere si vedono in vetrina: una visita e' fatta di
-                     opere, e in riga se ne leggevano quattro per schermata con
-                     la figura ridotta a una striscia di 136 px.
-
-                     L'ordine resta quello del percorso -- e' un <ol>, e il
-                     numero sta sulla figura -- perche' una griglia si legge per
-                     righe e da sola non direbbe qual e' la prima tappa.
-
-                     Le note logistiche restano DENTRO la tappa a cui sono
-                     agganciate: e' li' che il navigator le fa sentire, e
-                     staccarle da lei vorrebbe dire perdere il punto del percorso
-                     in cui valgono. -->
+                  <!-- PERCORSO -->
                   <ol
                     class="mt-4 grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3"
                   >
@@ -2268,8 +2129,7 @@
                               x-text="String(tappa.numero).padStart(2,'0')"
                             ></span>
                           </span>
-                          <!-- Il testo risale nella coda della dissolvenza, come
-                             nella tessera di un'opera. -->
+
                           <div class="relative -mt-12 flex flex-1 flex-col p-4">
                             <p
                               class="font-display text-title-3 leading-tight"
@@ -2468,9 +2328,7 @@
                         x-text="t(`Apri`)"
                       ></a>
                     </template>
-                    <!-- Solo gli itinerari propri: una visita comprata non e' tua
-                       da cancellare, e `canDeleteVisit` guarda l'autore. E' anche
-                       il posto da cui si fa spazio quando si e' al tetto. -->
+
                     <template x-if="canDeleteVisit(v)">
                       <button
                         type="button"
@@ -2743,7 +2601,7 @@
               </div>
             </section>
 
-            <!-- ---------- EDITOR DESCRIZIONE ---------- -->
+            <!-- EDITOR DESCRIZIONE -->
             <section x-show="view === 'nuovo'" class="max-w-5xl">
               <h1
                 class="font-display text-title-1"
@@ -2778,7 +2636,7 @@
                     ></p>
                   </div>
 
-                  <!-- L'OPERA, oppure il soggetto scritto: sono la stessa domanda -->
+                  <!-- OPERA -->
                   <div x-show="draft.genere === 'opera'">
                     <label
                       for="ed-opera"
@@ -3014,11 +2872,7 @@
                   </div>
                 </form>
 
-                <!-- L'OPERA, sotto gli occhi mentre si scrive. Da lg in su resta
-                 appiccicata in alto, perche' serve proprio quando si e' arrivati
-                 al testo, cioe' quando la scelta e' gia' fuori schermo. Sotto
-                 lg no: fra questa e la barra di salvataggio, che e' appiccicata
-                 in basso, su un telefono non resterebbe schermo per scrivere. -->
+                <!-- OPERA -->
                 <aside class="order-first lg:order-none">
                   <div
                     class="lastra p-4 lg:sticky lg:top-6 lg:z-10"
@@ -3057,7 +2911,7 @@
               </div>
             </section>
 
-            <!-- ---------- VISITA SU MISURA ---------- -->
+            <!-- VISITA SU MISURA -->
             <section x-show="view === 'sumisura'" class="max-w-2xl">
               <span class="tessera-iride"
                 ><svg class="h-6 w-6" aria-hidden="true">
@@ -3135,10 +2989,7 @@
                 x-text="editingId ? 'Modifica la visita' : 'Componi una visita'"
               ></h1>
 
-              <!-- L'altra strada: descriverla invece di sceglierla tappa per tappa.
-                 NON all'autore: una visita su misura non si salva, e lui il
-                 compositore lo apre per pubblicare. Offrirgliela vorrebbe dire
-                 promettergli un contenuto che non resta. -->
+              <!-- GENERAZIONE DA RICHIESTA -->
               <template x-if="!editingId && currentUserRole !== 'autore'">
                 <div
                   class="lastra filo-iride mt-4 flex flex-col gap-3 p-4 pl-5 sm:flex-row sm:items-center"
@@ -3214,17 +3065,6 @@
                   ></button>
                 </div>
 
-                <!-- `min-w-0` SUI DUE PANNELLI, e non e' una rifinitura: senza, il
-                   compositore allarga la pagina oltre lo schermo del telefono.
-                   Un elemento di griglia ha `min-width: auto`, cioe' non scende
-                   sotto il proprio contenuto minimo: la libreria ne chiede 617
-                   px, la traccia si allarga fino a li' e il documento diventa
-                   largo 634 su una viewport di 390, da cui la pagina che si
-                   rimpicciolisce e sembra "in versione desktop". Da `lg` in su
-                   il difetto non si vedeva perche' li' le tracce sono gia'
-                   dichiarate `minmax(0, …)`, che e' la stessa cosa detta per
-                   le colonne. Si vede solo col pannello APERTO: da nascosto
-                   (`display:none`) un pannello non misura niente. -->
                 <div
                   class="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
                 >
@@ -3265,8 +3105,7 @@
                           class="lastra riga-figurata"
                           :class="stop.tipo === 'logistica' ? 'bg-surface-2' : ''"
                         >
-                          <!-- La tappa porta la sua opera, la nota logistica no: non e' una
-                             tappa, e la riga lo dice prima di essere letta. -->
+
                           <span
                             x-show="stop.tipo === 'item'"
                             class="figura-riga figura-riga-corta"
@@ -3291,11 +3130,6 @@
                             </svg>
                           </span>
 
-                          <!-- I comandi vanno A CAPO quando la riga e' stretta: la
-                             pastiglia Opzionale piu' le tre iconcine tengono
-                             ~200 px, e sul telefono al titolo dell'opera ne
-                             restavano una novantina, cioe' due righe tagliate a
-                             meta' parola. Da `sm` in su tornano di fianco. -->
                           <div
                             class="riga-corpo flex flex-wrap items-center gap-3"
                           >
@@ -3484,17 +3318,6 @@
                       </div>
                     </div>
 
-                    <!-- La libreria SCORRE PER CONTO SUO, ma solo da `lg`. Sono i
-                       gruppi di tutte le opere del museo, agli Uffizi 105, e
-                       in fila nella pagina la fanno lunga ottomila pixel:
-                       accanto c'e' il percorso che si sta componendo, e per
-                       tornarci si risalivano dieci schermate. Il tetto e' in
-                       `vh` perche' quel che deve restare a schermo e' il
-                       percorso, non un numero di righe.
-                       Sotto `lg` i due pannelli sono due schede e a schermo ce
-                       n'e' uno solo: li' il tetto non servirebbe a niente e
-                       lascerebbe un riquadro di 250 px stretto fra i filtri e
-                       la barra di salvataggio, che e' incollata in fondo. -->
                     <ul
                       class="mt-4 flex flex-col gap-2 lg:max-h-[70vh] lg:overflow-y-auto lg:pr-1"
                     >
@@ -3502,9 +3325,7 @@
                         x-for="g in editorLibrary()"
                         :key="g.artwork['@id']"
                       >
-                        <!-- `shrink-0`: dentro una colonna flex che ha un tetto e
-                           scorre, le righe si SCHIACCIANO per starci, 107
-                           gruppi diventavano 107 filetti da quattro pixel. -->
+
                         <li
                           class="lastra shrink-0 overflow-hidden"
                           x-data="{ aperta: false, rotta: false }"
@@ -3543,17 +3364,7 @@
                               </svg>
                             </span>
                           </button>
-                          <!-- `x-if` E NON `x-show`, ed e' la differenza fra
-                             un'apertura svelta e una lenta: con `x-show` le
-                             voci si costruiscono comunque, tutte, e restano
-                             nascoste. Agli Uffizi sono 105 gruppi da 20
-                             descrizioni, cioe' sedicimila elementi montati in
-                             un compito solo mentre il museo si apre, l'80%
-                             di tutto quel che il marketplace tiene in pagina,
-                             per una schermata che nessuno ha ancora aperto.
-                             Il prezzo dichiarato: niente `x-collapse`, che
-                             vuole un elemento gia' in pagina da misurare, e
-                             quindi il gruppo si apre di scatto. -->
+
                           <template x-if="aperta">
                             <ul
                               class="flex flex-col gap-2 border-t border-line p-3"
@@ -3663,11 +3474,7 @@
                   </fieldset>
                 </template>
 
-                <!-- LA COPERTINA. Facoltativa: senza, la tessera resta il titolo
-                   sulla struttura, che e' come le visite si sono sempre viste.
-                   L'anteprima c'e' perche' altrimenti, riaprendo una visita
-                   gia' pubblicata, non ci sarebbe modo di sapere se una
-                   copertina c'e', e senza saperlo non la si puo' togliere. -->
+                <!-- COPERTINA -->
                 <div>
                   <label
                     for="v-immagine"
@@ -3873,8 +3680,6 @@
                 </div>
               </div>
 
-              <!-- Barra di salvataggio, comune ai tre passi. Si pubblica solo
-                 dall'ultimo passo: prima si arriva comunque alle impostazioni. -->
               <div class="barra-salva mt-8">
                 <p
                   class="text-small"
@@ -3901,7 +3706,7 @@
               </div>
             </section>
 
-            <!-- ---------- VENDITE ---------- -->
+            <!-- VENDITE -->
             <section
               x-show="view === 'vendite'"
               x-init="watchSales(); $watch('view', () => watchSales())"
@@ -4031,7 +3836,7 @@
               ></p>
             </section>
 
-            <!-- ---------- GESTIONE DEL MUSEO ---------- -->
+            <!-- GESTIONE DEL MUSEO -->
             <section x-show="view === 'gestione'">
               <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>
@@ -4044,10 +3849,7 @@
                     x-text="selectedMuseum ? selectedMuseum.name : ''"
                   ></p>
                 </div>
-                <!-- Il foglio dei QR e' del CURATORE: i codici si appendono ai muri
-                   del museo, quindi decidere che cosa ci sta scritto e quando si
-                   ristampa e' una scelta di chi risponde del museo, non di chi ci
-                   pubblica dentro. Un autore scrive descrizioni, non arreda le sale. -->
+
                 <a
                   :href="qrSheetUrl()"
                   target="_blank"
@@ -4105,9 +3907,7 @@
                           class="w-28 shrink-0 text-small font-medium"
                           x-text="r.tono"
                         ></span>
-                        <!-- La barra e' ACQUISITO e non accento: dice quanto del
-                           catalogo esiste gia', non un posto dove si puo' andare.
-                           L'accento qui direbbe "clicca", che questa barra non fa. -->
+
                         <span
                           class="h-2 flex-1 overflow-hidden rounded-full"
                           style="background-color: var(--sage-velo)"
@@ -4211,9 +4011,6 @@
                     <span x-text="accountLine()"></span>
                   </p>
 
-                  <!-- SVUOTAMENTO: sta in fondo, staccato e in rosso, perche' e'
-                     l'unico comando della schermata che distrugge invece di
-                     mostrare. I numeri che sparirebbero sono quelli qui sopra. -->
                   <div class="mt-10 rounded-card border border-danger/40 p-5">
                     <h2
                       class="font-display text-title-3 text-danger"
@@ -4238,7 +4035,7 @@
               </div>
             </section>
 
-            <!-- ---------- CATALOGO DEL MUSEO ---------- -->
+            <!-- CATALOGO DEL MUSEO -->
             <section x-show="view === 'catalogo'">
               <h1
                 class="font-display text-title-1"
@@ -4574,7 +4371,6 @@
             x-text="confirmMessage()"
           ></p>
 
-          <!-- SCELTA SULLE VISITE: solo quando quel che si toglie e' una tappa di qualche visita -->
           <fieldset
             x-show="(operaToDelete || itemToDelete) && visiteInGioco().length > 0"
             class="mt-5 rounded-card border border-line p-4"
@@ -4643,20 +4439,6 @@
         </div>
       </div>
 
-      <!-- L'ATTESA. Copre l'accesso, l'apertura di un museo (il catalogo degli
-         Uffizi sono secondi su un telefono) e il passaggio al navigator, che
-         e' il piu' lungo dei tre perche' e' un caricamento di pagina. Il
-         marchio si scompone: il movimento sta in `shared/components.css`, e qui
-         si accende solo perche' `.marchio-attesa` eredita `--marchio-moto`.
-         La frase non e' decorazione: ad animazioni ridotte il marchio resta
-         fermo, ed e' l'unica cosa che resta a dire che si sta aspettando.
-
-         Il fondo e' PIENO e non velato. Sotto ci sono le ventimila caselle
-         che Alpine sta costruendo, e un velo trasparente obbliga a ridisegnarle
-         e a fonderle in ogni fotogramma dell'animazione: e' lavoro che compete
-         col marchio proprio mentre gira. Pieno, quel che sta sotto si puo'
-         saltare. Il velo del navigator (`Visita.vue`) e' pieno per lo stesso
-         motivo. -->
       <div
         x-show="loading"
         x-cloak

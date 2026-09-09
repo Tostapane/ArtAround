@@ -1,22 +1,6 @@
 /**
- * Documento Mongoose di un contenuto (item).
- *
- * `about` e' salvato come stringa, cioe' l'`@id` dell'opera, e non come oggetto:
- * il collegamento si espande con `populate` solo quando serve al client. Per
- * questo IItem restringe il tipo condiviso invece di ereditarlo tale e quale.
- *
- * `about` non e' obbligatorio: uno stile o un periodo non sono un documento da
- * referenziare, sono il nome che ne ha scritto l'autore. A dire quale dei due
- * casi si ha in mano e' `kind`, che c'e' sempre.
- *
- * `ofMuseum` sta sull'item e non si risale all'opera: e' il campo con cui si
- * prende il catalogo di un museo, e un item senza opera non ci arriverebbe.
- *
- * Gli indici in fondo sono le forme di interrogazione che questo modello riceve
- * davvero: `@id` (la `findOne` di tutto il codice), `about` (gli item di una
- * singola opera), `ofMuseum` (il catalogo di un museo), `author` (i contenuti di
- * un autore, e le vendite). Senza, Mongo apre OGNI documento e scarta a mano, e
- * il costo cresce col numero di documenti invece che con quello dei risultati.
+ * Schema Mongoose dei contenuti narrativi. Gli indici seguono catalogo, autore,
+ * museo e soggetto; il testo puo' parlare di un'opera o di un tema associato.
  */
 import { Schema, model } from "mongoose";
 import { Item as SharedItem } from "../../../shared/types";

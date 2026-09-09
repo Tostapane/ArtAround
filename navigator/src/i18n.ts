@@ -1,45 +1,12 @@
 /**
- * L'INTERFACCIA nella lingua del visitatore.
- *
- * La chiave e' la frase italiana: `t("Esci")` e non `t("visita.esci")`. Cosi' non
- * si battezzano duecento chiavi, il codice si legge senza avere il catalogo
- * accanto, e una traduzione che manca ricade su una frase vera invece che su un
- * identificatore. Per lo stesso motivo non esiste un `it.json`: l'italiano sta
- * gia' nel sorgente e non puo' ne' mancare ne' andare fuori sincrono.
- *
- * Si usa `i18next` e non un plugin di Vue perche' gli stessi cataloghi li
- * leggera' anche il marketplace, dove un framework non ci puo' andare: due
- * letture degli stessi file, quando smettono di essere d'accordo, non danno un
- * errore ma una schermata sbagliata.
- *
- * Il `t` e' globale e non un composable perche' quasi tutti i file hanno
- * stringhe anche nello script, e alcuni sono moduli `.ts` come `state.ts` e
- * `api.ts`, dove un composable non si puo' chiamare: vuole un componente vivo.
- *
- * La lingua si passa a ogni chiamata invece di cambiarla nell'istanza:
- * `changeLanguage` e' asincrona, quindi subito dopo averla chiamata `t`
- * risponderebbe ancora nella lingua di prima. Leggere `locale` dentro `t` fa due
- * cose in una riga: sceglie la lingua giusta, e registra la dipendenza reattiva
- * che ridisegna i componenti quando cambia.
- *
- * Questo modulo non importa niente del navigator, ed e' una regola: i18n che
- * chiama state, che chiama api, che chiama i18n e' un anello che compila
- * benissimo e fa partire l'applicazione bianca, con `language` letto prima di
- * essere inizializzato. La lingua la spinge `state.ts` chiamando `setLocale`,
- * cosi' `i18n` resta una foglia dell'albero degli import.
+ * Traduce il navigator tramite cataloghi condivisi. Le frasi italiane sono chiavi e
+ * ripiego; la lingua viene passata a ogni chiamata per mantenere la reattivita'
+ * senza dipendere dallo stato Vue.
  */
 import i18next from "i18next";
 import { ref } from "vue";
 import { SOURCE_LANG, languages } from "../../shared/constants";
 
-// I cataloghi stanno in `shared/` e non dentro il navigator perche' li leggera'
-// anche il marketplace: sono un dato delle due applicazioni, non di una. Il
-// formato dei messaggi e' documentato in `shared/i18n/README.md`.
-// Senza `eager` sono dodici pezzi a parte invece che dentro il programma, e se
-// ne carica UNO: 437 KB di cataloghi (141 compressi) erano piu' della meta' del
-// navigator compilato, per undici lingue che nessun visitatore legge. Le chiavi
-// del glob restano note lo stesso, ed e' cio' che tiene in piedi il controllo in
-// fondo al file.
 const cataloghi = import.meta.glob<{ default: Record<string, string> }>(
   "../../shared/i18n/*.json",
 );
@@ -49,19 +16,12 @@ const percorsoDi = (codice: string) => `../../shared/i18n/${codice}.json`;
 i18next.init({
   lng: SOURCE_LANG,
   fallbackLng: false,
-  // La chiave e' una frase: i suoi punti non sono percorsi dentro un oggetto e i
-  // suoi due punti non sono un namespace.
+
   keySeparator: false,
   nsSeparator: false,
-  // I cataloghi usano `{n}`, e i valori non passano da un escape HTML, o un
-  // nome d'opera con l'apostrofo arriverebbe a schermo come `L&#39;Ange`. A
-  // difendere dal marcatore ci pensa Vue, che il testo lo interpola sempre come
-  // testo, quindi nessuno di questi messaggi deve mai finire in un `v-html`.
+
   interpolation: { prefix: "{", suffix: "}", escapeValue: false },
-  // Non salva niente da nessuna parte: e' l'aggancio per accorgersi di una
-  // stringa mai tradotta. Tace sulla lingua sorgente, dove "mancante" e' la
-  // condizione normale di ogni chiave: avvisare anche li' darebbe centinaia di
-  // righe di rumore a ogni caricamento, e il rumore nasconde quel che serve.
+
   saveMissing: true,
   missingKeyHandler(lngs, _ns, key) {
     for (const l of lngs) {
@@ -78,31 +38,10 @@ export function t(key: string, params?: Record<string, unknown>): string {
   return i18next.t(key, { lng: locale.value, ...params });
 }
 
-/**
- * Marca una frase come CHIAVE di catalogo dove non la si traduce sul posto.
- *
- * Un messaggio che vive in un `ref` ci sta come chiave e non come frase gia'
- * tradotta, o resta nella lingua che aveva quando ci e' finito dentro: il
- * catalogo arriva a parte e la lingua puo' cambiare a schermo acceso, quindi a
- * tradurre e' il legame, con `t(erroreAvvio)`. La chiave pero' cosi' non compare
- * mai dentro un `t("…")` letterale, e l'estrattore di `languages.ts` le chiavi le
- * cerca proprio li': senza questo marcatore la darebbe per inesistente, `stato`
- * la conterebbe fra le orfane e `pota` ne cancellerebbe le traduzioni in tutte e
- * dodici le lingue, lasciando quel messaggio in italiano per sempre.
- *
- * A tempo d'esecuzione non fa niente ed e' giusto cosi': serve a chi legge il
- * file e all'estrattore, non al programma.
- */
 export function tKey(phrase: string): string {
   return phrase;
 }
 
-/**
- * La chiama `state.ts` quando la lingua cambia, e una volta all'avvio. Il
- * catalogo si carica qui, e `locale` si sposta DOPO: e' l'assegnazione a quel
- * `ref` a ridisegnare, quindi spostarlo prima ridisegnerebbe una volta a vuoto,
- * in italiano.
- */
 export async function setLocale(codice: string) {
   document.documentElement.lang = codice;
   const carica = cataloghi[percorsoDi(codice)];
@@ -113,9 +52,6 @@ export async function setLocale(codice: string) {
   locale.value = codice;
 }
 
-// Una lingua offerta ma senza catalogo mostrerebbe l'interfaccia in italiano
-// senza che niente lo dica: e' il difetto silenzioso che questo file esiste per
-// evitare, quindi si segnala all'avvio.
 for (const l of languages) {
   if (l.translate === SOURCE_LANG) continue;
   if (!cataloghi[percorsoDi(l.translate)]) {

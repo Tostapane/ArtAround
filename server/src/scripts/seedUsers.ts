@@ -1,16 +1,4 @@
-/**
- * Crea i quattro account richiesti dalla specifica (slide "Requisiti di
- * progetto"): autore1, autore2, visitatore1 e visitatore2, con password
- * "12345678".
- *
- * Il ruolo fa parte dell'identita', quindi la chiave d'upsert e' la coppia
- * (username, role). Idempotente: aggiorna la password di chi c'e' gia' senza
- * toccarne portafoglio e collezione, che stanno sotto `$setOnInsert`.
- *
- * Cancella anche i documenti rimasti senza ruolo dal vecchio modello "account
- * unico": non potrebbero piu' accedere. Se quegli account servono, si usa invece
- * `testers.ts account`, che non cancella niente.
- */
+/** Crea gli account dimostrativi richiesti dalle specifiche senza duplicarli. */
 import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
 import { UserModel } from "../models/user";

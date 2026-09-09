@@ -1,53 +1,29 @@
 /**
- * Calcolo del percorso fra due punti del museo.
- *
- * Lavora sulle SALE, non sui singoli nodi: opere e servizi servono solo da
- * estremi, e il percorso e' la sequenza di sale da attraversare. Essendo collegate
- * da porte e passaggi, la ricerca in ampiezza basta: il cammino piu' breve e'
- * quello che attraversa meno sale.
- *
- * Restituisce una struttura intermedia, non una frase: la lingua la mette l'LLM.
- * Gli ostacoli riportati sono solo quelli nelle sale davvero attraversate.
- *
- * I PIANI non sono un caso a parte. Il vano scale e' una sala su ciascun piano e
- * le due sono collegate come due sale confinanti (`svgGraph.ts`), quindi la
- * stessa ricerca in ampiezza sale e scende senza saperlo. Quel che serve a valle
- * e' solo il piano di ogni sala attraversata: chi mette le parole dice "sali" o
- * "scendi" dove il piano cambia, e in un museo a un piano solo non lo dice mai:
- * non c'e' nessuna soglia da attivare e nessun museo da distinguere.
- *
- * Come si chiama un piano non lo decide il codice: la parola sta sulla mappa
- * (`data-floor-label`) e da qui passa e basta. Un museo puo' avere il Mezzanino
- * e il Piano Nobile, un altro cinque piani numerati: qualunque elenco scritto
- * qui sarebbe l'italiano di un museo solo, imposto a tutti gli altri.
- *
- * Una partenza VUOTA vale come l'ingresso: e' dove si e' prima di essersi mossi,
- * ed e' l'unico punto che ogni pianta dichiara comunque (`data-poi="entrance"`),
- * perche' e' li' che nasce il sistema di riferimento della localizzazione. Un
- * `from` sconosciuto resta invece un errore: confonderlo con "non l'ho detto"
- * farebbe rispondere dall'ingresso a chi ha indicato un punto che non c'e'.
+ * Calcola il percorso minimo fra sale e restituisce una struttura indipendente dalla
+ * lingua. Scale e piani restano normali archi e nodi; l'LLM formula soltanto le
+ * indicazioni.
  */
 import { GraphNode, GraphObstacle, MuseumGraph } from "./svgGraph";
 
 export interface RouteStep {
   room: string;
-  floor: number; // serve a sapere se si sale o si scende
-  floorLabel: string; // la parola con cui il piano si nomina, e viene dalla mappa
+  floor: number;
+  floorLabel: string;
 }
 
 export interface RouteIR {
   kind: "route" | "obstacles" | "unavailable";
-  reason: string; // perche' non si e' potuto rispondere; vuoto negli altri due casi
+  reason: string;
   from: RouteStep;
   to: {
-    label: string; // come si chiama la destinazione: la mappa lo sa per un servizio, non per un'opera
-    qid: string; // vuoto per i servizi: e' il segno che qui c'e' un nome da cercare nel database
+    label: string;
+    qid: string;
     room: string;
     floor: number;
     floorLabel: string;
   };
-  steps: RouteStep[]; // le sale da attraversare, la partenza esclusa
-  obstacles: GraphObstacle[]; // solo quelli nelle sale davvero attraversate
+  steps: RouteStep[];
+  obstacles: GraphObstacle[];
 }
 
 export function computeDirections(

@@ -1,24 +1,7 @@
 /**
- * Visita guidata sincronizzata, lato navigator.
- *
- * Stato unico condiviso, due ruoli. Il DOCENTE apre la sala, vede chi e'
- * collegato e conduce: ogni avanzamento spinge la tappa a tutti. Lo STUDENTE
- * segue, puo' chiedere approfondimenti ma non spostarsi.
- *
- * I contenuti si leggono dalla rotta di sessione, non dal catalogo: il possesso e'
- * temporaneo e finisce con la visita.
- *
- * `guidedPlannedEnd` distingue una chiusura voluta dal docente (o l'uscita dello
- * studente) da una sessione sparita sotto i piedi, server riavviato, rete
- * caduta: riusare "terminata" per "non sappiamo cos'e' successo" e' il modo in cui
- * un guasto diventa invisibile. Il server tiene apposta la sessione ancora un
- * momento dopo il "Termina", con stato "terminata", proprio perche' i client
- * possano leggerlo.
- *
- * L'interrogazione periodica deve restare piu' fitta del tempo entro cui il
- * server dimentica chi non si fa vivo (`PRESENZA_TTL_MS`, cinque secondi in
- * `routes/guidedSessions.ts`), o gli studenti fermi sparirebbero a intermittenza
- * dalla lista del docente.
+ * Stato client della visita guidata per docente e studente. Il polling resta piu'
+ * rapido della scadenza di presenza e distingue una chiusura dichiarata da una
+ * sessione scomparsa.
  */
 import { ref } from "vue";
 import type { Visit } from "../../shared/types";
@@ -62,7 +45,6 @@ export const guidedQuestions = ref<GuidedQuestion[]>([]);
 
 // --- Quiz di fine visita ----------------------------------------------------
 
-/** Come il docente vede il quiz: quanti hanno consegnato e con che punteggio. */
 export type QuizDocente = {
   total: number;
   startAt: number | null;
@@ -71,12 +53,11 @@ export type QuizDocente = {
   risultati: { username: string; consegnato: boolean; score: number }[];
 };
 
-/** Come lo studente vede il quiz: le domande SENZA la risposta corretta. */
 export type QuizStudente = {
   total: number;
   endsAt: number | null;
   closed: boolean;
-  domande: { question: string; options: string[] }[]; // niente `correct`: la correzione sta sul server
+  domande: { question: string; options: string[] }[];
   giaConsegnato: boolean;
   punteggio: number | null;
 };

@@ -1,13 +1,6 @@
 /**
- * Lettura di un QR dalla fotocamera.
- *
- * La decodifica avviene dentro l'app, senza ricaricare la pagina: la visita in
- * corso, la lingua e il punto in cui si e' arrivati restano in memoria.
- *
- * Chiedere il permesso puo' durare quanto ci mette una persona a rispondere, e in
- * quel tempo il pannello si puo' chiudere: senza il controllo su `stopped` dopo
- * l'attesa, lo stream arriverebbe dopo `stop()` e la fotocamera resterebbe accesa
- * senza piu' nessuno in grado di spegnerla.
+ * Decodifica QR dalla fotocamera senza ricaricare la visita. Se il pannello si
+ * chiude durante il permesso, lo stream tardivo viene arrestato subito.
  */
 import { ref } from "vue";
 import jsQR from "jsqr";

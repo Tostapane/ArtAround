@@ -1,20 +1,6 @@
 /**
- * Documento Mongoose di una visita.
- *
- * Le note logistiche sono di tipo libero perche' i documenti creati prima delle
- * note posizionate contengono stringhe nude; i client sanno leggere entrambe le
- * forme e `testers.ts` le riallinea.
- *
- * `license` e `visibility` hanno un valore di scorta sullo SCHEMA e non nella
- * funzione che scrive, come sull'item, perche' non tutte le visite nascono dalla
- * stessa funzione: le due speciali del seed (tappe opzionali e guidata) le scrive
- * `VisitModel.create` per conto suo, e senza queste righe uscivano senza diritti
- * dichiarati.
- *
- * Gli indici sono le forme di interrogazione che questo modello riceve davvero
- * (il perche' sta in `models/item.ts`): `@id`, `ofMuseum` (le visite di un museo,
- * la piu' frequente), `author`, e `itemListElement`, che serve a chiedere chi cita
- * un item, cioe' alla cascata di un'eliminazione.
+ * Schema delle visite: percorso, logistica ancorata, opzionali, visibilita', accesso
+ * guidato e quiz. Gli indici servono catalogo e autore.
  */
 import { Schema, model } from "mongoose";
 import { Visit as SharedVisit } from "../../../shared/types";

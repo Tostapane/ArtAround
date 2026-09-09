@@ -1,27 +1,9 @@
 /**
- * Ritentativi per le chiamate di rete.
- *
- * Il seed fa centinaia di chiamate a Gemini e a Wikidata di fila e dura quasi
- * un'ora, e un singolo timeout di connessione, che capita, non deve costare
- * l'intera esecuzione. Qui si riprova, e solo dopo l'ultimo tentativo si lascia
- * passare l'errore, cosi' chi chiama continua a gestire il fallimento come
- * prima: questa funzione aggiunge i tentativi, non cambia chi decide che cosa
- * fare quando non c'e' piu' niente da fare.
- *
- * Si riprova su QUALSIASI errore, senza distinguere i casi transitori dagli
- * altri: distinguerli vorrebbe dire leggere la forma degli errori di due
- * librerie diverse, e sbagliare la lettura significherebbe non riprovare
- * proprio quando serve. Una richiesta malformata costa due tentativi in piu' e
- * fallisce lo stesso; un timeout di rete invece si salva.
- *
- * `cosa` compare nel log ed e' l'unica cosa che, a seed finito, dice DOVE la
- * rete ha fatto le bizze. I timeout di undici tengono il motivo vero dentro
- * `cause`, ed e' per questo che `messaggio` lo va a cercare: senza, nel log
- * resta un "fetch failed" che non dice niente.
+ * Ritenta i servizi esterni con attesa crescente e rende l'ultimo errore utile. Nel
+ * seed una risposta transitoria non deve perdere il lavoro gia' completato.
  */
-
-export const TENTATIVI = 3; // quante volte si prova in tutto, primo tentativo compreso
-const ATTESA_MS = 3000; // l'attesa cresce a ogni tentativo: 3s, poi 6s
+export const TENTATIVI = 3;
+const ATTESA_MS = 3000;
 
 function pausa(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

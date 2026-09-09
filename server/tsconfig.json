@@ -8,20 +8,11 @@
     "rootDir": "..",
     "outDir": "dist",
     "esModuleInterop": true,
-    // Il server è dove vive la logica di dominio ed era l'unica parte senza
-    // alcun controllo dei tipi (né strict né include dei tipi condivisi).
-    // Accenderlo è costato sei correzioni, tutte reali: un `req.file` non
-    // verificato, una trascrizione che poteva essere undefined, un wallet
-    // assente trattato come numero, e un fetch che dichiarava di non
-    // restituire mai null mentre lo restituiva.
+    // La logica di dominio richiede controllo stretto dei tipi.
     "strict": true,
-    // Le dichiarazioni delle dipendenze non sono affar nostro: @google/genai
-    // referenzia un peer opzionale (@modelcontextprotocol/sdk) che non
-    // installiamo, e senza questo `tsc --noEmit` fallisce su un errore che non
-    // possiamo correggere e che non riguarda il nostro codice.
+    // Ignora i tipi dei peer opzionali delle dipendenze esterne.
     "skipLibCheck": true
   },
-  // I tipi condivisi stanno fuori da src/: ts-node li risolveva comunque, ma
-  // per `tsc` erano fuori dal programma.
+  // Include il contratto condiviso che sta fuori da server/src.
   "include": ["src/**/*", "../shared/**/*"]
 }

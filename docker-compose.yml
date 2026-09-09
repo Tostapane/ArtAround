@@ -27,9 +27,7 @@ services:
       - /app/marketplace/node_modules
     depends_on:
       - mongodb
-    # Il compose prova lo stesso artefatto del deploy: compila le tre applicazioni
-    # e avvia il raccordo `index.js`. Per lavorare sui sorgenti del server senza
-    # compilare a ogni modifica resta `npm run dev --prefix server`.
+    # Prova lo stesso artefatto compilato avviato da gocker.
     command: >
       sh -c "npm run setup &&
               npm run build &&

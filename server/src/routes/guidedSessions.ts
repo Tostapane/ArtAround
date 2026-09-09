@@ -1,33 +1,7 @@
 /**
- * Sessioni di VISITA GUIDATA sincronizzata (modulo 18-27, "Fenice rossa").
- *
- * Il ciclo di vita:
- *  - il docente avvia una sessione per una sua visita con parola chiave
- *    (stato "attesa": sala d'attesa);
- *  - gli studenti entrano digitando la parola chiave e finiscono nella lista
- *    d'attesa visibile al docente (accesso temporaneo, non persistente);
- *  - il docente fa partire la visita quando i suoi studenti sono pronti;
- *  - durante la visita il docente avanza opera per opera: il timestamp
- *    di partenza consente ai dispositivi di far partire l'audio ~insieme;
- *  - il docente termina: la sessione resta qualche secondo in "terminata", cosi'
- *    una chiusura VOLUTA non arriva ai client come un guasto, poi sparisce.
- *
- * Lo stato vive solo in memoria, dentro una Map: e' effimero per costruzione,
- * quindi quando il docente termina o il server riavvia non ne resta traccia, che
- * e' quel che chiede la specifica. Su MongoDB non si scrive niente.
- *
- * Trasporto: POLLING REST. I client interrogano `GET /:id` (docente) o
- * `GET /:id/state` (studente) a intervalli brevi. Nessun WebSocket/SSE.
- * (Sicurezza non valutata: nessun token di sessione, controlli minimi.)
- *
- * Tre meccanismi meritano una nota:
- * - la presenza degli studenti si deduce dall'interrogazione stessa, che vale come
- *   "sono ancora qui"; chi non si fa vivo entro il tempo limite sparisce dalla lista
- *   del docente;
- * - le domande sono una coda di consegna, non uno storico: il docente le ritira e
- *   poi le conserva il suo client. Il server non tiene l'elenco;
- * - la correzione del quiz e' sempre lato server: le risposte corrette non lasciano
- *   mai questa macchina.
+ * Sessioni effimere delle visite sincronizzate. Una Map e il polling coordinano
+ * attesa, presenza, avanzamento, domande e quiz; le soluzioni restano sul server e
+ * la fine e' osservabile prima della rimozione.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -39,39 +13,39 @@ const router = Router();
 interface Participant {
   username: string;
   joinedAt: number;
-  lastSeen: number; // l'ultima interrogazione: e' da qui che si deduce la presenza
+  lastSeen: number;
 }
 
 interface StudentQuestion {
   username: string;
   question: string;
-  artwork: string; // il qid dell'opera davanti a cui e' stata posta; vuoto se non c'era
+  artwork: string;
   at: number;
 }
 
 interface RuntimeQuizQuestion {
   question: string;
   options: string[];
-  correct: number; // non lascia mai il server: la correzione si fa qui
+  correct: number;
 }
 
 interface Session {
   id: string;
   visitId: string;
   visitName: string;
-  hasQuiz: boolean; // la visita ha un quiz preparato dall'autore: solo un si' o un no
+  hasQuiz: boolean;
   accessKey: string;
-  museum: string; // l'uri del museo, per rifiutare chi digita la parola giusta nel museo sbagliato
+  museum: string;
   teacher: string;
   stato: "attesa" | "attiva" | "quiz" | "terminata";
-  currentStep: number; // la tappa corrente; -1 finche' il docente non fa partire
-  stepStartAt: number | null; // quando far partire l'audio, cosi' i dispositivi vanno insieme
+  currentStep: number;
+  stepStartAt: number | null;
   partecipanti: Map<string, Participant>;
-  pendingQuestions: StudentQuestion[]; // coda di consegna, non storico: il docente le ritira
-  quizQuestions: RuntimeQuizQuestion[] | null; // copiate dalla visita all'avvio del quiz
+  pendingQuestions: StudentQuestion[];
+  quizQuestions: RuntimeQuizQuestion[] | null;
   quizStartAt: number | null;
   quizEndsAt: number | null;
-  quizClosed: boolean; // chiuso a mano dal docente, prima della scadenza
+  quizClosed: boolean;
   quizAnswers: Map<string, { answers: number[]; score: number }>;
   createdAt: number;
 }
@@ -94,7 +68,7 @@ function gradeQuiz(s: Session, answers: number[]): number {
 const sessions = new Map<string, Session>();
 const byAccessKey = new Map<string, string>();
 
-const PRESENZA_TTL_MS = 5000; // senza un'interrogazione entro questo tempo, lo studente sparisce
+const PRESENZA_TTL_MS = 5000;
 
 function markPresent(s: Session, username: string) {
   const now = Date.now();
@@ -183,9 +157,7 @@ function studentView(s: Session, username?: string) {
 
 /**
  * POST /api/guided-sessions  { visitId }
- * Ritorna: la vista del docente. Apre la sala d'attesa per una visita con parola
- * chiave; se ce n'era gia' una su quella parola la azzera invece di aprirne una
- * seconda. Solo l'autore della visita.
+ * Ritorna: la vista docente e apre o azzera la sala d'attesa. Solo l'autore della visita.
  */
 router.post("/", async (req, res) => {
   try {
@@ -257,9 +229,8 @@ router.post("/", async (req, res) => {
 
 /**
  * POST /api/guided-sessions/join  { accessKey, museum }
- * Ritorna: la vista dello studente, che da questo momento risulta presente.
- * 409 se la visita esiste ma il docente non ha ancora aperto la sala, o se la
- * parola chiave e' di un altro museo; 404 se non esiste affatto.
+ * Ritorna: la vista studente e registra la presenza. 409 se sala o museo non coincidono; 404 se la
+ * parola non esiste.
  */
 router.post("/join", async (req, res) => {
   const { accessKey, museum } = req.body;
@@ -305,8 +276,7 @@ router.post("/:id/leave", (req, res) => {
 
 /**
  * POST /api/guided-sessions/:id/ask  { question, artwork }
- * Mette la domanda nella coda che il docente ritira alla prossima interrogazione.
- * Solo docente e partecipanti.
+ * Accoda la domanda per il docente. Solo docente e partecipanti.
  */
 router.post("/:id/ask", (req, res) => {
   const s = sessions.get(req.params.id);
@@ -343,8 +313,7 @@ router.post("/:id/start", (req, res) => {
 
 /**
  * POST /api/guided-sessions/:id/step  { index, ritardoMs }
- * Porta tutti sulla tappa `index`. `ritardoMs` sposta in avanti l'istante di
- * partenza, cosi' i dispositivi fanno partire l'audio insieme. Solo il docente.
+ * Porta tutti su `index` e programma l'audio con `ritardoMs`. Solo il docente.
  */
 router.post("/:id/step", (req, res) => {
   const s = sessions.get(req.params.id);
@@ -362,8 +331,7 @@ router.post("/:id/step", (req, res) => {
 
 /**
  * POST /api/guided-sessions/:id/quiz/start  { durationSec }
- * Copia il quiz della visita nella sessione e apre la fase a tempo (5-3600 s,
- * 60 s se non detto). Solo il docente; 400 se la visita non ha un quiz.
+ * Avvia il quiz per 5-3600 secondi, 60 se omesso. Solo il docente; 400 se il quiz manca.
  */
 router.post("/:id/quiz/start", async (req, res) => {
   const s = sessions.get(req.params.id);
@@ -396,8 +364,7 @@ router.post("/:id/quiz/start", async (req, res) => {
 
 /**
  * POST /api/guided-sessions/:id/quiz/answer  { answers }
- * Ritorna: { score, total, giaConsegnato }. Si consegna una volta sola, e la
- * correzione avviene qui: le risposte giuste non lasciano mai il server.
+ * Ritorna: { score, total, giaConsegnato }; corregge sul server una sola consegna.
  */
 router.post("/:id/quiz/answer", (req, res) => {
   const s = sessions.get(req.params.id);
@@ -436,13 +403,6 @@ router.post("/:id/quiz/end", (req, res) => {
   res.json(teacherView(s));
 });
 
-/**
- * La sessione non sparisce di colpo: resta per una breve coda con stato
- * "terminata", il tempo che l'ultima interrogazione degli studenti la legga. Se
- * la si cancellasse subito ogni client riceverebbe un 410, cioe' "la sessione e'
- * sparita sotto i piedi", e una chiusura voluta dal docente arriverebbe a tutti
- * come un guasto.
- */
 const CODA_CHIUSURA_MS = 30000;
 
 /**
@@ -463,8 +423,7 @@ router.post("/:id/end", (req, res) => {
 
 /**
  * GET /api/guided-sessions/:id
- * Ritorna: la vista del docente, e SVUOTA la coda delle domande. E' anche il
- * battito che fa sparire dalla lista chi non si e' piu' fatto vivo.
+ * Ritorna: la vista docente, svuota le domande e aggiorna le presenze scadute.
  */
 router.get("/:id", (req, res) => {
   const s = sessions.get(req.params.id);
@@ -475,8 +434,7 @@ router.get("/:id", (req, res) => {
 
 /**
  * GET /api/guided-sessions/:id/state
- * Ritorna: la vista dello studente, e vale come "sono ancora qui". 410 quando la
- * sessione non c'e' piu', che il client distingue da un guasto.
+ * Ritorna: la vista studente e rinnova la presenza; 410 se la sessione e' terminata.
  */
 router.get("/:id/state", (req, res) => {
   const s = sessions.get(req.params.id);
@@ -490,8 +448,7 @@ router.get("/:id/state", (req, res) => {
 
 /**
  * GET /api/guided-sessions/:id/items
- * Ritorna: le tappe della visita nell'ordine del percorso, con l'opera popolata.
- * Solo docente e partecipanti.
+ * Ritorna: le tappe ordinate con l'opera popolata. Solo docente e partecipanti.
  */
 router.get("/:id/items", async (req, res) => {
   try {

@@ -1,27 +1,7 @@
 <script setup lang="ts">
 /**
- * La risposta a un comando del vocabolario controllato.
- *
- * Due sorgenti, scelte in base al comando: le domande sull'edificio vanno al
- * grafo delle sale ricavato dalla mappa, che risponde prima con la sola zona e su
- * richiesta col percorso passo-passo; tutte le altre vanno all'LLM.
- *
- * `target` e' la destinazione quando la domanda non se la porta dietro: il
- * `data-poi` del servizio toccato, oppure il qid dell'opera verso cui si va. Il
- * grafo non distingue i due casi, quindi qui non c'e' nessun ramo, e per lo
- * stesso motivo la tabella traduce i comandi invece di elencare i servizi: quelli
- * di un museo sono quelli della sua mappa.
- *
- * La domanda resta scritta sopra la risposta, che serve proprio a chi il testo
- * precedente non l'ha capito. Un contatore scarta le risposte in ritardo, cosi'
- * un cambio di lingua non viene sovrascritto da una vecchia.
- *
- * Un'indicazione parte dall'opera piu' vicina se la posizione e' accesa e il
- * calcolo se la sente, altrimenti da quella aperta. Non si cerca la sala esatta
- * perche' il percorso ragiona per sale e un'opera basta a nominarne una. La
- * condizione `sicuro` non e' una raffinatezza: all'apertura la posizione e'
- * l'ingresso con un'incertezza larga quanto il museo. Se partenza e destinazione
- * coincidono si manda vuoto, che per il server vuol dire "dall'ingresso".
+ * Risponde ai comandi contestuali: il grafo tratta edificio e percorsi, l'LLM tratta
+ * l'opera. Le risposte tardive vengono scartate quando cambia richiesta.
  */
 import { computed, ref, watch } from "vue";
 import { getInfo, getDirections } from "@/api";
@@ -60,7 +40,6 @@ watch(
   () => (detailed.value = false),
 );
 
-/** Vuoto se la domanda e' sull'opera: allora a rispondere e' l'LLM. */
 const bersaglio = computed(() => {
   if (props.target) return props.target;
   const comando = POSITIONAL[props.request.trim()];
@@ -72,7 +51,6 @@ const canDetail = computed(() => bersaglio.value !== "" && bersaglio.value !== "
 
 const title = computed(() => t(labelForCommand(props.request)));
 
-/** L'opera da cui far partire il percorso. Vuoto vuol dire "dall'ingresso". */
 function partenza(): string {
   let qui = "";
   if (posizioneAttiva.value) {
@@ -81,7 +59,7 @@ function partenza(): string {
       qui = verdetto.candidati[0].qid;
     }
   }
-  // Si parte dall'ANCORA: uno stile non ha un posto sulla pianta, chi lo ascolta si'.
+
   if (!qui && props.about.anchor) qui = props.about.anchor.qid;
   if (qui === bersaglio.value) return "";
   return qui;
@@ -198,7 +176,7 @@ watch(
     </div>
 
     <div class="mt-2" aria-live="polite" :aria-busy="isLoading">
-      <!-- Attesa: un blocco fermo, niente luccichii -->
+
       <div v-if="isLoading" class="flex flex-col gap-2">
         <span class="sr-only">{{ t("Sto cercando la risposta…") }}</span>
         <span class="h-3 w-full rounded-plate bg-surface-2" aria-hidden="true"></span>

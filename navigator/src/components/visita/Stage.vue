@@ -1,52 +1,9 @@
 <script setup lang="ts">
 /**
- * Il palcoscenico: mappa ed elenco, alla pari.
- *
- * Non sono un contenuto e la sua barra laterale, perche' su uno schermo da 375px
- * due pannelli affiancati ne danno due inutilizzabili. Renderli pari e' anche il
- * modello di accessibilita': il percorso non spaziale deve essere altrettanto
- * capace, non solo presente, quindi cio' che si fa sulla mappa si fa nell'elenco
- * e i numeri delle tappe combaciano.
- *
- * I nodi della mappa diventano veri controlli da tastiera e portano sopra il
- * numero della tappa. I dischi si disegnano sull'ANCORA: una tappa che parla di
- * uno stile prende il posto dell'opera che la segue, e finisce nel gruppo di chi
- * condivide quell'oggetto, cioe' un disco con due numeri.
- *
- * Ordine del fuoco: ogni nodo viene riattaccato al suo gruppo scorrendo le tappe
- * in ordine di visita. Il fuoco segue il DOM, non il `tabindex` (che se positivo
- * si mette davanti a tutta la pagina), e le tecnologie assistive leggono il DOM,
- * quindi il DOM e' l'unico punto dove sistemarlo. Va riattaccato al PROPRIO
- * gruppo: portato fuori dal suo `data-floor`, un nodo perde il piano.
- *
- * I piani stanno tutti nello stesso disegno, uno sopra l'altro, dentro un
- * <g data-floor> ciascuno (contratto in `server/src/services/svgGraph.ts`). Qui
- * se ne INQUADRA uno per volta spostando il viewBox, invece di nascondere gli
- * altri: un sottoalbero nascosto non ha piu' un getBBox, e i numeri delle tappe
- * si disegnano proprio con quello. Inquadrando, i numeri e il segnalino degli
- * altri piani cadono fuori dal riquadro da soli. Per lo stesso motivo i numeri
- * si ricalcolano quando si torna sulla mappa.
- *
- * Il piano si annuncia a ogni cambio, ed e' il selettore a rispondere alla
- * domanda "a che piano sono": nessun sensore lo sa, il GPS da' due coordinate e
- * non tre. Chi non vede la pianta ha percio' lo stesso modo di dichiararlo.
- *
- * Col teletrasporto armato nodi e righe collocano invece di aprire. Da pixel a
- * unita' del disegno si passa per `getScreenCTM()`, perche' i conti a mano
- * sbagliano appena la pianta viene incorniciata; una tappa invece non si misura,
- * si emette quale e', cosi' vale anche dall'elenco.
- *
- * Cambiando museo il piano ricordato puo' non esistere piu': si riparte dal piu'
- * basso, che e' quello da cui si entra.
- *
- * Una visita puo' avere PIU' ITEM PER LO STESSO OGGETTO (slide 21), ma sulla
- * mappa quell'oggetto resta UN nodo solo: senza raggruppare, il secondo passaggio
- * sovrascriveva l'etichetta del primo, sovrapponeva due numeri e lasciava due
- * ascoltatori sullo stesso disco. Per la stessa ragione un nodo e' opzionale solo
- * se lo sono TUTTE le tappe che vi si fermano.
- *
- * Il nodo si tiene il tocco: senza fermarlo arriverebbe anche all'`<svg>`, che
- * collocherebbe una seconda volta sul pixel invece che sull'opera.
+ * Rappresenta il percorso come mappa SVG o elenco equivalente. Raggruppa le tappe
+ * della stessa opera, conserva fuoco e piano e inoltra il tocco al teletrasporto
+ * quando e' armato. Il segnalino non intercetta il puntatore, altrimenti
+ * coprirebbe il nodo corrente.
  */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
@@ -156,8 +113,6 @@ function inquadraPiano() {
   }
 }
 
-/** Inquadrare non toglie niente dal DOM: il fuoco dei piani non inquadrati si
- *  spegne qui, o col Tab si finisce su una tappa che non si vede. */
 function aggiornaFuoco() {
   const root = container.value;
   if (!root) return;
@@ -171,7 +126,6 @@ function aggiornaFuoco() {
   });
 }
 
-/** La tappa aperta decide il piano: aprirne una di sopra porta la pianta di sopra. */
 function seguiTappa() {
   const root = container.value;
   if (!root || !props.currentLocationId) return;
@@ -205,14 +159,6 @@ function onStopPress(index: number) {
   emit("select", index);
 }
 
-/**
- * I servizi sono nodi come le opere, e si toccano come le opere: la risposta
- * pero' non e' una didascalia ma la strada per arrivarci. Tipo ed etichetta si
- * leggono dal disegno (`data-poi`, `data-label`), quindi vale qualunque servizio
- * il curatore abbia messo sulla sua pianta, senza nessun elenco qui dentro.
- * A teletrasporto armato il tocco non viene fermato: scivola all'<svg>, che
- * colloca. Cosi' un servizio non e' un buco nel bersaglio.
- */
 function preparePois() {
   const root = container.value;
   if (!root) return;
@@ -379,11 +325,6 @@ function prepareMap() {
   aggiornaFuoco();
 }
 
-/**
- * Dove sei col corpo, che non e' l'opera aperta: il segnalino si muove da solo
- * coi sensori e non apre mai niente. Il cono e' la direzione dello sguardo:
- * senza bussola non viene disegnato affatto, invece di puntare a caso.
- */
 function drawPosition() {
   const root = container.value;
   if (!root) return;
@@ -463,10 +404,7 @@ const optionalCount = computed(() => {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <!-- Due modi pari di navigare la stessa visita.
-         Sul telefono questo controllo non c'e': li' Mappa ed Elenco sono due
-         schede del guscio (`Visita.vue`), e ripeterle qui vorrebbe dire due
-         comandi diversi che fanno la stessa cosa a due dita di distanza. -->
+
     <div class="flex shrink-0 items-center gap-2 px-3 py-2">
       <div class="segmenti hidden lg:inline-flex" role="radiogroup" :aria-label="t('Come vedere la visita')">
         <button
@@ -520,7 +458,7 @@ const optionalCount = computed(() => {
       v-show="stageView === 'mappa'"
       class="min-h-0 flex-1 overflow-auto p-3"
     >
-      <!-- PIANI: compare solo se il museo ne ha piu' d'uno -->
+      <!-- PIANI -->
       <div
         v-show="piani.length > 1"
         class="segmenti mx-auto mb-2 flex max-w-3xl flex-wrap"
@@ -574,8 +512,7 @@ const optionalCount = computed(() => {
             </span>
             <span class="min-w-0 flex-1">
               <span class="block truncate font-medium">{{ stopName(match) }}</span>
-              <!-- Il tono distingue due tappe sulla stessa opera, che altrimenti
-                   sarebbero due righe identiche. -->
+
               <span class="block truncate text-small text-muted">
                 {{ stopSubtitle(match) }}
                 <span v-if="match.item.educationalLevel">
@@ -605,7 +542,6 @@ const optionalCount = computed(() => {
   border-radius: 6px;
 }
 
-/* Le tappe sono dischi numerati: segnaletica da pianta, non forme anonime */
 .mappa :deep(.nodo-opera) {
   cursor: pointer;
   fill: var(--accent);
@@ -631,7 +567,6 @@ const optionalCount = computed(() => {
   pointer-events: none;
 }
 
-/* L'opera aperta: anello marcato, riconoscibile a colpo d'occhio */
 .mappa :deep(.nodo-corrente) {
   fill: var(--text);
   stroke: var(--accent);
@@ -653,11 +588,6 @@ const optionalCount = computed(() => {
   }
 }
 
-/* Dove sei col corpo: struttura e non accento, perche' l'accento dice dove puoi
-   andare e questo non e' un comando ma un fatto. Il cono e' lo sguardo.
-   E' disegnato per ultimo, quindi sta sopra ai nodi: senza `pointer-events:
-   none` si prende lui il tocco, e la tappa su cui ci si trova diventa l'unica
-   che non si riesce piu' ad aprire. */
 .mappa :deep(.segnalino-posizione) {
   pointer-events: none;
 }
@@ -672,9 +602,6 @@ const optionalCount = computed(() => {
   opacity: 0.16;
 }
 
-/* Teletrasporto armato: la pianta e' un bersaglio e lo dice prima del tocco.
-   La velatura sta sopra il disegno, perche' il fondo dell'SVG lo coprono le
-   sale, e lascia passare il tocco, che deve arrivare alla pianta. */
 .mappa-armata {
   position: relative;
 }
@@ -692,9 +619,6 @@ const optionalCount = computed(() => {
   cursor: crosshair;
 }
 
-/* I servizi si toccano: lo dicono col cursore e con l'anello del fuoco, come le
-   tappe. Il colore resta quello che il curatore ha dato loro sul disegno, cosi'
-   un'opera e un bagno non si somigliano. */
 .mappa :deep([data-poi]) {
   cursor: pointer;
 }
@@ -713,7 +637,6 @@ const optionalCount = computed(() => {
   cursor: crosshair;
 }
 
-/* Tappe opzionali: tratteggio + attenuazione. Mai il solo colore. */
 .mappa :deep(.nodo-opzionale) {
   stroke: var(--accent);
   stroke-width: 2px;

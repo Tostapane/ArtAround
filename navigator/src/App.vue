@@ -1,45 +1,7 @@
 <script setup lang="ts">
 /**
- * Guscio dell'applicazione.
- *
- * Carica per prima cosa il file di configurazione del curatore, da cui arrivano
- * il museo e l'indirizzo del server, poi sceglie uno dei cinque ingressi letti
- * dalla query string: studente di una visita guidata, docente che apre la sala
- * d'attesa, collegamento diretto a una visita, richiesta di visita su misura
- * (`custom=`), oppure biglietteria.
- *
- * Si entra dal marketplace. Subito dopo la configurazione si spende il biglietto
- * che arriva nell'indirizzo, e da li' esce la sessione: senza, qui non funziona
- * niente, perche' ogni rotta la pretende. Il biglietto si toglie subito
- * dall'indirizzo perche' vale una volta sola, cosi' un ricaricamento non lo
- * rigioca e la barra non resta con dentro una credenziale.
- *
- * `custom=` porta la FRASE e non la visita: una visita su misura non sta nel
- * database, e comporla nel marketplace per mostrarne un'anteprima darebbe un
- * percorso diverso da quello poi eseguito, perche' il modello non risponde due
- * volte allo stesso modo.
-
- * I due messaggi d'avvio tengono la CHIAVE e non la frase tradotta: il catalogo
- * della lingua arriva a parte (vedi `i18n.ts`) e potrebbe non esserci ancora
- * quando queste righe passano, che passano una volta sola. Tradurli nel legame
- * invece che nel `ref` e' anche l'unica cosa giusta quando la lingua cambia a
- * schermo acceso.
- *
- * La sessione che scade a meta' visita si gestisce in un punto solo: senza,
- * ogni chiamata fallirebbe per conto suo e la persona resterebbe davanti a una
- * pianta che non risponde piu'. Si dice invece dove si rientra, che e' il
- * marketplace. L'avviso viene PRIMA della visita guidata nel modello: una
- * sessione scaduta spegne anche quella, e lasciarla a schermo direbbe che si sta
- * ancora seguendo il docente.
- *
- * `resume` non ricarica niente: uscire non chiude la visita, `visit` resta in
- * piedi e la tappa aperta e' ancora quella. Serve soprattutto alle visite che
- * nell'elenco non ci sono, quella su misura, che nel database non esiste, e
- * quella aperta da un collegamento diretto.
- *
- * La visita su misura arriva a COPPIE (i suoi item non stanno nel database):
- * `onCustomStart` rimette l'opera dentro l'item, che e' la forma da cui parte
- * `buildStops`.
+ * Radice del navigator. Legge il protocollo d'ingresso, risolve sessione e museo e
+ * sceglie fra avviso, visita guidata, biglietteria e visita in corso.
  */
 import { onMounted, ref, computed } from "vue";
 import Biglietteria from "./components/selection/Biglietteria.vue";

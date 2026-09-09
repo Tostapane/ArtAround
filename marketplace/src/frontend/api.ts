@@ -1,20 +1,6 @@
 /**
- * Chiamate al server.
- *
- * Tutti i percorsi sono relativi: il marketplace e' servito dallo stesso server
- * delle API, quindi qui non compaiono host ne' porte.
- *
- * Chi chiede non sta nell'indirizzo. L'unica cosa che dice chi siamo e' il
- * biglietto coniato dal server all'accesso, che `call` attacca da se' a ogni
- * richiesta: nessuna funzione qui sotto ha un parametro `user`, quindi non c'e'
- * nessun posto in cui dimenticarselo e nessun nome che si possa riscrivere a
- * mano per leggere i testi a pagamento di un altro o spenderne il portafoglio.
- *
- * Il biglietto sta in `sessionStorage` e non in `localStorage`: muore chiudendo
- * la scheda, cosi' riaprire l'applicazione mostra di nuovo la soglia. Sopravvive
- * pero' al ricaricamento e all'andata e ritorno verso il navigator, che stanno
- * nella stessa scheda: e' proprio quel viaggio a non funzionare senza.
- *
+ * Client HTTP del marketplace. Centralizza le rotte same-origin e allega la sessione
+ * della scheda; l'identita' non arriva mai dai parametri delle singole funzioni.
  */
 import {
   ArtworkImpactReport,
@@ -38,12 +24,6 @@ export type UserWithToken = UserDTO & { token: string };
 
 let onExpired: () => void = () => {};
 
-/**
- * Un browser che nega la memoria non deve far cadere il modulo: senza guardia
- * l'eccezione arriva mentre `api` si valuta, cioe' prima che esista qualcosa in
- * grado di dirlo, e la pagina resta bianca. Senza memoria la sessione dura
- * quanto questa pagina, e a rompersi e' solo il ricaricamento.
- */
 function leggiToken(): string {
   try {
     return sessionStorage.getItem(SESSION_KEY) || '';
@@ -58,18 +38,14 @@ export function setToken(value: string): void {
   token = value;
   try {
     sessionStorage.setItem(SESSION_KEY, value);
-  } catch {
-    // vedi leggiToken
-  }
+  } catch {}
 }
 
 export function clearToken(): void {
   token = '';
   try {
     sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    // vedi leggiToken
-  }
+  } catch {}
 }
 
 export function hasToken(): boolean {
@@ -80,12 +56,6 @@ export function onSessionExpired(handler: () => void): void {
   onExpired = handler;
 }
 
-/**
- * Il 401 si gestisce QUI e non nelle ~25 chiamate: una sola di quelle
- * dimenticata darebbe una schermata vuota invece di riportare alla soglia.
- * Si avvisa solo se un biglietto c'era davvero, altrimenti il 401 di una
- * password sbagliata butterebbe fuori chi non e' ancora entrato.
- */
 async function call(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers || {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -149,7 +119,6 @@ export const ArtAPI = {
     await call('/api/users/logout', { method: 'POST' });
   },
 
-  /** Un biglietto nuovo per un solo viaggio verso il navigator. */
   async newHandoff(): Promise<string> {
     const response = await call('/api/users/handoff', { method: 'POST' });
     if (!response.ok) throw new Error('Non riesco ad aprire il navigator');
@@ -203,7 +172,6 @@ export const ArtAPI = {
     return response.json();
   },
 
-  /** Ogni visita torna col suo conto: quanto costerebbe a chi sta chiedendo. */
   async fetchVisite(museumQid?: string): Promise<Visit[]> {
     const q = museumQid ? `?museum=${encodeURIComponent(museumQid)}` : '';
     const response = await call(`/api/visits${q}`);

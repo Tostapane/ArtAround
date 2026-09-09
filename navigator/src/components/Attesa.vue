@@ -1,19 +1,7 @@
 <script setup lang="ts">
 /**
- * L'ATTESA: il marchio che si scompone, piu' la frase che dice cosa si aspetta.
- *
- * Il movimento sta in `shared/components.css`, che montano tutt'e due le
- * applicazioni: qui c'e' solo il disegno. Quattro `<svg>` sovrapposti e non
- * quattro gruppi in uno, il perche' e' scritto la', ed e' la differenza fra
- * un'attesa che si muove e una che si pianta.
- *
- * Le stesse otto linee stanno nello sprite del marketplace e in `logo.svg`:
- * li' il marchio arriva da `<use>`, che qui non si puo' fare perche' in sviluppo
- * il navigator sta su un'altra porta. Chi tocca la geometria le tocca tutt'e
- * tre, e l'elenco delle facce e quello degli spigoli devono restare d'accordo
- * (`state.md` §4.2).
- *
- * La frase non e' un di piu': a "riduci animazioni" il marchio resta fermo.
+ * Indicatore di attesa del navigator. Il marchio resta accompagnato dal testo quando
+ * le preferenze di accessibilita' disattivano il movimento.
  */
 defineProps<{ testo: string }>();
 </script>

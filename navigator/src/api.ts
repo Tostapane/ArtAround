@@ -1,36 +1,7 @@
 /**
- * Chiamate al server.
- *
- * Nessun indirizzo scritto a mano: la base arriva dal file di configurazione del
- * curatore, o si ricava dall'host da cui e' stata aperta la pagina.
- *
- * CHI CHIEDE NON STA NELL'INDIRIZZO: nessuna funzione qui sotto ha un parametro
- * `user` o `username`. Lo dice il biglietto che `call` attacca a ogni richiesta,
- * e il server lo traduce nell'account, quindi non c'e' nessun punto in cui
- * dimenticarsene, e nessun nome che si possa riscrivere a mano.
- *
- * IL BIGLIETTO ARRIVA DAL MARKETPLACE, una volta sola, nell'indirizzo con cui
- * questa pagina si apre: le due applicazioni stanno su origini diverse e questa
- * non vede la memoria dell'altra. Si spende subito in cambio di una sessione
- * propria, che sta in `sessionStorage`: chiusa la scheda non resta niente.
- * Aprire il navigator da solo non porta da nessuna parte, ed e' voluto: si entra
- * dal marketplace.
- *
- * Le rotte delle visite guidate usano l'interrogazione periodica; `GuidedEndedError`
- * distingue "la sessione non c'e' piu'" da un errore di rete, perche' le due cose
- * vogliono reazioni diverse.
- *
- * Il 401 si gestisce dentro `call` e non nelle chiamate una per una: durante una
- * visita ognuna sta nel suo `catch`, quindi una sessione scaduta arriverebbe a
- * schermo come un guasto diverso a seconda di quale bottone si e' premuto. Si
- * avvisa solo se un biglietto c'era: senza, il 401 e' l'ingresso mancato che
- * `App.vue` racconta gia' da se'.
- *
- * Le due letture della memoria sono avvolte in un `try`: un browser che la nega
- * non deve far cadere il modulo, o l'eccezione arriva mentre `api` si valuta,
- * cioe' prima che esista qualcosa in grado di dirlo, e l'applicazione resta
- * bianca. Senza memoria la sessione dura quanto la pagina, e a rompersi e' solo
- * il ricaricamento.
+ * Client HTTP del navigator. Ricava la base dalla configurazione, scambia una volta
+ * l'handoff del marketplace e gestisce centralmente sessione e 401; le sessioni
+ * guidate distinguono una fine prevista da un errore di rete.
  */
 import type { Artwork, Item, Museum, Visit } from "../../shared/types";
 import { SESSION_KEY } from "../../shared/constants";
@@ -56,9 +27,7 @@ function scriviToken(value: string) {
   try {
     if (value) sessionStorage.setItem(SESSION_KEY, value);
     else sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    /* vedi in testa: senza memoria la sessione dura quanto la pagina */
-  }
+  } catch {}
 }
 
 let token = leggiToken();
@@ -248,9 +217,7 @@ async function readGuidedError(res: Response): Promise<string> {
   try {
     const data = await res.json();
     if (data && data.error) return data.error;
-  } catch {
-    /* risposta non JSON: resta il codice di stato */
-  }
+  } catch {}
   return `Errore ${res.status}`;
 }
 
@@ -362,7 +329,5 @@ export async function postGuidedAsk(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, artwork }),
     });
-  } catch {
-    /* una domanda persa non ferma la visita: non si riprova e non si avvisa */
-  }
+  } catch {}
 }

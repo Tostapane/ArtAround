@@ -1,36 +1,7 @@
 /**
- * Popolamento di un museo a partire dal suo file di configurazione.
- *
- * Il file dice QUALI opere esporre; Wikidata dice com'e' fatta ciascuna; la
- * mappa dice dove sta. Qui si mettono insieme le tre cose e si salva quel che
- * ne esce, scaricando una copia locale delle immagini e generando le
- * descrizioni mancanti. Un'opera senza immagine (P18) viene saltata: meglio non
- * averla che averla senza volto.
- *
- * `locationsFromMap` lega un'opera al suo nodo passando dal QID, e non dalla sua
- * POSIZIONE nell'elenco del file di configurazione: quella vorrebbe dire tenere
- * allineati a mano due elenchi, e basterebbe inserirne una in mezzo perche' tutte
- * quelle dopo finiscano sul nodo sbagliato senza un errore da nessuna parte.
- * Un'opera che sulla pianta non c'e' resta senza nodo: non compare sulla mappa,
- * ma il suo contenuto si legge lo stesso.
- *
- * `populateItem` NON scrive l'item quando il modello, anche dopo i ritentativi,
- * non ha prodotto un testo: uno che manca si vede nel conteggio finale e nel log,
- * uno senza testo diventa una tappa muta dentro una visita e nessuno se ne
- * accorge finche' non la si apre. Nell'`@id` entra chi ha scritto il contenuto,
- * ma per il museo si usa il token congelato invece del nome mostrato: il perche'
- * sta accanto a `SEED_ID_TOKEN`.
- *
- * `populateVisit` scrive per esteso `visibility` e `imagePath` invece di
- * lasciarli al valore di scorta dello schema, perche' `upsertVisit` e' un upsert:
- * su un documento che esiste gia' i valori di scorta non scattano, quindi una
- * visita gia' seminata resterebbe senza `visibility` per sempre, e una copertina
- * tolta dal file di configurazione resterebbe attaccata alla visita. Per la stessa
- * ragione `imagePath` e' la stringa vuota e non `undefined`.
- *
- * In `populateMuseum` il file vince su Wikidata, che si interroga solo per i
- * campi lasciati in bianco. Il nome in particolare e' una scelta e non un dato:
- * per gli Uffizi Wikidata risponde "Palazzo degli Uffizi", che e' l'edificio.
+ * Popola un museo unendo configurazione, Wikidata e pianta. Gli upsert rendono il
+ * seed ripetibile e gli item senza testo non vengono salvati, evitando tappe mute
+ * che sembrerebbero valide.
  */
 import { fetchArtwork, fetchMuseum } from "./services/wikidata";
 import { downloadImage } from "./services/imageDownloader";

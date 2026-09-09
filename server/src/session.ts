@@ -1,43 +1,7 @@
 /**
- * Chi sta chiedendo: dall'intestazione `Authorization` all'account.
- *
- * L'identita' non sta nell'indirizzo, perche' un nome scritto a mano varrebbe
- * quanto quello vero: viaggia in un'intestazione e vale solo se e' il server ad
- * averla coniata, in `POST /users/login`, che con `register` e' l'unico punto in
- * cui una password si verifica.
- *
- * Due mestieri, separati apposta:
- *   resolveSession  guarda: montata su tutto /api, non rifiuta niente;
- *   requireSession  decide: sta sulle rotte che un utente lo pretendono.
- * Quattro rotte devono restare aperte (`index.ts` dice quali), e un rifiuto
- * montato su tutto le spegnerebbe senza dirlo.
- *
- * Il biglietto per il navigator e' una riga come le altre con una scadenza
- * corta e un `kind` diverso: il navigator sta su un'altra origine, quindi
- * l'identita' deve attraversare nell'indirizzo, ma un indirizzo finisce nella
- * cronologia e nei registri, percio' quel che attraversa dura dieci minuti,
- * `POST /users/redeem` lo cancella spendendolo, e `resolveSession` non lo
- * accetta come intestazione: senza quel `kind` il biglietto sarebbe una
- * credenziale piena, spendibile quante volte si vuole finche' non scade.
- *
- * L'utente si legge con `sessionUser` e mai da `req` a mano: aggiungere il campo
- * ai tipi di Express vorrebbe dire un `.d.ts` ambientale, e ts-node quelli non
- * li carica (il motivo sta in cima a `env.ts`). `sessionUser` solleva se l'utente
- * manca invece di tornare null: si chiama solo dietro `requireSession`, quindi
- * l'assenza e' una rotta montata senza guardia, un difetto nostro, da vedere
- * subito invece che diventare una richiesta anonima servita per sbaglio.
- *
- * `destroySession` copre due gesti che sono la stessa operazione, spendere un
- * biglietto e uscire: la riga sparisce. Il `kind` entra nell'interrogazione e non
- * in un controllo dopo, perche' `redeem` pretende un biglietto e cancellare prima
- * di guardare vorrebbe dire che mandargli una sessione qualunque la butta giu';
- * l'uscita non lo passa, perche' li' va bene qualunque riga sia.
- *
- * In `resolveSession` il filtro e' `kind: { $ne: "handoff" }` e non
- * `kind: "sessione"` perche' le righe scritte prima che il campo esistesse non ce
- * l'hanno, e sono sessioni vere. Un guasto del database non e' un rifiuto: si
- * lascia passare senza utente, e la rotta rispondera' 401 come farebbe a un
- * biglietto sconosciuto.
+ * Risolve Authorization in un account e separa osservazione da obbligo di sessione.
+ * Gli handoff viaggiano nell'URL una volta, scadono presto e non valgono come
+ * normali credenziali API.
  */
 import { Request, Response, NextFunction } from "express";
 import { randomUUID } from "crypto";
@@ -113,9 +77,7 @@ export async function resolveSession(
         username: found.username,
         role: found.role,
       };
-  } catch {
-    /* vedi in testa: un guasto del database non e' un rifiuto */
-  }
+  } catch {}
   next();
 }
 

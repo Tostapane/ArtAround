@@ -1,54 +1,8 @@
 <svg viewBox="0 -1440 1300 2120" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="260">
-  <!--
-    PIANTA DEL MUSEO DEL LOUVRE, TRE LIVELLI.
-
-    La struttura dei dati e' quella che services/svgGraph.ts sa leggere: data-room
-    (aree = sale), data-qid (nodi-opera), data-poi (servizi), data-obstacle
-    (ostacoli), data-edge (collegamenti fra sale), data-floor sul gruppo di ogni
-    piano. Tutto il resto e' disegno, e il parser lo ignora.
-
-    L'EDIFICIO ha tre ali attorno alla Cour Napoleon, che resta aperta a ovest,
-    cioe' a sinistra: Richelieu in alto, Denon in basso, Sully a destra chiusa
-    intorno alla Cour Carree. La piramide sta in mezzo al cortile e sotto la
-    piramide c'e' l'atrio: sul disegno e' il rombo isolato, ed e' isolato per
-    davvero, perche' ci si arriva da fuori e da li' si sale in ognuna delle tre
-    ali. E' il motivo per cui i suoi tre collegamenti sono disegnati a mano
-    invece di nascere da un muro in comune: passano sotto il cortile.
-
-    L'ala Denon si ferma al primo piano: al secondo il perimetro e' una L, e non
-    e' una semplificazione del disegno ma il giro che il visitatore deve fare.
-
-    LA LOCALIZZAZIONE nasce da due dati e da nient'altro: data-width-m dice
-    quanti metri e' larga la pianta (260 su 1300 unita', cioe' cinque unita' per
-    metro) e data-poi="entrance" dice da dove si entra, che e' il punto in cui si
-    mette il visitatore prima di qualunque misura. Il nord della Terra e' il su
-    del disegno per definizione: la bussola del telefono si legge rispetto al
-    foglio, non a coordinate vere.
-
-    I piani sono impilati in verticale, non affiancati, perche' data-width-m deve
-    restare la larghezza di UN piano. Le scale che li uniscono sono data-edge
-    FUORI dai gruppi: dentro, allargherebbero il getBBox di quel piano fino
-    all'altro e l'inquadratura per piano mostrerebbe mezzo disegno vuoto.
-
-    Due regole da rispettare se si sposta qualcosa:
-      1. Niente transform sugli elementi con data-*: il parser legge cx/cy oppure
-         x/y/width/height cosi' come sono scritti. Le etichette ruotate possono
-         averlo perche' sono solo disegno.
-      2. I nomi delle sale sono unici sui tre piani, altrimenti due omonime
-         diventano una sola sala e con loro un passaggio che nessuno ha disegnato.
-  -->
+  <!-- Pianta del Louvre su tre piani. Il parser legge data-room, data-qid, data-poi, data-obstacle, data-edge, data-floor e data-width-m. Non trasformare gli elementi data-*; i nomi delle sale sono unici e gli archi fra piani restano fuori dai gruppi. -->
 
   <style>
-    /*
-      I colori arrivano dal tema dell'app (shared/theme.css): la mappa viene
-      inserita NELLA pagina, non in un iframe, quindi le variabili del documento
-      cascano qui dentro e il tema scuro segue da se'. I valori di ripiego
-      servono solo se si apre il file da solo nel browser.
-
-      Ogni regola sta dentro :where(), cioe' a specificita' zero: le classi che
-      il navigator aggiunge a caldo (nodo-opera, nodo-corrente, nodo-opzionale)
-      devono sempre vincere su quello che si scrive qui.
-    */
+    /* Token del tema; :where() lascia prevalere gli stati runtime. */
     :where(.museum-map) {
       --carta: var(--surface, #ffffff);
       --grafite: var(--text, #353535);
@@ -63,12 +17,7 @@
       font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
     }
 
-    /*
-      Un nodo opera e' un cerchio di raggio 10: lasciando rimpicciolire la pianta
-      fino alla larghezza dello schermo, su un telefono verrebbe un paio di
-      pixel, non lo si centra col dito e non ci si legge dentro il numero della
-      tappa. Sotto questa soglia la pianta smette quindi di stringersi e scorre.
-    */
+    /* Dimensione minima per nodi toccabili su telefono. */
     :where(.museum-map) { min-width: 650px; }
 
     :where(.museum-map) .foglio {
@@ -92,12 +41,7 @@
       opacity: 0.5;
     }
 
-    /*
-      Sale: carta appena tinta. Le tinte escono dalla palette e sono diluite
-      tanto da leggersi come carta colorata, mai come un comando. Due sale
-      confinanti non si distinguono per la sola TINTA: cambia anche quanto e'
-      forte la mescolanza, cosi' restano diverse anche in scala di grigi.
-    */
+    /* Le sale restano distinguibili senza affidarsi al solo colore. */
     :where(.museum-map) .sala {
       fill: color-mix(in oklab, var(--carta) var(--forza, 88%), var(--tinta, var(--carta)));
     }
@@ -149,11 +93,7 @@
       opacity: 0.12;
     }
 
-    /*
-      Opere: dischi (e qualche quadrato dove il pezzo e' una scultura o un
-      oggetto). Questo e' l'aspetto A RIPOSO: quando l'opera e' una tappa della
-      visita in corso il navigator la ricolora e ci scrive dentro il numero.
-    */
+    /* Aspetto inattivo dei nodi opera; il navigator marca le tappe. */
     :where(.museum-map) .nodo-arte {
       fill: color-mix(in oklab, var(--carta) 42%, var(--tenue));
       stroke: var(--carta);
@@ -161,10 +101,7 @@
       paint-order: stroke;
     }
 
-    /*
-      Servizi: quadrati arrotondati. La forma, non solo il colore, li separa
-      dalle opere: si riconoscono anche senza distinguere le tinte.
-    */
+    /* La forma distingue i servizi dalle opere. */
     :where(.museum-map) .nodo-servizio {
       fill: var(--ardesia);
       stroke: var(--carta);
@@ -695,11 +632,7 @@
     </g>
   </g>
 
-  <!--
-    I vani scale che uniscono i piani. Stanno FUORI dai gruppi dei piani:
-    dentro, il getBBox del gruppo si allungherebbe fino all'altro piano e
-    l'inquadratura per piano mostrerebbe mezzo disegno vuoto.
-  -->
+  <!-- Collegamenti fra piani -->
   <g class="arco" id="nav-edges-piani">
     <line data-edge="" x1="200" y1="520" x2="200" y2="-220" /> <!-- Salle des Caryatides (terra) <-> Grande Galerie (primo) -->
     <line data-edge="" x1="480" y1="520" x2="840" y2="-220" /> <!-- Galleria Michelangelo (terra) <-> Scalone Daru (primo) -->

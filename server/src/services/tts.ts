@@ -1,9 +1,4 @@
-/**
- * Sintesi vocale lato server.
- *
- * Sta sul server e non nel browser perche' cosi' funziona uguale ovunque: al
- * client arriva un MP3, che ogni dispositivo sa riprodurre.
- */
+/** Sintetizza MP3 sul server, offrendo a ogni browser lo stesso formato audio. */
 import textToSpeech from "@google-cloud/text-to-speech";
 
 const client = new textToSpeech.TextToSpeechClient({

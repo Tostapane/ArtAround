@@ -1,9 +1,4 @@
-/**
- * Tema chiaro/scuro.
- *
- * La chiave di memoria e' la stessa del marketplace: passando da un'app all'altra
- * l'aspetto non cambia.
- */
+/** Gestisce il tema chiaro o scuro con la stessa chiave usata dal marketplace. */
 import { ref } from "vue";
 import { THEME_KEY } from "../../../shared/constants";
 

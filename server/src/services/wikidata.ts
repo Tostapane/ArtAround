@@ -1,48 +1,22 @@
 /**
- * Interrogazioni a Wikidata per opere e musei.
- *
- * Quando il servizio delle etichette non trova un nome nelle lingue richieste
- * restituisce il codice dell'elemento: in quel caso il nome si considera assente,
- * altrimenti finirebbe a schermo un identificatore al posto di un titolo.
- *
- * Le tre interrogazioni passano dai ritentativi: durante il seed sono centinaia
- * di chiamate di fila, e un timeout non ritentato faceva saltare TUTTA
- * l'esecuzione (l'errore risale fino al ciclo del seed).
- *
- * `appartieneAlMuseo` chiede `P195` (collezione) e non `P276` (luogo), perche'
- * `P276` dice anche dove una cosa e' STATA, e' cosi' che un comune belga e la
- * Dama di Elche, al Louvre dal 1897 al 1941, sono finiti in un catalogo. Segue
- * poi `P361*` perche' i musei grandi non dichiarano se stessi ma il
- * dipartimento: al Louvre le opere stanno in `Q3044768`, che del Louvre e'
- * parte. Un `false` non ferma nessuno, Wikidata e' incompleta e un curatore che
- * sa cosa ha in casa deve poter aggiungere l'opera lo stesso, quindi la risposta
- * serve a dirglielo, e un guasto rende `true`, perche' non sapere non e' sapere
- * di no.
- *
- * Quando Wikidata non sa rispondere il campo resta VUOTO, ed e' quel che fa
- * `valoreOMai`. Un buco si scrive come buco: mettendoci una parola, "Unknown",
- * la si salva nel database come se fosse il nome dell'autore, e a valle nessuno
- * puo' piu' distinguere «non si sa» da «si chiama cosi'»; ogni schermata
- * dovrebbe allora ricordarsi di riconoscerla, e chi ne aggiunge una non lo sa.
- * Vuoto invece si riconosce da se'. I buchi hanno due forme: una risposta
- * assente e' `undefined`, mentre una entita' senza etichetta risponde con
- * l'indirizzo di un NODO ANONIMO (`.well-known/genid/…`), che stampato com'e'
- * sembra il nome dell'autore.
+ * Recupera da Wikidata metadati con ritentativi. Usa P195/P361 per l'appartenenza e
+ * lascia vuote etichette o nodi anonimi mancanti, senza trasformare l'assenza nel
+ * nome Unknown.
  */
 import { conTentativi } from "./retry";
 
 export interface ArtworkMetadata {
   name: string;
-  image: string; // l'indirizzo remoto su Wikimedia, non ancora scaricato
+  image: string;
   author: string;
   author_qid: string;
-  style: string; // gli stili, gia' uniti in una stringa sola
+  style: string;
   style_qids: string;
 }
 
 export interface MuseumMetadata {
   name: string;
-  created: string; // il solo anno: la data completa si tronca al primo trattino
+  created: string;
   location: string;
 }
 
