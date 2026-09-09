@@ -17,9 +17,9 @@ services:
     working_dir: /app
     environment:
       - MONGO_URI=mongodb://localuser:localpassword@mongodb:27017/artaround?authSource=admin
+      - NAVIGATOR_ORIGIN=http://localhost:8000/navigator
     ports:
       - "8000:8000"
-      - "5173:5173"
     volumes:
       - ./:/app
       - /app/navigator/node_modules
@@ -27,20 +27,13 @@ services:
       - /app/marketplace/node_modules
     depends_on:
       - mongodb
-    # Il marketplace non ha un server di sviluppo: il browser esegue sempre e solo
-    # `dist/`. La prima compilazione sta nella catena `&&` perche' un marketplace
-    # che non compila deve fermare l'avvio invece di farsi servire vecchio; il
-    # watcher che la segue tiene poi `dist/` allineato ai sorgenti per il resto
-    # della sessione. Senza, `dist/` resta quello dell'istante in cui il
-    # contenitore e' partito e si passa il pomeriggio a leggere il JS di stamattina.
+    # Il compose prova lo stesso artefatto del deploy: compila le tre applicazioni
+    # e avvia il raccordo `index.js`. Per lavorare sui sorgenti del server senza
+    # compilare a ogni modifica resta `npm run dev --prefix server`.
     command: >
-      sh -c "npm install --prefix navigator &&
-              npm install --prefix server &&
-              npm install --prefix marketplace &&
-              npm run build --prefix marketplace &&
-              (npm run watch --prefix marketplace &) &&
-              (npm run dev --prefix navigator -- --host &) &&
-              npm run dev --prefix server"
+      sh -c "npm run setup &&
+              npm run build &&
+              npm start"
 
 volumes:
   db_data:
