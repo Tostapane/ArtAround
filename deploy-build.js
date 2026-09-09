@@ -100,4 +100,8 @@ try {
 }
 
 console.log('\n=== deploy-build: tutto riuscito.');
-console.log('=== Ora si puo\' spegnere questo e accendere il server.');
+console.log('=== avvio del server compilato tramite index.js');
+
+// Avviarlo nello stesso processo rende visibile nel log qualunque errore del
+// launcher; quando resta acceso, questo container e' gia' il server del sito.
+require('./index.js');

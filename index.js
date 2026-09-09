@@ -13,27 +13,19 @@
  * file che restano nell'albero del progetto: immagini, mappe, client e sorgenti.
  * In sviluppo `npm run dev` esegue invece i TypeScript direttamente con ts-node.
  */
+const mongoCredentials = {
+  user: "site252627",
+  pwd: "eiGhuo4e",
+  site: "mongo_site252627",
+};
+
 process.env.ARTAROUND_ROOT = __dirname;
+process.env.PORT ||= "8000";
+process.env.MONGO_URI ||=
+  `mongodb://${mongoCredentials.user}:${mongoCredentials.pwd}` +
+  `@${mongoCredentials.site}:27017/${mongoCredentials.user}?authSource=admin`;
+process.env.NAVIGATOR_ORIGIN ||= "https://site252627.tw.cs.unibo.it/navigator";
 
-if (__dirname === "/webapp") {
-  const mongoCredentials = {
-    user: "site252627",
-    pwd: "eiGhuo4e",
-    site: "mongo_site252627",
-  };
-
-  const deployment = {
-    port: 8000,
-    navigatorOrigin: "https://site252627.tw.cs.unibo.it/navigator",
-  };
-
-  process.env.PORT = String(deployment.port);
-  process.env.MONGO_URI =
-    `mongodb://${mongoCredentials.user}:${mongoCredentials.pwd}` +
-    `@${mongoCredentials.site}:27017/${mongoCredentials.user}?authSource=admin`;
-  process.env.NAVIGATOR_ORIGIN = deployment.navigatorOrigin;
-
-  console.log("Configurazione: GOCKER");
-}
+console.log("Configurazione caricata da index.js");
 
 require("./server/dist/server/src/index.js");
