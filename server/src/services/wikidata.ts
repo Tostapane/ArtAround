@@ -10,17 +10,17 @@
  * l'esecuzione (l'errore risale fino al ciclo del seed).
  *
  * `appartieneAlMuseo` chiede `P195` (collezione) e non `P276` (luogo), perche'
- * `P276` dice anche dove una cosa e' STATA — e' cosi' che un comune belga e la
+ * `P276` dice anche dove una cosa e' STATA, e' cosi' che un comune belga e la
  * Dama di Elche, al Louvre dal 1897 al 1941, sono finiti in un catalogo. Segue
  * poi `P361*` perche' i musei grandi non dichiarano se stessi ma il
  * dipartimento: al Louvre le opere stanno in `Q3044768`, che del Louvre e'
- * parte. Un `false` non ferma nessuno — Wikidata e' incompleta e un curatore che
+ * parte. Un `false` non ferma nessuno, Wikidata e' incompleta e un curatore che
  * sa cosa ha in casa deve poter aggiungere l'opera lo stesso, quindi la risposta
- * serve a dirglielo — e un guasto rende `true`, perche' non sapere non e' sapere
+ * serve a dirglielo, e un guasto rende `true`, perche' non sapere non e' sapere
  * di no.
  *
  * Quando Wikidata non sa rispondere il campo resta VUOTO, ed e' quel che fa
- * `valoreOMai`. Un buco si scrive come buco: mettendoci una parola — "Unknown" —
+ * `valoreOMai`. Un buco si scrive come buco: mettendoci una parola, "Unknown",
  * la si salva nel database come se fosse il nome dell'autore, e a valle nessuno
  * puo' piu' distinguere «non si sa» da «si chiama cosi'»; ogni schermata
  * dovrebbe allora ricordarsi di riconoscerla, e chi ne aggiunge una non lo sa.

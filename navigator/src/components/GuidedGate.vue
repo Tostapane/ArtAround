@@ -41,7 +41,7 @@ import {
   studentLeave,
   resetGuided,
 } from "@/guided";
-import { visit } from "@/state";
+import { language, visit } from "@/state";
 import { marketplaceHome } from "@/config";
 import { useAnnouncer } from "@/composables/useAnnouncer";
 import { t } from "@/i18n";
@@ -59,12 +59,12 @@ function togglePanel(p: "studenti" | "domande" | "quiz") {
 const panelTitle = computed(() => {
   if (panel.value === "studenti") return t("Studenti collegati");
   if (panel.value === "domande") return t("Domande degli studenti");
-  return "Quiz di fine visita";
+  return t("Quiz di fine visita");
 });
 
 const recentQuestions = computed(() => [...guidedQuestions.value].reverse());
 function formatTime(at: number): string {
-  return new Date(at).toLocaleTimeString("it-IT", {
+  return new Date(at).toLocaleTimeString(language.value.translate, {
     hour: "2-digit",
     minute: "2-digit",
   });

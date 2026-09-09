@@ -27,12 +27,13 @@
  * `App.vue` racconta gia' da se'.
  *
  * Le due letture della memoria sono avvolte in un `try`: un browser che la nega
- * non deve far cadere il modulo, o l'eccezione arriva mentre `api` si valuta —
- * cioe' prima che esista qualcosa in grado di dirlo — e l'applicazione resta
+ * non deve far cadere il modulo, o l'eccezione arriva mentre `api` si valuta,
+ * cioe' prima che esista qualcosa in grado di dirlo, e l'applicazione resta
  * bianca. Senza memoria la sessione dura quanto la pagina, e a rompersi e' solo
  * il ricaricamento.
  */
 import type { Artwork, Item, Museum, Visit } from "../../shared/types";
+import { SESSION_KEY } from "../../shared/constants";
 import { apiBase } from "./config";
 import { t } from "./i18n";
 
@@ -40,12 +41,11 @@ const base = () => apiBase();
 
 // --- Il biglietto -------------------------------------------------------------
 
-const TOKEN_KEY = "artaround-sessione";
 let onExpired: () => void = () => {};
 
 function leggiToken(): string {
   try {
-    return sessionStorage.getItem(TOKEN_KEY) || "";
+    return sessionStorage.getItem(SESSION_KEY) || "";
   } catch {
     return "";
   }
@@ -54,8 +54,8 @@ function leggiToken(): string {
 function scriviToken(value: string) {
   token = value;
   try {
-    if (value) sessionStorage.setItem(TOKEN_KEY, value);
-    else sessionStorage.removeItem(TOKEN_KEY);
+    if (value) sessionStorage.setItem(SESSION_KEY, value);
+    else sessionStorage.removeItem(SESSION_KEY);
   } catch {
     /* vedi in testa: senza memoria la sessione dura quanto la pagina */
   }

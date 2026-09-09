@@ -46,7 +46,7 @@
  *
  * `flowOrder` rende i qid nell'ordine in cui il curatore vuole che si percorra il
  * museo: `data-flow` sulle sale, e dentro una sala l'ordine in cui sono
- * disegnate, perche' li' non c'e' niente da percorrere — ci si e' gia'. Le sale
+ * disegnate, perche' li' non c'e' niente da percorrere, ci si e' gia'. Le sale
  * che tacciono vanno in fondo nell'ordine del disegno, quindi una mappa che non
  * dichiara nessun flusso lascia le opere come stavano. `sortByFlow` applica
  * quell'ordine a un elenco qualunque di cose che portano un qid, e chi sulla

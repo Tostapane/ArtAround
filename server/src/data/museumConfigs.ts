@@ -27,7 +27,7 @@
  * Stanno tutti e tre sotto `public/` perche' due dei tre devono arrivare al
  * browser: la pianta la scarica il navigator, la copertina la mostra il
  * marketplace. `mapPath` e `imagePath` sono percorsi relativi a quella radice, e
- * valgono a un tempo come indirizzo HTTP e come percorso su disco — il grafo
+ * valgono a un tempo come indirizzo HTTP e come percorso su disco, il grafo
  * della pianta li risolve contro `public/`, il browser contro l'origine. Sono
  * dichiarati e non dedotti dal nome del file: e' il curatore a decidere come si
  * chiamano i suoi file, non noi.
@@ -49,7 +49,7 @@
  * che manca, oppure la stringa vuota: un museo mezzo configurato non entra,
  * perche' la sua assenza si legge nel log mentre un museo senza mappa o senza
  * opere e' una schermata vuota senza spiegazione. La copertina resta pero'
- * facoltativa — pretenderla vorrebbe dire che aggiungere un museo ha un requisito
+ * facoltativa, pretenderla vorrebbe dire che aggiungere un museo ha un requisito
  * grafico.
  */
 import fs from "fs";

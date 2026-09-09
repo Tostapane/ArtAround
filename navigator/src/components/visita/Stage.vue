@@ -156,6 +156,21 @@ function inquadraPiano() {
   }
 }
 
+/** Inquadrare non toglie niente dal DOM: il fuoco dei piani non inquadrati si
+ *  spegne qui, o col Tab si finisce su una tappa che non si vede. */
+function aggiornaFuoco() {
+  const root = container.value;
+  if (!root) return;
+  root.querySelectorAll(".nodo-opera, [data-poi]").forEach((el) => {
+    const piano = pianoDi(el);
+    if (pianoAttivo.value === null || piano === null || piano === pianoAttivo.value) {
+      el.setAttribute("tabindex", "0");
+    } else {
+      el.setAttribute("tabindex", "-1");
+    }
+  });
+}
+
 /** La tappa aperta decide il piano: aprirne una di sopra porta la pianta di sopra. */
 function seguiTappa() {
   const root = container.value;
@@ -361,6 +376,7 @@ function prepareMap() {
   leggiPiani();
   seguiTappa();
   inquadraPiano();
+  aggiornaFuoco();
 }
 
 /**
@@ -426,7 +442,10 @@ watch(() => props.currentLocationId, () =>
   }),
 );
 watch(pianoAttivo, (nuovo, vecchio) => {
-  nextTick(inquadraPiano);
+  nextTick(() => {
+    inquadraPiano();
+    aggiornaFuoco();
+  });
   if (vecchio === null || nuovo === vecchio) return;
   for (const p of piani.value) {
     if (p.numero === nuovo) announce(t("Pianta: {nome}", { nome: p.etichetta }));

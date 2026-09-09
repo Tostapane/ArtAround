@@ -409,7 +409,7 @@ un filtro che mente. Contato sugli Uffizi: Tutto 2248 righe, Opere 105, Descrizi
 
 **La cascata accorcia, non distrugge.** Togliere un'opera faceva sparire *tutte* le visite che la
 contenevano: agli Uffizi una sola rimozione portava via ventidue percorsi, compresi quelli scritti
-da altri e gia' comprati. Ora `dbActions.rimuoviTappeDalleVisite` toglie la tappa e rimette a
+da altri e gia' comprati. Ora `catalogue.rimuoviTappeDalleVisite` toglie la tappa e rimette a
 posto quello che a quella tappa era appeso:
 
 | cosa | perche' |
@@ -686,9 +686,12 @@ app.listen(PORT)                                    — process.env.PORT, ripieg
 `museums` e `users` non hanno la guardia al montaggio perche' contengono le rotte che devono
 restare aperte (`qrcodes`, `login`, `register`, `redeem`): la mettono per rotta.
 
-⚠️ **`ts-node` non carica i `.d.ts` ambientali da `include` del tsconfig.** La riga
-`/// <reference>` in `src/env.ts` **non e' un commento**: toglierla lascia `tsc` verde e fa
-smettere di partire `npm run start`.
+⚠️ **`ts-node` non carica i `.d.ts` ambientali da `include` del tsconfig**, a differenza di
+`tsc`: una `/// <reference>` tolta lascia `tsc` verde e fa smettere di partire
+`npm run start`. `src/env.ts` ne aveva una, e dal 2026-09-08 non piu': con dotenv 17 i tipi
+arrivano dal pacchetto, quindi sono spariti insieme il file di dichiarazione, la riga di
+riferimento e il ciclo che rimetteva il file sopra l'ambiente (`config({override: true})` fa
+quel lavoro). La regola pero' resta vera e vale per la prossima dipendenza senza tipi.
 
 ### 5.2 I modelli e gli indici
 
@@ -857,8 +860,8 @@ Due proprieta' decidono la forma del file, e le ha imposte il quarto museo:
 - **Ripartibile.** `itemsPerArtwork = educationalLevels.length * secPerArt.length` = **4 × 5 = 20**
   (`seed.ts:115`). Per la Galleria degli Uffizi, 129 opere × 20 = **2580 chiamate al modello**.
   Qualcosa interrompe un lavoro di quelle dimensioni: un'opera gia' salvata non si riscarica, un
-  item gia' scritto non si rigenera. E' per questo che gli `insert*` di `dbActions` sono **upsert**
-  e non `create()`.
+  item gia' scritto non si rigenera. E' per questo che le `upsert*` di `catalogue` non sono
+  `create()`.
 
 ⚠️ **`state.md` §2.1 dice ancora `secPerArt = [15, 60]` e parla di 832 chiamate.** Sono due durate
 e otto item per opera: il codice ne ha cinque e venti.

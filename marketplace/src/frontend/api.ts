@@ -29,12 +29,13 @@ import {
   UserRole,
   Visit,
 } from '../../../shared/types.js';
+import { SESSION_KEY } from '../../../shared/constants.js';
 
 export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
+export type UserWithToken = UserDTO & { token: string };
 
 // --- Il biglietto -------------------------------------------------------------
 
-const TOKEN_KEY = 'artaround-sessione';
 let onExpired: () => void = () => {};
 
 /**
@@ -45,7 +46,7 @@ let onExpired: () => void = () => {};
  */
 function leggiToken(): string {
   try {
-    return sessionStorage.getItem(TOKEN_KEY) || '';
+    return sessionStorage.getItem(SESSION_KEY) || '';
   } catch {
     return '';
   }
@@ -56,7 +57,7 @@ let token = leggiToken();
 export function setToken(value: string): void {
   token = value;
   try {
-    sessionStorage.setItem(TOKEN_KEY, value);
+    sessionStorage.setItem(SESSION_KEY, value);
   } catch {
     // vedi leggiToken
   }
@@ -65,7 +66,7 @@ export function setToken(value: string): void {
 export function clearToken(): void {
   token = '';
   try {
-    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
   } catch {
     // vedi leggiToken
   }
@@ -110,7 +111,7 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async login(username: string, password: string): Promise<UserDTO> {
+  async login(username: string, password: string): Promise<UserWithToken> {
     const response = await call('/api/users/login', {
       method: 'POST',
       headers: JSON_HEADERS,
@@ -127,7 +128,7 @@ export const ArtAPI = {
     username: string,
     password: string,
     role: UserRole,
-  ): Promise<UserDTO> {
+  ): Promise<UserWithToken> {
     const response = await call('/api/users/register', {
       method: 'POST',
       headers: JSON_HEADERS,

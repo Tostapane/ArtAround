@@ -22,7 +22,7 @@
  * sta accanto a `SEED_ID_TOKEN`.
  *
  * `populateVisit` scrive per esteso `visibility` e `imagePath` invece di
- * lasciarli al valore di scorta dello schema, perche' `insertVisit` e' un upsert:
+ * lasciarli al valore di scorta dello schema, perche' `upsertVisit` e' un upsert:
  * su un documento che esiste gia' i valori di scorta non scattano, quindi una
  * visita gia' seminata resterebbe senza `visibility` per sempre, e una copertina
  * tolta dal file di configurazione resterebbe attaccata alla visita. Per la stessa
@@ -35,11 +35,11 @@
 import { fetchArtwork, fetchMuseum } from "./services/wikidata";
 import { downloadImage } from "./services/imageDownloader";
 import {
-  insertArtwork,
-  insertItem,
-  insertVisit,
-  intertMuseum,
-} from "./dbActions";
+  upsertArtwork,
+  upsertItem,
+  upsertVisit,
+  upsertMuseum,
+} from "./catalogue";
 import { createDescription } from "./services/llm";
 import { ArtworkModel } from "./models/artwork";
 import { MuseumConfig } from "./data/museumConfigs";
@@ -76,7 +76,7 @@ export async function populateArtwork(
 
   const imagePath = await downloadImage(data.image, `${qid}`);
 
-  await insertArtwork({
+  await upsertArtwork({
     qid: qid,
     name: data.name,
     author: {
@@ -129,7 +129,7 @@ export async function populateItem(
   if (itemAuthor === SEED_AUTHOR) firma = SEED_ID_TOKEN;
   const id = `${atworkQid}-${firma}-${level}-${duration}`;
 
-  await insertItem({
+  await upsertItem({
     "@id": id,
     kind: "opera",
     about: artwork["@id"],
@@ -156,7 +156,7 @@ export async function populateVisit(
 ) {
   const id = `visit-${museum}-${level}-${durationPerArt}`;
   const name = `Visita ${level} · ${durationPerArt}s per opera`;
-  await insertVisit({
+  await upsertVisit({
     "@id": id,
     name: name,
     level: level,
@@ -186,7 +186,7 @@ export async function populateMuseum(config: MuseumConfig) {
     }
   }
 
-  await intertMuseum({
+  await upsertMuseum({
     "@id": `http://www.wikidata.org/entity/${config.qid}`,
     qid: config.qid,
     name,

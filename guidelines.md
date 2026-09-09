@@ -32,7 +32,8 @@ If it only tells them the author did a good job, delete it. Numbers and comparis
 in the commit message, where they document a change; the file documents the _system_.
 
 A rejected alternative earns a mention in **one** case: when knowing it stops someone from
-reintroducing a bug — _"non usare `dbActions.deleteItem` per gli item: salta la cascata"_.
+reintroducing a bug — _"non cancellare l'item da solo: salta la cascata che accorcia le
+visite"_.
 That is operational, not self-congratulatory.
 
 ### The story goes in `state.md`. The header gets the system.

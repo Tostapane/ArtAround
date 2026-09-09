@@ -15,7 +15,7 @@
  * `tutto` li esegue tutti in fila e chiude con `stato`.
  *
  * Ogni comando porta sopra di se' che cosa riallinea e perche', che e' quel che si
- * va a cercare aprendo un file di comandi — la stessa eccezione che vale per le
+ * va a cercare aprendo un file di comandi, la stessa eccezione che vale per le
  * rotte (`guidelines.md` §2).
  *
  * Un comando solo, `mappe`, non ha bisogno del database: legge file, quindi puo'
@@ -83,7 +83,7 @@ function guaioCopertina(percorso: string): string {
   if (omonimi.length > 0)
     return (
       `dichiara ${percorso}, ma sul disco c'e' ${path.dirname(percorso)}/${omonimi[0]}` +
-      ` — cambia quella riga nel file di configurazione`
+      `: cambia quella riga nel file di configurazione`
     );
   return `dichiara ${percorso}, ma quel file non c'e'`;
 }
@@ -262,7 +262,7 @@ export async function migrateLogistics() {
  * Serve perche' quei due campi si copiano nel documento al momento del seed e
  * poi non si rileggono piu': cambiare `mapPath` nel JSON non tocca il database,
  * e il museo continua a chiedere una pianta all'indirizzo vecchio. Non e' un
- * guasto che si vede subito — la vetrina e il catalogo funzionano lo stesso —
+ * guasto che si vede subito, la vetrina e il catalogo funzionano lo stesso,
  * ma il navigator non disegna piu' la sala e il calcolo del percorso resta
  * senza grafo.
  *
@@ -270,7 +270,7 @@ export async function migrateLogistics() {
  * sono, perche' li puo' aver corretti il curatore dopo il seed.
  *
  * Avverte anche sulle copertine dichiarate e non trovate: `imagePath` si scrive a
- * mano, e un ".jpg" scritto sopra un file salvato in .png non da' nessun errore —
+ * mano, e un ".jpg" scritto sopra un file salvato in .png non da' nessun errore,
  * la carta del museo torna al solo testo, che e' esattamente quel che fa anche una
  * copertina non messa. Dei due silenzi solo uno e' voluto, quindi l'altro si dice.
  */
@@ -312,8 +312,8 @@ export async function migrateMuseumPaths() {
  *
  * Le assegna anche il seed, ma il seed rifa' i testi: cambiare una figura non
  * puo' costare un giro di chiamate al modello, quindi la stessa assegnazione
- * vive anche qui. Tocca solo le visite di catalogo — quelle che il seed genera,
- * riconoscibili dall'`@id` — e lascia stare quelle composte dagli autori, che
+ * vive anche qui. Tocca solo le visite di catalogo, quelle che il seed genera,
+ * riconoscibili dall'`@id`, e lascia stare quelle composte dagli autori, che
  * la copertina se la scelgono caricandola.
  */
 async function migrateVisitCovers() {
@@ -342,7 +342,7 @@ async function migrateVisitCovers() {
  * ha risposta guardandolo girare: la risposta e' qui, ed e' un conteggio. Le
  * opere si dividono in tre, e la terza colonna e' quella che conta: un'opera a
  * meta' griglia vuol dire un seed caduto in mezzo a quell'opera, ed e' l'unico
- * caso in cui rilanciare non basta — quella va rifatta con `--force`.
+ * caso in cui rilanciare non basta, quella va rifatta con `--force`.
  *
  * Conta i contenuti di `sistema`, non tutti: quelli scritti dagli autori vivono
  * sulle stesse opere ma non devono coprire nessuna griglia. E le caselle riempite
@@ -389,7 +389,7 @@ export async function checkItemGrid() {
     const attesi = config.activeArtworks.length * attesiPerOpera;
     const orfani = items.length - riempite;
     console.log(
-      `\n${config.name} — ${config.activeArtworks.length} opere attive, ` +
+      `\n${config.name}: ${config.activeArtworks.length} opere attive, ` +
         `${educationalLevels.length} toni x ${secPerArt.length} durate = ${attesi} contenuti attesi`,
     );
     console.log(
@@ -440,12 +440,12 @@ export async function checkItemGrid() {
  * Non tocca le visite seminate (autore `sistema`) ne' quelle di un autore: le
  * prime sono il catalogo, le seconde sono in vendita.
  *
- * Alle altre scrive "pubblico" per esteso. Funzionerebbero anche senza — i filtri
+ * Alle altre scrive "pubblico" per esteso. Funzionerebbero anche senza, i filtri
  * chiedono `$ne: "privato"` proprio per non dipendere da un campo che le visite
- * piu' vecchie non hanno — ma restare senza vorrebbe dire due modi di dire la
+ * piu' vecchie non hanno, ma restare senza vorrebbe dire due modi di dire la
  * stessa cosa, di cui uno invisibile: chi un giorno cercasse
  * `{visibility: "pubblico"}` per avere il catalogo si troverebbe con zero
- * risultati e nessun errore. Il seed da solo non le sistema, perche' `insertVisit`
+ * risultati e nessun errore. Il seed da solo non le sistema, perche' `upsertVisit`
  * e' un upsert e su un documento che esiste gia' i valori di scorta non scattano.
  */
 export async function migrateVisitVisibility() {
@@ -480,7 +480,7 @@ export async function migrateVisitVisibility() {
  *
  * **Va eseguita PRIMA del prossimo seed.** Il seed riconosce quel che ha gia'
  * scritto cercando `author: SEED_AUTHOR`: finche' nel database c'e' ancora
- * "sistema" non trova niente, e rigenera da capo ogni descrizione — migliaia di
+ * "sistema" non trova niente, e rigenera da capo ogni descrizione, migliaia di
  * chiamate al modello, e altrettanti documenti doppi.
  *
  * Non tocca gli `@id`, che restano `…-sistema-…`: sono indirizzi permanenti a
@@ -517,7 +517,7 @@ export async function migrateSeedAuthor() {
  *
  * Non restituisce e non ritira niente a chi ha gia' comprato: un acquisto e'
  * gia' avvenuto, e il portafoglio non si ricalcola all'indietro. Cambia quanto
- * costera' da adesso — compreso il totale delle visite, che si somma sulle
+ * costera' da adesso, compreso il totale delle visite, che si somma sulle
  * tappe non possedute.
  */
 export async function migrateSeedPrices() {
@@ -928,7 +928,7 @@ function pausa(ms: number): Promise<void> {
  * Le figure sono state scaricate per mesi in un formato solo, quindi una
  * tessera larga 324 px riceveva l'originale da 960: da 7 a 16 volte i pixel che
  * puo' mostrare, e su un telefono molti di piu'. Da oggi il seed scrive la
- * coppia (`imageDownloader`), ma i file gia' scritti restano soli — e il client
+ * coppia (`imageDownloader`), ma i file gia' scritti restano soli, e il client
  * la miniatura la NOMINA senza chiedere se c'e', quindi senza questo giro
  * quelle tessere resterebbero vuote.
  *

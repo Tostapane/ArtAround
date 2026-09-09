@@ -302,7 +302,7 @@
     una lastra, quindi sono smorti: verderame e verde stanno a croma 0.07 e
     0.13, e accostati fanno una fascia verdastra invece di due colori. Nel
     gradiente si portano tutti alla stessa croma alta e alla stessa
-    luminosita', che e' anche il solo modo perche' i quattro pesino uguale —
+    luminosita', che e' anche il solo modo perche' i quattro pesino uguale,
     con luminosita' diverse il piu' scuro sembra un'ombra e non un colore.
   - Il PASSAGGIO. Interpolando in sRGB due tinte lontane si passa per il grigio
     (oro e verde davano un'oliva fangosa a meta' strada). In `oklch` si passa
@@ -316,7 +316,7 @@
   La ricaduta (browser senza colori relativi) e' il gradiente coi quattro ruoli
   annacquati nella lastra: piu' spento, ma chiaro quanto basta perche' sopra ci
   si legga lo stesso inchiostro, che e' la sola cosa che non puo' cambiare fra
-  le due strade. Non e' facoltativa — un valore non capito dentro una proprieta'
+  le due strade. Non e' facoltativa, un valore non capito dentro una proprieta'
   personalizzata non ricade sulla dichiarazione precedente, diventa invalido, e
   chi la usa come fondo resta senza fondo.
 */

@@ -1125,7 +1125,7 @@
                 <template x-for="m in museums" :key="m.qid">
                   <!-- La copertina la posa il curatore accanto alla configurazione
                      ed e' FACOLTATIVA: senza, la carta e' quella di sempre, di
-                     solo testo. `rotta` copre il file dichiarato ma assente —
+                     solo testo. `rotta` copre il file dichiarato ma assente,
                      la carta torna al testo invece di aprire un buco, che e' lo
                      stato in cui si sta finche' le immagini non sono scaricate. -->
                   <button
@@ -3219,7 +3219,7 @@
                    Un elemento di griglia ha `min-width: auto`, cioe' non scende
                    sotto il proprio contenuto minimo: la libreria ne chiede 617
                    px, la traccia si allarga fino a li' e il documento diventa
-                   largo 634 su una viewport di 390 — da cui la pagina che si
+                   largo 634 su una viewport di 390, da cui la pagina che si
                    rimpicciolisce e sembra "in versione desktop". Da `lg` in su
                    il difetto non si vedeva perche' li' le tracce sono gia'
                    dichiarate `minmax(0, …)`, che e' la stessa cosa detta per
@@ -3485,7 +3485,7 @@
                     </div>
 
                     <!-- La libreria SCORRE PER CONTO SUO, ma solo da `lg`. Sono i
-                       gruppi di tutte le opere del museo — agli Uffizi 105 — e
+                       gruppi di tutte le opere del museo, agli Uffizi 105, e
                        in fila nella pagina la fanno lunga ottomila pixel:
                        accanto c'e' il percorso che si sta componendo, e per
                        tornarci si risalivano dieci schermate. Il tetto e' in
@@ -3503,7 +3503,7 @@
                         :key="g.artwork['@id']"
                       >
                         <!-- `shrink-0`: dentro una colonna flex che ha un tetto e
-                           scorre, le righe si SCHIACCIANO per starci — 107
+                           scorre, le righe si SCHIACCIANO per starci, 107
                            gruppi diventavano 107 filetti da quattro pixel. -->
                         <li
                           class="lastra shrink-0 overflow-hidden"
@@ -3548,7 +3548,7 @@
                              voci si costruiscono comunque, tutte, e restano
                              nascoste. Agli Uffizi sono 105 gruppi da 20
                              descrizioni, cioe' sedicimila elementi montati in
-                             un compito solo mentre il museo si apre — l'80%
+                             un compito solo mentre il museo si apre, l'80%
                              di tutto quel che il marketplace tiene in pagina,
                              per una schermata che nessuno ha ancora aperto.
                              Il prezzo dichiarato: niente `x-collapse`, che
@@ -3667,7 +3667,7 @@
                    sulla struttura, che e' come le visite si sono sempre viste.
                    L'anteprima c'e' perche' altrimenti, riaprendo una visita
                    gia' pubblicata, non ci sarebbe modo di sapere se una
-                   copertina c'e' — e senza saperlo non la si puo' togliere. -->
+                   copertina c'e', e senza saperlo non la si puo' togliere. -->
                 <div>
                   <label
                     for="v-immagine"

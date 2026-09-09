@@ -49,15 +49,15 @@ export const educationalLevels = Object.keys(educationalLevelHints);
  * Quanto costa una descrizione seminata dal museo, in euro, secondo il TONO.
  *
  * Il prezzo segue la profondita' e non il caso: i due toni divulgativi sono
- * gratuiti — chi entra per la prima volta, e i bambini, non incontrano un
- * listino — e si paga la competenza, poco per il pubblico curioso e un po' di
+ * gratuiti, chi entra per la prima volta, e i bambini, non incontrano un
+ * listino, e si paga la competenza, poco per il pubblico curioso e un po' di
  * piu' per il lessico specialistico. Un catalogo cosi' mostra tutte e tre le
  * situazioni che servono a far vedere il commercio: contenuti gratis, contenuti
  * a pagamento, e visite che mescolano gli uni e gli altri.
  *
  * Sta accanto ai toni perche' e' una riga per tono, come `educationalLevelHints`:
  * aggiungerne uno vuol dire aggiungere una riga anche qui. Chi non la trovasse
- * resta GRATIS — `priceForTone` sotto — perche' fra i due errori possibili far
+ * resta GRATIS, `priceForTone` sotto, perche' fra i due errori possibili far
  * pagare per distrazione e' quello che nessuno perdona.
  */
 export const priceByTone: Record<string, number> = {
@@ -247,6 +247,24 @@ export const languages: Language[] = [
  */
 export const LANG_KEY = "artaround-lang";
 
+/* Copiata a mano nei due `index.html`: uno script in testa la legge prima
+ * della prima pittura, e li' non si puo' importare. Rinominandola, cambiarli. */
+export const THEME_KEY = "artaround-theme";
+
+/**
+ * Il biglietto di sessione, in `sessionStorage`: vale per la scheda e non per
+ * l'origine, quindi chiudendola non resta niente e riaprendo si rivede la
+ * soglia.
+ *
+ * Sta qui, e non una volta per applicazione, perche' in DEPLOY le due stanno
+ * sulla stessa origine e quindi sulla stessa memoria: e' questa stringa a far
+ * si' che il navigator trovi la sessione aperta nel marketplace. In sviluppo le
+ * due origini sono diverse, le memorie separate e la chiave potrebbe divergere
+ * senza che niente lo segnali -- cioe' il difetto si vedrebbe solo dove non lo
+ * si prova.
+ */
+export const SESSION_KEY = "artaround-sessione";
+
 /**
  * La lingua con cui aprire: quella gia' SCELTA, altrimenti l'italiano.
  *
@@ -299,7 +317,7 @@ const CARTELLA_OPERE = "/images/artworks/";
  * file con lo stesso nome, e il giorno che il nome cambia deve cambiare per
  * tutt'e due insieme.
  *
- * Il client non puo' chiedere al server se la miniatura esiste — sarebbe una
+ * Il client non puo' chiedere al server se la miniatura esiste, sarebbe una
  * richiesta in piu' per ogni tessera, cioe' il contrario di quel che si sta
  * facendo. Vale percio' l'invariante che `imageDownloader` mantiene: **ogni file
  * in /images/artworks/ ha il suo `-c`**, anche quando la miniatura vera non si
@@ -403,8 +421,8 @@ export function labelForCommand(id: string): string {
 /**
  * I due livelli che non sceglie nessun autore: li assegna il server a una visita
  * composta a mano e a una nata da una frase. Stanno accanto ai toni perche' sono
- * la stessa cosa vista da chi legge — un valore che il database conserva in
- * italiano e che a schermo si traduce — e stanno qui, e non nella rotta che li
+ * la stessa cosa vista da chi legge, un valore che il database conserva in
+ * italiano e che a schermo si traduce, e stanno qui, e non nella rotta che li
  * scrive, perche' l'estrattore raccoglie da questo file le chiavi che nel codice
  * si leggono come `t(v.level)`.
  */
@@ -482,7 +500,7 @@ export const WORDS_PER_MINUTE = 100;
  *
  * Il tetto e' per MUSEO e non complessivo: cinque itinerari agli Uffizi non
  * devono togliere quelli del Louvre, che sono un'altra visita e un altro viaggio.
- * Vale per il solo visitatore — l'autore pubblica, ed e' il suo mestiere.
+ * Vale per il solo visitatore, l'autore pubblica, ed e' il suo mestiere.
  *
  * Il numero sta qui perche' lo leggono in due: il server, che rifiuta, e il
  * compositore, che lo dice mentre si compone invece di farlo scoprire al
@@ -574,7 +592,7 @@ export const SEED_AUTHOR = "Museo";
  * Un `@id` e' un indirizzo permanente: le visite ci puntano in
  * `itemListElement` e le librerie in `collezione`, per valore. Rinominarlo
  * vorrebbe dire riscrivere anche quelle due, e nel mezzo ogni tappa e ogni
- * acquisto resterebbe appeso a un contenuto che non esiste piu' — un prezzo
+ * acquisto resterebbe appeso a un contenuto che non esiste piu', un prezzo
  * altissimo per cambiare una parola che nessuno legge, perche' l'`@id` non si
  * mostra da nessuna parte. Il nome dell'autore invece si vede, e quello cambia.
  */

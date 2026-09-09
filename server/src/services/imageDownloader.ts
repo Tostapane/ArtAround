@@ -29,7 +29,7 @@
  * si' anche quando la copia non c'entra: se l'originale e' gia' piu' stretto di
  * 500 px, Wikimedia al secchiello risponde con l'originale stesso e i due file
  * coincidono per davvero. Costa a quelle poche opere una richiesta inutile a
- * ogni giro di `testers.ts miniature` — tre su centonovantotto, qui —, e
+ * ogni giro di `testers.ts miniature`, tre su centonovantotto, qui, e
  * distinguere i due casi vorrebbe dire leggere la LARGHEZZA dei file, cioe' la
  * libreria d'immagini che tutto questo esiste per non avere.
  *

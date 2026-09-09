@@ -220,8 +220,8 @@
      tessera cliccabile porta `.tessera-intera` a `z-20` e i suoi comandi a
      `z-30`, per sollevarli sopra quel velo: a `z-20` la barra pareggiava il
      velo e perdeva per ordine nel documento (le tessere vengono dopo), mentre
-     i comandi le passavano sopra di netto. Si vedeva scorrendo — i bottoni
-     delle tessere volavano sopra i filtri — e soprattutto si toccava: un dito
+     i comandi le passavano sopra di netto. Si vedeva scorrendo, i bottoni
+     delle tessere volavano sopra i filtri, e soprattutto si toccava: un dito
      sul filtro cadeva sul velo della tessera che gli stava sotto e ad aprirsi
      era la scheda dell'opera. `z-40` la tiene sopra tutt'e due e sotto il velo
      dei dialoghi (`z-50`), che deve coprire anche lei. */
@@ -670,6 +670,33 @@
   */
   .link-scuro {
     @apply text-text underline decoration-line underline-offset-4 hover:decoration-accent;
+  }
+
+  /* --- L'iride: la visita che nasce da una frase -------------------------
+     Tre segni soli, sempre gli stessi tre, in tutti i punti da cui ci si
+     arriva: la tessera che porta l'icona, il filo sul bordo, il bottone che
+     avvia. Il gradiente sta in `--iride` (vedi `theme.css`) perche' e'
+     ricavato dai quattro semantici e deve seguirli anche al buio. */
+  .tessera-iride {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-card;
+    background-image: var(--iride);
+    color: var(--on-iride);
+  }
+  /* Il filo va disegnato, non messo come bordo: `border-image` non convive con
+     il raggio della lastra e squadrerebbe l'angolo. */
+  .filo-iride {
+    @apply relative overflow-hidden;
+  }
+  .filo-iride::before {
+    content: "";
+    @apply absolute inset-y-0 left-0 w-[3px];
+    background-image: var(--iride);
+  }
+  .btn-iride {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-plate px-4
+           text-small font-semibold transition-opacity hover:opacity-90;
+    background-image: var(--iride);
+    color: var(--on-iride);
   }
 }
 

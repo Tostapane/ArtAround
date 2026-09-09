@@ -1,7 +1,7 @@
 /**
  * Configurazione del navigator: il "file di configurazione" della specifica.
  *
- * Slide 25: la selezione del museo avviene via file di configurazione. Slide 33:
+ * Slide 25: la selezione del museo avviene via file di configurazione.
  * "attraverso un file di configurazione con immagini e titoli il curatore del
  * museo puo' creare una versione specifica del navigator". Il file vive in
  * public/config.json e si modifica senza ricompilare nulla: e' l'unico posto in

@@ -16,7 +16,7 @@
  * `/custom` genera una visita dai vincoli espressi a parole e non salva nulla.
  * L'ordine delle sue tappe lo decide la MAPPA e non il modello: al modello si
  * chiede quali opere, e a quello risponde bene, ma in che ordine si attraversa il
- * museo e' scritto sul disegno (`data-flow`) e non si negozia — chiederglielo nel
+ * museo e' scritto sul disegno (`data-flow`) e non si negozia, chiederglielo nel
  * prompt vorrebbe dire sperare che obbedisca.
  *
  * Le visite PRIVATE non escono da qui se non verso chi le ha composte, e il
@@ -38,7 +38,7 @@
  *
  * Pubblica SOLO la visita di un autore, perche' mettere in vendita e' il suo
  * mestiere; il visitatore compone un itinerario per se', e il curatore oggi non
- * ha nessuna strada per arrivare qui — il giorno che l'avesse, il valore prudente
+ * ha nessuna strada per arrivare qui, il giorno che l'avesse, il valore prudente
  * e' quello privato, perche' un ruolo nuovo che pubblica per distrazione si nota
  * solo quando il suo lavoro e' gia' in vetrina. I ruoli si nominano invece di
  * scrivere `=== "visitatore" ? … : …`, che sarebbe una domanda a due risposte su
@@ -48,7 +48,7 @@
  * modificare un itinerario che si ha gia' diventerebbe impossibile appena
  * raggiunto il quinto: si guarda percio' se questo `@id` e' gia' nel database,
  * che e' esattamente la differenza fra creare e riscrivere per una rotta che fa
- * upsert. Si contano le SUE visite in QUESTO museo — gli Uffizi non devono
+ * upsert. Si contano le SUE visite in QUESTO museo, gli Uffizi non devono
  * togliere il posto al Louvre.
  *
  * Le tappe si contano sugli item TROVATI e non sugli id ricevuti: un id che non
@@ -79,7 +79,7 @@ import { ArtworkModel } from "../models/artwork";
 import { MuseumModel } from "../models/museum";
 import { sortByFlow } from "../services/svgGraph";
 import { planVisit } from "../services/llm";
-import { resolveOrGenerateItem } from "../dbActions";
+import { resolveOrGenerateItem } from "../services/customVisit";
 import { purchasedBy, readableItems } from "../access";
 import { conto } from "../pricing";
 import {
@@ -196,7 +196,7 @@ router.get("/:id/items", async (req, res) => {
 
 /**
  * POST /api/visits/custom  { museumQid, request }
- * Ritorna: { visit, content } — una visita composta dai vincoli espressi a
+ * Ritorna: { visit, content }, una visita composta dai vincoli espressi a
  * parole, che NON viene salvata: vive solo nel client. 502 se il modello non
  * risponde o se nessuna tappa si e' potuta risolvere.
  */

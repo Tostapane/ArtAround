@@ -45,7 +45,7 @@
  * sanno prima della prima tappa, non fra una tappa e l'altra.
  *
  * Le venti visite di un museo hanno percio' le stesse tappe: a cambiare sono tono
- * e durata — come si racconta e quanto dura — non che cosa si guarda. E' anche il
+ * e durata, come si racconta e quanto dura, non che cosa si guarda. E' anche il
  * motivo per cui la copertina si sceglie per tono e non per visita
  * (`visitImages`): cinque visite che differiscono per la sola durata non hanno
  * cinque facce diverse.

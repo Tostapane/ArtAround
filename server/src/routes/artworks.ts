@@ -14,13 +14,13 @@
  * Le ultime tre rotte sono del curatore e cambiano il catalogo: aggiungono
  * un'opera al museo e la tolgono. Due avvertenze su come toglierla.
  *
- * NON usare `dbActions.deleteArtwork`: cancella il documento dell'opera e basta,
- * lasciando in giro le descrizioni che la raccontano e le visite che le citano.
- * Una tappa che non si risolve non da' errore, semplicemente non compare, quindi
- * il danno resta invisibile fino a quando qualcuno apre quella visita. La
- * cascata sta qui sotto ed e' la stessa di `DELETE /items/:id`, allargata
+ * Togliere un'opera non e' cancellarne il documento: resterebbero in giro le
+ * descrizioni che la raccontano e le visite che le citano, e una tappa che non si
+ * risolve non da' errore, semplicemente non compare, e il danno resta invisibile
+ * fino a quando qualcuno apre quella visita. La cascata sta qui sotto ed e' la
+ * stessa di `DELETE /items/:id`, allargata
  * all'opera: le sue descrizioni spariscono, le visite che le citano si
- * ACCORCIANO invece di sparire (`dbActions.rimuoviTappeDalleVisite`), e le righe
+ * ACCORCIANO invece di sparire (`catalogue.rimuoviTappeDalleVisite`), e le righe
  * nelle collezioni di chi le aveva prese se ne vanno con quel che e' sparito
  * davvero. Una visita se ne va solo se resta senza tappe.
  *
@@ -32,8 +32,8 @@
  * opere gia' presenti, oppure un autore.
  *
  * `soloCuratore` e' la guardia delle tre rotte che cambiano il catalogo.
- * `impattoOpera` conta che cosa se ne andrebbe — le descrizioni, le visite che
- * la citano e, fra queste, quelle che resterebbero SENZA tappe — e non scrive
+ * `impattoOpera` conta che cosa se ne andrebbe, le descrizioni, le visite che
+ * la citano e, fra queste, quelle che resterebbero SENZA tappe, e non scrive
  * niente: lo chiamano sia il preventivo sia l'eliminazione, cosi' i due contano
  * la stessa cosa. Quale delle due strade prendere lo decide il CURATORE, perche'
  * e' una scelta di curatela e non una conseguenza tecnica.
@@ -59,7 +59,7 @@ import { purchasedBy, isReadable, withoutText, readableItems } from "../access";
 import { findMuseumConfig } from "../data/museumConfigs";
 import { appartieneAlMuseo } from "../services/wikidata";
 import { locationsFromMap, populateArtwork } from "../manager";
-import { rimuoviTappeDalleVisite } from "../dbActions";
+import { rimuoviTappeDalleVisite } from "../catalogue";
 import { rimuoviImmagine } from "./items";
 import { ArtworkImpactReport } from "../../../shared/types";
 
@@ -279,7 +279,7 @@ router.delete("/:qid", async (req, res) => {
     const esito =
       String(req.query.visite || "") === "elimina"
         ? await eliminaVisiteCitanti(impatto)
-        : await rimuoviTappeDalleVisite(impatto.itemIds, [artwork.name]);
+        : await rimuoviTappeDalleVisite(impatto.itemIds);
     if (impatto.itemIds.length > 0)
       await ItemModel.deleteMany({ "@id": { $in: impatto.itemIds } });
     await ArtworkModel.deleteOne({ qid });
@@ -347,7 +347,7 @@ router.post("/", async (req, res) => {
     console.log(
       `[curatore ${sessionUser(req).username}] aggiunta l'opera ${qid} a ${config.name}` +
         (posizione ? ` (nodo ${posizione})` : " (senza nodo sulla mappa)") +
-        (nelMuseo ? "" : " — Wikidata non la dà in questa collezione"),
+        (nelMuseo ? "" : ": Wikidata non la dà in questa collezione"),
     );
     res.status(201).json({ artwork, sullaMappa: posizione !== "", nelMuseo });
   } catch (error: any) {

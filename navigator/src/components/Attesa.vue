@@ -4,7 +4,7 @@
  *
  * Il movimento sta in `shared/components.css`, che montano tutt'e due le
  * applicazioni: qui c'e' solo il disegno. Quattro `<svg>` sovrapposti e non
- * quattro gruppi in uno — il perche' e' scritto la', ed e' la differenza fra
+ * quattro gruppi in uno, il perche' e' scritto la', ed e' la differenza fra
  * un'attesa che si muove e una che si pianta.
  *
  * Le stesse otto linee stanno nello sprite del marketplace e in `logo.svg`:

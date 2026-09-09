@@ -29,7 +29,7 @@
  * che si accendono e si spengono. Da `lg` in su NON cambia niente: la colonna e'
  * alta quanto lo schermo e le due meta' ci stanno insieme, che e' il motivo per
  * cui questo pannello e' sempre aperto. Ogni blocco porta quindi la sua regola
- * scritta due volte — `hidden` per il telefono e `lg:` per rimetterlo — e non un
+ * scritta due volte, `hidden` per il telefono e `lg:` per rimetterlo, e non un
  * `matchMedia`: la larghezza la sa gia' il foglio di stile.
  *
  * La barra della voce e dell'avanzamento non si spegne mai: e' il comando, non il

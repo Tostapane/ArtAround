@@ -1,5 +1,5 @@
 /**
- * Localizzazione avanzata: dove sei, e quindi davanti a cosa (slide 33).
+ * Localizzazione avanzata: dove sei, e quindi davanti a cosa.
  *
  * Qui c'e' solo la geometria. I sensori stanno in `composables/useSensors.ts`, la
  * tappa aperta resta affare di `Visita.vue`: questo modulo stima dove si e'
@@ -30,11 +30,11 @@
  *
  * I tre modi in cui l'ancora si sposta:
  *
- * `startAtEntrance` — prima di qualunque fix si e' all'ingresso e non si sa
+ * `startAtEntrance`, prima di qualunque fix si e' all'ingresso e non si sa
  * altro, quindi l'incertezza vale l'intero edificio: nessuna opera e' piu'
  * probabile per posizione, e a decidere resta la bussola o il pannello.
  *
- * `reanchor` — un atto DICHIARATO (QR, codice, scelta fra i candidati,
+ * `reanchor`, un atto DICHIARATO (QR, codice, scelta fra i candidati,
  * teletrasporto): da qui in avanti "qui" e' questo punto, e la deriva accumulata
  * si butta via. Chi dichiara sta davanti all'opera, quindi l'incertezza torna a
  * pochi passi, ed e' il dato migliore che il sistema possa avere. `lat` e `lon`
@@ -46,7 +46,7 @@
  * chiuso, dove nessun fix arriva, la differenza non si vede: e' il motivo per cui
  * non si vedeva.
  *
- * `applyFix` — il movimento misurato dal GPS, che si accumula sull'ancora.
+ * `applyFix`, il movimento misurato dal GPS, che si accumula sull'ancora.
  *
  * In `rank` due dettagli che sembrano di forma e non lo sono: il termine angolare
  * ESISTE solo se una bussola ha risposto, e dove manca sparisce dall'equazione
@@ -129,7 +129,11 @@ function leggiGeometria(svgText: string): MapGeometry | null {
   root.querySelectorAll("[data-qid]").forEach((el) => {
     const punto = centro(el);
     if (!punto) return;
-    nodes.push({ qid: el.getAttribute("data-qid") || "", x: punto.x, y: punto.y });
+    nodes.push({
+      qid: el.getAttribute("data-qid") || "",
+      x: punto.x,
+      y: punto.y,
+    });
   });
 
   let entrance: { x: number; y: number } | null = null;
@@ -160,9 +164,12 @@ export interface Stima {
   accuracy: number; // raggio di incertezza in metri, come lo dichiara il dispositivo
 }
 
-const ancora = ref<{ x: number; y: number; lat: number | null; lon: number | null } | null>(
-  null,
-);
+const ancora = ref<{
+  x: number;
+  y: number;
+  lat: number | null;
+  lon: number | null;
+} | null>(null);
 
 export const stima = ref<Stima | null>(null);
 export const bussola = ref<number | null>(null);
@@ -172,7 +179,11 @@ export function startAtEntrance() {
   if (!g || !g.entrance) return;
   if (ancora.value) return;
   ancora.value = { x: g.entrance.x, y: g.entrance.y, lat: null, lon: null };
-  stima.value = { x: g.entrance.x, y: g.entrance.y, accuracy: g.larghezzaMetri };
+  stima.value = {
+    x: g.entrance.x,
+    y: g.entrance.y,
+    accuracy: g.larghezzaMetri,
+  };
 }
 
 export function reanchor(x: number, y: number) {

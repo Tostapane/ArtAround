@@ -42,10 +42,13 @@ export function useSensors() {
   // --- Bussola --------------------------------------------------------------
 
   function headingFromEvent(e: DeviceOrientationEvent): number | null {
-    const vendor = e as DeviceOrientationEvent & { webkitCompassHeading?: number };
+    const vendor = e as DeviceOrientationEvent & {
+      webkitCompassHeading?: number;
+    };
 
     let alpha = e.alpha;
     if (typeof vendor.webkitCompassHeading === "number") {
+      // per ios
       alpha = 360 - vendor.webkitCompassHeading;
     } else if (!e.absolute) {
       return null;
@@ -140,8 +143,9 @@ export function useSensors() {
     attivo.value = true;
     error.value = "";
     if (!window.isSecureContext) {
-      error.value =
-        t("I sensori funzionano solo su indirizzi sicuri (https o localhost).");
+      error.value = t(
+        "I sensori funzionano solo su indirizzi sicuri (https o localhost).",
+      );
       return;
     }
     startPosition();

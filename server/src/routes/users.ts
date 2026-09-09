@@ -8,11 +8,13 @@
  * `session.ts`, e `withSession` e' l'account piu' la stringa con cui d'ora in poi
  * dira' di essere lui.
  *
- * Il ruolo non si chiede a chi entra: lo deduce il server dalle credenziali, e lo
- * domanda solo nel caso raro in cui le stesse credenziali valgano per piu' profili.
- * In registrazione invece il ruolo fa parte dell'identita' e va dichiarato: lo
- * stesso username puo' essere registrato una volta per ruolo, come account
- * distinti, quindi il conflitto (409) e' sulla coppia (username, role).
+ * Il ruolo non si chiede a chi entra: un username appartiene a un account solo,
+ * quindi le credenziali bastano a dire chi entra e con che poteri. In
+ * registrazione va invece dichiarato, perche' decide che account nasce, ma non
+ * fa parte dell'identita': il conflitto (409) e' sul solo username. Vale
+ * globalmente perche' `Item.author` e `Visit.author` sono un nome nudo, senza il
+ * ruolo accanto: con due omonimi, entrare con l'altro profilo basterebbe a
+ * cancellare le descrizioni del primo e a leggerne le private.
  * Il portafoglio nasce solo sul visitatore: autore e curatore non comprano.
  * L'acquisto legge il prezzo dal contenuto sul server, mai dal client.
  * I ricavi non vengono accreditati su un portafoglio: si vedono nel resoconto
@@ -24,9 +26,9 @@
  * pagamento, e in vetrina come suo. Il confronto ignora maiuscole e spazi perche'
  * a decidere non e' l'ortografia ma chi si prende quei contenuti.
  *
- * Nell'acquisto il portafoglio sta solo sul visitatore, e lo stesso nome puo'
- * esistere con un altro ruolo come account distinto: la sessione dice gia' quale
- * dei due e', quindi non serve chiederlo al database per poterlo dire.
+ * Nell'acquisto il portafoglio sta solo sul visitatore, quindi a un autore si
+ * risponde che quei contenuti si comprano da un profilo visitatore invece di
+ * mandarlo contro un 404 che descrive una query.
  */
 import { Router } from "express";
 import {
@@ -68,7 +70,7 @@ function isValidRole(role: any): boolean {
 /**
  * POST /api/users/register  { username, password, role }
  * Ritorna: l'account creato senza password, piu' il `token` di sessione. 409 se
- * la coppia esiste gia'.
+ * l'username e' gia' preso, con qualunque ruolo.
  */
 router.post("/register", async (req, res) => {
   try {

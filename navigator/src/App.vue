@@ -18,12 +18,7 @@
  * database, e comporla nel marketplace per mostrarne un'anteprima darebbe un
  * percorso diverso da quello poi eseguito, perche' il modello non risponde due
  * volte allo stesso modo.
- *
- * Il guscio e' alto esattamente lo schermo e non scorre: durante la visita
- * pianta e scheda si spartiscono l'altezza, e una pagina che scorre le farebbe
- * uscire tutt'e due. Chi deve scorrere lo fa dentro di se', ed e' il motivo per
- * cui la biglietteria riceve `overflow-y-auto` da qui.
- *
+
  * I due messaggi d'avvio tengono la CHIAVE e non la frase tradotta: il catalogo
  * della lingua arriva a parte (vedi `i18n.ts`) e potrebbe non esserci ancora
  * quando queste righe passano, che passano una volta sola. Tradurli nel legame
@@ -39,7 +34,7 @@
  *
  * `resume` non ricarica niente: uscire non chiude la visita, `visit` resta in
  * piedi e la tappa aperta e' ancora quella. Serve soprattutto alle visite che
- * nell'elenco non ci sono — quella su misura, che nel database non esiste, e
+ * nell'elenco non ci sono, quella su misura, che nel database non esiste, e
  * quella aperta da un collegamento diretto.
  *
  * La visita su misura arriva a COPPIE (i suoi item non stanno nel database):
@@ -141,7 +136,9 @@ onMounted(async () => {
       return;
     } catch (err) {
       console.error("Impossibile avviare la visita guidata", err);
-      erroreAvvio.value = tKey("Non è stato possibile aprire la sala d'attesa.");
+      erroreAvvio.value = tKey(
+        "Non è stato possibile aprire la sala d'attesa.",
+      );
     }
   }
 
@@ -245,19 +242,14 @@ const titoloVisita = computed(() => (visit.value ? visit.value.name : ""));
       <!-- Fase 1: la biglietteria -->
       <Biglietteria
         v-else-if="!started"
-        class="min-h-0 flex-1 overflow-y-auto"
+        class="min-h-0 flex-1"
         @start="onStart"
         @customStart="onCustomStart"
         @resume="resume"
       />
 
       <!-- Fase 2: la visita -->
-      <Visita
-        v-else
-        :curr-visit="choice"
-        :title="titoloVisita"
-        @exit="exit"
-      />
+      <Visita v-else :curr-visit="choice" :title="titoloVisita" @exit="exit" />
     </main>
 
     <p class="sr-only" role="status" aria-live="polite">{{ message }}</p>

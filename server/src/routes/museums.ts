@@ -4,7 +4,7 @@
  * `/overview` e `/items` sono le due letture del CURATORE, e la guardia sta in
  * ciascuna: la prima da' conteggi e copertura del catalogo, la seconda tutti gli
  * item del museo, privati compresi. E' quest'ultimo dettaglio a distinguerla da
- * `GET /api/items`, che invece li nasconde — ed e' anche il motivo per cui non
+ * `GET /api/items`, che invece li nasconde, ed e' anche il motivo per cui non
  * puo' restare aperta: elencare i privati di tutti a chiunque abbia una sessione
  * e' esattamente il contrario di cosa vuol dire "privato".
  *
@@ -17,7 +17,14 @@
  * `/config` legge il museo dal FILE DI CONFIGURAZIONE del curatore invece che dal
  * database: e' quello il file che si modifica per adattare il navigator.
  * `/visits` filtra per chi guarda: le visite guidate non compaiono mai (ci si
- * entra con la parola chiave) e quelle a pagamento solo a chi le possiede.
+ * entra con la parola chiave) e quelle a pagamento solo a chi le possiede. Porta
+ * anche il CONTO di ciascuna, come `GET /api/visits`: possedere una visita non
+ * vuol dire poterla percorrere, perche' le sue tappe si pagano una per una e una
+ * visita gratuita puo' contenerne a pagamento. Senza quel numero la biglietteria
+ * avvierebbe un percorso le cui schede arrivano vuote: i testi non escono
+ * comunque (`access.ts`), ma chi ci finisce vede un'applicazione rotta invece di
+ * una tappa da sbloccare. Il conto si fa qui e non nel navigator perche' e' lo
+ * stesso `conto()` che addebita: due conti separati si allontanano.
  * `/qrcodes` produce il foglio stampabile da ritagliare e affiancare alle opere.
  * L'elenco porta i CONTEGGI di opere e visite: da quando il client scarica il
  * catalogo di un museo alla volta, non puo' piu' contare quelli che non ha. Il
@@ -46,8 +53,8 @@
  * che li citano lascerebbe tappe che non si risolvono, e una tappa che non si
  * risolve non da' errore, semplicemente non compare. Percio' se ne va anche tutto
  * cio' che vi puntava, comprese le righe nelle collezioni di chi li aveva presi.
- * Restano fuori, di proposito, il DOCUMENTO del museo — cosi' il museo resta
- * selezionabile con zero opere invece di sparire fino al prossimo seed — e le
+ * Restano fuori, di proposito, il DOCUMENTO del museo, cosi' il museo resta
+ * selezionabile con zero opere invece di sparire fino al prossimo seed, e le
  * IMMAGINI delle opere su disco, che il seed ha scaricato da Wikidata e che
  * ricostruire costa una chiamata per opera; spariscono invece quelle caricate a
  * mano dagli autori, che appartengono all'item e a nient'altro.
@@ -65,6 +72,8 @@ import { findMuseumConfig } from "../data/museumConfigs";
 import { sortByFlow } from "../services/svgGraph";
 import { rimuoviImmagine } from "./items";
 import { MuseumOverview } from "../../../shared/types";
+import { purchasedBy } from "../access";
+import { conto } from "../pricing";
 const router = Router();
 
 function museumUri(qid: string): string {
@@ -207,13 +216,7 @@ router.get("/:qid/visits", requireSession, async (req, res) => {
       $or: [{ visibility: { $ne: "privato" } }, { author: username }],
     });
 
-    const owned = new Set<string>();
-    if (username) {
-      const accounts = await UserModel.find({ username });
-      for (const u of accounts) {
-        for (const id of u.collezione || []) owned.add(id);
-      }
-    }
+    const owned = await purchasedBy(username);
 
     const visible = visits.filter((v: any) => {
       if (v.accessKey) return false;
@@ -223,7 +226,25 @@ router.get("/:qid/visits", requireSession, async (req, res) => {
       return owned.has(v["@id"]) || v.author === username;
     });
 
-    res.json(visible);
+    const ids = new Set<string>();
+    for (const v of visible) {
+      for (const id of v.itemListElement || []) ids.add(id);
+    }
+    const tappe = await ItemModel.find({ "@id": { $in: Array.from(ids) } }).lean();
+    const byId = new Map<string, any>();
+    for (const t of tappe) byId.set(t["@id"], t);
+
+    res.json(
+      visible.map((v: any) => {
+        const c = conto(v, username, owned, byId);
+        return {
+          ...v.toObject(),
+          mancanti: c.mancanti,
+          costoMancanti: c.costoMancanti,
+          totale: c.totale,
+        };
+      }),
+    );
   } catch (err: any) {
     res.status(500).json({ error: "Errore nel caricamento delle visite del museo" });
   }

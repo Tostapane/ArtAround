@@ -28,6 +28,8 @@ e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo po
 - testare funzionalita del curatore
 - ordine delle visite
 PROBLEMI
+fare ascoltare a tutti gli studenti adio contemporaneamente di default
+posso associare piu item tipo difficile e facile allo stesso artwork?
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra
 la barra di ricerca con gli item e visite ha i bordi strani se cerchi

@@ -196,7 +196,7 @@ cui un nome arrivi dal client.
 | --- | --- |
 | `models/session.ts` | `{token, username, role, expiresAt}` in Mongo, indice TTL |
 | `session.ts` | `resolveSession` (montata su tutto `/api`, non rifiuta) · `requireSession` (rifiuta) · `sessionUser` |
-| dove sta nel client | `sessionStorage`, in tutt'e due le applicazioni |
+| dove sta nel client | `sessionStorage`, in tutt'e due le applicazioni, sotto `SESSION_KEY` (`shared/constants.ts`): in deploy l'origine e' una sola, quindi e' quella chiave a far trovare al navigator la sessione del marketplace |
 
 **Perche' in Mongo e non in una `Map`.** Il processo riparte a ogni modifica del codice
 (`ts-node`), e in memoria ogni riavvio avrebbe obbligato tutti a rientrare. Costa un modello e
@@ -276,9 +276,21 @@ The six defects `strict` surfaced on the server, for the record: `req.file` used
 its own guard; a transcript that could be `undefined` passed to `mapRequest`; `user.wallet`
 treated as a number on a schema that gives it no default (a visitor document without one
 would have thrown at purchase); `fetchArtwork` typed as never returning `null` while
-returning it; plus the `dotenv` types. Note **`ts-node` does not load ambient `.d.ts` from
-tsconfig `include`** — `src/env.ts` needs its `/// <reference>` line or `npm run start`
-stops compiling.
+returning it; plus the `dotenv` types.
+
+⚠️ **The `dotenv` half of that is closed since 2026-09-08, and the reason is worth knowing.**
+`src/env.ts` used to open with a `/// <reference path="./types/dotenv.d.ts" />` plus a
+hand-written declaration file, because `ts-node` — unlike `tsc` — does not load ambient
+`.d.ts` from tsconfig `include`, so deleting that line kept `tsc` green while `npm run start`
+stopped compiling. The declaration existed on the premise that "dotenv 8 ships no types", and
+**that premise was false**: 8.6.0 ships `types/index.d.ts` and declares it. What actually
+broke resolution is that the package also carries an `exports` map with no `types` condition,
+and under `moduleResolution: "nodenext"` `exports` wins over the root `types` field. dotenv 17
+declares it properly, so upgrading deleted the declaration file, the reference line, and the
+five-line loop that re-imposed the file over the environment — `config({override: true})` is
+that loop. Measured on the real thing, because "it compiles" was never the question here: the
+server boots under `ts-node` with both API keys loaded, and the container reinstalls to 17.4.2
+by itself on restart (its `node_modules` is an anonymous volume, separate from the host's).
 
 ---
 
@@ -561,7 +573,7 @@ contenevano: una tappa su cento non si risolveva piu', e la risposta era buttare
 altre novantanove, comprese quelle scritte da un autore e quelle gia' comprate. Alla Galleria
 degli Uffizi togliere una sola opera portava via **ventidue** percorsi.
 
-Ora la cascata **accorcia**. `dbActions.rimuoviTappeDalleVisite` toglie la tappa e rimette a
+Ora la cascata **accorcia**. `catalogue.rimuoviTappeDalleVisite` toglie la tappa e rimette a
 posto tutto quello che a quella tappa era appeso, o si accorcia il percorso e si rompe il resto:
 
 | cosa | perche' |
@@ -569,10 +581,20 @@ posto tutto quello che a quella tappa era appeso, o si accorcia il percorso e si
 | `optionalItems` | le tappe facoltative sono un sottoinsieme delle tappe |
 | `logistics` | le note sono ANCORATE a una tappa (*"dopo questa sala, gira a destra"*): quelle appese a una tappa che se ne va scendono alla tappa valida che le precede, e se non ce n'e' diventano note di apertura |
 | `duration` | e' la somma dei tempi delle tappe |
-| `quiz` | le domande nominano un'opera per esteso: se quell'opera non si vede piu', la domanda chiede di una cosa che la classe non ha visto |
 
 Una visita che resterebbe **senza tappe** sparisce comunque: zero tappe non e' una visita, e
 nemmeno il compositore la accetta.
+
+⚠️ **Il QUIZ non e' nella lista, e fino al 2026-09-08 c'era.** Il filtro cercava il nome
+dell'opera dentro il testo di ogni domanda e la buttava via se lo trovava. Non poteva
+funzionare: `QuizQuestion` e' `{question, options[4], correct}` e **non dichiara di che opera
+parli**, quindi il nome nel testo e' l'unico appiglio, ed e' un appiglio che sbaglia nei due
+versi. Non riconosce la domanda scritta a mano che parla dell'opera senza nominarla, e
+cancella quella che la nomina soltanto come distrattore: toglie domande buone e ne lascia di
+cattive, cioe' fa credere risolto un problema che resta. Era per giunta acceso solo dalla
+cancellazione di un'**opera** e non da quella di una **descrizione**, che e' il caso in cui
+davvero una tappa puo' uscire dal percorso. Chi lo rivuole deve prima dare alla domanda un
+campo che dica di che cosa parla, e allora non serve piu' cercare niente.
 
 **La scelta e' del curatore, non del codice.** `DELETE /api/artworks/:qid?visite=accorcia|elimina`
 e lo stesso su `/api/items/:id`: il vecchio comportamento resta disponibile perche' togliere di
@@ -873,8 +895,12 @@ corregge lì, in quel passaggio**, invece di lasciarlo passare.
   prime dentro le visite che genera, quindi `openingNotes()` salta un testo che la visita ha
   gia': senza quel salto una visita seminata le direbbe due volte (§5.3-septies).
 - **QuizQuestion** — `{question, options[4], correct}`. `correct` never leaves the server.
-- **User** — identity is the **pair `(username, role)`** (unique compound index). An
-  `autore` and a `visitatore` with the same username are *distinct, unlinked accounts*.
+- **User** — identity is the **username**, unique across every role (single unique
+  index). There is no such thing as an `autore` and a `visitatore` sharing a name:
+  `register` answers 409 on the username alone. The rule is load-bearing rather than
+  cosmetic — `Item.author` and `Visit.author` are a bare name with no role beside it,
+  so while two accounts could share one, logging in as the other profile was enough to
+  delete the first one's descriptions and read its private ones.
   `wallet` exists only on visitors; `collezione` is the owned-content id list.
   Password stored in clear (security is explicitly not graded).
   **Three roles since 2026-07-30**: `visitatore` consumes, `autore` produces, **`curatore`**
@@ -1221,7 +1247,8 @@ testo se e' **gratuito**, se lo si e' scritto o se lo si e' comprato. Quindi il 
 chiedeva di comprare quel che il server regala gia', e lo diceva da se': lo sblocco costava
 **€ 0,00**. Ora `missingItems()` usa `availableNow()`, che quella regola ce l'aveva gia'
 scritta dentro. Il conto non e' un dettaglio del caso segnalato: **nel database non esiste
-nemmeno un contenuto a pagamento** (0 su 750), quindi ogni visita di chiunque risultava
+nemmeno un contenuto a pagamento** (0 su 750 allora; oggi sono 2184 su 4364, vedi
+§3.1-duodecies), quindi ogni visita di chiunque risultava
 interamente da sbloccare. Chiude anche le due righe vicine di `missing.txt` — la visita gratis
 che chiedeva di pagare, e quella che lo richiedeva ancora dopo averla sbloccata.
 
@@ -1540,6 +1567,78 @@ seed e' un blocco regolare — un'opera per volta, toni in ordine, durate in ord
 riparazione a mano e' una scrittura isolata. Serve quando due processi toccano il catalogo
 insieme e i conteggi non tornano.
 
+### 3.1-terdecies `dbActions.ts` diventa `catalogue.ts` *(2026-09-08)*
+
+Il file si chiamava "le azioni sul database" e conteneva tre gruppi con chiamanti
+**disgiunti**: le `insert*` che usa solo il seed, la cascata che usano le due rotte di
+cancellazione, e il resolver della visita su misura, che usa solo `POST /visits/custom`. Tre
+insiemi che non si incontrano mai sono la definizione di un file che tiene insieme cose che
+non si parlano.
+
+| | |
+| --- | --- |
+| `insert*` -> **`upsert*`** | `findOneAndUpdate(..., {upsert:true})` non inserisce: su un `@id` gia' scritto **riscrive**. Chiamarle `insert` faceva credere che una seconda semina non toccasse quel che c'e'. Cade nella stessa passata il refuso `intertMuseum` (§9.11) |
+| **quattro `delete*` rimosse** | `deleteArtwork`, `deleteItem`, `deleteVisit`, `deleteMuseum`: **zero chiamanti**, e `routes/artworks.ts` si difendeva dalla prima con un commento che diceva di non usarla. Cancellazioni vere le fanno le rotte, che hanno la cascata |
+| `resolveOrGenerateItem` -> `services/customVisit.ts` | l'unica cosa che faceva sul database era cercare; quel che aggiunge e' una chiamata al modello. Portava via anche `crypto` e l'import di `llm` |
+
+⚠️ **Il codice morto qui non era neutro, era una trappola.** Quelle quattro funzioni erano la
+versione facile e sbagliata di un'operazione che ha una versione giusta altrove, esposte con un
+nome invitante: `deleteVisit` e' esattamente quella che qualcuno chiamerebbe al posto della
+cascata di `DELETE /api/visits/:id`. Difendersi con un commento invece di toglierle e' costato
+un'avvertenza da mantenere in un altro file.
+
+⚠️ **Il nome nomina il SOGGETTO, non il verbo**, ed e' la seconda scelta: il primo tentativo
+era `updateDb.ts`, che copriva bene le `upsert*` e male la cascata, la quale cancella. Un file
+che si chiama "update" e contiene una `deleteOne` e' la stessa forma del difetto appena
+corretto con `insert`. `catalogue` invece dice **su che cosa** si scrive, e regge tutte e cinque
+le funzioni. In inglese come ogni altro `.ts` del server (`access`, `pricing`, `session`,
+`manager`): l'unico nome italiano di quella cartella e' `data/soglia.json`, che e' un file del
+curatore e non codice.
+
+### 3.1-duodecies Il catalogo ha prezzi, e mezza vetrina non si percorreva *(2026-09-08)*
+
+⚠️ **Il dato che questo documento ripeteva era vecchio di un mese.** §3.1-ter dice «nel
+database non esiste nemmeno un contenuto a pagamento (0 su 750)» e `left.md` lo ripete: era
+vero in agosto. Misurato oggi, **2184 item su 4364 costano** — `Medio` 0,15 e `Avanzato` 0,25
+l'uno, piu' quattro a 10. Chi legge un conteggio qui dentro lo ricontrolli sul database prima
+di costruirci sopra: e' la stessa regola gia' scritta per i resoconti di `left.md`.
+
+Il dato conta perche' accendeva un difetto che, finche' tutto era gratis, non poteva vedersi.
+**Possedere una visita non vuol dire poterla percorrere**: le tappe si pagano una per una,
+quindi una visita gratuita puo' contenerne a pagamento, e a una gia' comprata l'autore puo'
+averne aggiunta una dopo. Il marketplace quella distinzione la faceva gia' — `visitUsable()`
+e' `inLibrary(v) && mancanti === 0`, e il conto lo manda il server con `conto()` — ma la
+**biglietteria del navigator** guardava soltanto il prezzo della VISITA:
+
+| | filtro | esito |
+| --- | --- | --- |
+| `GET /visits` (marketplace) | `conto()` per persona, poi `visitUsable` | *Completa* invece di *Inizia* |
+| `GET /museums/:qid/visits` (navigator) | `price === 0 || posseduta` | la visita si apriva |
+
+Misurato sul server vivo prima della correzione: agli Uffizi **10 visite su 20** — tutte le
+`Medio` e tutte le `Avanzato` — si aprivano dalla biglietteria e davano **104 schede vuote di
+fila**. I testi non uscivano comunque (`access.ts` faceva il suo lavoro: 104 tappe, 104
+`locked`, zero testi), quindi non era un buco di autorizzazione: era un percorso che si
+avviava per non dire niente, e chi ci finiva vedeva un'applicazione rotta invece di una tappa
+da sbloccare.
+
+Ora la rotta della biglietteria allega il conto come fa `GET /visits`, con **una** query per
+tutte le tappe, e il navigator tiene la riga nell'elenco ma non la avvia: pastiglia
+*Incompleta* e la ragione scritta sotto il titolo.
+
+⚠️ **Resta visibile invece di sparire**, ed e' una scelta: dal museo non si compra, e chi
+quella visita l'ha pagata la cercherebbe senza trovarla. Nasconderla sarebbe lo stesso difetto
+un piano piu' su.
+
+⚠️ **Il messaggio dice «sbloccala dal marketplace», e per una tappa CANCELLATA sarebbe
+falso**: `conto()` conta come mancante anche un id che non si risolve piu', e quello comprando
+non torna. Oggi non capita — le 104 mancanti sono tutte a pagamento — ma il giorno che capita
+i due casi vanno detti con due frasi diverse.
+
+⚠️ **`purchasedBy` era riscritta a mano dentro `museums.ts`**, stesso `find` e stesso doppio
+ciclo. Ora importa quella di `access.ts`: e' la duplicazione gia' pagata cinque volte con la
+regola di lettura (§3.1-quinquies), un giro piu' in piccolo.
+
 ### 3.1-undecies Quanti itinerari puo' tenere un visitatore *(2026-08-08)*
 
 `MAX_VISITE_VISITATORE = 5` in `shared/constants.ts`, per **museo** e per il solo visitatore.
@@ -1687,7 +1786,7 @@ Two properties decide the shape of the file, and both were forced by the fourth 
 - **Resumable.** 104 artworks × 4 tones × 2 durations = **832 LLM calls** at a 6 s pause, i.e.
   roughly **two hours** (the run's own ETA settled at ~112 min). Something interrupts a two-hour
   job. An artwork already stored is not re-fetched, an item already stored is not regenerated,
-  and re-running picks up where it stopped. This is what `dbActions.insert*` became upserts for:
+  and re-running picks up where it stopped. This is what `catalogue.upsert*` are for:
   they create or update by `@id` instead of `create()`-ing into a duplicate-key error.
   `--force` is the way to overwrite deliberately.
 
@@ -3594,9 +3693,11 @@ cosa ha in casa. Quando la domanda fallisce si risponde `true`: non sapere non e
 una descrizione e' `qid-autore-tono-durata` e il museo non ci compare.
 
 **La cascata e' la stessa di `DELETE /items/:id`, allargata all'opera:** le sue descrizioni,
-le visite che le citano, le righe nelle collezioni di chi le aveva prese. Non usare
-`dbActions.deleteArtwork`, che cancella il solo documento dell'opera: le tappe orfane non
-danno errore, semplicemente non compaiono, e il danno resta invisibile.
+le visite che le citano, le righe nelle collezioni di chi le aveva prese. Cancellare il solo
+documento dell'opera non basta: le tappe orfane non danno errore, semplicemente non compaiono,
+e il danno resta invisibile. ⚠️ `dbActions` esponeva una `deleteArtwork` che faceva esattamente
+quello, e si difendeva da lei con un commento: **e' stata tolta il 2026-09-08** insieme alle
+altre tre `delete*` che nessuno chiamava (§3.1-terdecies).
 
 **Quanto e' larga la cascata, in pratica:** togliere la prima opera di un percorso porta via
 *tutte* le visite del museo, perche' e' una tappa di ognuna. `impact` esiste per dirlo prima:
@@ -3804,8 +3905,8 @@ server is the only part with no real type safety, and it is where the domain log
 
 ### 9.11 Naming and small infelicities
 
-- `dbActions.ts` exports **`intertMuseum`** (typo for `insertMuseum`), used as such by
-  `manager.ts`.
+- ~~`dbActions.ts` exports **`intertMuseum`** (typo for `insertMuseum`)~~ — **CLOSED
+  2026-09-08**: the file is now `catalogue.ts` and the function `upsertMuseum` (§3.1-terdecies).
 - ~~`server/src/data/museumContent.ts` keys are **wrong**~~ — **CLOSED 2026-07-31**, the file
   is deleted. It read `uffizi: Q19675` (the Louvre), `louvreab: Q6373` (the British Museum),
   `britishMuseum: Q160236` (the Met): every key named a different museum than the one it held.

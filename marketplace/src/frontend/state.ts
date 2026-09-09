@@ -28,11 +28,18 @@
 
 import {
   UserRole,
+  Author,
   Content,
   Item,
   Visit,
   Artwork,
+  ArtworkImpactReport,
+  ImpactReport,
   Museum,
+  MuseumOverview,
+  SaleRow,
+  Style,
+  VisitaNominata,
   isItem,
   isVisit,
   isArtwork,
@@ -60,14 +67,19 @@ import { isReadable } from "../../../shared/access.js";
 import { linguaIniziale, preparaLingua, salvaLingua, traduci } from "./i18n.js";
 import {
   ArtAPI,
+  UserDTO,
   clearToken,
   hasToken,
   onSessionExpired,
   setToken,
 } from "./api.js";
 
-/** Cio' su cui valgono gli aiutanti comuni: cercare, dire di che museo e', il tono. */
-export type Catalogabile = Content | Artwork;
+/** Cio' su cui valgono gli aiutanti comuni: cercare e dire il tono. */
+export type Catalogabile = Content | Soggetto;
+
+function isSoggetto(c: Catalogabile): c is Soggetto {
+  return "qid" in c;
+}
 
 /**
  * Una riga della tabella del catalogo del curatore. `kind` distingue le tre
@@ -87,51 +99,7 @@ export interface CatalogRow {
   guidata?: boolean;
   qid?: string; // solo per le opere: il codice Wikidata
   descrizioni?: number; // solo per le opere: quante descrizioni ne parlano
-  raw: any;
-}
-
-/** Cosa sparirebbe eliminando una descrizione: risposta di GET /items/:id/impact. */
-export interface ImpactReport {
-  id: string;
-  author: string;
-  educationalLevel: string;
-  visite: {
-    id: string;
-    name: string;
-    author: string | null;
-    guidata: boolean;
-  }[];
-  adozioni: number;
-}
-
-/** Quadro d'insieme del museo: risposta di GET /museums/:qid/overview. */
-export interface MuseumOverview {
-  conteggi: {
-    opere: number;
-    item: number;
-    itemPrivati: number;
-    visite: number;
-    visiteGuidate: number;
-  };
-  copertura: {
-    opereTotali: number;
-    senzaDescrizione: { qid: string; name: string }[];
-    perTono: { tono: string; opere: number }[];
-  };
-  account: { autori: number; visitatori: number; curatori: number };
-}
-
-/** Una riga di "Vendite e adozioni": un contenuto in vendita, con adozioni e ricavo. */
-export interface SaleRow {
-  id: string;
-  type: string;
-  name: string;
-  ofMuseum?: string;
-  educationalLevel?: string;
-  price: number;
-  license: string;
-  adozioni: number;
-  ricavo: number;
+  raw: Artwork | Item | Visit;
 }
 
 /**
@@ -149,6 +117,14 @@ export interface Soggetto {
   kind?: string;
   author?: { name: string; qid: string };
   style?: { name: string; qid: string };
+}
+
+export interface SoggettoBozza {
+  name: string;
+  imagePath?: string;
+  kind?: string;
+  author?: Author;
+  style?: Style;
 }
 
 /** Un'opera, o un soggetto, con tutte le descrizioni che ne parlano. */
@@ -247,8 +223,8 @@ export class AppState {
   /** Il qid scritto dal curatore per aggiungere un'opera, e l'opera che sta togliendo. */
   nuovaOperaQid = "";
   aggiungendoOpera = false;
-  operaToDelete: any = null;
-  operaImpact: any = null;
+  operaToDelete: Artwork | null = null;
+  operaImpact: ArtworkImpactReport | null = null;
   /**
    * Che fare delle visite che contengono quel che si sta togliendo. E' una
    * scelta di curatela, non una conseguenza tecnica: accorciarle lascia in piedi
@@ -269,7 +245,7 @@ export class AppState {
   //                             Notifiche
   // **********************************************************************
   toast: { messaggio: string; tipo: "success" | "error" } | null = null;
-  private toastTimer: any = null;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   // **********************************************************************
   //                               Dati
@@ -747,13 +723,7 @@ export class AppState {
   }
 
   /** Popola sessione, portafoglio e collezione dall'account e avvia `initApp`. */
-  private async enterAs(u: {
-    username: string;
-    role: UserRole;
-    wallet?: number;
-    collezione: string[];
-    token?: string;
-  }) {
+  private async enterAs(u: UserDTO & { token?: string }) {
     if (u.token) setToken(u.token);
     this.currentUser = u.username;
     this.currentUserRole = u.role;
@@ -778,7 +748,7 @@ export class AppState {
         conferma: "",
         role: "visitatore",
       };
-      await this.enterAs(u as any);
+      await this.enterAs(u);
     } catch (e) {
       this.showToast((e as Error).message, "error");
     }
@@ -841,7 +811,7 @@ export class AppState {
   }
 
   /** Se un contenuto appartiene al museo scelto. */
-  private belongsToMuseum(c: Catalogabile): boolean {
+  private belongsToMuseum(c: Content | Artwork): boolean {
     const museo = this.museumEntityId();
     if (!museo) return false;
     return c.ofMuseum === museo;
@@ -897,8 +867,8 @@ export class AppState {
 
   /** Il nome da mostrare per un contenuto: il suo, o quello dell'opera che descrive. */
   contentName(c: Catalogabile): string {
+    if (isSoggetto(c)) return c.name || "";
     if (isVisit(c)) return c.name || "";
-    if (isArtwork(c)) return c.name || "";
     const art = c.about;
     if (typeof art === "object" && art) return art.name || "";
     return c.subject || "";
@@ -917,12 +887,12 @@ export class AppState {
   /** Tutto il testo su cui un contenuto e' cercabile: nome, autore, stile, tono. */
   private searchableFields(c: Catalogabile): string {
     const parts: string[] = [this.contentName(c)];
-    if (isVisit(c)) {
-      parts.push(c.author || "");
-      parts.push(c.level || "");
-    } else if (isArtwork(c)) {
+    if (isSoggetto(c)) {
       parts.push((c.author && c.author.name) || "");
       parts.push((c.style && c.style.name) || "");
+    } else if (isVisit(c)) {
+      parts.push(c.author || "");
+      parts.push(c.level || "");
     } else {
       parts.push(c.author || "");
       parts.push(c.educationalLevel || "");
@@ -955,19 +925,51 @@ export class AppState {
 
   /** Il tono di un contenuto: quello della visita o della descrizione; l'opera non ne ha. */
   private levelOf(c: Catalogabile): string {
+    if (isSoggetto(c)) return "";
     if (isVisit(c)) return c.level || "";
-    if (isArtwork(c)) return "";
     return c.educationalLevel || "";
+  }
+
+  private inTono(filtro: string, tono: string): boolean {
+    if (filtro === "tutti") return true;
+    return tono === filtro;
+  }
+
+  private inSecondi(filtro: string, secondi: number | string): boolean {
+    if (filtro === "tutti") return true;
+    return String(secondi) === filtro;
+  }
+
+  private inFascia(filtro: string, secondi: number): boolean {
+    if (filtro === "tutti") return true;
+    const banda = visitDurationBands.find((b) => b.value === filtro);
+    if (!banda) return true;
+    return banda.test(durationMinutes(secondi));
+  }
+
+  private opzioniSecondi(): { value: string; label: string }[] {
+    return secPerArt.map((s) => ({
+      value: String(s),
+      label: this.t("{n} secondi di lettura", { n: s }),
+    }));
+  }
+
+  private opzioniFasce(): { value: string; label: string }[] {
+    return visitDurationBands.map((b) => ({
+      value: b.value,
+      label: this.t(b.label),
+    }));
   }
 
   /** I toni davvero presenti nel museo, in ordine di vocabolario: per popolare un menu. */
   availableLevels(): string[] {
     const present = new Set<string>();
-    for (const c of [
+    const contenuti: Content[] = [
       ...this.marketItems,
       ...this.myItems,
       ...this.visits,
-    ] as any[]) {
+    ];
+    for (const c of contenuti) {
       if (!this.belongsToMuseum(c)) continue;
       const d = this.levelOf(c);
       if (d) present.add(d);
@@ -990,7 +992,7 @@ export class AppState {
       return true;
     if (
       this.currentUserRole === "visitatore" &&
-      (item as any)["@type"] === "ItemList" &&
+      isVisit(item) &&
       item.author === this.currentUser
     )
       return true;
@@ -1023,9 +1025,9 @@ export class AppState {
    * apre una guidata senza passare dalla vetrina, e il privato, l'itinerario che
    * un visitatore tiene per se'.
    */
-  private visibleInMarket(c: any): boolean {
+  private visibleInMarket(c: Content | null): boolean {
     if (!c) return true;
-    if (c.accessKey) return c.author === this.currentUser;
+    if (isVisit(c) && c.accessKey) return c.author === this.currentUser;
     if (c.visibility === "privato") return c.author === this.currentUser;
     return true;
   }
@@ -1033,7 +1035,7 @@ export class AppState {
   /** Aggiunge alla libreria. Passa dalla conferma solo se c'e' davvero da pagare. */
   async buy(item: Content) {
     if (!this.currentUser || this.inLibrary(item)) return;
-    if ((item as any).accessKey) return;
+    if (isVisit(item) && item.accessKey) return;
     // A dire se c'e' da pagare e' il conto vero: una visita gratis puo' avere
     // tappe a pagamento, e prenderla in silenzio svuoterebbe il portafoglio.
     if (this.costoDi(item) === 0) {
@@ -1073,9 +1075,10 @@ export class AppState {
    * visita e' `totale` (tolto quel che gia' possiedi), per una descrizione il
    * suo prezzo.
    */
-  costoDi(content: any): number {
+  costoDi(content: Content | null): number {
     if (!content) return 0;
-    if (typeof content.totale === "number") return content.totale;
+    if (isVisit(content) && typeof content.totale === "number")
+      return content.totale;
     return Number(content.price) || 0;
   }
 
@@ -1085,7 +1088,7 @@ export class AppState {
    * `price`, che una visita di catalogo ha a zero anche con tappe a pagamento).
    * A visita gia' acquisita `costoDi` e' zero, e senza questo direbbe "Gratis".
    */
-  visitPrice(v: any): string {
+  visitPrice(v: Visit | null): string {
     if (this.inLibrary(v)) {
       if (v && v.author && v.author === this.currentUser)
         return this.t("Pubblicata da te");
@@ -1095,8 +1098,9 @@ export class AppState {
   }
 
   /** Quante tappe mancano, secondo il server. Zero se il conto non e' arrivato. */
-  mancantiDi(content: any): number {
-    if (!content || typeof content.mancanti !== "number") return 0;
+  mancantiDi(content: Content | null): number {
+    if (!content || !isVisit(content)) return 0;
+    if (typeof content.mancanti !== "number") return 0;
     return content.mancanti;
   }
 
@@ -1109,17 +1113,17 @@ export class AppState {
   }
 
   /** L'etichetta del bottone di sblocco nella striscia "Riprendi". */
-  unlockVisitLabel(v: any): string {
+  unlockVisitLabel(v: Visit): string {
     return `Sblocca (€ ${(Number(v.costoMancanti) || 0).toFixed(2)})`;
   }
 
   /** Se una visita si puo' percorrere adesso: e' in libreria e non le manca nessuna tappa. */
-  visitUsable(visit: any): boolean {
+  visitUsable(visit: Visit): boolean {
     return this.inLibrary(visit) && this.mancantiDi(visit) === 0;
   }
 
   /** Apre la conferma per sbloccare in blocco le tappe mancanti di una visita. */
-  openCompleteVisit(visit: any) {
+  openCompleteVisit(visit: Visit) {
     if (!this.currentUser || this.mancantiDi(visit) === 0) return;
     this.visitToComplete = visit;
     this.confirmOpen = true;
@@ -1134,21 +1138,21 @@ export class AppState {
    * curatore. Sono le stesse condizioni che il server verifica; qui decidono
    * solo cosa disegnare, la rotta e' protetta comunque.
    */
-  canDeleteVisit(visit: any): boolean {
+  canDeleteVisit(visit: Visit | null): boolean {
     if (!visit || !this.currentUser) return false;
     if (this.currentUserRole === "curatore") return true;
     return visit.author === this.currentUser;
   }
 
   /** Come `canDeleteVisit`, per una descrizione. */
-  canDeleteItem(item: any): boolean {
+  canDeleteItem(item: Item | null): boolean {
     if (!item || !this.currentUser) return false;
     if (this.currentUserRole === "curatore") return true;
     return item.author === this.currentUser;
   }
 
   /** Apre la conferma di eliminazione di una visita. */
-  openDeleteVisit(visit: any) {
+  openDeleteVisit(visit: Visit) {
     if (!this.canDeleteVisit(visit)) return;
     this.visitToDelete = visit;
     this.confirmOpen = true;
@@ -1159,7 +1163,7 @@ export class AppState {
    * Chiede prima l'impatto, come la tabella del curatore: quel che sparisce si
    * legge prima di confermare, non dopo.
    */
-  async openDeleteItem(item: any) {
+  async openDeleteItem(item: Item) {
     if (!this.canDeleteItem(item)) return;
     this.itemToDelete = {
       id: item["@id"],
@@ -1267,10 +1271,11 @@ export class AppState {
     const totale = this.costoDi(item);
     const credito = this.wallet.toFixed(2);
 
-    const mancanti = this.mancantiDi(item as any);
+    const mancanti = this.mancantiDi(item);
     if (mancanti > 0) {
-      const curatela = (Number((item as any).price) || 0).toFixed(2);
-      const contenuti = (Number((item as any).costoMancanti) || 0).toFixed(2);
+      const curatela = (Number(item.price) || 0).toFixed(2);
+      const daPagare = isVisit(item) ? item.costoMancanti : 0;
+      const contenuti = (Number(daPagare) || 0).toFixed(2);
       const quante =
         mancanti === 1 ? "1 descrizione" : `${mancanti} descrizioni`;
       return (
@@ -1297,20 +1302,20 @@ export class AppState {
   }
 
   /** Le visite che contengono quel che si sta togliendo, e quante resterebbero vuote. */
-  visiteInGioco(): { id: string; name: string }[] {
+  visiteInGioco(): VisitaNominata[] {
     if (this.operaToDelete && this.operaImpact)
       return this.operaImpact.visite || [];
     if (this.itemToDelete && this.itemImpact)
-      return (this.itemImpact as any).visite || [];
+      return this.itemImpact.visite || [];
     return [];
   }
 
   /** Di quelle in gioco, quali resterebbero senza tappe e sparirebbero comunque. */
-  visiteSvuotate(): { id: string; name: string }[] {
+  visiteSvuotate(): VisitaNominata[] {
     if (this.operaToDelete && this.operaImpact)
       return this.operaImpact.svuotate || [];
     if (this.itemToDelete && this.itemImpact)
-      return (this.itemImpact as any).svuotate || [];
+      return this.itemImpact.svuotate || [];
     return [];
   }
 
@@ -1465,7 +1470,7 @@ export class AppState {
       this.cancelConfirm();
       try {
         await ArtAPI.eliminaVisita(visit["@id"]);
-        this.visits = this.visits.filter((c: any) => c["@id"] !== visit["@id"]);
+        this.visits = this.visits.filter((c) => c["@id"] !== visit["@id"]);
         this.reindicizza();
         this.userCollection = this.userCollection.filter(
           (id) => id !== visit["@id"],
@@ -1561,11 +1566,11 @@ export class AppState {
   }
 
   /** Le descrizioni del museo che parlano di quest'opera. */
-  descrizioniDi(artwork: any): number {
+  descrizioniDi(artwork: Artwork): number {
     const id = artwork["@id"];
     let quante = 0;
     for (const it of this.curatedItems) {
-      const about = (it as any).about;
+      const about = it.about;
       const suo = typeof about === "object" && about ? about["@id"] : about;
       if (suo === id) quante++;
     }
@@ -1579,36 +1584,26 @@ export class AppState {
    * stesse parole.
    */
   catalogDurationOptions(): { value: string; label: string }[] {
-    if (this.catalogTypeFilter === "descrizioni") {
-      return secPerArt.map((s) => ({
-        value: String(s),
-        label: this.t("{n} secondi di lettura", { n: s }),
-      }));
-    }
-    if (this.catalogTypeFilter === "visite") {
-      return visitDurationBands.map((b) => ({
-        value: b.value,
-        label: this.t(b.label),
-      }));
-    }
+    if (this.catalogTypeFilter === "descrizioni") return this.opzioniSecondi();
+    if (this.catalogTypeFilter === "visite") return this.opzioniFasce();
     return [];
   }
 
   /** L'etichetta della specie di riga: Opera, Visita o Descrizione. */
-  catalogRowLabel(row: any): string {
+  catalogRowLabel(row: CatalogRow): string {
     if (row.kind === "opera") return this.t("Opera");
     if (row.kind === "visita") return this.t("Visita");
     return this.t("Descrizione");
   }
 
   /** Un'opera non ha un prezzo: a costare sono le descrizioni che ne parlano. */
-  catalogPriceLabel(row: any): string {
+  catalogPriceLabel(row: CatalogRow): string {
     if (row.kind === "opera") return "n/d";
     return this.readablePrice(row.price);
   }
 
   /** Sotto il titolo di un'opera: il codice e quante descrizioni ne parlano. */
-  catalogRowCaption(row: any): string {
+  catalogRowCaption(row: CatalogRow): string {
     if (row.kind !== "opera") return "";
     const n = row.descrizioni || 0;
     const quante =
@@ -1634,22 +1629,17 @@ export class AppState {
   }
 
   /** La durata di una riga: secondi esatti per una descrizione, minuti per una visita. */
-  durationLabel(row: any): string {
+  durationLabel(row: CatalogRow): string {
     if (row.kind === "opera") return "n/d";
     if (row.kind === "item") return `${row.duration} s`;
     return this.readableDuration(row.duration);
   }
 
   /** Se una riga rientra nel filtro durata: secondi esatti per gli item, fasce per le visite. */
-  private matchesCatalogDuration(row: any): boolean {
-    if (this.catalogDurationFilter === "tutti") return true;
+  private matchesCatalogDuration(row: CatalogRow): boolean {
     if (row.kind === "item")
-      return String(row.duration) === this.catalogDurationFilter;
-    const banda = visitDurationBands.find(
-      (b) => b.value === this.catalogDurationFilter,
-    );
-    if (!banda) return true;
-    return banda.test(durationMinutes(row.duration));
+      return this.inSecondi(this.catalogDurationFilter, row.duration);
+    return this.inFascia(this.catalogDurationFilter, row.duration);
   }
 
   /**
@@ -1690,13 +1680,13 @@ export class AppState {
       for (const it of this.curatedItems) {
         // Il `kind` dell'item e' il genere del suo soggetto (opera, stile,
         // artista...), da non confondere col `kind` della riga.
-        const soggetto = ((it as any).kind || "opera") !== "opera";
+        const soggetto = (it.kind || "opera") !== "opera";
         if (this.catalogSubjectFilter === "opera" && soggetto) continue;
         if (this.catalogSubjectFilter === "meta" && !soggetto) continue;
         rows.push({
           kind: "item",
           id: it["@id"],
-          name: this.contentName(it as any),
+          name: this.contentName(it),
           author: it.author,
           tone: it.educationalLevel,
           duration: Number(it.timeRequired) || 0,
@@ -1814,7 +1804,7 @@ export class AppState {
   }
 
   /** Apre la conferma di rimozione di un'opera e ne chiede intanto l'impatto. */
-  async openDeleteArtwork(opera: any) {
+  async openDeleteArtwork(opera: Artwork | null) {
     if (!opera) return;
     this.operaToDelete = opera;
     this.operaImpact = null;
@@ -1828,13 +1818,13 @@ export class AppState {
   }
 
   /** Apre la conferma giusta per una riga della tabella, a seconda della sua specie. */
-  async openDeleteRow(row: any) {
+  async openDeleteRow(row: CatalogRow) {
     if (!row) return;
-    if (row.kind === "opera") {
+    if (row.kind === "opera" && isArtwork(row.raw)) {
       await this.openDeleteArtwork(row.raw);
       return;
     }
-    if (row.kind === "visita") {
+    if (row.kind === "visita" && isVisit(row.raw)) {
       this.visitToDelete = row.raw;
       this.confirmOpen = true;
       return;
@@ -1931,7 +1921,7 @@ export class AppState {
   /** Mostra un avviso a scomparsa; quello prima viene sostituito. */
   showToast(messaggio: string, tipo: "success" | "error" = "success") {
     this.toast = { messaggio, tipo };
-    clearTimeout(this.toastTimer);
+    if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => {
       this.toast = null;
     }, 5500);
@@ -1946,11 +1936,6 @@ export class AppState {
   //                     Vetrina: visite e opere
   // **********************************************************************
 
-  /** La durata di una visita in minuti interi. */
-  private visitMinutes(v: any): number {
-    return Math.round((Number(v.duration) || 0) / 60);
-  }
-
   /** Una durata in secondi resa in minuti tradotti ("12 min", "meno di 1 min"). */
   readableDuration(secondi: number): string {
     const minuti = durationMinutes(secondi);
@@ -1959,7 +1944,7 @@ export class AppState {
   }
 
   /** "3 tappe · 12 min · Misto": il sottotitolo di una visita in elenco. */
-  visitSummary(v: any): string {
+  visitSummary(v: Visit): string {
     const tappe = (v.itemListElement || []).length;
     const parts = [
       tappe === 1 ? this.t("1 tappa") : this.t("{n} tappe", { n: tappe }),
@@ -1983,18 +1968,14 @@ export class AppState {
    * lo si vede dal `kind` che `soggettoDi` mette nella tessera e che un'opera
    * vera non ha. E' lo stesso controllo che conta le due specie nel riepilogo.
    */
-  private isSoggetto(g: any): boolean {
+  private gruppoDiSoggetto(g: ArtworkGroup): boolean {
     return !!(g && g.artwork && g.artwork.kind);
   }
 
   /** Le voci del filtro durata della vetrina: secondi per opere e soggetti, fasce per le visite. */
   marketDurationOptions(): { value: string; label: string }[] {
-    if (this.marketType === "opere" || this.marketType === "meta") {
-      return secPerArt.map((s) => ({
-        value: String(s),
-        label: this.t("{n} secondi di lettura", { n: s }),
-      }));
-    }
+    if (this.marketType === "opere" || this.marketType === "meta")
+      return this.opzioniSecondi();
     if (this.marketType === "visite") {
       return visitDurationBands.map((b) => ({
         value: b.value,
@@ -2005,20 +1986,16 @@ export class AppState {
   }
 
   /** Se una visita cade nella fascia di durata scelta in vetrina. */
-  private matchesMarketDuration(min: number): boolean {
+  private matchesMarketDuration(secondi: number): boolean {
     if (this.marketType !== "visite") return true;
-    const banda = visitDurationBands.find(
-      (b) => b.value === this.marketDurationFilter,
-    );
-    if (!banda) return true;
-    return banda.test(min);
+    return this.inFascia(this.marketDurationFilter, secondi);
   }
 
   /**
    * I toni distinti presenti nelle tappe di una visita. Si guardano le tappe e
    * non `Visit.level`, che per una visita composta a mano dice "Personalizzata".
    */
-  visitTones(v: any): string[] {
+  visitTones(v: Visit): string[] {
     const toni = new Set<string>();
     for (const id of v.itemListElement || []) {
       const it = this.findItem(id);
@@ -2030,12 +2007,12 @@ export class AppState {
   }
 
   /** Se una visita mescola piu' toni. */
-  isMixedVisit(v: any): boolean {
+  isMixedVisit(v: Visit): boolean {
     return this.visitTones(v).length > 1;
   }
 
   /** Il tono di una visita da mostrare, tradotto: "Misto" se ne mescola piu' d'uno. */
-  visitLevelLabel(v: any): string {
+  visitLevelLabel(v: Visit): string {
     if (this.isMixedVisit(v)) return this.t("Misto");
     const toni = this.visitTones(v);
     if (toni.length === 1) return this.t(toni[0]);
@@ -2063,7 +2040,7 @@ export class AppState {
       if (!this.visibleInMarket(v)) return false;
       if (!this.matchesSearch(v, this.marketSearch)) return false;
       if (!this.matchesMarketLevel(this.visitTones(v))) return false;
-      return this.matchesMarketDuration(this.visitMinutes(v));
+      return this.matchesMarketDuration(v.duration);
     });
   }
 
@@ -2072,7 +2049,7 @@ export class AppState {
    * Un'opera ha un `@id`; un soggetto scritto a mano vale genere + nome, cosi'
    * due autori che scrivono di "Manierismo" finiscono sulla stessa pagina.
    */
-  soggettoIdOf(c: any): string {
+  soggettoIdOf(c: Item | null): string {
     if (!c) return "?";
     const art = c.about;
     if (art && typeof art === "object") return art["@id"];
@@ -2082,7 +2059,7 @@ export class AppState {
   }
 
   /** Il soggetto come lo mostra una tessera: l'opera, o l'item che ne parla. */
-  private soggettoDi(c: any): any {
+  private soggettoDi(c: Item): Soggetto {
     const art = c.about;
     if (art && typeof art === "object") return art;
     const id = this.soggettoIdOf(c);
@@ -2097,7 +2074,7 @@ export class AppState {
 
   /** Le descrizioni che chi guarda puo' vedere: quelle del museo, piu' le proprie se autore. */
   private visibleItems(): Item[] {
-    const perId = new Map<string, any>();
+    const perId = new Map<string, Item>();
     for (const i of this.marketItems) {
       if (this.belongsToMuseum(i)) perId.set(i["@id"], i);
     }
@@ -2110,10 +2087,10 @@ export class AppState {
   }
 
   /** Raccoglie una lista di descrizioni in gruppi per soggetto. */
-  groupByArtwork(lista: any[]): { artwork: any; items: any[] }[] {
+  groupByArtwork(lista: Item[]): ArtworkGroup[] {
     const groups = new Map<string, ArtworkGroup>();
     for (const c of lista) {
-      if (c["@type"] !== "CreativeWork") continue;
+      if (!isItem(c)) continue;
       const id = this.soggettoIdOf(c);
       if (!groups.has(id)) {
         groups.set(id, { artwork: this.soggettoDi(c), items: [] });
@@ -2129,26 +2106,18 @@ export class AppState {
    */
   shownArtworks(): ArtworkGroup[] {
     if (this.marketType === "visite") return [];
-    const items = this.visibleItems().filter((i: any) => {
+    const items = this.visibleItems().filter((i) => {
       if (this.marketLevelFilter === "misto") return false;
-      if (
-        this.marketLevelFilter !== "tutti" &&
-        i.educationalLevel !== this.marketLevelFilter
-      )
-        return false;
-      if (
-        (this.marketType === "opere" || this.marketType === "meta") &&
-        this.marketDurationFilter !== "tutti"
-      ) {
-        if (String(i.timeRequired) !== this.marketDurationFilter) return false;
-      }
+      if (!this.inTono(this.marketLevelFilter, i.educationalLevel)) return false;
+      if (this.marketType === "opere" || this.marketType === "meta")
+        return this.inSecondi(this.marketDurationFilter, i.timeRequired);
       return true;
     });
     let groups = this.groupByArtwork(items);
     if (this.marketType === "opere")
-      groups = groups.filter((g) => !this.isSoggetto(g));
+      groups = groups.filter((g) => !this.gruppoDiSoggetto(g));
     if (this.marketType === "meta")
-      groups = groups.filter((g) => this.isSoggetto(g));
+      groups = groups.filter((g) => this.gruppoDiSoggetto(g));
     if (!this.marketSearch.trim()) return groups;
     return groups.filter((g) =>
       this.matchesSearch(g.artwork, this.marketSearch),
@@ -2160,7 +2129,7 @@ export class AppState {
     const v = this.shownVisits().length;
     const gruppi = this.shownArtworks();
     // Opere e soggetti si contano a parte: un soggetto non e' un'opera.
-    const soggetti = gruppi.filter((g) => this.isSoggetto(g)).length;
+    const soggetti = gruppi.filter((g) => this.gruppoDiSoggetto(g)).length;
     const opere = gruppi.length - soggetti;
     const pezzi: string[] = [];
     if (this.marketType !== "opere") {
@@ -2213,7 +2182,7 @@ export class AppState {
 
   /** "Gratis" o "da € X": il prezzo piu' basso fra le descrizioni di un'opera. */
   artworkFromPrice(g: ArtworkGroup): string {
-    const prices = g.items.map((i: any) => Number(i.price) || 0);
+    const prices = g.items.map((i) => Number(i.price) || 0);
     const cheapest = prices.length ? Math.min(...prices) : 0;
     if (cheapest === 0) return this.t("Gratis");
     return this.t("da {prezzo}", { prezzo: `€ ${cheapest.toFixed(2)}` });
@@ -2231,7 +2200,7 @@ export class AppState {
     if (this.view !== "opera" || !this.param) return null;
     const p = this.param;
     const opera = this.availableArtworks.find(
-      (a: any) => a.qid === p || a["@id"] === p,
+      (a) => a.qid === p || a["@id"] === p,
     );
     if (opera) return opera;
     for (const i of this.visibleItems()) {
@@ -2245,10 +2214,10 @@ export class AppState {
     const art = this.currentArtwork();
     if (!art) return [];
     const items = this.visibleItems().filter(
-      (i: any) => this.soggettoIdOf(i) === art["@id"],
+      (i) => this.soggettoIdOf(i) === art["@id"],
     );
     return items.sort(
-      (a: any, b: any) =>
+      (a, b) =>
         educationalLevels.indexOf(a.educationalLevel) -
         educationalLevels.indexOf(b.educationalLevel),
     );
@@ -2279,19 +2248,11 @@ export class AppState {
 
   /** Le descrizioni dell'opera che passano i suoi filtri di tono e durata. */
   shownArtworkItems(): Item[] {
-    return this.artworkItems().filter((i: any) => {
-      if (
-        this.artworkLevelFilter !== "tutti" &&
-        i.educationalLevel !== this.artworkLevelFilter
-      )
-        return false;
-      if (
-        this.artworkDurationFilter !== "tutti" &&
-        String(i.timeRequired) !== this.artworkDurationFilter
-      )
-        return false;
-      return true;
-    });
+    return this.artworkItems().filter(
+      (i) =>
+        this.inTono(this.artworkLevelFilter, i.educationalLevel) &&
+        this.inSecondi(this.artworkDurationFilter, i.timeRequired),
+    );
   }
 
   /** Quante descrizioni si vedono adesso sulla pagina dell'opera. */
@@ -2356,7 +2317,7 @@ export class AppState {
    * Non si ripiega sulla prima tappa, o le visite di catalogo di un museo -- le
    * stesse opere nello stesso ordine -- uscirebbero tutte con la stessa foto.
    */
-  visitImage(v: any): string {
+  visitImage(v: Visit | null): string {
     if (!v) return "";
     return v.imagePath || "";
   }
@@ -2367,7 +2328,7 @@ export class AppState {
    * aggiungere un museo non deve avere un requisito grafico. L'indirizzo si
    * codifica perche' quei file prendono il nome del museo, spazi compresi.
    */
-  museumImage(m: any): string {
+  museumImage(m: Museum | null): string {
     if (!m || !m.imagePath) return "";
     return encodeURI(m.imagePath);
   }
@@ -2413,7 +2374,7 @@ export class AppState {
 
   /** Il nome dell'autore dell'opera aperta, vuoto se Wikidata lascia solo un nodo anonimo. */
   nomeAutore(): string {
-    const a: any = this.currentArtwork();
+    const a = this.currentArtwork();
     if (!a || !a.author || !a.author.name) return "";
     if (a.author.name.startsWith("http")) return "";
     return a.author.name;
@@ -2421,7 +2382,7 @@ export class AppState {
 
   /** Il nome dello stile dell'opera aperta. */
   nomeStile(): string {
-    const a: any = this.currentArtwork();
+    const a = this.currentArtwork();
     if (a && a.style && a.style.name) return a.style.name;
     return "";
   }
@@ -2503,7 +2464,13 @@ export class AppState {
   }
 
   /** Le tappe di una visita, ognuna col suo numero, nome, item e se e' opzionale. */
-  visitStops(v: any): any[] {
+  visitStops(v: Visit | null): {
+    id: string;
+    numero: number;
+    nome: string;
+    opzionale: boolean;
+    item: Content | null;
+  }[] {
     if (!v) return [];
     return (v.itemListElement || []).map((id: string, i: number) => ({
       id,
@@ -2515,7 +2482,8 @@ export class AppState {
   }
 
   /** Le note logistiche ancorate a una certa tappa. */
-  notesAfter(v: any, itemId: string): string[] {
+  notesAfter(v: Visit | null, itemId: string): string[] {
+    if (!v) return [];
     const notes: string[] = [];
     for (const n of v.logistics || []) {
       if (n && typeof n === "object" && n.after === itemId && n.text)
@@ -2525,7 +2493,8 @@ export class AppState {
   }
 
   /** Le note logistiche d'apertura: quelle senza tappa a cui appoggiarsi. */
-  openingNotes(v: any): string[] {
+  openingNotes(v: Visit | null): string[] {
+    if (!v) return [];
     const notes: string[] = [];
     for (const n of v.logistics || []) {
       if (typeof n === "string" && n.trim() !== "") notes.push(n);
@@ -2540,7 +2509,7 @@ export class AppState {
   // **********************************************************************
 
   /** Le visite nella libreria del visitatore, filtrate dalla sua ricerca. */
-  myVisits(): any[] {
+  myVisits(): Visit[] {
     const base = [...this.visits].filter(
       (v) =>
         this.belongsToMuseum(v) &&
@@ -2552,16 +2521,16 @@ export class AppState {
   }
 
   /** Le descrizioni possedute dal visitatore, raggruppate per opera e filtrate dalla ricerca. */
-  myItemGroups(): { artwork: any; items: any[] }[] {
+  myItemGroups(): ArtworkGroup[] {
     const posseduti = this.visibleItems().filter(
-      (i: any) =>
+      (i) =>
         this.inLibrary(i) && this.matchesSearch(i, this.librarySearch),
     );
     return this.groupByArtwork(posseduti);
   }
 
   /** Le descrizioni scritte dall'autore in questo museo, raggruppate per opera. */
-  workItemGroups(): { artwork: any; items: any[] }[] {
+  workItemGroups(): ArtworkGroup[] {
     if (this.worksTypeFilter === "visite") return [];
     const items = this.myItems.filter(
       (i) => this.belongsToMuseum(i) && this.matchesSearch(i, this.worksSearch),
@@ -2570,7 +2539,7 @@ export class AppState {
   }
 
   /** Le visite scritte dall'autore in questo museo. */
-  workVisits(): any[] {
+  workVisits(): Visit[] {
     if (this.worksTypeFilter === "item") return [];
     return this.visits.filter(
       (v) =>
@@ -2582,7 +2551,7 @@ export class AppState {
 
   /** Quante volte un contenuto e' stato adottato, o `null` se non e' fra le vendite. */
   adoptionsOf(id: string): number | null {
-    const riga = this.sales.find((r: any) => r.id === id);
+    const riga = this.sales.find((r) => r.id === id);
     return riga ? riga.adozioni : null;
   }
 
@@ -2595,7 +2564,7 @@ export class AppState {
    * catalogo se il genere e' "opera", altrimenti la bozza stessa (nome e
    * immagine caricata), perche' li' il soggetto non esiste altrove.
    */
-  draftSubject(): any {
+  draftSubject(): SoggettoBozza | null {
     if (this.draft.genere !== "opera") {
       if (!this.draft.soggetto && !this.draft.immagine) return null;
       return {
@@ -2606,7 +2575,7 @@ export class AppState {
     }
     if (!this.draft.selectedArtworkUri) return null;
     const trovata = this.availableArtworks.find(
-      (a: any) => a["@id"] === this.draft.selectedArtworkUri,
+      (a) => a["@id"] === this.draft.selectedArtworkUri,
     );
     if (!trovata) return null;
     return trovata;
@@ -2635,7 +2604,7 @@ export class AppState {
   }
 
   /** La figura grande di un'opera: la copia locale, o l'indirizzo remoto se manca. */
-  artworkImage(about: any): string {
+  artworkImage(about: Artwork | Soggetto | string | null | undefined): string {
     if (!about || typeof about !== "object") return "";
     return about.imagePath || about.imageUri || "";
   }
@@ -2665,7 +2634,7 @@ export class AppState {
    * per finire in un QR su carta -- quindi chi lo inquadra da un altro telefono
    * entra da li'.
    */
-  navigatorUrl(v: any): string {
+  navigatorUrl(v: Visit | null): string {
     if (!v) return "#";
     const uri: string = v.ofMuseum || "";
     const museumQid = uri.split("/").pop() || "";
@@ -2759,7 +2728,7 @@ export class AppState {
   }
 
   /** L'indirizzo con cui il docente apre e conduce una visita guidata. */
-  startGuidedUrl(visit: any): string {
+  startGuidedUrl(visit: Visit): string {
     return (
       `${this.navigatorBase()}/` +
       `?guidedVisit=${encodeURIComponent(visit["@id"])}&role=docente`
@@ -2835,13 +2804,8 @@ export class AppState {
   }
 
   /** Apre l'editor su una descrizione esistente, versandola nella bozza. Solo la propria. */
-  editItem(item: any) {
-    if (
-      !item ||
-      item["@type"] !== "CreativeWork" ||
-      item.author !== this.currentUser
-    )
-      return;
+  editItem(item: Item | null) {
+    if (!item || !isItem(item) || item.author !== this.currentUser) return;
     this.editingId = item["@id"];
     this.draft = this.emptyDraft();
     this.draft.genere = item.kind;
@@ -2949,7 +2913,7 @@ export class AppState {
   }
 
   /** Apre il compositore su una visita esistente, ricostruendone la bozza. Solo la propria. */
-  editVisit(visit: any) {
+  editVisit(visit: Visit | null) {
     if (!visit || visit.author !== this.currentUser) return;
     this.editingId = visit["@id"];
     this.visitStep = "percorso";
@@ -2962,7 +2926,7 @@ export class AppState {
     this.draft.license = visit.license || licenses[0];
     this.draft.guidata = !!visit.accessKey;
     this.draft.accessKey = visit.accessKey || "";
-    this.draft.quiz = (visit.quiz || []).map((q: any) => ({
+    this.draft.quiz = (visit.quiz || []).map((q) => ({
       question: q.question || "",
       options: [...(q.options || ["", "", "", ""])],
       correct: Number(q.correct) || 0,
@@ -2973,7 +2937,7 @@ export class AppState {
   }
 
   /** Ricostruisce le tappe della bozza da una visita: tappe, opzionali e note in fila. */
-  private rebuildStops(visit: any) {
+  private rebuildStops(visit: Visit) {
     const optionalIds = new Set<string>(visit.optionalItems || []);
     const tappe: {
       tipo: "item" | "logistica";
@@ -3009,7 +2973,7 @@ export class AppState {
    */
   importVisit(visitId: string) {
     if (!visitId) return;
-    const src: any = this.visits.find((v) => v["@id"] === visitId);
+    const src = this.visits.find((v) => v["@id"] === visitId);
     if (!src) return;
     this.draft.tappe = this.rebuildStops(src);
     this.editingId = null;
@@ -3032,7 +2996,7 @@ export class AppState {
    * Se una descrizione si puo' leggere (regola in `shared/access.ts`). Non e'
    * `inLibrary()`: una descrizione gratuita si legge senza averla presa.
    */
-  canRead(item: any): boolean {
+  canRead(item: Item | null): boolean {
     if (!item) return false;
     const id = item["@id"];
     return isReadable(
@@ -3047,9 +3011,9 @@ export class AppState {
    * dall'alto in basso ottiene un percorso che non torna indietro. I soggetti
    * senza una sala restano in fondo.
    */
-  private percorrenza(gruppi: { artwork: any; items: any[] }[]) {
+  private percorrenza(gruppi: ArtworkGroup[]): ArtworkGroup[] {
     const posto = new Map<string, number>();
-    this.availableArtworks.forEach((a: any, i: number) =>
+    this.availableArtworks.forEach((a, i) =>
       posto.set(a["@id"], i),
     );
     const dopo = this.availableArtworks.length;
@@ -3065,10 +3029,10 @@ export class AppState {
    * percorrenza e passate per filtro e ricerca. Per una visita guidata restano
    * solo quelle leggibili, che sono le uniche che l'autore puo' incastonare.
    */
-  editorLibrary(): { artwork: any; items: any[] }[] {
+  editorLibrary(): ArtworkGroup[] {
     let base = this.visibleItems();
     if (this.currentUserRole === "autore") {
-      base = base.filter((i: any) => this.canRead(i));
+      base = base.filter((i) => this.canRead(i));
     }
     if (this.draft.guidata) {
       base = base.filter((op) => this.canRead(op));
@@ -3269,7 +3233,7 @@ export class AppState {
   composedVisitCount(): number {
     if (!this.currentUser) return 0;
     return this.visits.filter(
-      (v: any) => v.author === this.currentUser && this.belongsToMuseum(v),
+      (v) => v.author === this.currentUser && this.belongsToMuseum(v),
     ).length;
   }
 
@@ -3450,7 +3414,7 @@ export class AppState {
   }
 
   /** Il ricavo di una riga; "n/d" per un contenuto gratuito, che non ne produce. */
-  readableRevenue(r: any): string {
+  readableRevenue(r: SaleRow): string {
     if (!r.price || Number(r.price) === 0) return "n/d";
     return `€ ${(r.ricavo || 0).toFixed(2)}`;
   }

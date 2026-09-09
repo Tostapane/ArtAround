@@ -16,7 +16,7 @@
  * Si entra da un account: ogni rotta sotto /api pretende una sessione, tranne
  * quelle che non possono averne una. `/config` e `/users/{login,register,redeem}`
  * perche' vengono prima di avere un account; `/museums/:qid/qrcodes` perche' a
- * chiederla non e' il nostro codice ma il browser — il foglio si apre come
+ * chiederla non e' il nostro codice ma il browser, il foglio si apre come
  * pagina, e a una navigazione non si puo' attaccare un'intestazione. Di li' non
  * passa nessun testo a pagamento: quel foglio nasce per essere appeso al muro.
  * `museums` e `users` sono percio' le due miste, e li' la guardia sta dentro il

@@ -9,7 +9,7 @@
  * temporaneo e finisce con la visita.
  *
  * `guidedPlannedEnd` distingue una chiusura voluta dal docente (o l'uscita dello
- * studente) da una sessione sparita sotto i piedi — server riavviato, rete
+ * studente) da una sessione sparita sotto i piedi, server riavviato, rete
  * caduta: riusare "terminata" per "non sappiamo cos'e' successo" e' il modo in cui
  * un guasto diventa invisibile. Il server tiene apposta la sessione ancora un
  * momento dopo il "Termina", con stato "terminata", proprio perche' i client
@@ -83,10 +83,10 @@ export type QuizStudente = {
 
 export const guidedQuizDocente = ref<QuizDocente | null>(null);
 export const guidedQuizStudente = ref<QuizStudente | null>(null);
-export const guidedQuizPunteggio = ref<number | null>(null); // il voto ricevuto: qui non si corregge niente
-export const guidedHasQuiz = ref(false); // la visita ha un quiz preparato dall'autore; lo sa solo il docente
+export const guidedQuizPunteggio = ref<number | null>(null);
+export const guidedHasQuiz = ref(false);
 
-const PASSO_INTERROGAZIONE_MS = 1500; // deve restare sotto la soglia di presenza del server
+const PASSO_INTERROGAZIONE_MS = 1500;
 
 let pollTimer: number | null = null;
 let contentLoaded = false;
@@ -165,9 +165,7 @@ async function pollOnce() {
     if (guidedRole.value === "docente") {
       applyTeacherView(await getGuidedTeacherView(guidedSessionId.value));
     } else {
-      applyStudentState(
-        await getGuidedStudentState(guidedSessionId.value),
-      );
+      applyStudentState(await getGuidedStudentState(guidedSessionId.value));
     }
   } catch (err) {
     if (err instanceof GuidedEndedError) endLocally(false);
@@ -207,15 +205,11 @@ export async function attachAsStudent(sessionId: string) {
 
 // --- Azioni DOCENTE ---
 export async function teacherStart() {
-  applyTeacherView(
-    await postGuidedStart(guidedSessionId.value),
-  );
+  applyTeacherView(await postGuidedStart(guidedSessionId.value));
 }
 
 export async function teacherGoToStep(index: number) {
-  applyTeacherView(
-    await postGuidedStep(guidedSessionId.value, index),
-  );
+  applyTeacherView(await postGuidedStep(guidedSessionId.value, index));
 }
 
 export async function teacherEnd() {
@@ -228,25 +222,17 @@ export async function teacherEnd() {
 
 export async function teacherStartQuiz(durationSec: number) {
   applyTeacherView(
-    await postGuidedQuizStart(
-      guidedSessionId.value,
-      durationSec,
-    ),
+    await postGuidedQuizStart(guidedSessionId.value, durationSec),
   );
 }
 
 export async function teacherEndQuiz() {
-  applyTeacherView(
-    await postGuidedQuizEnd(guidedSessionId.value),
-  );
+  applyTeacherView(await postGuidedQuizEnd(guidedSessionId.value));
 }
 
 // --- Azioni STUDENTE ---
 export async function studentSubmitQuiz(answers: number[]) {
-  const esito = await postGuidedQuizAnswer(
-    guidedSessionId.value,
-    answers,
-  );
+  const esito = await postGuidedQuizAnswer(guidedSessionId.value, answers);
   guidedQuizPunteggio.value = esito.score;
   const q = guidedQuizStudente.value;
   if (q) q.giaConsegnato = true;

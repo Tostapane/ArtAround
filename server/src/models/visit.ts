@@ -14,7 +14,7 @@
  * Gli indici sono le forme di interrogazione che questo modello riceve davvero
  * (il perche' sta in `models/item.ts`): `@id`, `ofMuseum` (le visite di un museo,
  * la piu' frequente), `author`, e `itemListElement`, che serve a chiedere chi cita
- * un item — cioe' alla cascata di un'eliminazione.
+ * un item, cioe' alla cascata di un'eliminazione.
  */
 import { Schema, model } from "mongoose";
 import { Visit as SharedVisit } from "../../../shared/types";

@@ -24,7 +24,7 @@
  * ai tipi di Express vorrebbe dire un `.d.ts` ambientale, e ts-node quelli non
  * li carica (il motivo sta in cima a `env.ts`). `sessionUser` solleva se l'utente
  * manca invece di tornare null: si chiama solo dietro `requireSession`, quindi
- * l'assenza e' una rotta montata senza guardia — un difetto nostro, da vedere
+ * l'assenza e' una rotta montata senza guardia, un difetto nostro, da vedere
  * subito invece che diventare una richiesta anonima servita per sbaglio.
  *
  * `destroySession` copre due gesti che sono la stessa operazione, spendere un

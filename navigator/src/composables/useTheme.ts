@@ -5,47 +5,27 @@
  * l'aspetto non cambia.
  */
 import { ref } from "vue";
+import { THEME_KEY } from "../../../shared/constants";
 
-export type Theme = "light" | "dark" | "system";
+const dark = ref(readStored());
 
-const STORAGE_KEY = "artaround-theme";
-
-const theme = ref<Theme>(readStored());
-
-function readStored(): Theme {
-  const v = localStorage.getItem(STORAGE_KEY);
-  return v === "light" || v === "dark" ? v : "system";
-}
-
-function systemPrefersDark(): boolean {
+function readStored(): boolean {
+  const scelto = localStorage.getItem(THEME_KEY);
+  if (scelto === "dark") return true;
+  if (scelto === "light") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 function isDark(): boolean {
-  return theme.value === "dark" || (theme.value === "system" && systemPrefersDark());
-}
-
-function apply() {
-  document.documentElement.classList.toggle("dark", isDark());
-}
-
-function setTheme(next: Theme) {
-  theme.value = next;
-  if (next === "system") localStorage.removeItem(STORAGE_KEY);
-  else localStorage.setItem(STORAGE_KEY, next);
-  apply();
+  return dark.value;
 }
 
 function toggle() {
-  setTheme(isDark() ? "light" : "dark");
+  dark.value = !dark.value;
+  document.documentElement.classList.toggle("dark", dark.value);
+  localStorage.setItem(THEME_KEY, dark.value ? "dark" : "light");
 }
 
-window
-  .matchMedia("(prefers-color-scheme: dark)")
-  .addEventListener("change", () => {
-    if (theme.value === "system") apply();
-  });
-
 export function useTheme() {
-  return { theme, isDark, setTheme, toggle, apply };
+  return { isDark, toggle };
 }

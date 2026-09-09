@@ -24,7 +24,7 @@
  *
  * `Visit.visibility` si SCRIVE alla creazione e non si ricava dal ruolo a ogni
  * lettura. Le visite che nascono da un visitatore sono private perche' quello
- * compone un itinerario per se' e non un prodotto da mettere in vendita —
+ * compone un itinerario per se' e non un prodotto da mettere in vendita,
  * vendere e' il mestiere dell'autore (slide 22: licenza, prezzo, adozioni,
  * vendite). Ricavarla dal ruolo vorrebbe dire che chi diventasse autore domani
  * si ritroverebbe pubblicati gli itinerari che aveva scritto per se'.
@@ -45,7 +45,7 @@
  * esiste solo su una delle due meta' (`level`, `itemListElement`, `kind`) non si
  * puo' leggere prima di sapere quale delle due si ha in mano. Distinguono per un
  * campo obbligatorio di ciascuna e non per `@type`, che non fa parte di questi
- * tipi — esiste solo come valore di scorta dello schema Mongoose, quindi un
+ * tipi, esiste solo come valore di scorta dello schema Mongoose, quindi un
  * documento inserito per altra via ne sarebbe privo. Il campo obbligatorio
  * dell'item e' `kind` e non `about`: cercare `about` farebbe sparire dagli
  * elenchi ogni contenuto che non parla di un'opera. `isAboutArtwork` e' l'unica
@@ -175,7 +175,7 @@ export interface Visit {
  *
  * Che quel silenzio non sia teorico lo dice la storia di `svuotate`: il server
  * ha cominciato a mandarlo, il tipo dalla parte del client non l'ha mai saputo,
- * e chi doveva leggerlo se l'e' preso con un `as any` — cioe' spegnendo proprio
+ * e chi doveva leggerlo se l'e' preso con un `as any`, cioe' spegnendo proprio
  * il controllo che avrebbe segnalato lo scarto. Le rotte qui sotto DICHIARANO
  * ora quel che rispondono, cosi' togliere un campo da una parte accende un
  * errore dall'altra invece di una colonna vuota a schermo.

@@ -9,7 +9,7 @@
  *
  * Se il museo non offre abbastanza autori o stili diversi per fare tre
  * distrattori, la domanda semplicemente non viene prodotta: meglio un quiz
- * corto di uno con due opzioni identiche — e' quel che fa `domanda`, che rende
+ * corto di uno con due opzioni identiche, e' quel che fa `domanda`, che rende
  * null invece di riempire con quel che trova.
  *
  * `valido` scarta "Unknown", che e' quel che Wikidata rende quando l'autore o lo

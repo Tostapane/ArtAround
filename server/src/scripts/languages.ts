@@ -38,7 +38,7 @@
  * che «orfana» qui vuol dire soltanto «l'estrattore non la trova», che non e' la
  * stessa cosa di «nessuno la mostra piu'». Una frase viva ma raccolta male
  * risulta orfana identica a una morta, e cancellarla la fa sparire in dodici
- * lingue senza che niente protesti — il difetto lo si scoprirebbe mesi dopo,
+ * lingue senza che niente protesti, il difetto lo si scoprirebbe mesi dopo,
  * davanti a un messaggio d'errore rimasto in italiano. L'elenco stampato e' li'
  * per essere LETTO: se una di quelle frasi e' ancora a schermo, la cura non e'
  * potarla ma marcarla con `tKey()`.
@@ -127,7 +127,7 @@ function allSources(): string[] {
  * La chiave e' sempre LETTERALE, mai un'espressione: una chiave calcolata non si
  * potrebbe raccogliere da qui e resterebbe non tradotta, quindi un backtick con
  * dentro `${}` si segnala invece di finire in catalogo. I backtick servono nei
- * template — `:aria-label="t(`Scheda dell'opera`)"` e' l'unico modo di scrivere
+ * template, `:aria-label="t(`Scheda dell'opera`)"` e' l'unico modo di scrivere
  * una stringa con un apostrofo dentro un attributo gia' fra virgolette doppie.
  */
 function keysFromSource(): string[] {
@@ -530,7 +530,7 @@ async function main() {
       console.log(
         "\nNiente e' stato cancellato. Rileggi l'elenco: una frase che sta " +
           "ancora\na schermo, qui dentro, vuol dire che l'estrattore non la vede " +
-          "— non che e' morta.\nIn quel caso marcala con tKey() invece di " +
+          "non che e' morta.\nIn quel caso marcala con tKey() invece di " +
           "potarla (vedi in testa a questo file).\n\nPer procedere:  npx ts-node " +
           "src/scripts/languages.ts pota --conferma",
       );

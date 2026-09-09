@@ -24,9 +24,9 @@
  *
  * L'eliminazione e' a cascata: un item citato da una visita lascerebbe una tappa
  * che non si risolve, e una tappa irrisolvibile non da' errore, semplicemente
- * non compare. La visita si ACCORCIA quindi della sua tappa — cioe' salta
+ * non compare. La visita si ACCORCIA quindi della sua tappa, cioe' salta
  * l'opera che quella descrizione raccontava, se nel percorso non ce n'e'
- * un'altra sulla stessa opera — e sparisce solo se resta senza nessuna tappa.
+ * un'altra sulla stessa opera, e sparisce solo se resta senza nessuna tappa.
  * `GET /:id/impact` lo dichiara prima di chiedere conferma.
  *
  * Cancella chi l'ha scritta e il curatore, che risponde del catalogo del museo.
@@ -46,8 +46,8 @@
  * non possono cambiare a meta'.
  *
  * `freeItemId` esiste perche' lo stesso autore puo' scrivere piu' descrizioni
- * dello stesso tono sulla stessa opera — sono letture diverse dello stesso
- * quadro, non un errore — mentre l'`@id` e' unico in indice, e senza contatore la
+ * dello stesso tono sulla stessa opera, sono letture diverse dello stesso
+ * quadro, non un errore, mentre l'`@id` e' unico in indice, e senza contatore la
  * seconda morirebbe su una chiave duplicata. La prima tiene la forma leggibile,
  * cosi' gli id scritti dal seed restano prevedibili; resta comunque una chiave
  * opaca, che nessuno spacchetta per leggerci dentro il tono o la durata.
@@ -62,7 +62,7 @@
  * Le due guardie dell'eliminazione. `nascostoA`: un contenuto privato che non e'
  * del suo autore risponde come se non esistesse, perche' dire "non puoi"
  * confermerebbe comunque che c'e' e di chi e'. `vietato`: possono toccarlo il
- * curatore, che risponde del catalogo del museo, e l'autore che l'ha scritto — e
+ * curatore, che risponde del catalogo del museo, e l'autore che l'ha scritto, e
  * il RUOLO si guarda prima della privatezza, o al curatore la regola dei privati
  * altrui direbbe "non esiste", lasciandolo senza lo strumento fine e con in mano
  * solo lo svuotamento del museo intero. Nascondere il pulsante non basterebbe: la
@@ -78,7 +78,7 @@ import { ItemModel } from "../models/item";
 import { ArtworkModel } from "../models/artwork";
 import { purchasedBy, readableItems, isReadable } from "../access";
 import { VisitModel } from "../models/visit";
-import { rimuoviTappeDalleVisite } from "../dbActions";
+import { rimuoviTappeDalleVisite } from "../catalogue";
 import { UserModel } from "../models/user";
 import { kindById, DEFAULT_LICENSE } from "../../../shared/constants";
 import { ImpactReport } from "../../../shared/types";
@@ -449,7 +449,7 @@ router.get("/:id/impact", async (req, res) => {
  * butta via intere. Una visita che resterebbe senza tappe sparisce comunque.
  *
  * Accorciare vuol dire che la visita SALTA l'opera di cui la descrizione
- * parlava — a meno che nel percorso non ci sia un'altra tappa sulla stessa
+ * parlava, a meno che nel percorso non ci sia un'altra tappa sulla stessa
  * opera, che resta e la fa visitare lo stesso. E' quel che la tappa tolta
  * significa, e non serve nessun conto per ottenerlo: si toglie l'item, e la
  * fermata su quell'opera resta solo se qualcos'altro la teneva.

@@ -25,7 +25,7 @@
  * `mapRequest` distingue TRE esiti e non due: il comando riconosciuto, la
  * stringa vuota se non c'era niente da riconoscere, e null se il modello non ha
  * risposto affatto. «Non ho capito quel che hai detto» e «il servizio non
- * risponde» chiedono due cose diverse a chi ascolta — ripetere, oppure smettere
+ * risponde» chiedono due cose diverse a chi ascolta, ripetere, oppure smettere
  * di provare e usare i pulsanti. Il fallimento va percio' reso esplicito:
  * tornando `undefined` verrebbe tolto dalla risposta da `JSON.stringify`, e il
  * client leggerebbe `{}` con stato 200, cioe' «ho capito, e non era niente».

@@ -28,7 +28,7 @@ const router = Router();
  * POST /api/wayfinding  { museumQid, from, target, language, detailed }
  * `from` e' il qid dell'opera presso cui si e' (vuoto = l'ingresso), `target` un
  * tipo di POI ("toilet", "exit", …), "obstacles", oppure il qid di un'altra opera.
- * Ritorna: { directions } — il nome della sala di destinazione, oppure, con
+ * Ritorna: { directions }, il nome della sala di destinazione, oppure, con
  * `detailed` (e sempre per gli ostacoli), il percorso passo-passo verbalizzato.
  */
 router.post("/", async (req, res) => {

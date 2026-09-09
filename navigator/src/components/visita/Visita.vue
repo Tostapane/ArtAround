@@ -15,7 +15,7 @@
  * Opera, Domande (`vistaMobile`). Su 844 px di altezza le due meta' facevano una
  * pianta alta 255 px sopra una scheda in cui il testo dell'opera e le pastiglie
  * delle domande si spartivano 400 px: tutto presente e niente usabile. La
- * divisione e' solo la' sotto — da `lg` in su questo file monta esattamente quel
+ * divisione e' solo la' sotto, da `lg` in su questo file monta esattamente quel
  * che montava prima, perche' li' lo schermo le due domande le tiene davvero
  * insieme, ed e' la ragione per cui la scheda non ha uno stato di apertura.
  *
@@ -53,7 +53,7 @@
  * che il tocco su un disco non ha fatto niente di visibile.
  *
  * "Prossimo" sull'ultima tappa CHIUDE la visita: senza quel ramo non finirebbe
- * mai. In visita guidata no — li' la chiusura la decide il docente, che dopo
+ * mai. In visita guidata no, li' la chiusura la decide il docente, che dopo
  * l'ultima opera fa partire il quiz.
  *
  * Sulle note d'apertura "Continua" deve CONTINUARE, cioe' portare alla prima
@@ -95,6 +95,9 @@ import {
   visit,
   posizioneAttiva,
   setPosizioneAttiva,
+  currentArtwork,
+  lastVisitIndex,
+  openingShown,
 } from "@/state";
 import {
   guidedActive,
@@ -127,7 +130,10 @@ watch(
     await loadVisitContent(id);
     caricando.value = false;
     const opening = openingNotes();
-    if (opening.length) transition.value = { notes: opening, target: -1 };
+    if (opening.length && !openingShown.value) {
+      transition.value = { notes: opening, target: -1 };
+      openingShown.value = true;
+    }
   },
   { immediate: true },
 );
@@ -148,8 +154,6 @@ const schedaVisibile = computed(
 );
 
 // --- Posizione corrente ----------------------------------------------------
-const currentArtwork = ref<Match | null>(null);
-const lastVisitIndex = ref(-1);
 const showLocator = ref(false);
 
 /**
@@ -391,7 +395,10 @@ function closeTransition() {
 function apriTappa(i: number) {
   let notes: string[] = [];
   if (i === 0) {
-    notes = openingNotes();
+    if (!openingShown.value) {
+      notes = openingNotes();
+      openingShown.value = true;
+    }
   } else {
     const precedente = matchedContent.value[i - 1];
     if (precedente) notes = notesAfter(precedente.item["@id"]);
@@ -591,7 +598,7 @@ watch(currentArtwork, () => {
 
 /**
  * Una risposta aperta porta sulle Domande, ed e' l'unico punto in cui serve
- * dirlo: le domande partono anche da fuori quel pannello — la voce, che sta
+ * dirlo: le domande partono anche da fuori quel pannello, la voce, che sta
  * nella barra, e un servizio toccato sulla pianta. Senza, toccare il bagno sulla
  * pianta sembrerebbe non fare niente, perche' la risposta comparirebbe in una
  * scheda che non si sta guardando.

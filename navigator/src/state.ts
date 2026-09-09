@@ -65,6 +65,9 @@ export const visit = ref<Visit>();
 export const museum = ref<Museum>();
 export const map = ref<string>("");
 export const matchedContent = ref<Match[]>([]);
+export const currentArtwork = ref<Match | null>(null);
+export const lastVisitIndex = ref(-1);
+export const openingShown = ref(false);
 
 export const museumArtworks = ref<Artwork[]>([]);
 
@@ -240,6 +243,9 @@ export function clearVisit() {
   matchedContent.value = [];
   contentVisitId = "";
   includeOptional.value = false;
+  currentArtwork.value = null;
+  lastVisitIndex.value = -1;
+  openingShown.value = false;
 }
 
 export function setCustomVisit(v: Visit, content: Match[]) {
@@ -247,11 +253,17 @@ export function setCustomVisit(v: Visit, content: Match[]) {
   matchedContent.value = content;
   contentVisitId = v["@id"];
   includeOptional.value = false;
+  currentArtwork.value = null;
+  lastVisitIndex.value = -1;
+  openingShown.value = false;
 }
 
 export function setVisit(v: Visit) {
   visit.value = v;
   includeOptional.value = false;
+  currentArtwork.value = null;
+  lastVisitIndex.value = -1;
+  openingShown.value = false;
 }
 
 export async function loadVisitContent(visitId: string) {

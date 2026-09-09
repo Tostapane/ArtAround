@@ -3,6 +3,11 @@
  *
  * La decodifica avviene dentro l'app, senza ricaricare la pagina: la visita in
  * corso, la lingua e il punto in cui si e' arrivati restano in memoria.
+ *
+ * Chiedere il permesso puo' durare quanto ci mette una persona a rispondere, e in
+ * quel tempo il pannello si puo' chiudere: senza il controllo su `stopped` dopo
+ * l'attesa, lo stream arriverebbe dopo `stop()` e la fotocamera resterebbe accesa
+ * senza piu' nessuno in grado di spegnerla.
  */
 import { ref } from "vue";
 import jsQR from "jsqr";
@@ -33,6 +38,10 @@ export function useQRScanner() {
         });
       } catch {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+      if (stopped) {
+        stop();
+        return;
       }
       video.srcObject = stream;
       await video.play();

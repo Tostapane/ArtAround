@@ -1,5 +1,193 @@
 # `left.md` — handoff
 
+## ⏸ Ripresa — 2026-09-03, quel che nel navigator resta aperto
+
+**E' una rilettura, non una passata di correzioni**: gli otto punti qui sotto sono
+aperti e nessuno e' stato toccato. L'unica cosa fatta sta in fondo, ed e' venuta fuori
+parlandone. Per il resto e' la rilettura di
+`state.md` e di questo file chiesta prima di mettere mano al navigator. Ogni voce e' stata
+ricontrollata **sul codice**, non solo sui due documenti: qui dentro e' gia' successo che un
+resoconto raccontasse un lavoro che nel codice non c'era.
+
+Otto punti. Il primo e' una decisione, non un difetto; gli altri sette sono lavoro.
+
+### 1. Il navigator non si apre da solo, e va DECISO
+
+`App.vue`: dopo `loadConfig()`, se non c'e' un biglietto da riscattare nell'indirizzo,
+`if (!hasSession())` ferma tutto e scrive *«Apri l'app da museo dal marketplace: e' li' che si
+entra col proprio profilo»*. Non esiste nessun'altra strada d'ingresso.
+
+Viene dall'irrobustimento delle sessioni del 2026-08-03, **non dalle slide**, e la ripresa del
+2026-08-08 lo lascia gia' segnato come scomodo. Le slide tirano nell'altro verso: la 19 vuole
+il museo scelto **da file di configurazione** — che `public/config.json` fa gia' — la 34 dice
+che il curatore puo' fare «una versione specifica del navigator per il suo museo», cioe' un
+indirizzo che si apre e basta, e la 30 elenca «Accesso al marketplace» fra le voci del
+navigator: il collegamento va **da qui a la'**, non il contrario.
+
+⚠️ **Non e' un difetto del router e non si chiude con una riga.** Aprirlo da solo vuol dire
+decidere che cosa legge chi non ha un account — il catalogo gratuito? la sola visita nominata
+nell'indirizzo? nessun testo e solo la pianta? — ed e' la stessa domanda a cui `shared/access.ts`
+risponde per il marketplace. Si decide prima di scrivere, non scrivendo.
+
+### 2. `stepStartAt` non lo legge nessuno
+
+Verificato: `grep -rn stepStartAt navigator/src` **non da' niente**, e `useTTS.ts:15` tiene
+`autoRead` come un `ref(false)` che nessuno alza mai. Il server invece il valore lo calcola e
+lo manda (`routes/guidedSessions.ts`: `s.stepStartAt = Date.now()` al cambio tappa, piu' il
+ritardo all'avvio del quiz). E' `state.md` §7.7, ancora aperta: la slide chiede «gli stessi
+contenuti **allo stesso tempo** a tutti gli auricolari», e oggi ogni studente preme play per
+conto suo.
+
+⚠️ **Prima di scriverlo va risolto il gesto, o non parla e non lo dice.** La sintesi non parte
+senza un tocco dell'utente, quindi «programma `speak` a quel timestamp» funziona solo se il
+permesso e' stato acceso prima con un gesto vero — e' la stessa forma del `resume()` dentro il
+gesto in `useSTT` (`state.md` §10.1).
+
+### 3. Meta' di quel che si legge in visita resta italiano
+
+`useTranslation` copre i **tre campi della tappa aperta** (`Visita.vue:581`) e nient'altro.
+Restano nella lingua del database, in ogni lingua scelta:
+
+| dove | cosa |
+| --- | --- |
+| `Visita.vue:652` | il nome della visita nella barra dell'avanzamento (`{{ title }}`) |
+| `Stage.vue:557` | il nome dell'opera in ogni riga dell'elenco delle tappe (`stopName`) |
+| `Stage.vue:313-314` | lo stesso nome dentro l'`aria-label` dei dischi sulla pianta |
+
+`state.md` §5.6-bis lo dichiara gia' come «una mancanza che questo lavoro non tocca», perche'
+sta dalla parte dei **dati** e non dell'interfaccia. La domanda aperta non e' tecnica —
+`POST /translate` c'e' e la cache pure — e' **dove passa la riga**: il titolo di un'opera e'
+un dato e si lascia (*La Gioconda* non si traduce), ma il nome di una visita di catalogo lo ha
+scritto il **seed** (`Visita Infantile · 15s per opera`), e quello e' programma travestito da
+dato.
+
+⚠️ Piu' i messaggi d'errore del server, che arrivano a schermo cosi' come sono. In `state.md`
+§5.7 sono contati per il **marketplace** (~94 messaggi in 17 punti); nel navigator non sono
+stati contati, ma la sorgente e' la stessa e la strada giusta pure: un codice nella risposta
+che il client mappa su `t()`, non le frasi ricopiate nei cataloghi, che `pota` cancellerebbe.
+
+### 4. La pianta nuova non e' mai stata guidata dentro l'app
+
+`Stage.vue` e' stato scritto quando le piante erano schemi da cinque o sei sale su un piano
+solo. Dal ridisegno del 2026-08-06 la Galleria degli Uffizi ha **3 piani, 60 sale e 129 nodi**.
+La ripresa di quel giorno lascia scritto «da provare quando il navigator e' su: selettore dei
+piani, inquadratura per piano, numeri delle tappe sui dischi», e da allora **non e' stato
+fatto**: il `getBBox` di ogni gruppo `data-floor` e' stato controllato sul **file** SVG in
+chromium, non dentro l'applicazione.
+
+⚠️ **La passata del 2026-08-07 non vale come prova.** Li' biglietteria e visita sono state
+aperte in chromium davvero, ma per cercare superfici traslucide (il vetro), non per guardare la
+pianta.
+
+Quel che a questa scala puo' cedere e prima no: i dischi numerati di una visita da 104 tappe
+dentro un `viewBox` inquadrato su **un** piano, il selettore con tre piani invece di due, e la
+tappa aperta che deve far **salire** il disegno da sola.
+
+### 5. Il database e' a meta' seed, e la pianta corre avanti al catalogo
+
+Dalla ripresa del 2026-08-08, **non rimisurato oggi**: gli Uffizi hanno 117 opere nel database
+contro le 129 del config, e `visit-Q51252-Infantile-15` ha ancora 104 tappe. I 12 qid mancanti
+sono elencati li'.
+
+⚠️ **La conseguenza si vede proprio nel navigator**: la pianta disegna i nodi di tutte e 25 le
+opere nuove, e per 12 di quelle il catalogo non ha niente dietro. Si chiude con
+`npx ts-node src/scripts/seed.ts Q51252`, che salta quel che c'e' gia' e ricostruisce le visite
+alla fine del giro.
+
+### 6. Le figure del navigator sono ancora quelle grandi
+
+`percorsoMiniatura` (`shared/constants.ts:316`) la usano `imageDownloader.ts`, che i due file
+li scrive, e il marketplace, che li chiede. **Nel navigator: zero occorrenze.** E' dichiarato
+apposta in `state.md` §7-ter.1 — «mostra le figure grandi, dove servono grandi» — ed e' la
+scelta giusta per la scheda da `lg` in su, dove si vede l'opera intera.
+
+⚠️ **Resta pero' l'altro caso, che quella nota non nomina.** Sotto `lg` la scheda non mostra
+l'opera intera: mostra una **miniatura da 64 px accanto al titolo** (`state.md` §5.3-ter), e
+riceve lo stesso file da 960. E' l'app del telefono dentro il museo, cioe' esattamente il
+dispositivo e la rete per cui le miniature sono state fatte.
+
+### 7. Due rami che ora si POSSONO provare, e prima no
+
+`state.md` §5.3-sexies chiude con «non provato: lo studente in visita guidata — nel database
+non c'e' nessuna visita guidata (0 su 36)». **Quella frase non e' piu' vera**: `seed.ts
+speciali` e' stato eseguito il 2026-08-05 su tutti e quattro i musei, e nel database ci sono 4
+guidate con parole chiave distinte e 3 domande di quiz ciascuna (§3.5). Si possono quindi
+finalmente esercitare:
+
+- il comando «dov'e' la prossima tappa» **spento per lo studente**, con l'annuncio vocale che
+  ci arriva lo stesso perche' il vocabolario controllato non sa che un bottone e' spento
+  (§5.3-sexies);
+- il giro guidato intero **su due dispositivi veri**. Finora e' stato provato contro il server
+  con studenti simulati (riquadro ✅ STATUS piu' in basso), mai in due browser.
+
+### 8. I file del navigator si ricontrollano tutti a ogni apertura
+
+In `server/src/index.ts` le intestazioni di cache le ha **solo** `/images` (`maxAge: 30d`,
+`immutable`). `/navigator` e `/dist` escono con i valori di serie di `express.static`, cioe'
+`ETag` e `Last-Modified`: il browser non riscarica il contenuto, ma **richiede** ogni file per
+sentirsi rispondere 304. Per il navigator sono una decina di file a ogni apertura — il
+pacchetto, il foglio di stile, il catalogo della lingua, `config.json`, le fonti.
+
+⚠️ **La differenza fra le due applicazioni e' il NOME dei file, e ribalta qual e' la risposta
+giusta.** Quel che compila Vite porta l'impronta del contenuto nel nome
+(`index-BRozUZQW.js`): cambiando il codice cambia il nome, quindi una copia vecchia non puo'
+essere servita per sbaglio, ed e' esattamente la condizione in cui `immutable` si puo' dare. Il
+marketplace no: `tsc` scrive `app.js` e quel nome non cambia mai, quindi li' la ricontrollata
+**serve** e le intestazioni di serie sono gia' quelle giuste. Una regola sola per tutt'e due
+sarebbe sbagliata da una parte o dall'altra.
+
+⚠️ **`config.json` va tenuto fuori dalla regola, e non e' un dettaglio.** E' l'unico file di
+`navigator/dist/` senza impronta, ed e' voluto: e' il file con cui il curatore cambia museo
+sulla macchina senza ricompilare niente (`config.ts`, slide 33). Dandogli trenta giorni si
+otterrebbe un museo che non si cambia piu' finche' un browser non svuota la cache da se'.
+
+**Non misurato quanto costi davvero**, e va detto: sono una decina di richieste condizionali,
+che sulla rete del laboratorio non si sentono e su un telefono in mobilita' forse si'. Sta
+nella stessa famiglia di §7-ter.1, che era nata dalla stessa segnalazione — «dal telefono e'
+lento» — e aveva trovato le figure.
+
+### Fatto: la chiave della sessione e' salita in `shared/`
+
+L'unica riga toccata in questo giro, ed e' venuta fuori leggendo `api.ts`.
+`"artaround-sessione"` era scritta **due volte a mano**, una per applicazione,
+mentre le sue due vicine (`LANG_KEY`, `THEME_KEY`) stavano gia' in
+`shared/constants.ts`. Ora c'e' `SESSION_KEY` accanto a loro e i due `api.ts` la
+importano.
+
+⚠️ **Le due applicazioni devono davvero essere d'accordo su quella stringa**, e
+il motivo e' quello del `deploy.md`: in deploy stanno sulla **stessa origine**,
+quindi sulla stessa `sessionStorage`, ed e' proprio quella chiave a far si' che
+il navigator trovi la sessione aperta nel marketplace. In sviluppo le origini
+sono due, le memorie separate, e le due copie potevano divergere **senza che
+niente lo segnalasse**: il difetto sarebbe comparso solo in laboratorio, cioe'
+dove non lo si prova.
+
+⚠️ **Il valore non e' stato cambiato**, e non va cambiato senza motivo:
+cambiarlo scollega tutti da tutt'e due le applicazioni. E' innocuo — si rientra
+— ma non si guadagna niente.
+
+Verificato: zero letterali rimasti (`grep artaround-sessione` da' solo la
+dichiarazione), `dist/` del marketplace ricostruito e la costante e' dentro il
+compilato, e **tre type-check verdi** — `tsc` del marketplace, `vue-tsc` del
+navigator, `tsc` del server, che `shared/` ce l'ha nel programma. Ricostruito
+anche `navigator/dist`: l'impronta del pacchetto e' cambiata
+(`index-BRozUZQW` -> `index-CqWhB2oe`), che e' anche la dimostrazione del punto 8
+qui sopra.
+
+⚠️ **Non provato in browser**: e' una costante che sostituisce un letterale
+identico, quindi il rischio e' l'import sbagliato, che i type-check vedono. Il
+giro vero — entrare nel marketplace, passare al navigator, tornare — resta da
+fare.
+
+### Nota sull'albero di lavoro
+
+Al momento di scrivere ci sono modifiche **non committate**, e il navigator lo sfiorano
+appena: `THEME_KEY` salita in `shared/constants.ts` e `useTheme.ts` sceso da 73 a 31 righe.
+⚠️ Quella riduzione **toglie lo stato `system`**: la preferenza del sistema operativo ora si
+legge solo alla prima apertura, e il tema non la segue piu' se cambia a schermo acceso. Il
+resto dell'albero — `README.txt`, `marketplace/src/frontend/{state,api,app}.ts` — sta
+dall'altra parte.
+
 ## ⏸ Ripresa — 2026-08-08, chi puo' cancellare che cosa, e il tetto del visitatore
 
 Cinque punti. Ragionamento durevole in `state.md` §3.1-decies (la guardia sugli item),
@@ -3447,3 +3635,30 @@ mostra ancora la soglia).
 
 ⚠️ **Trappola della prova, non del codice:** il metodo si chiama `visitQrUrl`, non `qrUrl`;
 il primo giro falliva dentro lo script e sembrava un difetto dell'app.
+
+## 15. Un file di sorgente che `grep` non vede (2026-08-31)
+
+`server/src/services/translate.ts` contiene un **byte NUL letterale** dentro un template
+string, alla riga 14:
+
+```ts
+const keyOf = (target: string, text: string) => `${target}<NUL>${text}`;
+```
+
+Come separatore della chiave di cache e' la scelta giusta — nessun testo puo' contenerlo,
+quindi la coppia (lingua, testo) non e' ambigua. Il guaio e' che un NUL rende il file
+**binario** per gli strumenti a riga di comando: `grep` lo salta e stampa
+`binary file matches` solo se glielo si chiede, `grep -rn "@google-cloud" server/src` non lo
+elenca affatto, e chi cerca chi usa la traduzione di Google conclude che nessuno la usa.
+E' costato un pacchetto dimenticato nell'elenco delle tecnologie del README, trovato solo
+rifacendo l'inventario con `command grep` fuori dal wrapper.
+
+Si toglie senza cambiare comportamento scrivendo lo stesso byte come escape:
+
+```ts
+const keyOf = (target: string, text: string) => `${target}\0${text}`;
+```
+
+⚠️ La regola generale: **un byte di controllo non si scrive mai crudo in un sorgente.** Non
+si vede rileggendo il file — si presenta come uno spazio — e rompe in silenzio ogni ricerca
+testuale sul progetto, che e' lo strumento con cui si trovano le cose.

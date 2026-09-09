@@ -15,8 +15,8 @@
  * volta al minuto e fra un passaggio e l'altro un documento scaduto c'e' ancora.
  *
  * `kind` distingue una sessione dal biglietto di passaggio verso il navigator.
- * Senza, sono la stessa riga, e il biglietto — che viaggia in un indirizzo,
- * quindi finisce nella cronologia e nei registri del proxy — varrebbe da se'
+ * Senza, sono la stessa riga, e il biglietto, che viaggia in un indirizzo,
+ * quindi finisce nella cronologia e nei registri del proxy, varrebbe da se'
  * come intestazione `Authorization` per tutti i suoi dieci minuti. Vale invece
  * solo a `POST /users/redeem`, che spendendolo lo cancella.
  */

@@ -6,7 +6,7 @@
  */
 
 import { state } from "./state.js";
-import { percorsoMiniatura } from "../../../shared/constants.js";
+import { percorsoMiniatura, THEME_KEY } from "../../../shared/constants.js";
 
 // ============================================================================
 //                                  Stato
@@ -31,7 +31,7 @@ export function themeToggle() {
     toggle(this: { dark: boolean }) {
       this.dark = !this.dark;
       document.documentElement.classList.toggle("dark", this.dark);
-      localStorage.setItem("artaround-theme", this.dark ? "dark" : "light");
+      localStorage.setItem(THEME_KEY, this.dark ? "dark" : "light");
     },
     label(this: { dark: boolean }) {
       return this.dark ? "Attiva il tema chiaro" : "Attiva il tema scuro";
@@ -156,7 +156,7 @@ export function swarm() {
      *
      *  Il tetto vero e' il numero di particelle, e la ragione sta in
      *  `nextShape`: i bersagli si assegnano per indice (`k * total / count`),
-     *  quindi con piu' punti che particelle ne resta fuori uno ogni tot — su un
+     *  quindi con piu' punti che particelle ne resta fuori uno ogni tot, su un
      *  telefono, dove le particelle sono seimila, un terzo del quadro non
      *  veniva stampato affatto. Meglio un retino piu' rado, dove la diffusione
      *  dell'errore ridistribuisce il tono su quel che resta, che uno fitto
@@ -411,7 +411,7 @@ export function swarm() {
       // per quelle colonne: su un telefono la figura sta in mezza larghezza e
       // le celle cadono a un pixel e mezzo l'una dall'altra, dove un raggio di
       // 1,6 le fa sovrapporre tutte. Si stima sul riquadro disponibile e non
-      // sulla figura vera perche' qui non si sa ancora quale arrivera' — e la
+      // sulla figura vera perche' qui non si sa ancora quale arrivera', e la
       // sua proporzione la puo' solo rimpicciolire, mai allargare.
       const { cx, cy, roomW, roomH } = this.bounds();
       const cella = (Math.min(roomW, roomH) * this.MARGIN) / this.SAMPLE_W;
