@@ -69,7 +69,7 @@
  * pagina non carica. `headersTimeout` deve restare il maggiore dei due, o
  * sarebbe lui a chiudere per primo.
  */
-import { MONGO_URI } from "./env";
+import { MONGO_URI, PROJECT_ROOT, SERVER_ROOT } from "./env";
 import express from "express";
 import mongoose from "mongoose";
 import path from "path";
@@ -105,26 +105,26 @@ app.use("/api", resolveSession);
 
 app.use(
   "/images",
-  express.static(path.join(__dirname, "../public/images"), {
+  express.static(path.join(SERVER_ROOT, "public/images"), {
     maxAge: "30d",
     immutable: true,
   }),
 );
-app.use(express.static(path.join(__dirname, "../public")));
-app.use(express.static(path.join(__dirname, "../../marketplace/public")));
+app.use(express.static(path.join(SERVER_ROOT, "public")));
+app.use(express.static(path.join(PROJECT_ROOT, "marketplace/public")));
 app.use(
   "/dist",
-  express.static(path.join(__dirname, "../../marketplace/dist")),
+  express.static(path.join(PROJECT_ROOT, "marketplace/dist")),
 );
 app.use(
   "/navigator",
-  express.static(path.join(__dirname, "../../navigator/dist")),
+  express.static(path.join(PROJECT_ROOT, "navigator/dist")),
 );
-app.use("/i18n", express.static(path.join(__dirname, "../../shared/i18n")));
+app.use("/i18n", express.static(path.join(PROJECT_ROOT, "shared/i18n")));
 
 // /sources: i sorgenti in sola lettura (richiesti dalla consegna). La cartella
 // la genera deploy-build.js senza node_modules/dist/.env; qui l'elenco cartelle.
-const sourcesDir = path.join(__dirname, "../../sources");
+const sourcesDir = path.join(PROJECT_ROOT, "sources");
 app.use("/sources", (req, res, next) => {
   const abs = path.join(sourcesDir, req.path);
   if (path.relative(sourcesDir, abs).startsWith("..")) return res.sendStatus(400);
@@ -175,7 +175,7 @@ app.get("/api/health", (req, res) => {
 
 function readThresholdArtworks(): string[] {
   try {
-    const file = path.join(__dirname, "data", "soglia.json");
+    const file = path.join(SERVER_ROOT, "src/data/soglia.json");
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
     if (!Array.isArray(parsed.opere)) return [];
     return parsed.opere.filter((qid: unknown) => typeof qid === "string");
@@ -247,7 +247,7 @@ app.use((req, res, next) => {
   const testa = req.path.split("/")[1] || "";
   if (!schermateMarketplace.has(testa)) return next();
   res.sendFile(
-    path.join(__dirname, "../../marketplace/public/index.html"),
+    path.join(PROJECT_ROOT, "marketplace/public/index.html"),
   );
 });
 

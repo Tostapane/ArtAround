@@ -54,6 +54,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { SERVER_ROOT } from "../env";
 
 export interface MuseumConfig {
   qid: string;
@@ -67,7 +68,7 @@ export interface MuseumConfig {
   activeArtworks: string[]; // i qid delle opere da seminare, in ordine di vetrina
 }
 
-const CONFIG_DIR = path.join(__dirname, "..", "..", "public", "allestimento");
+const CONFIG_DIR = path.join(SERVER_ROOT, "public/allestimento");
 
 // --- Lettura ---------------------------------------------------------------
 

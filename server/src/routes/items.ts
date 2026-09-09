@@ -73,6 +73,7 @@ import { sessionUser } from "../session";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import { SERVER_ROOT } from "../env";
 import { randomUUID } from "crypto";
 import { ItemModel } from "../models/item";
 import { ArtworkModel } from "../models/artwork";
@@ -200,7 +201,7 @@ router.get("/:id/text", async (req, res) => {
 
 // --- Immagine propria dell'item ---------------------------------------------
 
-const ITEM_IMAGE_DIR = path.join(__dirname, "../../public/images/items/");
+const ITEM_IMAGE_DIR = path.join(SERVER_ROOT, "public/images/items");
 const ITEM_IMAGE_URL = "/images/items/";
 
 /** Elenco chiuso: il nome del file lo scrive il server, estensione compresa. */

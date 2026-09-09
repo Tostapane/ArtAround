@@ -39,10 +39,11 @@
  */
 import fs from "fs";
 import path from "path";
+import { SERVER_ROOT } from "../env";
 import { conTentativi } from "./retry";
 import { percorsoMiniatura } from "../../../shared/constants";
 
-const IMAGE_DIR = path.join(__dirname, "../../public/images/artworks/");
+const IMAGE_DIR = path.join(SERVER_ROOT, "public/images/artworks");
 const CARTELLA_PUBBLICA = "/images/artworks/";
 
 const LARGHEZZA_MINIATURA = 500; // il secchiello che copre una tessera anche a doppia densita'

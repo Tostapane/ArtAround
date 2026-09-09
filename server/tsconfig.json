@@ -4,6 +4,8 @@
     "moduleResolution": "nodenext",
     "target": "es2020",
     "sourceMap": true,
+    "noEmitOnError": true,
+    "rootDir": "..",
     "outDir": "dist",
     "esModuleInterop": true,
     // Il server è dove vive la logica di dominio ed era l'unica parte senza

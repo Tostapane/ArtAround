@@ -1,5 +1,5 @@
 /*
- * deploy-build.js — npm run setup + npm run build, ma dentro un container.
+ * deploy-build.js — installazione e build, ma dentro un container.
  *
  * Sulla macchina di laboratorio node non esiste: sta solo dentro le immagini che
  * gocker accende. Questo file esiste per farci passare i comandi di installazione
@@ -9,7 +9,7 @@
  *   (gocker): start node-22 site252627 deploy-build.js
  *   (gocker): logs site252627
  *
- * La cartella e' la stessa che vede il server, quindi node_modules/ e i due
+ * La cartella e' la stessa che vede il server, quindi node_modules/ e i tre
  * dist/ restano sul disco quando il processo finisce.
  *
  * Un sito ha un solo slot node: finche' gira questo, il server non puo'
@@ -42,6 +42,7 @@ const passi = [
   ['dipendenze server',      'npm install --include=dev --no-audit --no-fund --prefix server'],
   ['dipendenze marketplace', 'npm install --include=dev --no-audit --no-fund --prefix marketplace'],
   ['dipendenze navigator',   'npm install --include=dev --no-audit --no-fund --prefix navigator'],
+  ['build server',           'npm run build --prefix server'],
   ['build marketplace',      'npm run build --prefix marketplace'],
   ['build navigator',        'npm run build --prefix navigator'],
 ];
@@ -65,7 +66,7 @@ for (const [nome, comando] of passi) {
 
 /*
  * sources/ — i file di progetto per la rotta /sources, che la consegna chiede in
- * sola lettura. Fuori restano node_modules, i due dist/, .env, le cache, le
+ * sola lettura. Fuori restano node_modules, i tre dist/, .env, le cache, le
  * cartelle degli editor, le note interne (.md) e gli 88 MB di JPEG scaricati dal
  * seed, che sono dati e non sorgenti. La copia e' voce per voce perche' cpSync
  * rifiuta una destinazione dentro l'origine; un errore qui non ferma il deploy,

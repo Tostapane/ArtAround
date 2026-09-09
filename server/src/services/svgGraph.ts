@@ -60,6 +60,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { SERVER_ROOT } from "../env";
 
 export interface GraphNode {
   id: string; // per un'opera e' il qid: e' con quello che il pathfinding indica una destinazione
@@ -106,7 +107,7 @@ type RegionShape = { floor: number; flow: number } & (
   | { kind: "polygon"; name: string; pts: { x: number; y: number }[] }
 );
 
-const PUBLIC_DIR = path.join(__dirname, "..", "..", "public");
+const PUBLIC_DIR = path.join(SERVER_ROOT, "public");
 
 const cache = new Map<string, MuseumGraph>();
 

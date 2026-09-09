@@ -60,14 +60,13 @@ tracciati e sono inerti: Express serve `marketplace/public` e `server/public`, n
 
 ```bash
 npm run setup      # server + marketplace + navigator
-npm run build      # i due dist/
+npm run build      # server + marketplace + navigator
 ```
 
 `setup` installa **anche le devDependencies**, e lo chiede per scritto (`--include=dev`):
-i due `build` girano con `tsc`, `vite` e `vue-tsc`, che stanno li'. Su una macchina con
+le tre applicazioni si compilano con `tsc`, `vite` e `vue-tsc`, che stanno li'. Su una macchina con
 `NODE_ENV=production` un `npm install` nudo li salterebbe, `setup` finirebbe bene e `build`
-morirebbe con `tsc: not found`. E' lo stesso motivo per cui `ts-node` e `typescript` stanno
-fra le `dependencies` del server, applicato all'altra meta' del lavoro.
+morirebbe con `tsc: not found`.
 
 **3. `server/.env`** — non e' nel repository, quindi va scritto a mano **una volta sola** e
 sopravvive a ogni `git pull`:
@@ -136,14 +135,12 @@ curl -s -o /dev/null -w '%{http_code}\n' https://generativelanguage.googleapis.c
 ```bash
 ssh gocker.cs.unibo.it
 (gocker): start mongo site252627          # una volta sola
-(gocker): start nodemon-22 site252627 index.js
+(gocker): start node-22 site252627 index.js
 ```
 
-**Per la consegna e per l'esame si accende `node-22`, non `nodemon-22`.** `nodemon` riparte
-da solo a ogni modifica sotto `server/src` o `shared`, e le sale delle visite guidate stanno
-in memoria per scelta dichiarata: un `git pull` mentre una classe e' collegata la scioglie.
-`nodemon` serve mentre si lavora; il giorno della dimostrazione si vuole un processo che
-riparte solo quando lo si dice.
+`index.js` avvia il Javascript gia' compilato in `server/dist`; non compila durante
+l'avvio. In locale, `npm run dev --prefix server` continua invece a eseguire i sorgenti con
+`ts-node`.
 
 ## Aggiornare (il giro di tutti i giorni)
 
@@ -152,26 +149,17 @@ Da qui si committa e si spinge; sulla macchina:
 ```bash
 cd /home/web/site252627/html
 git pull
-npm run build        # solo se sono cambiati navigator o marketplace
+npm run build
 ```
 
 Se `node` non c'e' sulla macchina nuda, il `build` passa dal container come il primo giorno:
 `start node-22 site252627 deploy-build.js`. **Si rilancia tale e quale**, non solo al primo
-deploy: riconosce le dipendenze gia' installate confrontando l'impronta del `package-lock.json`
-e salta quelle immutate, quindi su un aggiornamento normale fa solo le due compilazioni.
-Ricompilare sempre e' voluto — un `dist/` saltato e' il difetto che si debugga una settimana
-dopo. ⚠️ Ricordarsi che occupa **lo slot node del sito**: spegnere il server, buildare,
-riaccendere.
+deploy: installa le dipendenze e ricompila le tre applicazioni. Ricompilare sempre e' voluto —
+un `dist/` saltato e' il difetto che si debugga una settimana dopo. ⚠️ Ricordarsi che occupa
+**lo slot node del sito**: spegnere il server, buildare, riaccendere.
 
-`nodemon` riavvia da se' quando cambia `server/src`, e **non** quando cambia un `dist/`:
-`nodemon.json` gli fa guardare solo il codice. E' anche il motivo per cui il caricamento
-dell'immagine di un contenuto non fa piu' ripartire il server in mezzo alla richiesta.
-
-⚠️ **Con `node-22` (cioe' per la consegna e l'esame) il riavvio va fatto a mano**, e questo
-aggiornamento lo pretende: gli indirizzi senza cancelletto hanno toccato `server/src/index.ts`
-e `shared/constants.ts`, che sono codice del server. Un `git pull` seguito dal solo `build`
-lascerebbe in piedi il processo vecchio, che non conosce quegli indirizzi: si naviga bene
-cliccando e si prende **404 ricaricando**.
+⚠️ **Il riavvio va fatto a mano dopo il build.** Un `git pull` lascia in piedi il processo
+vecchio; un `git pull` senza build lascia anche il vecchio Javascript in `server/dist`.
 
 ⚠️ **Anche il marketplace va ricompilato in questo giro**, non solo il navigator: il router
 sta in `state.ts` e l'elenco delle schermate in `shared/`, e sono entrambi dentro
@@ -242,18 +230,13 @@ Log: `logs site252627` da gocker, oppure `/home/web/site252627/log/`.
   quando `start` non ha fatto niente; `list` elenca i siti che possiedi, non quel che gira.
   Lo stato vero sono l'ora di `log/lastout` e `log/lasterr`, che sopravvivono al container.
 - **Il server non parte e nei log c'e' `Cannot find module 'X'`** → `node_modules` sulla
-  macchina e' anteriore all'ultima dipendenza aggiunta. `ts-node` compila all'avvio, quindi
-  una dipendenza mancante non e' un difetto a runtime: e' un server che non parte affatto.
-  Si risolve solo rilanciando `deploy-build.js`, ed e' il motivo per cui va rilanciato a ogni
-  aggiornamento e non solo quando cambia il frontend.
+  macchina e' anteriore all'ultima dipendenza aggiunta, oppure manca `server/dist`. Si risolve
+  rilanciando `deploy-build.js`.
 - **`tsc: not found` / `vite: not found` durante `npm run build`** → le devDependencies non
   sono state installate. `npm run setup` le chiede esplicitamente; se qualcuno ha installato
   a mano con `--omit=dev` o con `NODE_ENV=production`, rifare `npm run setup`.
 - **`require` fallisce all'avvio** → e' rimasto il `package.json` di Company, che si dichiara
   ESM. Il nostro va sovrascritto.
-- **`Cannot find module 'ts-node'`** → `npm install --prefix server` con `NODE_ENV=production`
-  salterebbe le devDependencies; per questo `ts-node` e `typescript` stanno fra le
-  `dependencies`.
 - **Pagina bianca su `/navigator/`** → `npm run build` non e' stato rifatto dopo un `git pull`,
   oppure e' stato fatto senza `base: '/navigator/'` (che `vite.config.ts` mette da se' solo in
   `build`, non in `dev`).
@@ -262,8 +245,7 @@ Log: `logs site252627` da gocker, oppure `/home/web/site252627/log/`.
   pagina https e' contenuto misto, e il browser lo blocca in silenzio.
 - **404 ricaricando `/vetrina`, ma cliccando si naviga benissimo** → il server e' quello vecchio.
   Cliccando non se ne accorge nessuno perche' il percorso non esce dal browser; ricaricando
-  invece lo si chiede al server, che non sa cosa sia. Con `nodemon` bastava il `git pull`, con
-  `node-22` va riacceso a mano.
+  invece lo si chiede al server, che non sa cosa sia. Rifare il build e riaccendere `node-22`.
 - **Ogni voce del binario fa lampeggiare la pagina, e il catalogo si ricarica ogni volta** →
   `marketplace/dist/` e' vecchio: senza `interceptClicks()` i collegamenti sono navigazioni
   vere e l'applicazione riparte da zero a ogni click. Rifare il build del marketplace.

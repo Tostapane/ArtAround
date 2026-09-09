@@ -1,5 +1,6 @@
 /**
- * Carica le variabili d'ambiente da server/.env.
+ * Carica le variabili d'ambiente da server/.env e stabilisce le radici dei file
+ * usati a runtime.
  *
  * `override: true` e' la riga che conta, ed e' l'opposto di quel che dotenv fa
  * da solo: normalmente una variabile gia' presente in `process.env` non viene
@@ -13,9 +14,12 @@
  * server sono quelli che si leggono in laboratorio quando qualcosa non va, e una
  * nota pubblicitaria in mezzo non aiuta nessuno.
  *
- * Un `.env` che non c'e' non ferma niente, ed e' voluto: gli script vanno lanciati
- * anche da chi non l'ha. Il prezzo e' che l'assenza delle chiavi di Google non si
- * scopre all'avvio ma alla prima rotta che le usa.
+ * Il launcher di produzione passa la radice del progetto perche' il Javascript
+ * compilato si trova piu' in profondita' dei sorgenti. In sviluppo il ripiego si
+ * ricava dalla posizione di questo file. Un `.env` che non c'e' non ferma niente,
+ * ed e' voluto: gli script vanno lanciati anche da chi non l'ha. Il prezzo e' che
+ * l'assenza delle chiavi di Google non si scopre all'avvio ma alla prima rotta che
+ * le usa.
  *
  * MONGO_URI sta qui perche' era ricopiato identico in quattro punti d'ingresso
  * (server, seed, seedUsers, testers): un indirizzo scritto quattro volte e' un
@@ -27,8 +31,12 @@
 import dotenv from "dotenv";
 import path from "path";
 
+export const PROJECT_ROOT =
+  process.env.ARTAROUND_ROOT || path.resolve(__dirname, "../..");
+export const SERVER_ROOT = path.join(PROJECT_ROOT, "server");
+
 dotenv.config({
-  path: path.resolve(__dirname, "../.env"),
+  path: path.join(SERVER_ROOT, ".env"),
   override: true,
   quiet: true,
 });

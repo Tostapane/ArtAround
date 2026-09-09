@@ -303,8 +303,9 @@ Three independently built parts over one shared type layer. All constraints from
 shared/                types.ts (Artwork, Item, Visit, Museum, User, Match, QuizQuestion,
                        Contenuto, UserRole) + constants.ts (levels, durations, licenses,
                        languages, controlled-vocabulary options)
-server/    :8000       Node + Express + Mongoose + ts-node. Also serves the marketplace
-                       statically ("/" → marketplace/public, "/dist" → marketplace/dist).
+server/    :8000       Node + Express + Mongoose. ts-node in development, tsc + Node in deploy.
+                       Also serves the marketplace statically ("/" → marketplace/public,
+                       "/dist" → marketplace/dist).
 navigator/ :5173       Vue 3 + Vite + TS + Tailwind v4. Own dev server.
                        public/config.json = the curator's configuration file.
 marketplace/           Alpine.js (served LOCALLY from public/vendor/) + vanilla TS compiled

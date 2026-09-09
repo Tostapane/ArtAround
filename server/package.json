@@ -1,9 +1,12 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "dist/server/src/index.js",
   "scripts": {
-    "start": "npx ts-node src/index.ts"
+    "prebuild": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "tsc -p tsconfig.json",
+    "dev": "ts-node src/index.ts",
+    "start": "node ../index.js"
   },
   "dependencies": {
     "@google-cloud/speech": "^7.3.0",

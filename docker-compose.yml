@@ -40,7 +40,7 @@ services:
               npm run build --prefix marketplace &&
               (npm run watch --prefix marketplace &) &&
               (npm run dev --prefix navigator -- --host &) &&
-              npm run start --prefix server"
+              npm run dev --prefix server"
 
 volumes:
   db_data:
