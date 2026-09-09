@@ -2,13 +2,9 @@
  * Carica le variabili d'ambiente da server/.env e stabilisce le radici dei file
  * usati a runtime.
  *
- * `override: true` e' la riga che conta, ed e' l'opposto di quel che dotenv fa
- * da solo: normalmente una variabile gia' presente in `process.env` non viene
- * toccata. Nel container del dipartimento `PORT` c'e' gia', e vale 8000; la riga
- * `PORT` del file veniva quindi letta e buttata via, il server restava sulla
- * porta di sviluppo e il proxy davanti rispondeva 503 a tutti, senza che nei
- * registri comparisse niente di sbagliato. Il file e' la configurazione di
- * QUESTA installazione: se lo si scrive, e' per essere ubbiditi.
+ * Le variabili gia' presenti nel processo vincono sul file. In produzione le
+ * imposta il launcher nella radice, mentre Compose fa lo stesso in locale; il
+ * file resta utile a chi esegue direttamente i TypeScript con ts-node.
  *
  * `quiet` spegne la riga che la libreria stamperebbe a ogni avvio: i registri del
  * server sono quelli che si leggono in laboratorio quando qualcosa non va, e una
@@ -37,7 +33,6 @@ export const SERVER_ROOT = path.join(PROJECT_ROOT, "server");
 
 dotenv.config({
   path: path.join(SERVER_ROOT, ".env"),
-  override: true,
   quiet: true,
 });
 
