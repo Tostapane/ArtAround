@@ -29,9 +29,11 @@ if (__dirname === "/webapp") {
 
   process.env.PORT = String(deployment.port);
   process.env.MONGO_URI =
-    `mongodb://${mongoCredentials.user}:${mongoCredentials.password}` +
-    `@${mongoCredentials.host}:27017/${mongoCredentials.database}?authSource=admin`;
+    `mongodb://${mongoCredentials.user}:${mongoCredentials.pwd}` +
+    `@${mongoCredentials.site}:27017/${mongoCredentials.user}?authSource=admin`;
   process.env.NAVIGATOR_ORIGIN = deployment.navigatorOrigin;
+
+  console.log("Configurazione: GOCKER");
 }
 
 require("./server/dist/server/src/index.js");
