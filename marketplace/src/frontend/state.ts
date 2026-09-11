@@ -2593,7 +2593,8 @@ export class AppState {
 
   publishLabel(): string {
     if (this.currentUserRole !== "autore") return "Salva nella mia libreria";
-    if (this.draft.guidata) return "Attiva la visita guidata";
+    if (this.draft.guidata)
+      return this.editingId ? "Salva le modifiche" : "Crea visita";
     return this.editingId ? "Salva le modifiche" : "Pubblica in vetrina";
   }
 

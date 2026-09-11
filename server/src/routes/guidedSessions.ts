@@ -1,12 +1,12 @@
 /**
- * Sessioni effimere delle visite sincronizzate. Una Map e il polling coordinano
- * attesa, presenza, avanzamento, domande e quiz; le soluzioni restano sul server e
- * la fine e' osservabile prima della rimozione.
+ * Sessioni effimere delle visite sincronizzate. Il long polling consegna i cambi
+ * di stato, mentre una vista periodica informa il docente su studenti e domande.
  */
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { sessionUser } from "../session";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
+import { synthesizeSpeech } from "../services/tts";
 
 const router = Router();
 
@@ -14,6 +14,8 @@ interface Participant {
   username: string;
   joinedAt: number;
   lastSeen: number;
+  attentive: boolean;
+  autoplay: boolean;
 }
 
 interface StudentQuestion {
@@ -38,10 +40,16 @@ interface Session {
   museum: string;
   teacher: string;
   stato: "attesa" | "attiva" | "quiz" | "terminata";
+  itemIds: string[];
+  revision: number;
+  commandId: number;
   currentStep: number;
-  stepStartAt: number | null;
+  playAt: number | null;
+  audioText: string;
+  audioLanguage: string;
   partecipanti: Map<string, Participant>;
-  pendingQuestions: StudentQuestion[];
+  questions: StudentQuestion[];
+  waiters: Set<() => void>;
   quizQuestions: RuntimeQuizQuestion[] | null;
   quizStartAt: number | null;
   quizEndsAt: number | null;
@@ -68,28 +76,60 @@ function gradeQuiz(s: Session, answers: number[]): number {
 const sessions = new Map<string, Session>();
 const byAccessKey = new Map<string, string>();
 
-const PRESENZA_TTL_MS = 5000;
+function durationFromEnv(
+  name: string,
+  fallback: number,
+  minimum = 0,
+): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= minimum ? value : fallback;
+}
 
-function markPresent(s: Session, username: string) {
+const LONG_POLL_MS = durationFromEnv("GUIDED_LONG_POLL_MS", 10_000, 1000);
+const AUDIO_LEAD_MS = durationFromEnv("GUIDED_AUDIO_LEAD_MS", 3_000);
+const OFFLINE_GRACE_MS = durationFromEnv("GUIDED_OFFLINE_GRACE_MS", 3_000);
+const PRESENCE_TTL_MS = LONG_POLL_MS + OFFLINE_GRACE_MS;
+const DEFAULT_GUIDED_AUDIO_LANGUAGE = "it-IT";
+
+function markPresent(
+  s: Session,
+  username: string,
+  status?: { attentive: boolean; autoplay: boolean },
+) {
   const now = Date.now();
   const existing = s.partecipanti.get(username);
   s.partecipanti.set(username, {
     username,
     joinedAt: existing ? existing.joinedAt : now,
     lastSeen: now,
+    attentive: status ? status.attentive : existing?.attentive || false,
+    autoplay: status ? status.autoplay : existing?.autoplay || false,
   });
 }
 
-function dropAbsent(s: Session) {
+function isOnline(participant: Participant, now = Date.now()): boolean {
+  return (
+    participant.lastSeen > 0 &&
+    now - participant.lastSeen <= PRESENCE_TTL_MS
+  );
+}
+
+function onlineCount(s: Session): number {
   const now = Date.now();
-  for (const [username, p] of s.partecipanti) {
-    if (now - p.lastSeen > PRESENZA_TTL_MS) s.partecipanti.delete(username);
+  let count = 0;
+  for (const participant of s.partecipanti.values()) {
+    if (isOnline(participant, now)) count++;
   }
+  return count;
+}
+
+function publish(s: Session): void {
+  s.revision++;
+  for (const wake of [...s.waiters]) wake();
 }
 
 function teacherView(s: Session) {
-  const nuoveDomande = s.pendingQuestions;
-  s.pendingQuestions = [];
+  const now = Date.now();
   return {
     id: s.id,
     visitId: s.visitId,
@@ -98,12 +138,22 @@ function teacherView(s: Session) {
     accessKey: s.accessKey,
     teacher: s.teacher,
     stato: s.stato,
+    revision: s.revision,
     currentStep: s.currentStep,
-    stepStartAt: s.stepStartAt,
-    partecipanti: [...s.partecipanti.values()].map((p) => ({
-      username: p.username,
-    })),
-    nuoveDomande,
+    playAt: s.playAt,
+    audioText: s.audioText,
+    audioLanguage: s.audioLanguage,
+    partecipanti: [...s.partecipanti.values()].map((participant) => {
+      const online = isOnline(participant, now);
+      return {
+        username: participant.username,
+        online,
+        attentive: online && participant.attentive,
+        autoplay: participant.autoplay,
+        testCompleted: s.quizAnswers.has(participant.username),
+      };
+    }),
+    questions: s.questions,
     quiz: s.quizQuestions
       ? {
           total: s.quizQuestions.length,
@@ -136,9 +186,12 @@ function studentView(s: Session, username?: string) {
     visitId: s.visitId,
     visitName: s.visitName,
     stato: s.stato,
+    revision: s.revision,
     currentStep: s.currentStep,
-    stepStartAt: s.stepStartAt,
-    partecipanti: s.partecipanti.size,
+    playAt: s.playAt,
+    audioText: s.audioText,
+    audioLanguage: s.audioLanguage,
+    partecipanti: onlineCount(s),
     quiz: s.quizQuestions
       ? {
           total: s.quizQuestions.length,
@@ -184,17 +237,22 @@ router.post("/", async (req, res) => {
       const s = sessions.get(existing)!;
       s.hasQuiz = hasQuiz;
       s.stato = "attesa";
+      s.itemIds = [...(visit.itemListElement || [])];
+      s.commandId++;
       s.currentStep = -1;
-      s.stepStartAt = null;
+      s.playAt = null;
+      s.audioText = "";
+      s.audioLanguage = DEFAULT_GUIDED_AUDIO_LANGUAGE;
       s.teacher = teacher;
       s.museum = visit.ofMuseum || "";
       s.partecipanti.clear();
-      s.pendingQuestions = [];
+      s.questions = [];
       s.quizQuestions = null;
       s.quizStartAt = null;
       s.quizEndsAt = null;
       s.quizClosed = false;
       s.quizAnswers.clear();
+      publish(s);
       return res.status(200).json(teacherView(s));
     }
 
@@ -208,10 +266,16 @@ router.post("/", async (req, res) => {
       museum: visit.ofMuseum || "",
       teacher,
       stato: "attesa",
+      itemIds: [...(visit.itemListElement || [])],
+      revision: 0,
+      commandId: 0,
       currentStep: -1,
-      stepStartAt: null,
+      playAt: null,
+      audioText: "",
+      audioLanguage: DEFAULT_GUIDED_AUDIO_LANGUAGE,
       partecipanti: new Map(),
-      pendingQuestions: [],
+      questions: [],
+      waiters: new Set(),
       quizQuestions: null,
       quizStartAt: null,
       quizEndsAt: null,
@@ -270,7 +334,11 @@ router.post("/join", async (req, res) => {
 router.post("/:id/leave", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
-  s.partecipanti.delete(sessionUser(req).username);
+  const participant = s.partecipanti.get(sessionUser(req).username);
+  if (participant) {
+    participant.lastSeen = 0;
+    participant.attentive = false;
+  }
   res.json({ ok: true });
 });
 
@@ -287,7 +355,7 @@ router.post("/:id/ask", (req, res) => {
     return res.status(400).json({ error: "question richiesta" });
   if (username !== s.teacher && !s.partecipanti.has(username))
     return res.status(403).json({ error: "Non partecipi a questa visita guidata" });
-  s.pendingQuestions.push({
+  s.questions.push({
     username,
     question: String(question),
     artwork: artwork ? String(artwork) : "",
@@ -296,37 +364,69 @@ router.post("/:id/ask", (req, res) => {
   res.json({ ok: true });
 });
 
+async function prepareAudio(s: Session, index: number) {
+  const itemId = s.itemIds[index];
+  if (!itemId) throw new Error("Tappa non trovata");
+  const item = await ItemModel.findOne({ "@id": itemId }).select("text").lean();
+  const text = String(item?.text || "").trim();
+  if (!text) throw new Error("La tappa non contiene una descrizione audio");
+  await synthesizeSpeech(text, DEFAULT_GUIDED_AUDIO_LANGUAGE);
+  return { text, language: DEFAULT_GUIDED_AUDIO_LANGUAGE };
+}
+
+async function moveToStep(s: Session, index: number): Promise<boolean> {
+  const commandId = ++s.commandId;
+  const audio = await prepareAudio(s, index);
+  if (commandId !== s.commandId) return false;
+  s.stato = "attiva";
+  s.currentStep = index;
+  s.playAt = Date.now() + AUDIO_LEAD_MS;
+  s.audioText = audio.text;
+  s.audioLanguage = audio.language;
+  publish(s);
+  return true;
+}
+
+function sendAudioPreparationError(res: Response, err: unknown): void {
+  console.error("Guided audio preparation failed", err);
+  res.status(502).json({ error: "Preparazione audio non riuscita" });
+}
+
 /**
  * POST /api/guided-sessions/:id/start
  * Fa partire la visita dalla prima tappa. Solo il docente.
  */
-router.post("/:id/start", (req, res) => {
+router.post("/:id/start", async (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
   if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può avviare" });
-  s.stato = "attiva";
-  s.currentStep = 0;
-  s.stepStartAt = Date.now();
-  res.json(teacherView(s));
+  try {
+    await moveToStep(s, 0);
+    res.json(teacherView(s));
+  } catch (err: unknown) {
+    sendAudioPreparationError(res, err);
+  }
 });
 
 /**
- * POST /api/guided-sessions/:id/step  { index, ritardoMs }
- * Porta tutti su `index` e programma l'audio con `ritardoMs`. Solo il docente.
+ * POST /api/guided-sessions/:id/step  { index }
+ * Prepara l'audio, poi porta tutti su `index`. Solo il docente.
  */
-router.post("/:id/step", (req, res) => {
+router.post("/:id/step", async (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
   if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può avanzare" });
   const index = Number(req.body.index);
-  if (!Number.isInteger(index) || index < 0)
+  if (!Number.isInteger(index) || index < 0 || index >= s.itemIds.length)
     return res.status(400).json({ error: "index non valido" });
-  const delay = Number(req.body.ritardoMs);
-  s.currentStep = index;
-  s.stepStartAt = Date.now() + (Number.isFinite(delay) ? delay : 0);
-  res.json(teacherView(s));
+  try {
+    await moveToStep(s, index);
+    res.json(teacherView(s));
+  } catch (err: unknown) {
+    sendAudioPreparationError(res, err);
+  }
 });
 
 /**
@@ -356,9 +456,13 @@ router.post("/:id/quiz/start", async (req, res) => {
   }));
   s.quizAnswers.clear();
   s.quizClosed = false;
+  s.commandId++;
   s.stato = "quiz";
+  s.playAt = null;
+  s.audioText = "";
   s.quizStartAt = Date.now() + RITARDO_MS;
   s.quizEndsAt = s.quizStartAt + durationSec * 1000;
+  publish(s);
   res.json(teacherView(s));
 });
 
@@ -400,6 +504,7 @@ router.post("/:id/quiz/end", (req, res) => {
   if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può terminare il quiz" });
   s.quizClosed = true;
+  publish(s);
   res.json(teacherView(s));
 });
 
@@ -414,7 +519,11 @@ router.post("/:id/end", (req, res) => {
   if (!s) return res.json({ ok: true });
   if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può terminare" });
+  s.commandId++;
   s.stato = "terminata";
+  s.playAt = null;
+  s.audioText = "";
+  publish(s);
   byAccessKey.delete(s.accessKey);
   const t = setTimeout(() => sessions.delete(s.id), CODA_CHIUSURA_MS);
   if (typeof t.unref === "function") t.unref();
@@ -423,12 +532,13 @@ router.post("/:id/end", (req, res) => {
 
 /**
  * GET /api/guided-sessions/:id
- * Ritorna: la vista docente, svuota le domande e aggiorna le presenze scadute.
+ * Ritorna la vista docente senza consumare la cronologia delle domande.
  */
 router.get("/:id", (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: "Sessione terminata o inesistente" });
-  dropAbsent(s);
+  if (sessionUser(req).username !== s.teacher)
+    return res.status(403).json({ error: "Solo il docente può vedere la sessione" });
   res.json(teacherView(s));
 });
 
@@ -441,9 +551,62 @@ router.get("/:id/state", (req, res) => {
   if (!s)
     return res.status(410).json({ error: "Visita guidata terminata", stato: "terminata" });
   const username = sessionUser(req).username;
+  if (!s.partecipanti.has(username))
+    return res.status(403).json({ error: "Non partecipi a questa visita guidata" });
   markPresent(s, username);
-  dropAbsent(s);
   res.json(studentView(s, username));
+});
+
+/**
+ * POST /api/guided-sessions/:id/wait
+ * Mantiene una sola richiesta studente in attesa finche' cambia la revisione.
+ */
+router.post("/:id/wait", (req, res) => {
+  const s = sessions.get(req.params.id);
+  if (!s)
+    return res.status(410).json({ error: "Visita guidata terminata", stato: "terminata" });
+
+  const username = sessionUser(req).username;
+  if (!s.partecipanti.has(username))
+    return res.status(403).json({ error: "Non partecipi a questa visita guidata" });
+  markPresent(s, username, {
+    attentive: req.body.attentive === true,
+    autoplay: req.body.autoplay === true,
+  });
+
+  const knownRevision = Number(req.body.knownRevision);
+  if (!Number.isInteger(knownRevision) || knownRevision !== s.revision)
+    return res.json(studentView(s, username));
+
+  let settled = false;
+  let timer: NodeJS.Timeout;
+
+  const cleanup = () => {
+    clearTimeout(timer);
+    s.waiters.delete(wake);
+    res.off("close", disconnected);
+  };
+  const wake = () => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    res.json(studentView(s, username));
+  };
+  const disconnected = () => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+  };
+
+  timer = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    res.status(204).end();
+  }, LONG_POLL_MS);
+  if (typeof timer.unref === "function") timer.unref();
+  s.waiters.add(wake);
+  res.on("close", disconnected);
 });
 
 /**

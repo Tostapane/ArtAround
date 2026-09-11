@@ -61,6 +61,7 @@
   "Avanzato": "専門的",
   "Avvia il quiz": "クイズを開始",
   "Avvia la visita": "ツアーを開始",
+  "Avvio in corso…": "開始しています…",
   "Azione": "アクション",
   "Azzera i filtri": "フィルターをリセット",
   "Cambia": "変更",
@@ -522,5 +523,14 @@
   "Visitatore": "来館者",
   "Visite": "ガイドツアー",
   "Voto": "評価",
-  "Wikidata non la dà nella collezione di questo museo": "Wikidataのこの美術館のコレクションには含まれていません"
+  "Wikidata non la dà nella collezione di questo museo": "Wikidataのこの美術館のコレクションには含まれていません",
+  "Online": "オンライン",
+  "Attento": "集中",
+  "Audio sincronizzato": "同期音声",
+  "Test completato": "テスト完了",
+  "Sì": "はい",
+  "No": "いいえ",
+  "Attiva audio": "音声を有効にする",
+  "Audio sincronizzato attivato": "同期音声が有効です",
+  "Disattiva audio": "音声を無効にする"
 }

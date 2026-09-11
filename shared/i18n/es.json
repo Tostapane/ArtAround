@@ -61,6 +61,7 @@
   "Avanzato": "Avanzado",
   "Avvia il quiz": "Iniciar el cuestionario",
   "Avvia la visita": "Iniciar la visita",
+  "Avvio in corso…": "Iniciando…",
   "Azione": "Acción",
   "Azzera i filtri": "Restablecer filtros",
   "Cambia": "Cambiar",
@@ -522,5 +523,14 @@
   "Visitatore": "Visitante",
   "Visite": "Visitas",
   "Voto": "Nota",
-  "Wikidata non la dà nella collezione di questo museo": "Wikidata no la incluye en la colección de este museo"
+  "Wikidata non la dà nella collezione di questo museo": "Wikidata no la incluye en la colección de este museo",
+  "Online": "En línea",
+  "Attento": "Atento",
+  "Audio sincronizzato": "Audio sincronizado",
+  "Test completato": "Prueba completada",
+  "Sì": "Sí",
+  "No": "No",
+  "Attiva audio": "Activar audio",
+  "Audio sincronizzato attivato": "Audio sincronizado activado",
+  "Disattiva audio": "Desactivar audio"
 }

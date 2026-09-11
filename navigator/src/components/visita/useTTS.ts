@@ -5,6 +5,7 @@
 import { ref } from "vue";
 import { getSpeechAudio } from "@/api";
 import { language } from "@/state";
+import { disableGuidedAutoplay } from "./guidedAudio";
 
 const isSpeaking = ref(false);
 const autoRead = ref(false);
@@ -34,6 +35,7 @@ async function speak(text: string | undefined) {
   let content = "";
   if (text) content = text.trim();
   if (!content) return;
+  disableGuidedAutoplay();
   stop();
   const myId = requestId;
   const lang = language.value;

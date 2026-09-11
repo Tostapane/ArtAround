@@ -61,6 +61,7 @@
   "Avanzato": "Ekspercki",
   "Avvia il quiz": "Rozpocznij quiz",
   "Avvia la visita": "Rozpocznij zwiedzanie",
+  "Avvio in corso…": "Uruchamianie…",
   "Azione": "Akcja",
   "Azzera i filtri": "Wyczyść filtry",
   "Cambia": "Zmień",
@@ -522,5 +523,14 @@
   "Visitatore": "Zwiedzający",
   "Visite": "Wizyty",
   "Voto": "Wynik",
-  "Wikidata non la dà nella collezione di questo museo": "Wikidata nie podaje go w zbiorach tego muzeum"
+  "Wikidata non la dà nella collezione di questo museo": "Wikidata nie podaje go w zbiorach tego muzeum",
+  "Online": "Online",
+  "Attento": "Uważny",
+  "Audio sincronizzato": "Dźwięk zsynchronizowany",
+  "Test completato": "Test ukończony",
+  "Sì": "Tak",
+  "No": "Nie",
+  "Attiva audio": "Włącz dźwięk",
+  "Audio sincronizzato attivato": "Dźwięk zsynchronizowany włączony",
+  "Disattiva audio": "Wyłącz dźwięk"
 }

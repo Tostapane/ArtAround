@@ -28,6 +28,10 @@ e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo po
 - testare funzionalita del curatore
 - ordine delle visite
 PROBLEMI
+La prima volta che premi il bottone attiva audio nella sala di attesa sembra non fare nulla
+come si fa a fare asscoltare le domande che lo studente fa se gia sta ascoltando la roba obbligatoria?
+il tasto quiz odvrebbe essere mostrato al posto di avanti una volta che le tappe sono finite
+quando vai a pubblicare una visita guidata in realta il tasto dice avia visita, ma dovrebbe essere crea visita
 fare ascoltare a tutti gli studenti adio contemporaneamente di default
 posso associare piu item tipo difficile e facile allo stesso artwork?
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco

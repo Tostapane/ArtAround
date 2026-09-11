@@ -37,7 +37,7 @@ servizi esterni.
 | Marketplace ed editor di contenuti | Coperto | `marketplace/`, API `items` e `visits` |
 | Scelta ed esecuzione della visita | Coperto | `Biglietteria.vue`, `Visita.vue` |
 | Mappa del museo | Coperto | SVG annotati, `svgGraph.ts`, `Stage.vue` |
-| Sintesi vocale e stesso testo a schermo | Coperto | `useTTS.ts`, `Scheda.vue`, API `/speech/tts` |
+| Sintesi vocale e stesso testo a schermo | Coperto | `useTTS.ts`, cache TTS globale, API `/speech/tts` |
 | Comandi vocali a vocabolario controllato | Coperto | `useSTT.ts`, `Comando.vue`, `llm.mapRequest` |
 | Pulsanti equivalenti ai comandi vocali | Coperto | sorgente unica `options` in `shared/constants.ts` |
 
@@ -48,10 +48,10 @@ servizi esterni.
 | Visita condotta dal docente | Coperto | `guided.ts`, `GuidedGate.vue`, `guidedSessions.ts` |
 | Accesso con parola chiave | Coperto | `Visit.accessKey`, rotta `/join` |
 | Contenuti privati della visita | Coperto | endpoint `/guided-sessions/:id/items` |
-| Presenza degli studenti | Coperto | polling a 1,5 s, scadenza presenza a 5 s |
-| Domande degli studenti al docente | Coperto | coda `pendingQuestions` consumata dal docente |
+| Presenza degli studenti | Coperto | long poll a 10 s, online e primo piano mantenuti per studente |
+| Domande degli studenti al docente | Coperto | cronologia della sessione con autore, opera e orario |
 | Quiz e voto | Coperto | soluzioni e correzione sul server, una consegna |
-| Contenuti e audio allo stesso istante | Parziale | la tappa è sincronizzata; `stepStartAt` non è ancora consumato dal client |
+| Contenuti e audio allo stesso istante | Coperto con limite | cache prima della notifica, `playAt` comune; un client lento parte dopo dall'inizio |
 
 ### Modulo II, 18-33
 
@@ -174,6 +174,8 @@ nome inviato dal client.
   normale.
 - Le visite del visitatore sono private e hanno un tetto di cinque per museo,
   applicato solo alla creazione.
+- Solo il ruolo autore può pubblicare o modificare item. Una visita esistente può
+  essere modificata soltanto dall'utente che l'ha composta.
 - Eliminare un item o un'opera può accorciare le visite, riallineando opzionali,
   note, durata e quiz. Una visita rimasta senza tappe viene eliminata.
 - Solo il curatore può scegliere di eliminare in massa le visite coinvolte;
@@ -338,8 +340,10 @@ controlli equivalenti alla voce, contrasto chiaro/scuro e rispetto di
 ## 8. Visite guidate
 
 Le sessioni guidate sono effimere e risiedono in una `Map` del processo server;
-un riavvio le chiude. Non ci sono WebSocket: docente e studenti interrogano il
-server ogni 1,5 secondi.
+un riavvio le chiude. Non ci sono WebSocket. Il docente aggiorna studenti,
+domande e quiz ogni 1,5 secondi; ogni studente mantiene invece una sola richiesta
+long poll, che il server conclude subito quando cambia la revisione della visita
+e altrimenti rinnova dopo dieci secondi.
 
 Sequenza docente:
 
@@ -353,16 +357,44 @@ Sequenza studente:
 parola chiave -> presenza -> attesa -> segue la tappa -> domanda -> quiz -> voto
 ```
 
-Il poll dello studente aggiorna `lastSeen`; dopo cinque secondi senza battito
-non appare più fra i presenti. Le domande sono una coda consegnata al docente,
-non un archivio. Il server rimuove `correct` dai quiz inviati agli studenti,
-corregge anche le risposte mancanti come errori e impedisce una seconda
-consegna. Una sessione terminata resta osservabile brevemente per distinguere la
-chiusura prevista da una scomparsa.
+L'apertura del long poll aggiorna `lastSeen`; la presenza scade dopo il timeout
+più tre secondi di tolleranza. Lo studente resta nell'elenco della sessione con
+`online: false`, invece di scomparire. `visibilityState` alimenta il valore
+"attento", che significa soltanto pagina in primo piano, non attenzione umana.
+Il gesto iniziale richiesto dai browser attiva subito l'audio sincronizzato e
+riproduce un breve tono di conferma nello stesso `AudioContext` usato poi dalle
+descrizioni. Non viene riprodotto alcun audio silenzioso. Lo studente può
+disattivare e riattivare la sincronizzazione in qualsiasi momento; la scelta
+interrompe subito la riproduzione e viene mostrata al docente insieme a presenza
+e primo piano. Il volume fisico del telefono non è osservabile da una pagina
+web. Qualunque lettura manuale avviata con "Leggi" ferma e disattiva l'audio
+sincronizzato prima di riprodurre il testo richiesto; riattivare la
+sincronizzazione ferma invece la lettura manuale.
 
-Il server espone `stepStartAt` sia alla vista docente sia a quella studente, ma
-`navigator/src/guided.ts` oggi non lo conserva né lo inoltra al TTS. La tappa è
-quindi comune, l'avvio automatico dell'audio no.
+Durante la preparazione della prima tappa il comando del docente è disabilitato
+e mostra "Avvio in corso…", così una seconda pressione non duplica la richiesta.
+
+Per ogni cambio tappa il server recupera il testo dell'item e completa Google
+TTS prima di aggiornare la revisione e risvegliare gli studenti. La risposta
+contiene testo, lingua e `playAt`; il client scarica l'MP3 dalla cache globale,
+lo decodifica nel contesto audio già attivato e parte al timestamp oppure, se è
+già trascorso, subito dall'inizio. Conserva soltanto il buffer corrente e un
+nuovo comando interrompe il precedente. L'audio guidato principale usa per ora
+il testo sorgente italiano; `audioLanguage` resta nello stato della sessione
+come punto di estensione per una futura lingua dichiarata nella visita. Non
+viene stimato un offset: si assume l'orologio dei dispositivi allineato
+automaticamente dal sistema operativo.
+
+Le note logistiche sono pannelli locali: il comando del docente cambia subito
+la tappa condivisa e ogni studente riceve la nota relativa allo spostamento. Il
+pannello si può chiudere autonomamente, senza attendere che lo chiuda il docente.
+
+Le domande restano nella cronologia della sessione e ogni vista docente riceve
+autore, testo, opera e orario. Il server rimuove `correct` dai quiz inviati agli
+studenti, corregge anche le risposte mancanti come errori e impedisce una seconda
+consegna. All'ultima tappa il controllo di avanzamento del docente apre il
+pannello del quiz, quando la visita ne contiene uno. Una sessione terminata resta
+osservabile brevemente per distinguere la chiusura prevista da una scomparsa.
 
 ## 9. Server, API e servizi
 
@@ -411,6 +443,15 @@ l'implementazione della rotta.
 Le chiavi sono `GEMINI_API_KEY` e `GOOGLE_API_KEY`. Il server non deve
 stampare i loro valori. La cache delle traduzioni è una `Map` in memoria senza
 limite o persistenza, adatta alla dimostrazione ma non a un servizio duraturo.
+La sintesi TTS passa interamente da una cache LRU in memoria: la chiave distingue
+testo, lingua e formato MP3, e una singola Promise riunisce le richieste
+contemporanee. Il limite predefinito è 64 MiB e si cambia con
+`TTS_CACHE_MAX_BYTES`; la cache riparte vuota al riavvio.
+
+I tempi delle visite guidate si cambiano senza ricompilare tramite
+`GUIDED_LONG_POLL_MS` (10000), `GUIDED_AUDIO_LEAD_MS` (3000) e
+`GUIDED_OFFLINE_GRACE_MS` (3000). Il primo valore non può essere inferiore a un
+secondo; la presenza scade dopo long poll più tolleranza.
 
 ### Confine fra modello e codice deterministico
 
@@ -484,8 +525,8 @@ non sono riportati conteggi non verificati.
 chiavi residui stato traduci [codice] [--tutto] pota [--conferma]
 ```
 
-Il controllo del 9 settembre 2026 ha trovato 521 chiavi su 521 in ciascuno dei
-dodici cataloghi. Rimangono tre chiavi orfane per catalogo, 36 occorrenze in
+Il controllo del 9 settembre 2026 ha trovato 529 chiavi su 529 in ciascuno dei
+dodici cataloghi. Rimangono quattro chiavi orfane per catalogo, 48 occorrenze in
 totale. `residui` segnala soltanto `ART`, `AROUND` e `ArtAround`, cioè il marchio,
 non frasi di interfaccia da tradurre. Non eseguire `pota --conferma` senza aver
 letto l'elenco: una chiave usata dinamicamente può sembrare orfana.
@@ -515,6 +556,11 @@ Il server di produzione non usa `ts-node`: `index.js` richiede
 `server/dist/server/src/index.js`. `ARTAROUND_ROOT` è necessario perché il file
 compilato vive più in profondità ma deve ancora trovare marketplace, navigator,
 mappe, immagini, cataloghi e `sources/`.
+
+Il processo ritenta Mongo ogni cinque secondi e apre la porta HTTP soltanto dopo
+la prima connessione riuscita. `/api/health` risponde 200 con
+`database: "connected"`; se la connessione viene persa a processo avviato,
+risponde 503 con `database: "unavailable"`.
 
 ### Giro di aggiornamento
 
@@ -549,7 +595,7 @@ del loro testo, perché i log sopravvivono al container.
 Verificare nell'ordine:
 
 1. log nuovi e ascolto sulla porta 8000;
-2. `/api/health` con risposta JSON;
+2. `/api/health` con stato 200 e `database: "connected"`;
 3. `/` e `/api/config` sulla stessa origine HTTPS;
 4. apertura e ricarica diretta di `/vetrina` e di una scheda interna;
 5. `/manca-davvero.css` ancora 404;
@@ -605,14 +651,14 @@ Risultati di questa revisione:
 - build TypeScript del server: passata;
 - build TypeScript e CSS del marketplace: passata;
 - type-check Vue: passato;
-- bundle Vite verso `/tmp/artaround-navigator-dist`: passato;
+- bundle Vite verso una directory isolata in `/tmp`: passato;
 - smoke test del server compilato su porta 8123: `/`, `/vetrina`,
   `/navigator/`, `/sources/` e una pianta rispondono 200; un asset inesistente
   risponde 404;
 - controllo delle quattro piante: passato;
-- copertura dei dodici cataloghi: 521/521;
+- copertura dei dodici cataloghi: 530/530;
 - Oxlint sul navigator: zero errori e zero avvisi;
-- ESLint sul navigator: non passa, con 17 errori preesistenti descritti in
+- ESLint sul navigator: non passa, con 19 errori preesistenti descritti in
   `Missing`;
 - `git diff --check`: passato;
 - `README.txt`: non modificato;
@@ -620,29 +666,30 @@ Risultati di questa revisione:
 
 ## Missing
 
-1. **Sincronizzazione audio della visita guidata.** Il server calcola e invia
-   `stepStartAt`, ma il navigator non lo legge. Va progettato anche il gesto che
-   sblocca la riproduzione audio nel browser; programmare una chiamata TTS senza
-   autorizzazione dell'utente non basta. È il divario più diretto rispetto al
-   requisito "stessi contenuti allo stesso tempo" del Modulo I.
-
-2. **Stato reale del database e deploy.** Dal sandbox non è stato possibile
+1. **Stato reale del database e deploy.** Dal sandbox non è stato possibile
    interrogare Mongo. Nel container che lo raggiunge vanno eseguiti `testers.ts
    stato`, `griglia`, `account` e i riallineamenti indicati sopra; vanno poi
    controllati quantità di opere/item/visite, tre visite da almeno dieci opere
    nello stesso museo, quattro account richiesti, visite guidate e quiz.
 
-3. **Prova completa su dispositivi reali.** Restano da verificare due browser
+2. **Prova completa su dispositivi reali.** Restano da verificare due browser
    simultanei per docente/studente, presenza e domande, quiz, chiusura prevista,
    microfono e TTS su iPhone, QR da fotocamera, sensori/orientamento, selezione a
    bassa confidenza, teletrasporto, cambio automatico di piano e una visita lunga
    sulla pianta degli Uffizi.
 
+3. **Lingua dell'audio guidato.** La traccia sincronizzata usa oggi il testo
+   sorgente italiano. Una futura estensione può aggiungere la lingua al modello
+   `Visit` e al form del marketplace; alla preparazione della tappa il server
+   dovrà ottenere il testo in quella lingua prima di inviarlo a TTS. Lo stato,
+   il long polling e il player trasportano già `audioLanguage`, mentre la cache
+   separa le tracce per lingua e testo.
+
 4. **Lingua dei dati e degli errori.** I cataloghi UI sono completi e i campi
    della descrizione vengono tradotti, ma nomi di visite, titoli delle opere,
    etichette della mappa e molti messaggi testuali del server possono restare in
    italiano. Va stabilita una politica per i nomi propri e introdotti codici
-   errore traducibili. Le 36 traduzioni orfane possono essere eliminate solo
+   errore traducibili. Le 48 traduzioni orfane possono essere eliminate solo
    dopo aver verificato che non siano chiavi dinamiche.
 
 5. **Ingresso autonomo del navigator.** Oggi serve una sessione ottenuta dal
@@ -660,8 +707,9 @@ Risultati di questa revisione:
    acquisti atomici, cascate di cancellazione, hard reload e flussi browser.
    Servono almeno test di integrazione API e pochi percorsi end-to-end critici.
 
-8. **Baseline ESLint.** `npx eslint .` nel navigator segnala otto usi di `any` in
-   `api.ts` e nove nomi di componenti a parola singola;
+8. **Baseline ESLint.** `npx eslint . --no-cache` nel navigator segnala otto usi
+   di `any` in `api.ts`, due nelle viste delle sessioni di `guided.ts` e nove nomi
+   di componenti a parola singola;
    `eslint-plugin-oxlint` segnala inoltre l'assenza di `.oxlintrc.json`. Oxlint
    diretto è pulito. Va deciso se tipizzare/rinominare o configurare eccezioni
    esplicite, poi rendere coerenti i due lint.

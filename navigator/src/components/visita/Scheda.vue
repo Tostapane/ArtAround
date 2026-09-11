@@ -23,6 +23,7 @@ const props = defineProps<{
   hasPrev: boolean;
   hasNext: boolean;
   canEnd: boolean;
+  canStartQuiz: boolean;
   numero: number;
   guidedStudent: boolean;
   guidedTeacher: boolean;
@@ -40,6 +41,7 @@ const emit = defineEmits<{
   action: [value: string];
   closeRequest: [];
   apriTappa: [];
+  quiz: [];
 }>();
 
 const tts = useTTS();
@@ -175,7 +177,7 @@ const stile = computed(() => {
       </button>
 
       <button
-        v-if="!tts.isSpeaking.value"
+        v-if="!guidedStudent && !tts.isSpeaking.value"
         type="button"
         class="icona-tonda shrink-0"
         :disabled="!content"
@@ -187,7 +189,7 @@ const stile = computed(() => {
         </svg>
       </button>
       <button
-        v-else
+        v-else-if="!guidedStudent"
         type="button"
         class="icona-tonda icona-tonda-attiva shrink-0"
         :aria-label="t('Ferma la lettura')"
@@ -205,7 +207,7 @@ const stile = computed(() => {
       />
 
       <button
-        v-if="!guidedStudent && !canEnd"
+        v-if="!guidedStudent && !canEnd && !canStartQuiz"
         type="button"
         class="btn-primario"
         :disabled="!hasNext"
@@ -217,6 +219,20 @@ const stile = computed(() => {
         </span>
         <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
+      </button>
+
+      <button
+        v-if="canStartQuiz"
+        type="button"
+        class="btn-primario"
+        :aria-label="t('Quiz di fine visita')"
+        @click="emit('quiz')"
+      >
+        <span>{{ t("Quiz") }}</span>
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h8M8 12h5M8 17h3" />
+          <rect x="4" y="3" width="16" height="18" rx="2" />
         </svg>
       </button>
 

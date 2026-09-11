@@ -61,6 +61,7 @@
   "Avanzato": "Экспертный",
   "Avvia il quiz": "Начать викторину",
   "Avvia la visita": "Начать маршрут",
+  "Avvio in corso…": "Запуск…",
   "Azione": "Действие",
   "Azzera i filtri": "Сбросить фильтры",
   "Cambia": "Изменить",
@@ -522,5 +523,14 @@
   "Visitatore": "Посетитель",
   "Visite": "Посещения",
   "Voto": "Оценка",
-  "Wikidata non la dà nella collezione di questo museo": "В Wikidata нет этого экспоната в коллекции данного музея"
+  "Wikidata non la dà nella collezione di questo museo": "В Wikidata нет этого экспоната в коллекции данного музея",
+  "Online": "В сети",
+  "Attento": "Внимателен",
+  "Audio sincronizzato": "Синхронизированное аудио",
+  "Test completato": "Тест завершён",
+  "Sì": "Да",
+  "No": "Нет",
+  "Attiva audio": "Включить звук",
+  "Audio sincronizzato attivato": "Синхронизированное аудио включено",
+  "Disattiva audio": "Выключить звук"
 }

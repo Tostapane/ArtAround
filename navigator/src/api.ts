@@ -245,6 +245,24 @@ export async function getGuidedStudentState(id: string): Promise<any> {
   return res.json();
 }
 
+export async function waitForGuidedState(
+  id: string,
+  knownRevision: number,
+  status: { attentive: boolean; autoplay: boolean },
+  signal: AbortSignal,
+) {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/wait`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ knownRevision, ...status }),
+    signal,
+  });
+  if (res.status === 204) return null;
+  if (res.status === 410) throw new GuidedEndedError();
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
 export async function getGuidedItems(id: string): Promise<Item[]> {
   const res = await call(`${gsBase()}/${encodeURIComponent(id)}/items`);
   if (res.status === 410) throw new GuidedEndedError();

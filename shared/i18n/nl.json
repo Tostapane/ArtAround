@@ -61,6 +61,7 @@
   "Avanzato": "Gevorderd",
   "Avvia il quiz": "Start de quiz",
   "Avvia la visita": "Start het bezoek",
+  "Avvio in corso…": "Bezig met starten…",
   "Azione": "Actie",
   "Azzera i filtri": "Filters wissen",
   "Cambia": "Wijzig",
@@ -522,5 +523,14 @@
   "Visitatore": "Bezoeker",
   "Visite": "Bezoeken",
   "Voto": "Cijfer",
-  "Wikidata non la dà nella collezione di questo museo": "Wikidata vermeldt dit niet in de collectie van dit museum"
+  "Wikidata non la dà nella collezione di questo museo": "Wikidata vermeldt dit niet in de collectie van dit museum",
+  "Online": "Online",
+  "Attento": "Aandachtig",
+  "Audio sincronizzato": "Gesynchroniseerde audio",
+  "Test completato": "Test voltooid",
+  "Sì": "Ja",
+  "No": "Nee",
+  "Attiva audio": "Audio inschakelen",
+  "Audio sincronizzato attivato": "Gesynchroniseerde audio ingeschakeld",
+  "Disattiva audio": "Audio uitschakelen"
 }

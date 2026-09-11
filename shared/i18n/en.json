@@ -61,6 +61,7 @@
   "Avanzato": "Advanced",
   "Avvia il quiz": "Start quiz",
   "Avvia la visita": "Start tour",
+  "Avvio in corso…": "Starting…",
   "Azione": "Action",
   "Azzera i filtri": "Clear filters",
   "Cambia": "Change",
@@ -522,5 +523,14 @@
   "Visitatore": "Visitor",
   "Visite": "Tours",
   "Voto": "Score",
-  "Wikidata non la dà nella collezione di questo museo": "Wikidata does not list it in this museum's collection"
+  "Wikidata non la dà nella collezione di questo museo": "Wikidata does not list it in this museum's collection",
+  "Online": "Online",
+  "Attento": "Attentive",
+  "Audio sincronizzato": "Synchronized audio",
+  "Test completato": "Test completed",
+  "Sì": "Yes",
+  "No": "No",
+  "Attiva audio": "Enable audio",
+  "Audio sincronizzato attivato": "Synchronized audio enabled",
+  "Disattiva audio": "Disable audio"
 }

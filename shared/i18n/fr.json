@@ -61,6 +61,7 @@
   "Avanzato": "Expert",
   "Avvia il quiz": "Lancer le quiz",
   "Avvia la visita": "Lancer la visite",
+  "Avvio in corso…": "Démarrage…",
   "Azione": "Action",
   "Azzera i filtri": "Réinitialiser les filtres",
   "Cambia": "Modifier",
@@ -522,5 +523,14 @@
   "Visitatore": "Visiteur",
   "Visite": "Parcours",
   "Voto": "Note",
-  "Wikidata non la dà nella collezione di questo museo": "Wikidata ne l'indique pas dans la collection de ce musée"
+  "Wikidata non la dà nella collezione di questo museo": "Wikidata ne l'indique pas dans la collection de ce musée",
+  "Online": "En ligne",
+  "Attento": "Attentif",
+  "Audio sincronizzato": "Audio synchronisé",
+  "Test completato": "Test terminé",
+  "Sì": "Oui",
+  "No": "Non",
+  "Attiva audio": "Activer l'audio",
+  "Audio sincronizzato attivato": "Audio synchronisé activé",
+  "Disattiva audio": "Désactiver l'audio"
 }

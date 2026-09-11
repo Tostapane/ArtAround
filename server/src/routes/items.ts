@@ -190,12 +190,18 @@ async function freeItemId(base: string): Promise<string> {
 
 /**
  * POST /api/items
- * Ritorna: 201 alla pubblicazione, 200 alla modifica; con `editId` cambiano solo testo e prezzo.
+ * Solo autore. Ritorna: 201 alla pubblicazione, 200 alla modifica; con `editId` cambiano solo
+ * testo e prezzo.
  */
 router.post("/", async (req, res) => {
   try {
     const payload = req.body;
-    const author = sessionUser(req).username;
+    const chi = sessionUser(req);
+    if (chi.role !== "autore")
+      return res
+        .status(403)
+        .json({ error: "Solo gli autori possono pubblicare descrizioni." });
+    const author = chi.username;
     if (payload.tipo !== "Item")
       return res.status(400).json({ error: "Contenuto non riconosciuto." });
 

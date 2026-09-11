@@ -39,16 +39,26 @@ import {
   guidedActive,
   guidedRole,
   guidedStato,
+  guidedRevision,
   guidedCurrentStep,
+  guidedPlayAt,
+  guidedAudioText,
+  guidedAudioLanguage,
+  guidedHasQuiz,
   teacherGoToStep,
   studentAsk,
 } from "@/guided";
+import {
+  guidedAutoplayEnabled,
+  playGuidedAudio,
+  stopGuidedAudio,
+} from "./guidedAudio";
 import { NEXT_STOP_COMMAND, labelForCommand } from "../../../../shared/constants";
 import { t } from "@/i18n";
 import type { Match } from "../../../../shared/types";
 
 const props = defineProps<{ currVisit: string; title: string }>();
-const emit = defineEmits<{ exit: [] }>();
+const emit = defineEmits<{ exit: []; quiz: [] }>();
 
 const tts = useTTS();
 const { announce } = useAnnouncer();
@@ -62,9 +72,15 @@ watch(
     caricando.value = true;
     await loadVisitContent(id);
     caricando.value = false;
+    const guidedStep = guidedActive.value ? guidedCurrentStep.value : -1;
+    if (guidedStep >= 0) selectIndex(guidedStep);
     const opening = openingNotes();
     if (opening.length && !openingShown.value) {
-      transition.value = { notes: opening, target: -1 };
+      transition.value = {
+        notes: opening,
+        target: guidedStep,
+        navigateOnClose: guidedStep < 0,
+      };
       openingShown.value = true;
     }
   },
@@ -100,7 +116,11 @@ function cambiaPosizione(attiva: boolean) {
   if (attiva) sensori.start();
   else sensori.stop();
 }
-const transition = ref<{ notes: string[]; target: number } | null>(null);
+const transition = ref<{
+  notes: string[];
+  target: number;
+  navigateOnClose: boolean;
+} | null>(null);
 
 const fine = ref<{ notes: string[] } | null>(null);
 
@@ -158,6 +178,13 @@ const canEnd = computed(() => {
   if (lastVisitIndex.value < 0) return false;
   return !hasNext.value;
 });
+const canStartQuiz = computed(
+  () =>
+    guidedTeacher.value &&
+    guidedHasQuiz.value &&
+    lastVisitIndex.value >= 0 &&
+    !hasNext.value,
+);
 
 // --- Avanzamento: "Tappa 3 di 13" -----------------------------------------
 const navigableStops = computed(() =>
@@ -209,8 +236,11 @@ function onStageSelect(i: number) {
     if (i === guidedCurrentStep.value) selectIndex(i);
     return;
   }
+  if (guidedTeacher.value) {
+    apriTappa(i);
+    return;
+  }
   selectIndex(i);
-  if (guidedTeacher.value) teacherGoToStep(i);
 }
 
 const currentLocationId = computed(() => {
@@ -240,10 +270,26 @@ function apriTappaCorrente() {
 }
 
 // --- Navigazione -----------------------------------------------------------
-function goToIndex(i: number) {
-  transition.value = null;
+async function goToIndex(i: number, closeOpenTransition = true): Promise<boolean> {
+  if (closeOpenTransition) transition.value = null;
+  if (guidedTeacher.value) {
+    if (await teacherGoToStep(i)) {
+      selectIndex(i);
+      return true;
+    }
+    return false;
+  }
   selectIndex(i);
-  if (guidedTeacher.value) teacherGoToStep(i);
+  return true;
+}
+
+function showTransition(
+  notes: string[],
+  target: number,
+  navigateOnClose: boolean,
+) {
+  transition.value = { notes, target, navigateOnClose };
+  announce(notes.join(". "));
 }
 
 function navigationHandler(direction: string) {
@@ -268,24 +314,29 @@ function navigationHandler(direction: string) {
   if (direction === "next" && currentArtwork.value) {
     const notes = notesAfter(currentArtwork.value.item["@id"]);
     if (notes.length > 0) {
-      transition.value = { notes, target };
-      announce(notes.join(". "));
+      if (guidedTeacher.value) {
+        showTransition(notes, target, false);
+        void goToIndex(target, false);
+      } else {
+        showTransition(notes, target, true);
+      }
       return;
     }
   }
-  goToIndex(target);
+  void goToIndex(target);
 }
 
 function closeTransition() {
   const t = transition.value;
   transition.value = null;
   if (!t) return;
+  if (!t.navigateOnClose) return;
   if (t.target >= 0) {
-    goToIndex(t.target);
+    void goToIndex(t.target);
     return;
   }
   const primo = stepIndex(-1, 1);
-  if (primo >= 0) goToIndex(primo);
+  if (primo >= 0) void goToIndex(primo);
 }
 
 function apriTappa(i: number) {
@@ -300,11 +351,15 @@ function apriTappa(i: number) {
     if (precedente) notes = notesAfter(precedente.item["@id"]);
   }
   if (notes.length > 0 && i !== indexInVisit()) {
-    transition.value = { notes, target: i };
-    announce(notes.join(". "));
+    if (guidedTeacher.value) {
+      showTransition(notes, i, false);
+      void goToIndex(i, false);
+    } else {
+      showTransition(notes, i, true);
+    }
     return;
   }
-  selectIndex(i);
+  void goToIndex(i);
 }
 
 // --- Teletrasporto (slide 34) ----------------------------------------------
@@ -467,11 +522,33 @@ watch(openRequest, (richiesta) => {
   if (richiesta) vistaMobile.value = "domande";
 });
 
-watch(guidedCurrentStep, (step) => {
+watch(guidedCurrentStep, (step, previousStep) => {
   if (!guidedStudent.value) return;
   if (step < 0) return;
+  let notes: string[] = [];
+  if (previousStep >= 0 && step > previousStep) {
+    const previous = matchedContent.value[previousStep];
+    if (previous) notes = notesAfter(previous.item["@id"]);
+  }
   selectIndex(step);
+  if (notes.length > 0) showTransition(notes, step, false);
 });
+
+watch(
+  [guidedRevision, guidedStato, guidedAutoplayEnabled],
+  () => {
+    if (guidedStudent.value && guidedAutoplayEnabled.value) {
+      const playAt = guidedPlayAt.value;
+      const text = guidedAudioText.value;
+      if (playAt && text) {
+        void playGuidedAudio(text, guidedAudioLanguage.value, playAt);
+        return;
+      }
+    }
+    stopGuidedAudio();
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   if (guidedCurrentStep.value < 0) return;
@@ -480,6 +557,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   tts.stop();
+  stopGuidedAudio();
   sensori.stop();
   window.removeEventListener("keydown", onKeyTeletrasporto);
 });
@@ -567,6 +645,7 @@ onUnmounted(() => {
       :has-next="hasNext"
       :has-prev="hasPrev"
       :can-end="canEnd"
+      :can-start-quiz="canStartQuiz"
       :numero="currentPosition"
       :guided-student="guidedStudent"
       :guided-teacher="guidedTeacher"
@@ -577,6 +656,7 @@ onUnmounted(() => {
       @action="actionHandler"
       @close-request="chiudiRisposta"
       @apri-tappa="apriTappaCorrente"
+      @quiz="emit('quiz')"
     />
 
     <div v-if="caricando" class="fixed inset-0 z-50 flex items-center justify-center bg-bg">

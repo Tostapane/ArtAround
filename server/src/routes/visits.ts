@@ -208,7 +208,8 @@ router.post("/custom", async (req, res) => {
 
 /**
  * POST /api/visits
- * Ritorna: 201 dopo aver validato e calcolato la durata; 400 sui dati, 409 su parola guidata o tetto.
+ * Ritorna: 201 dopo aver validato e calcolato la durata; una visita esistente e' modificabile
+ * soltanto da chi l'ha composta. 400 sui dati, 403 sulla proprieta', 409 sui conflitti.
  */
 router.post("/", async (req, res) => {
   try {
@@ -255,18 +256,29 @@ router.post("/", async (req, res) => {
       0,
     );
 
-    const visitId = payload.id || payload["@id"];
+    const requestedVisitId = payload.id || payload["@id"];
+    if (
+      typeof requestedVisitId !== "string" ||
+      requestedVisitId.trim() === ""
+    )
+      return res.status(400).json({ error: "Manca l'identificativo della visita." });
+    const visitId = requestedVisitId.trim();
     const author = sessionUser(req).username;
     const ruolo = sessionUser(req).role;
+    const precedente = await VisitModel.findOne({ "@id": visitId });
+    if (precedente && precedente.author !== author) {
+      if (nascostaA(precedente, author))
+        return res.status(404).json({ error: "Visita non trovata" });
+      return res
+        .status(403)
+        .json({ error: "Puoi modificare solo le visite che hai composto." });
+    }
     let visibility: "pubblico" | "privato" = "privato";
     if (ruolo === "autore") visibility = "pubblico";
 
     const museoUri = payload.museumUri || payload.ofMuseum;
     if (ruolo === "visitatore") {
-      const esiste = visitId
-        ? await VisitModel.exists({ "@id": visitId, author })
-        : null;
-      if (!esiste) {
+      if (!precedente) {
         const quante = await VisitModel.countDocuments({
           author,
           ofMuseum: museoUri,
@@ -362,7 +374,6 @@ router.post("/", async (req, res) => {
       typeof payload.immagine === "string" && payload.immagine.trim() !== ""
         ? payload.immagine.trim()
         : null;
-    const precedente = await VisitModel.findOne({ "@id": visitId }).select("imagePath");
     if (precedente?.imagePath && precedente.imagePath !== immagine)
       rimuoviImmagine(precedente.imagePath);
 
@@ -372,7 +383,7 @@ router.post("/", async (req, res) => {
     if (quiz) domande = quiz;
 
     await VisitModel.findOneAndUpdate(
-      { "@id": visitId },
+      { "@id": visitId, author },
       {
         "@id": visitId,
         name,
@@ -395,6 +406,10 @@ router.post("/", async (req, res) => {
 
     res.status(201).send({ message: "Visita pubblicata con successo" });
   } catch (error: any) {
+    if (error?.code === 11000)
+      return res
+        .status(409)
+        .json({ error: "Esiste già una visita con questo identificativo." });
     console.error("[BACKEND ERROR] Errore durante il salvataggio della visita:", error);
     res.status(500).json({ error: error.message || "Errore interno del server" });
   }

@@ -61,6 +61,7 @@
   "Avanzato": "专业版",
   "Avvia il quiz": "开始测验",
   "Avvia la visita": "开始参观",
+  "Avvio in corso…": "正在启动…",
   "Azione": "操作",
   "Azzera i filtri": "重置筛选",
   "Cambia": "更改",
@@ -522,5 +523,14 @@
   "Visitatore": "参观者",
   "Visite": "参观",
   "Voto": "评分",
-  "Wikidata non la dà nella collezione di questo museo": "Wikidata显示该藏品不属于此博物馆馆藏"
+  "Wikidata non la dà nella collezione di questo museo": "Wikidata显示该藏品不属于此博物馆馆藏",
+  "Online": "在线",
+  "Attento": "专注",
+  "Audio sincronizzato": "同步音频",
+  "Test completato": "测试已完成",
+  "Sì": "是",
+  "No": "否",
+  "Attiva audio": "启用音频",
+  "Audio sincronizzato attivato": "同步音频已启用",
+  "Disattiva audio": "禁用音频"
 }

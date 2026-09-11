@@ -61,6 +61,7 @@
   "Avanzato": "İleri",
   "Avvia il quiz": "Sınavı başlat",
   "Avvia la visita": "Turu başlat",
+  "Avvio in corso…": "Başlatılıyor…",
   "Azione": "İşlem",
   "Azzera i filtri": "Filtreleri sıfırla",
   "Cambia": "Değiştir",
@@ -522,5 +523,14 @@
   "Visitatore": "Ziyaretçi",
   "Visite": "Geziler",
   "Voto": "Puan",
-  "Wikidata non la dà nella collezione di questo museo": "Wikidata bunu bu müzenin koleksiyonunda göstermiyor"
+  "Wikidata non la dà nella collezione di questo museo": "Wikidata bunu bu müzenin koleksiyonunda göstermiyor",
+  "Online": "Çevrimiçi",
+  "Attento": "Dikkatli",
+  "Audio sincronizzato": "Senkronize ses",
+  "Test completato": "Test tamamlandı",
+  "Sì": "Evet",
+  "No": "Hayır",
+  "Attiva audio": "Sesi etkinleştir",
+  "Audio sincronizzato attivato": "Senkronize ses etkinleştirildi",
+  "Disattiva audio": "Sesi devre dışı bırak"
 }

@@ -75,18 +75,20 @@ app.use("/sources", (req, res, next) => {
 });
 app.use("/sources", express.static(sourcesDir, { dotfiles: "deny" }));
 
-const connectWithRetry = () => {
-  console.log("Attempting to connect to MongoDB...");
-  mongoose
-    .connect(MONGO_URI)
-    .then(() => console.log("Successful MongoDB connection"))
-    .catch((err) => {
-      console.error("MongoDB connection error, retrying in 5 seconds...", err);
-      setTimeout(connectWithRetry, 5000);
-    });
-};
+const MONGO_RETRY_MS = 5000;
 
-connectWithRetry();
+async function connectWithRetry(): Promise<void> {
+  while (mongoose.connection.readyState !== 1) {
+    console.log("Attempting to connect to MongoDB...");
+    try {
+      await mongoose.connect(MONGO_URI);
+      console.log("Successful MongoDB connection");
+    } catch (err) {
+      console.error("MongoDB connection error, retrying in 5 seconds...", err);
+      await new Promise((resolve) => setTimeout(resolve, MONGO_RETRY_MS));
+    }
+  }
+}
 
 app.use("/api/artworks", requireSession, artworkRoutes);
 app.use("/api/visits", requireSession, visitsRoutes);
@@ -99,9 +101,11 @@ app.use("/api/translate", requireSession, translateRoutes);
 app.use("/api/wayfinding", requireSession, wayfindingRoutes);
 app.use("/api/guided-sessions", requireSession, guidedSessionRoutes);
 app.get("/api/health", (req, res) => {
-  res.json({
+  const databaseReady = mongoose.connection.readyState === 1;
+  res.status(databaseReady ? 200 : 503).json({
     message: "Unified Backend running",
     node_version: process.version,
+    database: databaseReady ? "connected" : "unavailable",
   });
 });
 
@@ -170,11 +174,17 @@ app.use((req, res, next) => {
   );
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`-------------------------------------------`);
-  console.log(`  ArtAround Unified Backend on port ${PORT} `);
-  console.log(`-------------------------------------------`);
-});
+async function startServer(): Promise<void> {
+  await connectWithRetry();
 
-server.keepAliveTimeout = 65_000;
-server.headersTimeout = 66_000;
+  const server = app.listen(PORT, () => {
+    console.log(`-------------------------------------------`);
+    console.log(`  ArtAround Unified Backend on port ${PORT} `);
+    console.log(`-------------------------------------------`);
+  });
+
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
+}
+
+void startServer();
