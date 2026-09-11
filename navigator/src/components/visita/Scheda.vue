@@ -257,7 +257,7 @@ const stile = computed(() => {
 
     <!-- CHIEDI / ORIENTATI -->
     <div
-      class="min-h-0 basis-0 overflow-y-auto border-t border-line p-3 lg:block"
+      class="min-h-0 basis-0 overflow-y-auto border-t border-line bg-surface-2 p-3 lg:block"
       :class="[
         richiesta ? 'grow-[3]' : 'grow-[2]',
         sezione === 'domande' ? 'block' : 'hidden',

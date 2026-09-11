@@ -32,6 +32,7 @@ export interface MapNode {
 interface MapGeometry {
   metriPerUnita: number;
   larghezzaMetri: number;
+  angoloNord: number;
   entrance: { x: number; y: number } | null;
   nodes: MapNode[];
 }
@@ -64,6 +65,7 @@ function leggiGeometria(svgText: string): MapGeometry | null {
 
   const viewBox = root.getAttribute("viewBox");
   const larghezzaMetri = parseFloat(root.getAttribute("data-width-m") || "");
+  const angoloNord = parseFloat(root.getAttribute("data-north-angle") || "0");
   if (!viewBox || isNaN(larghezzaMetri) || larghezzaMetri <= 0) return null;
   const parti = viewBox.trim().split(/[\s,]+/);
   const larghezzaUnita = parseFloat(parti[2] || "");
@@ -87,6 +89,7 @@ function leggiGeometria(svgText: string): MapGeometry | null {
   return {
     metriPerUnita: larghezzaMetri / larghezzaUnita,
     larghezzaMetri,
+    angoloNord: isNaN(angoloNord) ? 0 : angoloNord,
     entrance,
     nodes,
   };
@@ -115,6 +118,9 @@ const ancora = ref<{
 
 export const stima = ref<Stima | null>(null);
 export const bussola = ref<number | null>(null);
+export const angoloNordMappa = computed(
+  () => geometria.value?.angoloNord || 0,
+);
 
 export function startAtEntrance() {
   const g = geometria.value;
@@ -165,10 +171,17 @@ export function applyFix(coords: {
     METRI_PER_GRADO_LON *
     Math.cos((a.lat * Math.PI) / 180);
   const nord = (coords.latitude - a.lat) * METRI_PER_GRADO_LAT;
+  const rotazione = (g.angoloNord * Math.PI) / 180;
 
   stima.value = {
-    x: a.x + est / g.metriPerUnita,
-    y: a.y - nord / g.metriPerUnita, // la y dell'SVG cresce verso il basso
+    x:
+      a.x +
+      (est * Math.cos(rotazione) + nord * Math.sin(rotazione)) /
+        g.metriPerUnita,
+    y:
+      a.y +
+      (est * Math.sin(rotazione) - nord * Math.cos(rotazione)) /
+        g.metriPerUnita,
     accuracy: coords.accuracy,
   };
 }
@@ -206,7 +219,8 @@ export function rank(): Verdetto | null {
     let costo = (metri / sigmaD) * (metri / sigmaD);
 
     if (bussola.value !== null && metri > 0.5) {
-      const direzione = (Math.atan2(dx, -dy) * 180) / Math.PI;
+      const direzione =
+        (Math.atan2(dx, -dy) * 180) / Math.PI - g.angoloNord;
       const scarto = scartoAngolare(direzione, bussola.value);
       costo += (scarto / SIGMA_ANGOLO) * (scarto / SIGMA_ANGOLO);
     }

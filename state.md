@@ -216,6 +216,12 @@ Il parser `server/src/services/svgGraph.ts` interpreta:
 - `data-flow` sull'ordine curatoriale del percorso;
 - `data-floor` e `data-floor-label` sui gruppi di piano;
 - `data-width-m` sulla radice per convertire unità SVG in metri.
+- `data-north-angle` facoltativo sulla radice per orientare GPS e bussola nelle
+  piante che non hanno il nord verso l'alto.
+
+Le porte sono rappresentate soltanto dal varco fra due segmenti di muro. Il
+relativo `data-edge`, invisibile nell'interfaccia, attraversa il varco e collega
+le due aree nel grafo; non viene disegnato l'arco del battente.
 
 La geometria non inventa adiacenze: i collegamenti sono dichiarati. L'area che
 contiene il centro del nodo decide la sala e, in caso di sovrapposizione, vince
@@ -300,6 +306,22 @@ Il file pubblico può cambiare museo senza ricompilare il navigator.
 - `Scheda.vue` resta sempre disponibile e raccoglie lingua, opera, TTS,
   navigazione e comandi.
 - Su telefono una barra permette di passare fra mappa, elenco, opera e domande.
+- Più descrizioni ancorate alla stessa opera condividono il nodo: il cerchio
+  mostra il primo numero seguito da `+`, mentre il nome accessibile conserva
+  l'elenco completo delle tappe.
+- Quando la mappa torna visibile su telefono, il piano attivo viene nuovamente
+  inquadrato; il pannello "Dove sono?" dispone i quattro metodi su due colonne
+  e resta contenuto nell'altezza dello schermo.
+- La mappa usa un viewport interno: trascinamento, pinch e pulsanti `+`/`−` non
+  ingrandiscono la pagina; il dezoom si ferma al piano completo e la tappa
+  corrente viene centrata all'apertura.
+- La pianta degli Uffizi ha coordinate verticali native; le altre piante restano
+  orizzontali per consentire il confronto fra le due impostazioni.
+- Il selettore nativo del piano e "Dove sono?" compaiono soltanto sulla mappa.
+- Nella visita guidata dello studente, il controllo dell'audio sincronizzato è
+  nella barra superiore, fra l'uscita e l'avanzamento.
+- I limiti o i rifiuti di fotocamera e sensori non espongono dettagli tecnici:
+  la localizzazione rimanda semplicemente all'inserimento del codice.
 - Le note logistiche sono transizioni prima della prima tappa o fra due tappe.
 - Le tappe si identificano con l'id dell'item, non con il QID dell'opera; due
   descrizioni della stessa opera non bloccano l'avanzamento.
@@ -364,7 +386,8 @@ più tre secondi di tolleranza. Lo studente resta nell'elenco della sessione con
 Il gesto iniziale richiesto dai browser attiva subito l'audio sincronizzato e
 riproduce un breve tono di conferma nello stesso `AudioContext` usato poi dalle
 descrizioni. Non viene riprodotto alcun audio silenzioso. Lo studente può
-disattivare e riattivare la sincronizzazione in qualsiasi momento; la scelta
+disattivare e riattivare la sincronizzazione in qualsiasi momento; il controllo
+si trova nella barra superiore, senza un banner separato, e la scelta
 interrompe subito la riproduzione e viene mostrata al docente insieme a presenza
 e primo piano. Il volume fisico del telefono non è osservabile da una pagina
 web. Qualunque lettura manuale avviata con "Leggi" ferma e disattiva l'audio

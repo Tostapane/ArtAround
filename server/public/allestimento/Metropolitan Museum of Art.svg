@@ -78,19 +78,13 @@
       stroke-linecap: butt;
       fill: none;
     }
-    :where(.museum-map) .porta {
-      fill: none;
-      stroke: var(--linea);
-      stroke-width: 1.5;
-      opacity: 0.6;
-    }
-
     /* Collegamenti del grafo: servono al parser, non all'occhio */
     :where(.museum-map) .arco {
       stroke: var(--accento);
       stroke-width: 1.5;
       stroke-dasharray: 3 5;
-      opacity: 0.12;
+      opacity: 0;
+      pointer-events: none;
     }
 
     /* Aspetto inattivo dei nodi opera; il navigator marca le tappe. */
@@ -254,23 +248,6 @@
       <line x1="1143" y1="-280" x2="1250" y2="-280" />
       <line x1="1000" y1="-100" x2="1250" y2="-100" />
     </g>
-    <g class="porta">
-      <path d="M1107 -540 L1107 -520 A20 20 0 0 0 1143 -540" />
-      <path d="M1107 -280 L1107 -260 A20 20 0 0 0 1143 -280" />
-      <path d="M1000 -428 L1020 -428 A20 20 0 0 1 1000 -392" />
-      <path d="M1000 -688 L1020 -688 A20 20 0 0 1 1000 -652" />
-      <path d="M700 -688 L720 -688 A20 20 0 0 1 700 -652" />
-      <path d="M400 -688 L420 -688 A20 20 0 0 1 400 -652" />
-      <path d="M700 -428 L720 -428 A20 20 0 0 1 700 -392" />
-      <path d="M350 -428 L370 -428 A20 20 0 0 1 350 -392" />
-      <path d="M182 -540 L182 -520 A20 20 0 0 0 218 -540" />
-      <path d="M532 -540 L532 -520 A20 20 0 0 0 568 -540" />
-      <path d="M182 -280 L182 -260 A20 20 0 0 0 218 -280" />
-      <path d="M400 -208 L420 -208 A20 20 0 0 1 400 -172" />
-      <path d="M700 -208 L720 -208 A20 20 0 0 1 700 -172" />
-      <path d="M1000 -208 L1020 -208 A20 20 0 0 1 1000 -172" />
-      <path d="M832 -280 L832 -260 A20 20 0 0 0 868 -280" />
-    </g>
     <g class="nome-sala" pointer-events="none">
       <text x="225" y="-779">ALA AMERICANA</text>
       <text x="225" y="-769">PITTURA</text>
@@ -383,8 +360,6 @@
         <text x="829" y="-60">Emergenza</text>
         <rect class="ostacolo" x="933" y="-70" width="12" height="12" rx="2" />
         <text x="952" y="-60">Ostacolo</text>
-        <path class="porta" d="M1053 -56 L1053 -70 A14 14 0 0 1 1067 -56" />
-        <text x="1074" y="-60">Porta</text>
       </g>
     </g>
   </g>
@@ -488,24 +463,6 @@
       <line x1="1143" y1="520" x2="1250" y2="520" />
       <line x1="1000" y1="740" x2="1250" y2="740" />
     </g>
-    <g class="porta">
-      <path d="M1107 260 L1107 280 A20 20 0 0 0 1143 260" />
-      <path d="M1107 520 L1107 540 A20 20 0 0 0 1143 520" />
-      <path d="M1000 372 L1020 372 A20 20 0 0 1 1000 408" />
-      <path d="M1000 132 L1020 132 A20 20 0 0 1 1000 168" />
-      <path d="M700 132 L720 132 A20 20 0 0 1 700 168" />
-      <path d="M400 132 L420 132 A20 20 0 0 1 400 168" />
-      <path d="M700 372 L720 372 A20 20 0 0 1 700 408" />
-      <path d="M350 372 L370 372 A20 20 0 0 1 350 408" />
-      <path d="M532 260 L532 280 A20 20 0 0 0 568 260" />
-      <path d="M532 520 L532 540 A20 20 0 0 0 568 520" />
-      <path d="M182 260 L182 280 A20 20 0 0 0 218 260" />
-      <path d="M182 520 L182 540 A20 20 0 0 0 218 520" />
-      <path d="M400 612 L420 612 A20 20 0 0 1 400 648" />
-      <path d="M700 612 L720 612 A20 20 0 0 1 700 648" />
-      <path d="M1000 612 L1020 612 A20 20 0 0 1 1000 648" />
-      <path d="M832 520 L832 540 A20 20 0 0 0 868 520" />
-    </g>
     <g class="nome-sala" pointer-events="none">
       <text x="225" y="61">ALA AMERICANA</text>
       <text x="225" y="71">CORTILE ENGELHARD</text>
@@ -599,8 +556,6 @@
         <text x="829" y="780">Emergenza</text>
         <rect class="ostacolo" x="933" y="770" width="12" height="12" rx="2" />
         <text x="952" y="780">Ostacolo</text>
-        <path class="porta" d="M1053 784 L1053 770 A14 14 0 0 1 1067 784" />
-        <text x="1074" y="780">Porta</text>
       </g>
     </g>
   </g>

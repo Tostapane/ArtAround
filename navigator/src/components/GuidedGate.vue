@@ -396,29 +396,12 @@ async function consegna() {
         {{ guidedError }}
       </p>
     </div>
-    <div
-      v-else
-      class="flex shrink-0 items-center justify-center gap-3 border-b border-line bg-structure px-3 py-2 text-caption text-on-structure"
-    >
-      <span>
-        {{ t("Visita guidata dal docente") }} ·
-        {{ t("Audio sincronizzato") }}: {{ yesNo(guidedAutoplayEnabled) }}
-      </span>
-      <button
-        type="button"
-        class="btn-fantasma-chiaro"
-        :aria-pressed="guidedAutoplayEnabled"
-        @click="toggleAudio"
-      >
-        {{ guidedAutoplayEnabled ? t("Disattiva audio") : t("Attiva audio") }}
-      </button>
-    </div>
-
     <Visita
       :curr-visit="currVisit"
       :title="guidedVisitName"
       @exit="exitVisit"
       @quiz="panel = 'quiz'"
+      @toggle-audio="toggleAudio"
     />
 
     <div

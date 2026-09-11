@@ -161,6 +161,7 @@
   "Entra nel museo {nome}": "美術館 {nome} に入る",
   "Entra nell'app da museo": "美術館アプリに入る",
   "Entra nella visita guidata della tua classe.": "クラスのガイドツアーに参加します。",
+  "Errore. Prova a inserire il codice.": "エラーが発生しました。コードを入力してみてください。",
   "Esci": "終了",
   "Esci dal profilo": "ログアウト",
   "Esegui il seed del server per popolarlo.": "サーバーにシードデータを投入してデータベースを構築してください。",

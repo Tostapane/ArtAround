@@ -553,10 +553,6 @@
                 x-text="t(`Entra nell'app da museo`)"
               ></button>
             </div>
-            <p
-              class="measure mt-4 text-small text-on-structure/70"
-              x-text="t(`L'app da museo è quella che si usa camminando: dopo l'accesso si sceglie la visita.`)"
-            ></p>
           </div>
         </div>
       </section>
@@ -581,12 +577,6 @@
             :class="entryTarget === 'navigator' ? 'mb-2' : 'mb-8'"
             x-text="t(`Accedi`)"
           ></h1>
-
-          <p
-            class="mb-8 text-small text-muted"
-            x-show="entryTarget === 'navigator'"
-            x-text="t(`L'app da museo è quella che si usa camminando: dopo l'accesso si sceglie la visita.`)"
-          ></p>
 
           <form
             @submit.prevent="login()"

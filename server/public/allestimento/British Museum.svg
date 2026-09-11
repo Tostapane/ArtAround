@@ -78,19 +78,13 @@
       stroke-linecap: butt;
       fill: none;
     }
-    :where(.museum-map) .porta {
-      fill: none;
-      stroke: var(--linea);
-      stroke-width: 1.5;
-      opacity: 0.6;
-    }
-
     /* Collegamenti del grafo: servono al parser, non all'occhio */
     :where(.museum-map) .arco {
       stroke: var(--accento);
       stroke-width: 1.5;
       stroke-dasharray: 3 5;
-      opacity: 0.12;
+      opacity: 0;
+      pointer-events: none;
     }
 
     /* Aspetto inattivo dei nodi opera; il navigator marca le tappe. */
@@ -235,18 +229,6 @@
       <line x1="1028" y1="-300" x2="1160" y2="-300" />
       <line x1="770" y1="-120" x2="1160" y2="-120" />
     </g>
-    <g class="porta">
-      <path d="M400 -928 L420 -928 A20 20 0 0 1 400 -892" />
-      <path d="M760 -928 L780 -928 A20 20 0 0 1 760 -892" />
-      <path d="M172 -820 L172 -800 A20 20 0 0 0 208 -820" />
-      <path d="M172 -560 L172 -540 A20 20 0 0 0 208 -560" />
-      <path d="M172 -300 L172 -280 A20 20 0 0 0 208 -300" />
-      <path d="M430 -228 L450 -228 A20 20 0 0 1 430 -192" />
-      <path d="M770 -228 L790 -228 A20 20 0 0 1 770 -192" />
-      <path d="M992 -300 L992 -280 A20 20 0 0 0 1028 -300" />
-      <path d="M992 -560 L992 -540 A20 20 0 0 0 1028 -560" />
-      <path d="M992 -820 L992 -800 A20 20 0 0 0 1028 -820" />
-    </g>
     <g class="nome-sala" pointer-events="none">
       <text x="220" y="-979">SALE 61-66</text>
       <text x="220" y="-969">EGITTO: VITA E MORTE</text>
@@ -329,8 +311,6 @@
         <text x="769" y="-80">Emergenza</text>
         <rect class="ostacolo" x="873" y="-90" width="12" height="12" rx="2" />
         <text x="892" y="-80">Ostacolo</text>
-        <path class="porta" d="M993 -76 L993 -90 A14 14 0 0 1 1007 -76" />
-        <text x="1014" y="-80">Porta</text>
       </g>
     </g>
   </g>
@@ -431,24 +411,6 @@
       <line x1="1028" y1="740" x2="1160" y2="740" />
       <line x1="770" y1="920" x2="1160" y2="920" />
     </g>
-    <g class="porta">
-      <path d="M582 740 L582 760 A20 20 0 0 0 618 740" />
-      <path d="M562 220 L562 240 A20 20 0 0 0 598 220" />
-      <path d="M340 332 L360 332 A20 20 0 0 1 340 368" />
-      <path d="M340 592 L360 592 A20 20 0 0 1 340 628" />
-      <path d="M860 332 L880 332 A20 20 0 0 1 860 368" />
-      <path d="M860 592 L880 592 A20 20 0 0 1 860 628" />
-      <path d="M400 112 L420 112 A20 20 0 0 1 400 148" />
-      <path d="M760 112 L780 112 A20 20 0 0 1 760 148" />
-      <path d="M430 812 L450 812 A20 20 0 0 1 430 848" />
-      <path d="M770 812 L790 812 A20 20 0 0 1 770 848" />
-      <path d="M172 480 L172 500 A20 20 0 0 0 208 480" />
-      <path d="M992 480 L992 500 A20 20 0 0 0 1028 480" />
-      <path d="M172 220 L172 240 A20 20 0 0 0 208 220" />
-      <path d="M992 220 L992 240 A20 20 0 0 0 1028 220" />
-      <path d="M172 740 L172 760 A20 20 0 0 0 208 740" />
-      <path d="M992 740 L992 760 A20 20 0 0 0 1028 740" />
-    </g>
     <g class="nome-sala" pointer-events="none">
       <text x="220" y="61">SALE 6-10</text>
       <text x="220" y="71">ASSIRIA</text>
@@ -544,8 +506,6 @@
         <text x="769" y="960">Emergenza</text>
         <rect class="ostacolo" x="873" y="950" width="12" height="12" rx="2" />
         <text x="892" y="960">Ostacolo</text>
-        <path class="porta" d="M993 964 L993 950 A14 14 0 0 1 1007 964" />
-        <text x="1014" y="960">Porta</text>
       </g>
     </g>
   </g>

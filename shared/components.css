@@ -175,13 +175,16 @@
   }
 
   .comando {
-    @apply flex min-h-11 w-full items-center rounded-plate border-l-[3px] border-transparent
-           px-3 py-2.5 text-left text-small font-medium text-text
-           transition-colors hover:bg-surface-2;
+    @apply flex min-h-14 w-full items-center rounded-card border border-line bg-surface
+           px-3 py-3 text-left text-small font-semibold text-text shadow-sm
+           transition-colors hover:border-accent hover:bg-surface;
   }
   .comando-attivo {
-    @apply border-l-accent text-accent;
+    @apply border-accent text-accent;
     background-color: var(--accent-velo);
+  }
+  .comando:disabled {
+    @apply cursor-not-allowed opacity-40;
   }
 
   .tessera-intera {

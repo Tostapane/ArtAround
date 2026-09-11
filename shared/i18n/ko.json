@@ -161,6 +161,7 @@
   "Entra nel museo {nome}": "{nome} 박물관 입장",
   "Entra nell'app da museo": "박물관 앱 시작하기",
   "Entra nella visita guidata della tua classe.": "학급 가이드 투어에 참여하세요.",
+  "Errore. Prova a inserire il codice.": "오류가 발생했습니다. 코드를 입력해 보세요.",
   "Esci": "나가기",
   "Esci dal profilo": "로그아웃",
   "Esegui il seed del server per popolarlo.": "서버 시드(seed)를 실행하여 데이터를 채우세요.",

@@ -17,7 +17,7 @@ services:
     working_dir: /app
     environment:
       - MONGO_URI=mongodb://localuser:localpassword@mongodb:27017/artaround?authSource=admin
-      - NAVIGATOR_ORIGIN=http://localhost:8000/navigator
+      - NAVIGATOR_ORIGIN=/navigator
     ports:
       - "8000:8000"
     volumes:

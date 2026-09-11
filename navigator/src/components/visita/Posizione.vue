@@ -25,7 +25,7 @@ const code = ref("");
 const codeError = ref("");
 
 const cameraAvailable = computed(
-  () => window.isSecureContext && !!navigator.mediaDevices,
+  () => !!navigator.mediaDevices?.getUserMedia,
 );
 const sheet = ref<"qr" | "codice" | "posizione" | "teletrasporto">(
   cameraAvailable.value ? "qr" : "codice",
@@ -121,7 +121,7 @@ onUnmounted(() => scanner.stop());
       role="dialog"
       aria-modal="true"
       aria-labelledby="posizione-titolo"
-      class="lastra w-full max-w-md p-5 shadow-l2"
+      class="lastra max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto p-5 shadow-l2"
     >
       <div class="flex items-start justify-between gap-3">
         <h2 id="posizione-titolo" class="font-display text-title-2">{{ t("Dove sono?") }}</h2>
@@ -152,13 +152,17 @@ onUnmounted(() => scanner.stop());
         </span>
       </label>
 
-      <div class="segmenti mt-4" role="tablist" :aria-label="t(`Come indicare l'opera`)">
+      <div
+        class="mt-4 grid w-full grid-cols-2 gap-1 rounded-plate border border-line bg-surface p-1"
+        role="tablist"
+        :aria-label="t(`Come indicare l'opera`)"
+      >
         <button
           type="button"
           role="tab"
           :aria-selected="sheet === 'qr'"
           :disabled="!cameraAvailable"
-          class="segmento"
+          class="segmento min-w-0"
           :class="sheet === 'qr' ? 'segmento-attivo' : ''"
           @click="sheet = 'qr'"
         >
@@ -168,7 +172,7 @@ onUnmounted(() => scanner.stop());
           type="button"
           role="tab"
           :aria-selected="sheet === 'codice'"
-          class="segmento"
+          class="segmento min-w-0"
           :class="sheet === 'codice' ? 'segmento-attivo' : ''"
           @click="sheet = 'codice'"
         >
@@ -178,7 +182,7 @@ onUnmounted(() => scanner.stop());
           type="button"
           role="tab"
           :aria-selected="sheet === 'posizione'"
-          class="segmento"
+          class="segmento min-w-0"
           :class="sheet === 'posizione' ? 'segmento-attivo' : ''"
           @click="sheet = 'posizione'"
         >
@@ -188,17 +192,13 @@ onUnmounted(() => scanner.stop());
           type="button"
           role="tab"
           :aria-selected="sheet === 'teletrasporto'"
-          class="segmento"
+          class="segmento min-w-0"
           :class="sheet === 'teletrasporto' ? 'segmento-attivo' : ''"
           @click="sheet = 'teletrasporto'"
         >
           {{ t("Teletrasporto") }}
         </button>
       </div>
-
-      <p v-if="!cameraAvailable" class="avviso mt-4">
-        {{ t("La fotocamera funziona solo su indirizzi sicuri (https o localhost). Scrivi il codice stampato sotto il QR.") }}
-      </p>
 
       <!-- QR -->
       <div v-show="sheet === 'qr' && cameraAvailable" class="mt-4">

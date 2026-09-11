@@ -21,7 +21,7 @@ export function useQRScanner() {
     stopped = false;
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        error.value = t("Fotocamera non disponibile (serve https o localhost).");
+        error.value = t("Errore. Prova a inserire il codice.");
         return;
       }
 
@@ -58,15 +58,8 @@ export function useQRScanner() {
         rafId = requestAnimationFrame(tick);
       };
       rafId = requestAnimationFrame(tick);
-    } catch (e) {
-      const err = e as DOMException;
-      if (err.name === "NotAllowedError") {
-        error.value = t("Permesso fotocamera negato.");
-      } else if (err.name === "NotFoundError") {
-        error.value = t("Nessuna fotocamera trovata.");
-      } else {
-        error.value = t("Impossibile accedere alla fotocamera.");
-      }
+    } catch {
+      error.value = t("Errore. Prova a inserire il codice.");
     }
   }
 

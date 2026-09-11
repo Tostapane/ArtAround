@@ -28,13 +28,22 @@ e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo po
 - testare funzionalita del curatore
 - ordine delle visite
 PROBLEMI
-La prima volta che premi il bottone attiva audio nella sala di attesa sembra non fare nulla
-come si fa a fare asscoltare le domande che lo studente fa se gia sta ascoltando la roba obbligatoria?
-il tasto quiz odvrebbe essere mostrato al posto di avanti una volta che le tappe sono finite
-quando vai a pubblicare una visita guidata in realta il tasto dice avia visita, ma dovrebbe essere crea visita
-fare ascoltare a tutti gli studenti adio contemporaneamente di default
+
 posso associare piu item tipo difficile e facile allo stesso artwork?
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra
 la barra di ricerca con gli item e visite ha i bordi strani se cerchi
+
+1) se ci sono tappe multiple sullo sttesso artwork, registra numero della prima + es: 8+ (a posto di 8, 9, 10) quella dopo avra il numero 11
+altrimenti non ci stanno nel pallino
+2) la scelta del'audio sincronizzato dovrebbe essere esattamente tra la freccia e il numero della tappa, al momento c'e' un grande spazio vuoto.
+dovremmo spostare la selezione del piano (se piu' piani), dove si trova ora il bottone attiva audio, ovvero vicino al botton dove sono?
+questi due bottoni devono essere presenti solo se l'utente si trova nella sezione della mappa, non nelle altre (attualmente elenco le contiene)
+se ci clicchiamo, possiamo cambiare il piano (menu a scelta, magari anche quello built in). 
+3) l'opera su cui ci si trova dovrebbe essere resa piu' chiara, alone piu' grande e luminoso
+4) voglio una ui piu' strutturata e con piu' carattere. la sezione doamnde necessita che uei bottoni siano effettivametne
+dei bottoni, non solo delle scritte cliccabili
+5) la dicitura "Domande su questo contenuto" "domande sull'edificio..." vanno rimosse
+6) sarebbe bene colorare di colore diverso gli elementi nelal visualizzazione ad elenco che appartengono a paini diversi (discutiamone, quante linee di codice servono?)
+4) credo ci sia un problema con la localizzazione, non implementare nulla, rispondi: come fa a capire in che piano mi trovo? indovina?
 

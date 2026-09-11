@@ -60,7 +60,8 @@ export function useSensors() {
   }
 
   async function startCompass() {
-    const anyEvent = DeviceOrientationEvent as unknown as {
+    if (!("DeviceOrientationEvent" in window)) return;
+    const anyEvent = window.DeviceOrientationEvent as unknown as {
       requestPermission?: () => Promise<string>;
     };
     if (typeof anyEvent.requestPermission === "function") {
@@ -87,7 +88,7 @@ export function useSensors() {
 
   function startPosition() {
     if (!navigator.geolocation) {
-      error.value = t("Questo dispositivo non sa dire dove si trova.");
+      error.value = t("Errore. Prova a inserire il codice.");
       return;
     }
     watchId = navigator.geolocation.watchPosition(
@@ -99,14 +100,8 @@ export function useSensors() {
           accuracy: pos.coords.accuracy,
         });
       },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          error.value = t("Permesso di posizione negato.");
-        } else if (err.code === err.TIMEOUT) {
-          error.value = t("Il satellite non risponde: al chiuso capita.");
-        } else {
-          error.value = t("Posizione non disponibile.");
-        }
+      () => {
+        error.value = t("Errore. Prova a inserire il codice.");
       },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
     );
@@ -118,12 +113,6 @@ export function useSensors() {
     if (attivo.value) return;
     attivo.value = true;
     error.value = "";
-    if (!window.isSecureContext) {
-      error.value = t(
-        "I sensori funzionano solo su indirizzi sicuri (https o localhost).",
-      );
-      return;
-    }
     startPosition();
     await startCompass();
   }

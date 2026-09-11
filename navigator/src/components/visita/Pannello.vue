@@ -56,7 +56,11 @@ function isDisabled(o: CommandOption): boolean {
 
 <template>
   <div>
-    <div class="segmenti" role="tablist" :aria-label="t('Che cosa vuoi chiedere')">
+    <div
+      class="grid w-full grid-cols-2 gap-1 rounded-plate border border-line bg-surface p-1"
+      role="tablist"
+      :aria-label="t('Che cosa vuoi chiedere')"
+    >
       <button
         type="button"
         role="tab"
@@ -79,26 +83,38 @@ function isDisabled(o: CommandOption): boolean {
       </button>
     </div>
 
-    <p class="mt-3 text-caption text-muted">
-      {{
-        tab === "chiedi"
-          ? t("Domande su questo contenuto.")
-          : t("Domande sull'edificio: dove si trovano le cose.")
-      }}
-    </p>
-
-    <div class="mt-3 grid grid-cols-2 gap-2">
+    <div class="mt-4 grid grid-cols-2 gap-2">
       <button
         v-for="o in shown"
         :key="o.id"
         type="button"
-        class="comando"
+        class="comando gap-3"
         :class="richiesta === o.id ? 'comando-attivo' : ''"
         :disabled="isDisabled(o)"
         :aria-describedby="o.hint ? hintId(o.id) : undefined"
         @click="emit('action', o.id)"
       >
-        {{ t(o.label) }}
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-velo font-display text-small text-accent"
+          aria-hidden="true"
+        >
+          <span v-if="tab === 'chiedi'">?</span>
+          <svg
+            v-else
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
+            <circle cx="12" cy="10" r="2.4" />
+          </svg>
+        </span>
+        <span class="min-w-0 flex-1">{{ t(o.label) }}</span>
+        <svg class="h-4 w-4 shrink-0 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
         <span v-if="o.hint" :id="hintId(o.id)" class="sr-only">{{ t(o.hint) }}</span>
       </button>
     </div>

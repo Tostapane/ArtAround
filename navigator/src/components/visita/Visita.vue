@@ -58,7 +58,7 @@ import { t } from "@/i18n";
 import type { Match } from "../../../../shared/types";
 
 const props = defineProps<{ currVisit: string; title: string }>();
-const emit = defineEmits<{ exit: []; quiz: [] }>();
+const emit = defineEmits<{ exit: []; quiz: []; toggleAudio: [] }>();
 
 const tts = useTTS();
 const { announce } = useAnnouncer();
@@ -586,6 +586,19 @@ onUnmounted(() => {
           <span class="sr-only sm:not-sr-only">{{ t("Esci") }}</span>
         </button>
 
+        <button
+          v-if="guidedStudent"
+          type="button"
+          class="btn-primario shrink-0 px-3"
+          :aria-pressed="guidedAutoplayEnabled"
+          @click="emit('toggleAudio')"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6.5 9H3v6h3.5l4.5 4V5zM15 9a4 4 0 0 1 0 6M17.5 6.5a7.5 7.5 0 0 1 0 11" />
+          </svg>
+          {{ guidedAutoplayEnabled ? t("Disattiva audio") : t("Attiva audio") }}
+        </button>
+
         <p class="hidden min-w-0 flex-1 truncate text-small font-medium sm:block">
           {{ title }}
         </p>
@@ -624,6 +637,7 @@ onUnmounted(() => {
         :current-location-id="currentLocationId"
         :current-index="lastVisitIndex"
         :armed="teletrasportoArmato"
+        :active="!schedaVisibile"
         @select="onStageSelect"
         @locate="apriPosizione"
         @poi="chiediServizio"

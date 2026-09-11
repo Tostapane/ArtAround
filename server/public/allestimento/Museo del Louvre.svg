@@ -78,19 +78,13 @@
       stroke-linecap: butt;
       fill: none;
     }
-    :where(.museum-map) .porta {
-      fill: none;
-      stroke: var(--linea);
-      stroke-width: 1.5;
-      opacity: 0.6;
-    }
-
     /* Collegamenti del grafo: servono al parser, non all'occhio */
     :where(.museum-map) .arco {
       stroke: var(--accento);
       stroke-width: 1.5;
       stroke-dasharray: 3 5;
-      opacity: 0.12;
+      opacity: 0;
+      pointer-events: none;
     }
 
     /* Aspetto inattivo dei nodi opera; il navigator marca le tappe. */
@@ -197,12 +191,6 @@
       <line x1="1088" y1="-1130" x2="1240" y2="-1130" />
       <line x1="900" y1="-860" x2="1240" y2="-860" />
     </g>
-    <g class="porta">
-      <path d="M340 -1338 L360 -1338 A20 20 0 0 1 340 -1302" />
-      <path d="M620 -1338 L640 -1338 A20 20 0 0 1 620 -1302" />
-      <path d="M900 -1338 L920 -1338 A20 20 0 0 1 900 -1302" />
-      <path d="M1052 -1130 L1052 -1110 A20 20 0 0 0 1088 -1130" />
-    </g>
     <g class="nome-sala" pointer-events="none">
       <text x="200" y="-1379">PITTURA FRANCESE DEL SETTECENTO</text>
       <text x="480" y="-1379">PITTURA DEL NORD</text>
@@ -251,8 +239,6 @@
         <text x="829" y="-820">Emergenza</text>
         <rect class="ostacolo" x="933" y="-830" width="12" height="12" rx="2" />
         <text x="952" y="-820">Ostacolo</text>
-        <path class="porta" d="M1053 -816 L1053 -830 A14 14 0 0 1 1067 -816" />
-        <text x="1074" y="-820">Porta</text>
       </g>
     </g>
   </g>
@@ -342,19 +328,6 @@
       <line x1="1218" y1="-260" x2="1240" y2="-260" />
       <line x1="900" y1="-140" x2="1240" y2="-140" />
     </g>
-    <g class="porta">
-      <path d="M340 -618 L360 -618 A20 20 0 0 1 340 -582" />
-      <path d="M620 -618 L640 -618 A20 20 0 0 1 620 -582" />
-      <path d="M900 -638 L920 -638 A20 20 0 0 1 900 -602" />
-      <path d="M922 -560 L922 -540 A20 20 0 0 0 958 -560" />
-      <path d="M1182 -560 L1182 -540 A20 20 0 0 0 1218 -560" />
-      <path d="M922 -260 L922 -240 A20 20 0 0 0 958 -260" />
-      <path d="M1182 -260 L1182 -240 A20 20 0 0 0 1218 -260" />
-      <path d="M900 -218 L920 -218 A20 20 0 0 1 900 -182" />
-      <path d="M780 -238 L800 -238 A20 20 0 0 1 780 -202" />
-      <path d="M620 -238 L640 -238 A20 20 0 0 1 620 -202" />
-      <path d="M380 -238 L400 -238 A20 20 0 0 1 380 -202" />
-    </g>
     <g class="nome-sala" pointer-events="none">
       <text x="200" y="-659">APPARTAMENTI DI NAPOLEONE III</text>
       <text x="480" y="-659">OGGETTI D'ARTE DEL MEDIOEVO</text>
@@ -443,8 +416,6 @@
         <text x="829" y="-100">Emergenza</text>
         <rect class="ostacolo" x="933" y="-110" width="12" height="12" rx="2" />
         <text x="952" y="-100">Ostacolo</text>
-        <path class="porta" d="M1053 -96 L1053 -110 A14 14 0 0 1 1067 -96" />
-        <text x="1074" y="-100">Porta</text>
       </g>
     </g>
   </g>
@@ -528,18 +499,6 @@
       <line x1="958" y1="480" x2="1182" y2="480" />
       <line x1="1218" y1="480" x2="1240" y2="480" />
       <line x1="900" y1="600" x2="1240" y2="600" />
-    </g>
-    <g class="porta">
-      <path d="M340 122 L360 122 A20 20 0 0 1 340 158" />
-      <path d="M620 122 L640 122 A20 20 0 0 1 620 158" />
-      <path d="M900 102 L920 102 A20 20 0 0 1 900 138" />
-      <path d="M922 180 L922 200 A20 20 0 0 0 958 180" />
-      <path d="M1182 180 L1182 200 A20 20 0 0 0 1218 180" />
-      <path d="M922 480 L922 500 A20 20 0 0 0 958 480" />
-      <path d="M1182 480 L1182 500 A20 20 0 0 0 1218 480" />
-      <path d="M900 522 L920 522 A20 20 0 0 1 900 558" />
-      <path d="M340 502 L360 502 A20 20 0 0 1 340 538" />
-      <path d="M620 502 L640 502 A20 20 0 0 1 620 538" />
     </g>
     <g class="nome-sala" pointer-events="none">
       <text x="200" y="81">COUR MARLY</text>
@@ -626,8 +585,6 @@
         <text x="829" y="640">Emergenza</text>
         <rect class="ostacolo" x="933" y="630" width="12" height="12" rx="2" />
         <text x="952" y="640">Ostacolo</text>
-        <path class="porta" d="M1053 644 L1053 630 A14 14 0 0 1 1067 644" />
-        <text x="1074" y="640">Porta</text>
       </g>
     </g>
   </g>
