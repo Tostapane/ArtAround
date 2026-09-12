@@ -2,8 +2,9 @@
 /**
  * Rappresenta il percorso come mappa SVG o elenco equivalente. Raggruppa le tappe
  * della stessa opera, conserva fuoco e piano e inoltra il tocco al teletrasporto
- * quando e' armato. Il segnalino non intercetta il puntatore, altrimenti
- * coprirebbe il nodo corrente.
+ * quando e' armato. Tre ingrandimenti fissi ridimensionano l'SVG e lasciano lo
+ * scorrimento al browser, mantenendo fluido il gesto e prevedibili i controlli.
+ * Il segnalino non intercetta il puntatore, altrimenti coprirebbe il nodo corrente.
  */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
@@ -38,24 +39,18 @@ const props = defineProps<{
 const { announce } = useAnnouncer();
 const container = ref<HTMLElement | null>(null);
 const listeners: { element: Element; type: string; handler: EventListener }[] = [];
-const zoom = ref(1);
+const ZOOM_SIZES = ["100%", "200%", "300%"] as const;
+const zoomIndex = ref(0);
+const mapSize = computed(() => ZOOM_SIZES[zoomIndex.value]);
+let resizeObserver: ResizeObserver | null = null;
+let roomReadTimer: number | null = null;
 
-interface Viewport {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+interface RoomInfo {
+  name: string;
+  color: string;
 }
 
-const ZOOM_MAX = 6;
-let vistaBase: Viewport | null = null;
-let vista: Viewport | null = null;
-let resizeObserver: ResizeObserver | null = null;
-let clickBloccatoFino = 0;
-const puntatori = new Map<
-  number,
-  { x: number; y: number; startX: number; startY: number }
->();
+const roomsByLocation = ref(new Map<string, RoomInfo>());
 
 function stopNumber(index: number): number {
   return index + 1;
@@ -110,19 +105,85 @@ function pianoDi(el: Element | null): number | null {
   return numero;
 }
 
-function applicaVista(prossima: Viewport) {
-  const svg = container.value?.querySelector("svg");
-  if (!svg || !vistaBase) return;
-  const width = Math.min(vistaBase.width, Math.max(vistaBase.width / ZOOM_MAX, prossima.width));
-  const height = Math.min(vistaBase.height, Math.max(vistaBase.height / ZOOM_MAX, prossima.height));
-  const x = Math.min(vistaBase.x + vistaBase.width - width, Math.max(vistaBase.x, prossima.x));
-  const y = Math.min(vistaBase.y + vistaBase.height - height, Math.max(vistaBase.y, prossima.y));
-  vista = { x, y, width, height };
-  zoom.value = vistaBase.width / width;
-  svg.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
+function readRooms() {
+  const root = container.value;
+  if (!root) return;
+  const rooms = Array.from(
+    root.querySelectorAll<SVGGeometryElement>("[data-room]"),
+  );
+  const found = new Map<string, RoomInfo>();
+  for (const match of matchedContent.value) {
+    const location = match.anchor ? match.anchor.locationId : "";
+    if (!location || found.has(location)) continue;
+    const node = root.querySelector(
+      `#${CSS.escape(location)}`,
+    ) as SVGGraphicsElement | null;
+    if (!node) continue;
+    try {
+      const box = node.getBBox();
+      const point = new DOMPoint(box.x + box.width / 2, box.y + box.height / 2);
+      const floor = pianoDi(node);
+      const room = rooms.find(
+        (candidate) =>
+          pianoDi(candidate) === floor && candidate.isPointInFill(point),
+      );
+      if (!room) continue;
+      const style = getComputedStyle(room);
+      const color = style.getPropertyValue("--tinta").trim() || style.fill;
+      found.set(location, {
+        name: room.getAttribute("data-room") || "",
+        color,
+      });
+    } catch {
+    }
+  }
+  roomsByLocation.value = found;
 }
 
-function inquadraPiano(centraTappa = true) {
+function scheduleRoomRead() {
+  if (roomReadTimer !== null) window.clearTimeout(roomReadTimer);
+  roomReadTimer = window.setTimeout(() => {
+    roomReadTimer = null;
+    readRooms();
+  }, 0);
+}
+
+function roomInfo(match: (typeof matchedContent.value)[number]): RoomInfo | null {
+  const location = match.anchor ? match.anchor.locationId : "";
+  return roomsByLocation.value.get(location) || null;
+}
+
+function roomName(match: (typeof matchedContent.value)[number]): string {
+  const room = roomInfo(match);
+  return room ? room.name : "";
+}
+
+function roomStyle(
+  match: (typeof matchedContent.value)[number],
+  current: boolean,
+): Record<string, string> | undefined {
+  if (current) return undefined;
+  const room = roomInfo(match);
+  if (!room || !room.color) return undefined;
+  return { "--room-color": room.color };
+}
+
+function centerCurrentStop() {
+  const root = container.value;
+  if (!root || !props.currentLocationId) return;
+  const current = root.querySelector(
+    `#${CSS.escape(props.currentLocationId)}`,
+  ) as SVGGraphicsElement | null;
+  if (!current || pianoDi(current) !== pianoAttivo.value) return;
+  const rootRect = root.getBoundingClientRect();
+  const currentRect = current.getBoundingClientRect();
+  root.scrollLeft +=
+    currentRect.left + currentRect.width / 2 - rootRect.left - rootRect.width / 2;
+  root.scrollTop +=
+    currentRect.top + currentRect.height / 2 - rootRect.top - rootRect.height / 2;
+}
+
+function inquadraPiano() {
   const root = container.value;
   if (!root || pianoAttivo.value === null) return;
   const svg = root.querySelector("svg");
@@ -156,110 +217,23 @@ function inquadraPiano(centraTappa = true) {
       bounds.y -= (height - bounds.height) / 2;
       bounds.height = height;
     }
-    vistaBase = bounds;
-    vista = null;
-    applicaVista(bounds);
-
-    if (!centraTappa || !props.currentLocationId) return;
-    const corrente = root.querySelector(
-      `#${CSS.escape(props.currentLocationId)}`,
-    ) as SVGGraphicsElement | null;
-    if (!corrente || pianoDi(corrente) !== pianoAttivo.value) return;
-    const target = corrente.getBBox();
-    const width = bounds.width / 2.5;
-    const height = bounds.height / 2.5;
-    applicaVista({
-      x: target.x + target.width / 2 - width / 2,
-      y: target.y + target.height / 2 - height / 2,
-      width,
-      height,
-    });
+    svg.setAttribute("viewBox", `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
+    centerCurrentStop();
   } catch {
   }
 }
 
-function cambiaZoom(fattore: number, clientX?: number, clientY?: number) {
-  const svg = container.value?.querySelector("svg");
-  if (!svg || !vista || !vistaBase) return;
-  let x = vista.x + vista.width / 2;
-  let y = vista.y + vista.height / 2;
-  if (clientX !== undefined && clientY !== undefined) {
-    const ctm = svg.getScreenCTM();
-    if (ctm) {
-      const punto = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
-      x = punto.x;
-      y = punto.y;
-    }
-  }
-  const width = vista.width / fattore;
-  const height = vista.height / fattore;
-  const px = (x - vista.x) / vista.width;
-  const py = (y - vista.y) / vista.height;
-  applicaVista({ x: x - width * px, y: y - height * py, width, height });
-}
-
-function onPointerDown(event: PointerEvent) {
-  const svg = container.value?.querySelector("svg");
-  if (!svg || !(event.target instanceof Node) || !svg.contains(event.target)) return;
-  puntatori.set(event.pointerId, {
-    x: event.clientX,
-    y: event.clientY,
-    startX: event.clientX,
-    startY: event.clientY,
-  });
-}
-
-function onPointerMove(event: PointerEvent) {
-  const prima = puntatori.get(event.pointerId);
+async function changeZoom(delta: number) {
   const root = container.value;
-  if (!prima || !root || !vista) return;
-  const precedenti = [...puntatori.values()];
-  puntatori.set(event.pointerId, {
-    ...prima,
-    x: event.clientX,
-    y: event.clientY,
-  });
-  const attuali = [...puntatori.values()];
-
-  if (attuali.length === 1) {
-    const dx = event.clientX - prima.x;
-    const dy = event.clientY - prima.y;
-    if (Math.hypot(event.clientX - prima.startX, event.clientY - prima.startY) > 6) {
-      root.setPointerCapture(event.pointerId);
-      clickBloccatoFino = performance.now() + 250;
-    }
-    applicaVista({
-      ...vista,
-      x: vista.x - (dx * vista.width) / root.clientWidth,
-      y: vista.y - (dy * vista.height) / root.clientHeight,
-    });
-    return;
-  }
-
-  const [p0, p1] = precedenti;
-  const [n0, n1] = attuali;
-  if (!p0 || !p1 || !n0 || !n1) return;
-  const distanzaPrima = Math.hypot(p1.x - p0.x, p1.y - p0.y);
-  const distanzaDopo = Math.hypot(n1.x - n0.x, n1.y - n0.y);
-  if (distanzaPrima > 0 && distanzaDopo > 0) {
-    root.setPointerCapture(event.pointerId);
-    clickBloccatoFino = performance.now() + 250;
-    cambiaZoom(distanzaDopo / distanzaPrima, (n0.x + n1.x) / 2, (n0.y + n1.y) / 2);
-  }
-}
-
-function onPointerUp(event: PointerEvent) {
-  puntatori.delete(event.pointerId);
-}
-
-function onWheel(event: WheelEvent) {
-  cambiaZoom(event.deltaY < 0 ? 1.18 : 1 / 1.18, event.clientX, event.clientY);
-}
-
-function bloccaClickTrascinato(event: MouseEvent) {
-  if (performance.now() >= clickBloccatoFino) return;
-  event.preventDefault();
-  event.stopPropagation();
+  if (!root) return;
+  const nextIndex = Math.min(ZOOM_SIZES.length - 1, Math.max(0, zoomIndex.value + delta));
+  if (nextIndex === zoomIndex.value) return;
+  const centerX = (root.scrollLeft + root.clientWidth / 2) / root.scrollWidth;
+  const centerY = (root.scrollTop + root.clientHeight / 2) / root.scrollHeight;
+  zoomIndex.value = nextIndex;
+  await nextTick();
+  root.scrollLeft = centerX * root.scrollWidth - root.clientWidth / 2;
+  root.scrollTop = centerY * root.scrollHeight - root.clientHeight / 2;
 }
 
 function aggiornaFuoco() {
@@ -285,7 +259,6 @@ function seguiTappa() {
 // --- Teletrasporto: la pianta come bersaglio --------------------------------
 
 function onMapClick(event: MouseEvent) {
-  if (performance.now() < clickBloccatoFino) return;
   if (!props.armed) return;
   const root = container.value;
   if (!root) return;
@@ -295,10 +268,8 @@ function onMapClick(event: MouseEvent) {
   if (!(bersaglio instanceof Node) || !svg.contains(bersaglio)) return;
   const ctm = svg.getScreenCTM();
   if (!ctm) return;
-  const punto = new DOMPoint(event.clientX, event.clientY).matrixTransform(
-    ctm.inverse(),
-  );
-  emit("teleportPoint", punto.x, punto.y);
+  const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
+  emit("teleportPoint", point.x, point.y);
 }
 
 function onStopPress(index: number) {
@@ -371,6 +342,9 @@ function prepareMap() {
   const root = container.value;
   if (!root) return;
   clearListeners();
+  root.querySelectorAll("[data-floor]").forEach((floor) =>
+    floor.removeAttribute("display"),
+  );
 
   root.querySelectorAll(".nodo-opera").forEach((el) => {
     el.classList.remove("nodo-opera", "nodo-opzionale");
@@ -467,6 +441,7 @@ function prepareMap() {
   preparePois();
   highlightCurrent();
   drawPosition();
+  scheduleRoomRead();
   leggiPiani();
   seguiTappa();
   inquadraPiano();
@@ -557,6 +532,7 @@ watch([stima, bussola, angoloNordMappa], () => nextTick(drawPosition));
 
 onBeforeUnmount(() => {
   clearListeners();
+  if (roomReadTimer !== null) window.clearTimeout(roomReadTimer);
   resizeObserver?.disconnect();
 });
 
@@ -578,7 +554,7 @@ const optionalCount = computed(() => {
           type="button"
           role="radio"
           :aria-checked="stageView === 'mappa'"
-          class="segmento"
+          class="segmento segmento-mappa"
           :class="stageView === 'mappa' ? 'segmento-attivo' : ''"
           @click="setStageView('mappa')"
         >
@@ -588,7 +564,7 @@ const optionalCount = computed(() => {
           type="button"
           role="radio"
           :aria-checked="stageView === 'elenco'"
-          class="segmento"
+          class="segmento segmento-elenco"
           :class="stageView === 'elenco' ? 'segmento-attivo' : ''"
           @click="setStageView('elenco')"
         >
@@ -649,30 +625,25 @@ const optionalCount = computed(() => {
       >
         <div
           ref="container"
-          class="mappa h-full w-full"
+          class="mappa h-full w-full overflow-auto"
+          :style="{ '--map-size': mapSize }"
           v-html="map"
-          @click.capture="bloccaClickTrascinato"
           @click="onMapClick"
-          @pointerdown="onPointerDown"
-          @pointermove="onPointerMove"
-          @pointerup="onPointerUp"
-          @pointercancel="onPointerUp"
-          @wheel.prevent="onWheel"
         ></div>
         <div v-if="map" class="controlli-zoom" role="group" :aria-label="t('Zoom mappa')">
           <button
             type="button"
-            :disabled="zoom <= 1.001"
+            :disabled="zoomIndex === 0"
             :aria-label="t('Riduci mappa')"
-            @click="cambiaZoom(1 / 1.5)"
+            @click="changeZoom(-1)"
           >
             −
           </button>
           <button
             type="button"
-            :disabled="zoom >= ZOOM_MAX - 0.001"
+            :disabled="zoomIndex === ZOOM_SIZES.length - 1"
             :aria-label="t('Ingrandisci mappa')"
-            @click="cambiaZoom(1.5)"
+            @click="changeZoom(1)"
           >
             +
           </button>
@@ -689,11 +660,12 @@ const optionalCount = computed(() => {
         <li v-for="(match, i) in matchedContent" :key="match.item['@id']">
           <button
             type="button"
-            class="lastra filo-accento flex w-full items-center gap-4 p-4 text-left"
+            class="lastra filo-accento tappa-elenco flex w-full items-center gap-4 p-4 text-left"
             :class="{
               'opacity-60': isOptionalItem(match.item['@id']) && !includeOptional,
-              'border-l-4 border-l-accent': i === props.currentIndex,
+              'tappa-elenco-corrente': i === props.currentIndex,
             }"
+            :style="roomStyle(match, i === props.currentIndex)"
             @click="onStopPress(i)"
           >
             <span class="tabular w-9 shrink-0 text-center font-display text-title-2 text-muted">
@@ -704,8 +676,9 @@ const optionalCount = computed(() => {
 
               <span class="block truncate text-small text-muted">
                 {{ stopSubtitle(match) }}
-                <span v-if="match.item.educationalLevel">
-                  · {{ t(match.item.educationalLevel) }}
+                <span v-if="roomName(match)" class="tappa-sala">
+                  <span v-if="stopSubtitle(match)" aria-hidden="true"> · </span>
+                  {{ roomName(match) }}
                 </span>
               </span>
             </span>
@@ -728,13 +701,16 @@ const optionalCount = computed(() => {
   border: 1px solid var(--line);
   border-radius: 6px;
 }
+.mappa {
+  overscroll-behavior: contain;
+  will-change: scroll-position;
+}
 .mappa :deep(svg) {
   display: block;
-  width: 100% !important;
+  width: var(--map-size) !important;
   min-width: 0 !important;
   max-width: none !important;
-  height: 100% !important;
-  touch-action: none;
+  height: var(--map-size) !important;
   user-select: none;
 }
 .controlli-zoom {
@@ -796,27 +772,32 @@ const optionalCount = computed(() => {
 }
 
 .mappa :deep(.nodo-corrente) {
-  fill: var(--text);
-  stroke: var(--accent);
-  stroke-width: 7px;
+  fill: var(--location);
+  stroke: var(--surface);
+  stroke-width: 6px;
   paint-order: stroke;
-  filter:
-    drop-shadow(0 0 3px var(--surface))
-    drop-shadow(0 0 7px var(--accent));
 }
-@media (prefers-reduced-motion: no-preference) {
-  .mappa :deep(.nodo-corrente) {
-    animation: battito 1.6s ease-in-out infinite;
-  }
+
+.tappa-elenco {
+  --room-color: var(--slate);
+  --accent: color-mix(in oklab, var(--room-color) 68%, var(--text));
+  --accent-velo: color-mix(in oklab, var(--room-color) 18%, transparent);
+  border-color: color-mix(in oklab, var(--room-color) 34%, var(--line));
+  background-image: linear-gradient(90deg, var(--accent-velo), transparent 58%);
 }
-@keyframes battito {
-  0%,
-  100% {
-    stroke-opacity: 1;
-  }
-  50% {
-    stroke-opacity: 0.3;
-  }
+.tappa-elenco > .tabular,
+.tappa-sala {
+  color: var(--accent);
+}
+.tappa-elenco-corrente {
+  --accent: var(--slate);
+  --accent-velo: var(--slate-velo);
+  border-left: 4px solid var(--slate);
+  background-image: linear-gradient(
+    90deg,
+    var(--slate-velo),
+    transparent 48%
+  );
 }
 
 .mappa :deep(.segnalino-posizione) {

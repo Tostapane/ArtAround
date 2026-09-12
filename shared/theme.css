@@ -97,6 +97,7 @@
   --categoria: #624db7;
   --acquisito: #196d29;
   --allarme: #ad322a;
+  --posizione: #2f8fe5;
 
   --infantile: #0d6e91;
   --semplice: #3a45b4;
@@ -123,6 +124,7 @@
   --brass: var(--valore);
   --slate: var(--categoria);
   --sage: var(--acquisito);
+  --location: var(--posizione);
 
   --brass-chiaro: color-mix(in oklab, var(--valore) 46%, var(--lastra));
   --tint: color-mix(in oklab, var(--categoria) 9%, transparent);
@@ -132,6 +134,7 @@
   --slate-velo: color-mix(in oklab, var(--slate) 12%, transparent);
   --sage-velo: color-mix(in oklab, var(--sage) 12%, transparent);
   --danger-velo: color-mix(in oklab, var(--danger) 12%, transparent);
+  --location-veil: color-mix(in oklab, var(--location) 14%, transparent);
   --tono-infantile: var(--infantile);
   --tono-semplice: var(--semplice);
   --tono-medio: var(--medio);
@@ -178,6 +181,7 @@
   --brass-chiaro: var(--brass);
   --slate: color-mix(in oklab, var(--categoria) 42%, var(--lastra));
   --sage: color-mix(in oklab, var(--acquisito) 42%, var(--lastra));
+  --location: color-mix(in oklab, var(--posizione) 64%, var(--lastra));
   --tint: color-mix(in oklab, var(--categoria) 12%, transparent);
 
   --accent-velo: color-mix(in oklab, var(--accent) 18%, transparent);
@@ -185,6 +189,7 @@
   --slate-velo: color-mix(in oklab, var(--slate) 18%, transparent);
   --sage-velo: color-mix(in oklab, var(--sage) 18%, transparent);
   --danger-velo: color-mix(in oklab, var(--danger) 18%, transparent);
+  --location-veil: color-mix(in oklab, var(--location) 20%, transparent);
   --tono-infantile: color-mix(in oklab, var(--infantile) 46%, var(--lastra));
   --tono-semplice: color-mix(in oklab, var(--semplice) 46%, var(--lastra));
   --tono-medio: color-mix(in oklab, var(--medio) 46%, var(--lastra));
@@ -213,6 +218,7 @@
 
     --slate: oklch(from var(--categoria) 0.8 c h);
     --sage: oklch(from var(--acquisito) 0.78 c h);
+    --location: oklch(from var(--posizione) 0.76 c h);
 
     --tono-infantile: oklch(from var(--infantile) 0.8 c h);
     --tono-semplice: oklch(from var(--semplice) 0.8 c h);

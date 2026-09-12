@@ -5,7 +5,7 @@
   "scripts": {
     "prebuild": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "tsc -p tsconfig.json",
-    "dev": "ts-node src/index.ts",
+    "dev": "node --watch --watch-preserve-output --require ts-node/register src/index.ts",
     "start": "node ../index.js"
   },
   "dependencies": {

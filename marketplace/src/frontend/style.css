@@ -27,15 +27,44 @@
            hover:text-on-structure
            lg:min-h-11 lg:flex-none lg:flex-row lg:items-center lg:gap-3 lg:rounded-plate
            lg:px-3 lg:text-left lg:text-small;
+    --section-tone: var(--accent);
+    --section-tone-on-dark: color-mix(
+      in oklab,
+      var(--section-tone) 42%,
+      var(--on-structure)
+    );
+    --section-veil-on-dark: color-mix(
+      in oklab,
+      var(--section-tone-on-dark) 14%,
+      transparent
+    );
+  }
+  .voce-binario[data-section="vetrina"],
+  .voce-binario[data-section="lavori"],
+  .voce-binario[data-section="catalogo"] {
+    --section-tone: var(--slate);
+  }
+  .voce-binario[data-section="libreria"],
+  .voce-binario[data-section="vendite"] {
+    --section-tone: var(--sage);
+  }
+  .voce-binario[data-section="componi"],
+  .voce-binario[data-section="gestione"] {
+    --section-tone: var(--brass);
+  }
+  .voce-binario:hover {
+    color: var(--section-tone-on-dark);
   }
   .voce-attiva {
-    @apply text-on-structure lg:bg-on-structure/10;
+    color: var(--section-tone-on-dark);
+    background-color: var(--section-veil-on-dark);
   }
 
   .voce-attiva::before {
     content: "";
-    @apply absolute bottom-0 h-0.5 w-10 rounded-full bg-accent
+    @apply absolute bottom-0 h-0.5 w-10 rounded-full
            lg:bottom-auto lg:left-0 lg:h-6 lg:w-0.5;
+    background-color: var(--section-tone-on-dark);
   }
 
   .passi {

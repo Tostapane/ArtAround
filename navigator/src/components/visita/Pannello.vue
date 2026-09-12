@@ -55,7 +55,7 @@ function isDisabled(o: CommandOption): boolean {
 </script>
 
 <template>
-  <div>
+  <div :class="tab === 'chiedi' ? 'pannello-domande' : ''">
     <div
       class="grid w-full grid-cols-2 gap-1 rounded-plate border border-line bg-surface p-1"
       role="tablist"
@@ -65,7 +65,7 @@ function isDisabled(o: CommandOption): boolean {
         type="button"
         role="tab"
         :aria-selected="tab === 'chiedi'"
-        class="segmento"
+        class="segmento segmento-domande"
         :class="tab === 'chiedi' ? 'segmento-attivo' : ''"
         @click="tab = 'chiedi'"
       >
@@ -75,7 +75,7 @@ function isDisabled(o: CommandOption): boolean {
         type="button"
         role="tab"
         :aria-selected="tab === 'orientati'"
-        class="segmento"
+        class="segmento segmento-mappa"
         :class="tab === 'orientati' ? 'segmento-attivo' : ''"
         @click="tab = 'orientati'"
       >

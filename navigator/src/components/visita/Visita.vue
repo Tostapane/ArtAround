@@ -615,12 +615,15 @@ onUnmounted(() => {
       <div
         v-if="navigableStops.length"
         class="h-0.5 shrink-0"
-        style="background-color: var(--accent-velo)"
+        style="background-color: var(--location-veil)"
         aria-hidden="true"
       >
         <div
-          class="h-full bg-accent transition-[width] duration-200"
-          :style="{ width: (currentPosition / navigableStops.length) * 100 + '%' }"
+          class="h-full transition-[width] duration-200"
+          :style="{
+            width: (currentPosition / navigableStops.length) * 100 + '%',
+            backgroundColor: 'var(--location)',
+          }"
         ></div>
       </div>
 
@@ -779,7 +782,7 @@ onUnmounted(() => {
   </div>
 
     <nav
-      class="shrink-0 border-t border-line bg-surface lg:hidden"
+      class="nav-visita shrink-0 border-t border-line lg:hidden"
       style="padding-bottom: env(safe-area-inset-bottom)"
       role="radiogroup"
       :aria-label="t('Come vedere la visita')"
@@ -796,12 +799,9 @@ onUnmounted(() => {
           type="button"
           role="radio"
           :aria-checked="vistaMobile === s.id"
-          class="min-h-12 flex-1 border-b-2 px-1 text-small font-medium transition-colors"
-          :class="
-            vistaMobile === s.id
-              ? 'border-accent text-accent'
-              : 'border-transparent text-muted'
-          "
+          :data-section="s.id"
+          class="nav-visita-tab min-h-12 flex-1 border-b-2 border-transparent px-1 text-small font-medium transition-colors"
+          :class="vistaMobile === s.id ? 'nav-visita-tab-attivo' : ''"
           @click="apriVista(s.id as VistaMobile)"
         >
           {{ s.label }}

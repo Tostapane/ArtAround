@@ -177,7 +177,7 @@ async function createCustom() {
         </button>
       </div>
 
-      <p class="text-caption uppercase tracking-[0.18em] text-muted">
+      <p class="text-caption uppercase tracking-[0.18em] text-slate">
         {{ museumName }}
       </p>
       <div class="mt-2 flex flex-wrap items-center justify-between gap-4">
@@ -250,7 +250,8 @@ async function createCustom() {
         <li v-for="v in orderedVisits" :key="v['@id']">
           <button
             type="button"
-            class="lastra flex w-full items-center gap-4 p-5 text-left"
+            class="lastra visita-tono flex w-full items-center gap-4 p-5 text-left"
+            :data-tono="v.level ? v.level.toLowerCase() : undefined"
             :class="[
               incompleta(v) ? 'cursor-not-allowed opacity-70' : 'filo-accento',
               isCurrent(v) && !incompleta(v) ? 'border-accent bg-accent-velo' : '',
@@ -266,7 +267,7 @@ async function createCustom() {
                 {{ t("Visita in corso") }}
               </span>
               <span class="block font-display text-title-2 leading-tight">{{ v.name }}</span>
-              <span class="tabular mt-1 block text-small text-muted">{{ summary(v) }}</span>
+              <span class="visita-tono-dettaglio tabular mt-1 block text-small">{{ summary(v) }}</span>
               <span v-if="incompleta(v)" class="mt-2 block text-small text-muted">
                 {{
                   mancanti(v) === 1
@@ -288,7 +289,7 @@ async function createCustom() {
             </span>
             <svg
               v-if="!isCurrent(v) && !incompleta(v)"
-              class="h-6 w-6 shrink-0 text-accent"
+              class="visita-tono-dettaglio h-6 w-6 shrink-0"
               fill="none"
               stroke="currentColor"
               stroke-width="1.75"
@@ -371,3 +372,34 @@ async function createCustom() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.visita-tono {
+  border-color: color-mix(in oklab, var(--accent) 34%, var(--line));
+  background-image: linear-gradient(105deg, var(--accent-velo), transparent 58%);
+}
+
+.visita-tono[data-tono="infantile"] {
+  --accent: var(--tono-infantile);
+  --accent-velo: var(--tono-infantile-velo);
+}
+
+.visita-tono[data-tono="semplice"] {
+  --accent: var(--tono-semplice);
+  --accent-velo: var(--tono-semplice-velo);
+}
+
+.visita-tono[data-tono="medio"] {
+  --accent: var(--tono-medio);
+  --accent-velo: var(--tono-medio-velo);
+}
+
+.visita-tono[data-tono="avanzato"] {
+  --accent: var(--tono-avanzato);
+  --accent-velo: var(--tono-avanzato-velo);
+}
+
+.visita-tono-dettaglio {
+  color: var(--accent);
+}
+</style>

@@ -101,7 +101,7 @@ const stile = computed(() => {
     <!-- OPERA -->
     <div
       ref="opera"
-      class="min-h-0 basis-0 overflow-y-auto lg:block"
+      class="sezione-opera min-h-0 basis-0 overflow-y-auto lg:block"
       :class="[
         richiesta ? 'grow-[2]' : 'grow-[3]',
         sezione === 'opera' ? 'block' : 'hidden',
@@ -123,7 +123,7 @@ const stile = computed(() => {
             <div class="flex items-baseline gap-3">
               <span
                 v-if="numero > 0"
-                class="tabular shrink-0 font-display text-title-3 text-muted lg:text-title-2"
+                class="tabular shrink-0 font-display text-title-3 text-brass lg:text-title-2"
                 aria-hidden="true"
               >
                 {{ String(numero).padStart(2, "0") }}
@@ -257,7 +257,7 @@ const stile = computed(() => {
 
     <!-- CHIEDI / ORIENTATI -->
     <div
-      class="min-h-0 basis-0 overflow-y-auto border-t border-line bg-surface-2 p-3 lg:block"
+      class="sezione-domande min-h-0 basis-0 overflow-y-auto border-t border-line p-3 lg:block"
       :class="[
         richiesta ? 'grow-[3]' : 'grow-[2]',
         sezione === 'domande' ? 'block' : 'hidden',

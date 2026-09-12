@@ -1,6 +1,6 @@
 # ArtAround: stato corrente del progetto
 
-Aggiornato al 9 settembre 2026. Questo è il riferimento unico per capire il
+Aggiornato al 12 settembre 2026. Questo è il riferimento unico per capire il
 progetto e riprendere il lavoro. Descrive il sistema presente nel repository,
 non la cronologia delle modifiche.
 
@@ -306,15 +306,17 @@ Il file pubblico può cambiare museo senza ricompilare il navigator.
 - `Scheda.vue` resta sempre disponibile e raccoglie lingua, opera, TTS,
   navigazione e comandi.
 - Su telefono una barra permette di passare fra mappa, elenco, opera e domande.
+- Le quattro aree usano accenti funzionali distinti: petrolio per la mappa,
+  ametista per l'elenco, ottone per l'opera e salvia per le domande.
 - Più descrizioni ancorate alla stessa opera condividono il nodo: il cerchio
   mostra il primo numero seguito da `+`, mentre il nome accessibile conserva
   l'elenco completo delle tappe.
 - Quando la mappa torna visibile su telefono, il piano attivo viene nuovamente
   inquadrato; il pannello "Dove sono?" dispone i quattro metodi su due colonne
   e resta contenuto nell'altezza dello schermo.
-- La mappa usa un viewport interno: trascinamento, pinch e pulsanti `+`/`−` non
-  ingrandiscono la pagina; il dezoom si ferma al piano completo e la tappa
-  corrente viene centrata all'apertura.
+- La mappa usa lo scorrimento nativo del browser e tre ingrandimenti fissi
+  controllati dai pulsanti `+`/`−`. Il livello minimo mostra il piano completo;
+  cambiando livello resta al centro lo stesso punto della pianta.
 - La pianta degli Uffizi ha coordinate verticali native; le altre piante restano
   orizzontali per consentire il confronto fra le due impostazioni.
 - Il selettore nativo del piano e "Dove sono?" compaiono soltanto sulla mappa.
@@ -326,6 +328,10 @@ Il file pubblico può cambiare museo senza ricompilare il navigator.
 - Le tappe si identificano con l'id dell'item, non con il QID dell'opera; due
   descrizioni della stessa opera non bloccano l'avanzamento.
 - Più tappe della stessa opera condividono il nodo numerato sulla pianta.
+- La posizione corrente usa un azzurro acceso statico dedicato, senza animazioni o
+  filtri che penalizzino lo scorrimento.
+- Nell'elenco ogni tappa riusa nome e colore della sala ricavati direttamente
+  dalla geometria SVG; la tappa corrente resta evidenziata in ametista.
 - Il segnalino di posizione non intercetta il puntatore, così non copre il nodo
   corrente durante il teletrasporto.
 

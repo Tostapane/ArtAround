@@ -16,3 +16,70 @@
     overscroll-behavior-y: none;
   }
 }
+
+@layer components {
+  .segmento-elenco {
+    --segment-color: var(--slate);
+    --segment-veil: var(--slate-velo);
+  }
+
+  .segmento-domande {
+    --segment-color: var(--sage);
+    --segment-veil: var(--sage-velo);
+  }
+
+  .nav-visita {
+    background-color: color-mix(in oklab, var(--surface) 94%, var(--accent));
+  }
+
+  .nav-visita-tab {
+    color: color-mix(in oklab, var(--accent) 58%, var(--muted));
+  }
+
+  .nav-visita-tab[data-section="elenco"] {
+    --accent: var(--slate);
+    --accent-velo: var(--slate-velo);
+  }
+
+  .nav-visita-tab[data-section="opera"] {
+    --accent: var(--brass);
+    --accent-velo: var(--brass-velo);
+  }
+
+  .nav-visita-tab[data-section="domande"] {
+    --accent: var(--sage);
+    --accent-velo: var(--sage-velo);
+  }
+
+  .nav-visita-tab:hover {
+    color: var(--accent);
+    background-color: var(--accent-velo);
+  }
+
+  .nav-visita-tab-attivo {
+    border-color: var(--accent);
+    color: var(--accent);
+    background-color: var(--accent-velo);
+  }
+
+  .sezione-opera {
+    background-image: linear-gradient(
+      145deg,
+      var(--brass-velo),
+      transparent 42%
+    );
+  }
+
+  .sezione-domande {
+    background-image: linear-gradient(
+      145deg,
+      var(--sage-velo),
+      transparent 42%
+    );
+  }
+
+  .pannello-domande {
+    --accent: var(--sage);
+    --accent-velo: var(--sage-velo);
+  }
+}

@@ -47,10 +47,10 @@
     @apply bg-accent text-on-accent hover:opacity-90;
   }
   .btn-secondario {
-    @apply border border-line-strong text-text hover:bg-surface-2;
+    @apply border border-line-strong text-text hover:border-accent hover:text-accent;
   }
   .btn-fantasma {
-    @apply text-text hover:bg-surface-2;
+    @apply text-text hover:text-accent;
   }
 
   .btn-fantasma-chiaro {
@@ -70,17 +70,21 @@
 
   .icona-mini {
     @apply inline-flex h-9 w-9 items-center justify-center rounded-plate text-muted
-           transition-colors hover:bg-surface-2 hover:text-text
+           transition-colors hover:text-accent
            disabled:cursor-not-allowed disabled:opacity-30;
   }
 
   .icona-tonda {
     @apply inline-flex h-12 w-12 items-center justify-center rounded-full text-text
-           transition-colors hover:bg-surface-2
+           transition-colors hover:text-accent
            disabled:cursor-not-allowed disabled:opacity-40;
   }
   .icona-tonda-attiva {
     @apply bg-accent text-on-accent hover:opacity-90;
+  }
+  .icona-tonda-attiva:hover {
+    background-color: var(--accent);
+    color: var(--on-accent);
   }
 
   .etichetta {
@@ -154,10 +158,14 @@
   .segmento {
     @apply min-h-9 rounded-plate px-3 py-1.5 text-small font-medium text-muted
            transition-colors hover:text-text;
+    --segment-color: var(--accent);
+    --segment-veil: var(--accent-velo);
   }
   .segmento-attivo {
-    @apply border-b-2 border-accent text-accent;
-    background-color: var(--accent-velo);
+    @apply border-b-2;
+    border-color: var(--segment-color);
+    color: var(--segment-color);
+    background-color: var(--segment-veil);
   }
 
   .scelta {
@@ -177,7 +185,10 @@
   .comando {
     @apply flex min-h-14 w-full items-center rounded-card border border-line bg-surface
            px-3 py-3 text-left text-small font-semibold text-text shadow-sm
-           transition-colors hover:border-accent hover:bg-surface;
+           transition-colors hover:border-accent;
+  }
+  :is(.btn-secondario, .btn-fantasma, .icona-mini, .icona-tonda, .comando):hover {
+    background-color: var(--accent-velo);
   }
   .comando-attivo {
     @apply border-accent text-accent;
