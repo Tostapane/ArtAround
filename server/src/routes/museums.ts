@@ -14,8 +14,9 @@ import { ArtworkModel } from "../models/artwork";
 import { ItemModel } from "../models/item";
 import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
-import { educationalLevels } from "../../../shared/constants";
+import { educationalLevels, secPerArt } from "../../../shared/constants";
 import { findMuseumConfig } from "../data/museumConfigs";
+import { removeArtworkImages } from "../services/imageDownloader";
 import { getMuseumGraph, sortByFlow } from "../services/svgGraph";
 import { rimuoviImmagine } from "./items";
 import { MapLocation, MuseumOverview } from "../../../shared/types";
@@ -290,17 +291,24 @@ router.get("/:qid/overview", requireSession, async (req, res) => {
     const items = await ItemModel.find({ ofMuseum: museumUri(qid) }).lean();
     const visits = await VisitModel.find({ ofMuseum: museumUri(qid) }).lean();
 
+    const artworkIds = new Set(artworks.map((artwork) => artwork["@id"]));
     const descritte = new Set<string>();
-    const opereConTono = new Map<string, Set<string>>();
-    for (const tono of educationalLevels) opereConTono.set(tono, new Set());
+    const descriptionsByTone = new Map<string, number>();
+    for (const tone of educationalLevels) {
+      descriptionsByTone.set(tone, 0);
+    }
 
     let privati = 0;
     for (const it of items) {
       if (it.visibility === "privato") privati++;
-      if (!it.about) continue;
+      if (!it.about || !artworkIds.has(it.about)) continue;
       descritte.add(it.about);
-      const perTono = opereConTono.get(it.educationalLevel);
-      if (perTono) perTono.add(it.about);
+      if (!descriptionsByTone.has(it.educationalLevel)) continue;
+
+      descriptionsByTone.set(
+        it.educationalLevel,
+        descriptionsByTone.get(it.educationalLevel)! + 1,
+      );
     }
 
     const senzaDescrizione = [];
@@ -311,8 +319,9 @@ router.get("/:qid/overview", requireSession, async (req, res) => {
 
     const perTono = educationalLevels.map((tono) => ({
       tono,
-      opere: opereConTono.get(tono)!.size,
+      descrizioni: descriptionsByTone.get(tono)!,
     }));
+    const combinazioniPerTono = artworks.length * secPerArt.length;
 
     let guidate = 0;
     for (const v of visits) {
@@ -333,6 +342,7 @@ router.get("/:qid/overview", requireSession, async (req, res) => {
       },
       copertura: {
         opereTotali: artworks.length,
+        combinazioniPerTono,
         senzaDescrizione,
         perTono,
       },
@@ -377,8 +387,8 @@ router.get("/:qid/items", requireSession, async (req, res) => {
 
 /**
  * DELETE /api/museums/:qid/contents
- * Svuota il catalogo indicato senza eliminare museo o immagini delle opere. Solo il curatore;
- * ritorna i conteggi della cascata.
+ * Svuota il catalogo e le immagini delle opere attive senza eliminare il museo. Solo il
+ * curatore; ritorna i conteggi della cascata.
  */
 router.delete("/:qid/contents", requireSession, async (req, res) => {
   try {
@@ -407,10 +417,12 @@ router.delete("/:qid/contents", requireSession, async (req, res) => {
       { $pull: { collezione: { $in: [...itemIds, ...visitIds] } } },
     );
     for (const it of items as any[]) rimuoviImmagine(it.imagePath);
+    const immagini = removeArtworkImages(config.activeArtworks);
 
     console.log(
       `[curatore ${chi.username}] svuotato ${config.name} (${qid}): ` +
-        `${opere.deletedCount} opere, ${itemIds.length} item, ${visitIds.length} visite.`,
+        `${opere.deletedCount} opere, ${itemIds.length} item, ${visitIds.length} visite, ` +
+        `${immagini} immagini.`,
     );
     res.json({
       message: "Catalogo del museo svuotato",
@@ -418,6 +430,7 @@ router.delete("/:qid/contents", requireSession, async (req, res) => {
       opere: opere.deletedCount,
       item: itemIds.length,
       visite: visitIds.length,
+      immagini,
     });
   } catch (err: any) {
     console.error("[BACKEND ERROR] svuotamento museo:", err);

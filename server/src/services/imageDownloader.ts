@@ -1,6 +1,7 @@
 /**
- * Scarica immagini Wikimedia e miniature. Originale e -c nascono insieme, perche' il
- * client ricava il secondo nome senza verificare ogni tessera via rete.
+ * Scarica e rimuove immagini Wikimedia e miniature. Originale e -c nascono insieme,
+ * perche' il client ricava il secondo nome senza verificare ogni tessera via rete; la
+ * rimozione usa il QID per trovare entrambe anche quando cambia l'estensione.
  */
 import fs from "fs";
 import path from "path";
@@ -105,4 +106,22 @@ export async function downloadImage(
     console.error("Error downloading the image", err);
     return url;
   }
+}
+
+export function removeArtworkImages(qids: string[]): number {
+  if (!fs.existsSync(IMAGE_DIR)) return 0;
+
+  const validQids = new Set(qids.filter((qid) => /^Q\d+$/.test(qid)));
+  let removed = 0;
+
+  for (const fileName of fs.readdirSync(IMAGE_DIR)) {
+    const name = path.parse(fileName).name;
+    const qid = name.endsWith("-c") ? name.slice(0, -2) : name;
+    if (!validQids.has(qid)) continue;
+
+    fs.unlinkSync(path.join(IMAGE_DIR, fileName));
+    removed += 1;
+  }
+
+  return removed;
 }

@@ -151,8 +151,9 @@ export interface MuseumOverview {
   };
   copertura: {
     opereTotali: number;
+    combinazioniPerTono: number;
     senzaDescrizione: { qid: string; name: string }[];
-    perTono: { tono: string; opere: number }[];
+    perTono: { tono: string; descrizioni: number }[];
   };
   account: { autori: number; visitatori: number; curatori: number };
 }

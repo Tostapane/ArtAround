@@ -3838,7 +3838,11 @@
             </section>
 
             <!-- GESTIONE DEL MUSEO -->
-            <section x-show="view === 'gestione'">
+            <section
+              x-show="view === 'gestione'"
+              x-data="{ opereMuseo: [] }"
+              x-effect="opereMuseo = filteredMuseumArtworks()"
+            >
               <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <h1
@@ -3894,10 +3898,6 @@
                     class="mt-10 font-display text-title-2"
                     x-text="t(`Copertura del catalogo`)"
                   ></h2>
-                  <p
-                    class="mt-1 text-small text-muted"
-                    x-text="t(`Opere con almeno una descrizione, per tono.`)"
-                  ></p>
                   <ul class="lastra mt-4 divide-y divide-line">
                     <template
                       x-for="r in overview.copertura.perTono"
@@ -3915,14 +3915,14 @@
                         >
                           <span
                             class="block h-full rounded-full"
-                            :class="r.opere === 0 ? 'bg-danger' : 'bg-sage'"
+                            :class="(r.descrizioni ?? r.opere) === 0 ? 'bg-danger' : 'bg-sage'"
                             :style="'width:' + percentualeCopertura(r) + '%'"
                           ></span>
                         </span>
                         <span
-                          class="tabular w-20 shrink-0 text-right text-small"
-                          :class="r.opere === 0 ? 'text-danger font-medium' : 'text-muted'"
-                          x-text="r.opere + ' / ' + overview.copertura.opereTotali"
+                          class="tabular w-24 shrink-0 text-right text-small"
+                          :class="(r.descrizioni ?? r.opere) === 0 ? 'text-danger font-medium' : 'text-muted'"
+                          x-text="(r.descrizioni ?? r.opere) + ' / ' + (overview.copertura.combinazioniPerTono ?? overview.copertura.opereTotali)"
                         ></span>
                       </li>
                     </template>
@@ -3948,40 +3948,26 @@
                     class="mt-10 font-display text-title-2"
                     x-text="t(`Opere del museo`)"
                   ></h2>
-                  <p
-                    class="mt-1 text-small text-muted"
-                    x-text="t(`Il codice è quello di Wikidata: nome, autore e immagine arrivano da lì, la posizione dalla mappa. Aggiungere un'opera non crea descrizioni: le scrive il seed o un autore.`)"
-                  ></p>
 
-                  <form
-                    class="mt-4 flex flex-wrap items-end gap-3"
-                    @submit.prevent="aggiungiOpera()"
+                  <div class="mt-4 max-w-xl">
+                    <label
+                      for="cerca-opere-museo"
+                      class="etichetta"
+                      x-text="t(`Cerca`)"
+                    ></label>
+                    <input
+                      id="cerca-opere-museo"
+                      type="search"
+                      class="campo"
+                      x-model.debounce.250ms="museumArtworkSearch"
+                      :placeholder="t(`Cerca un'opera…`)"
+                    />
+                  </div>
+
+                  <ul
+                    class="lastra mt-4 max-h-[55vh] divide-y divide-line overflow-y-auto overscroll-contain"
                   >
-                    <div class="min-w-[14rem] flex-1">
-                      <label
-                        for="nuova-opera"
-                        class="etichetta"
-                        x-text="t(`Codice Wikidata`)"
-                      ></label>
-                      <input
-                        id="nuova-opera"
-                        type="text"
-                        class="campo"
-                        x-model="nuovaOperaQid"
-                        placeholder="Q12418"
-                        :disabled="aggiungendoOpera"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      class="btn-primario"
-                      :disabled="aggiungendoOpera || !nuovaOperaQid.trim()"
-                      x-text="aggiungendoOpera ? t(`Aggiungo…`) : t(`Aggiungi l'opera`)"
-                    ></button>
-                  </form>
-
-                  <ul class="lastra mt-4 divide-y divide-line">
-                    <template x-for="a in museumArtworks()" :key="a['@id']">
+                    <template x-for="a in opereMuseo" :key="a['@id']">
                       <li class="flex items-center gap-4 px-5 py-3">
                         <span
                           class="flex-1 text-small font-medium"
@@ -4002,9 +3988,9 @@
                     </template>
                   </ul>
                   <p
-                    x-show="museumArtworks().length === 0"
+                    x-show="opereMuseo.length === 0"
                     class="vuoto mt-4"
-                    x-text="t(`Questo museo non ha ancora opere.`)"
+                    x-text="museumArtworkSearch.trim() ? t(`Nessun contenuto corrisponde a quello che hai cercato.`) : t(`Questo museo non ha ancora opere.`)"
                   ></p>
 
                   <p class="mt-10 text-caption text-muted">
@@ -4019,7 +4005,7 @@
                     ></h2>
                     <p
                       class="mt-2 max-w-prose text-small text-muted"
-                      x-text="t(`Elimina opere, descrizioni e visite di questo museo, e le toglie dalle librerie di chi le aveva prese. Le immagini restano sul disco e il museo resta selezionabile: per rifare il catalogo si riesegue il seed.`)"
+                      x-text="t(`Elimina opere, descrizioni e visite di questo museo, le toglie dalle librerie di chi le aveva prese e cancella le immagini delle opere attive. Il museo resta selezionabile: per rifare il catalogo si riesegue il seed.`)"
                     ></p>
                     <button
                       type="button"
@@ -4037,7 +4023,11 @@
             </section>
 
             <!-- CATALOGO DEL MUSEO -->
-            <section x-show="view === 'catalogo'">
+            <section
+              x-show="view === 'catalogo'"
+              x-data="{ righeCatalogo: [] }"
+              x-effect="righeCatalogo = catalogRows()"
+            >
               <h1
                 class="font-display text-title-1"
                 x-text="t(`Catalogo del museo`)"
@@ -4088,14 +4078,6 @@
                     <button
                       type="button"
                       class="segmento"
-                      :class="catalogTypeFilter === 'opere' ? 'segmento-attivo' : ''"
-                      :aria-pressed="catalogTypeFilter === 'opere'"
-                      @click="setCatalogType('opere')"
-                      x-text="t(`Opere`)"
-                    ></button>
-                    <button
-                      type="button"
-                      class="segmento"
                       :class="catalogTypeFilter === 'descrizioni' ? 'segmento-attivo' : ''"
                       :aria-pressed="catalogTypeFilter === 'descrizioni'"
                       @click="setCatalogType('descrizioni')"
@@ -4138,7 +4120,7 @@
                       :class="catalogSubjectFilter === 'opera' ? 'segmento-attivo' : ''"
                       :aria-pressed="catalogSubjectFilter === 'opera'"
                       @click="setCatalogSubject('opera')"
-                      x-text="t(`Opere`)"
+                      x-text="t(`Descrizioni di opere`)"
                     ></button>
                     <button
                       type="button"
@@ -4150,7 +4132,7 @@
                     ></button>
                   </div>
                 </div>
-                <div x-show="catalogTypeFilter !== 'opere'">
+                <div>
                   <label
                     for="tono-catalogo"
                     class="etichetta"
@@ -4167,7 +4149,7 @@
                     </template>
                   </select>
                 </div>
-                <div x-show="catalogTypeFilter !== 'opere'">
+                <div>
                   <label
                     for="autore-catalogo"
                     class="etichetta"
@@ -4211,29 +4193,22 @@
                   </select>
                 </div>
               </div>
-              <p
-                x-show="catalogTypeFilter === 'tutti'"
-                class="mt-2 text-caption text-muted"
-              >
-                <span
-                  x-text="t(`Scegli Descrizioni o Visite per filtrare anche per durata. Tono, autore e durata parlano dei contenuti: accendendone uno le opere restano fuori.`)"
-                ></span>
-              </p>
-
               <p class="mt-4 text-small text-muted" role="status">
-                <span class="tabular" x-text="catalogRows().length"></span>
+                <span class="tabular" x-text="righeCatalogo.length"></span>
                 <span
-                  x-text="catalogRows().length === 1 ? ' risultato' : ' risultati'"
+                  x-text="righeCatalogo.length === 1 ? ' risultato' : ' risultati'"
                 ></span>
               </p>
 
-              <div class="lastra mt-3 overflow-x-auto">
+              <div
+                class="lastra mt-3 max-h-[60vh] overflow-auto overscroll-contain"
+              >
                 <table class="w-full text-left text-small">
                   <caption
                     class="sr-only"
                     x-text="t(`Contenuti e visite del museo, con autore, tono, durata, prezzo e azione di eliminazione`)"
                   ></caption>
-                  <thead>
+                  <thead class="sticky top-0 z-10">
                     <tr
                       class="border-b border-line bg-surface-2 text-caption uppercase tracking-wider text-muted"
                     >
@@ -4275,7 +4250,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <template x-for="r in catalogRows()" :key="r.kind + r.id">
+                    <template x-for="r in righeCatalogo" :key="r.kind + r.id">
                       <tr
                         class="border-b border-line transition-colors last:border-0 hover:bg-surface-2"
                       >
@@ -4291,16 +4266,10 @@
                             class="pastiglia pastiglia-ametista ml-2"
                             x-text="t(`Guidata`)"
                           ></span>
-                          <span
-                            x-show="r.kind === 'opera'"
-                            class="mt-1 block text-caption font-normal text-muted"
-                            x-text="catalogRowCaption(r)"
-                          ></span>
                         </th>
                         <td class="px-4 py-3">
                           <span
-                            class="pastiglia"
-                            :class="r.kind === 'opera' ? 'pastiglia-accento' : 'pastiglia-ametista'"
+                            class="pastiglia pastiglia-ametista"
                             x-text="catalogRowLabel(r)"
                           ></span>
                         </td>
@@ -4327,15 +4296,15 @@
                             type="button"
                             class="btn-pericolo"
                             @click="openDeleteRow(r)"
-                            :aria-label="(r.kind === 'opera' ? t(`Rimuovi`) : t(`Elimina`)) + ' ' + r.name"
-                            x-text="r.kind === 'opera' ? t(`Rimuovi`) : t(`Elimina`)"
+                            :aria-label="t(`Elimina`) + ' ' + r.name"
+                            x-text="t(`Elimina`)"
                           ></button>
                         </td>
                       </tr>
                     </template>
                   </tbody>
                 </table>
-                <div x-show="catalogRows().length === 0" class="vuoto border-0">
+                <div x-show="righeCatalogo.length === 0" class="vuoto border-0">
                   <p
                     x-text="t(`Nessun contenuto corrisponde a quello che hai cercato.`)"
                   ></p>

@@ -288,7 +288,7 @@ async function seedMuseumVisits(config: MuseumConfig) {
         tappe,
         notes,
         undefined,
-        undefined,
+        SEED_AUTHOR,
         config.visitImages ? config.visitImages[level] : undefined,
       );
     }

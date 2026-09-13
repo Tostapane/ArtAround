@@ -1,6 +1,6 @@
 /**
- * Rotte delle opere. Il catalogo legge per museo; il curatore aggiunge da Wikidata o
- * elimina con una cascata dichiarata prima dall'endpoint impact.
+ * Rotte delle opere. Il catalogo legge per museo; il curatore elimina con una cascata
+ * dichiarata prima dall'endpoint impact.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -12,9 +12,6 @@ import { sortByFlow } from "../services/svgGraph";
 import { ItemModel } from "../models/item";
 import { createDescription } from "../services/llm";
 import { purchasedBy, isReadable, withoutText, readableItems } from "../access";
-import { findMuseumConfig } from "../data/museumConfigs";
-import { appartieneAlMuseo } from "../services/wikidata";
-import { locationsFromMap, populateArtwork } from "../manager";
 import { rimuoviTappeDalleVisite } from "../catalogue";
 import { rimuoviImmagine } from "./items";
 import { ArtworkImpactReport } from "../../../shared/types";
@@ -254,52 +251,6 @@ router.delete("/:qid", async (req, res) => {
   } catch (error: any) {
     console.error("[BACKEND ERROR] eliminazione opera:", error);
     res.status(500).json({ error: "Errore durante la rimozione dell'opera" });
-  }
-});
-
-/**
- * POST /api/artworks  { qid, museo }
- * Ritorna: l'opera creata con metadati Wikidata e posizione ricavata dalla mappa.
- */
-router.post("/", async (req, res) => {
-  try {
-    if (!soloCuratore(req, res)) return;
-    const qid = String(req.body.qid || "").trim().toUpperCase();
-    const museo = String(req.body.museo || "").trim();
-    if (!/^Q\d+$/.test(qid))
-      return res.status(400).json({ error: "Il codice dev'essere un qid di Wikidata, come Q12418." });
-
-    const config = findMuseumConfig(museo);
-    if (!config) return res.status(404).json({ error: "Museo non configurato" });
-
-    const gia = await ArtworkModel.findOne({ qid });
-    if (gia)
-      return res.status(409).json({
-        error: `"${gia.name}" è già nel catalogo di questo o di un altro museo.`,
-      });
-
-    const posizione = locationsFromMap(config.mapPath).get(qid) || "";
-    const creata = await populateArtwork(
-      qid,
-      `http://www.wikidata.org/entity/${museo}`,
-      posizione,
-    );
-    if (!creata)
-      return res.status(422).json({
-        error: "Su Wikidata quest'opera non ha un'immagine (P18), quindi non si può esporre.",
-      });
-
-    const artwork = await ArtworkModel.findOne({ qid });
-    const nelMuseo = await appartieneAlMuseo(qid, museo);
-    console.log(
-      `[curatore ${sessionUser(req).username}] aggiunta l'opera ${qid} a ${config.name}` +
-        (posizione ? ` (nodo ${posizione})` : " (senza nodo sulla mappa)") +
-        (nelMuseo ? "" : ": Wikidata non la dà in questa collezione"),
-    );
-    res.status(201).json({ artwork, sullaMappa: posizione !== "", nelMuseo });
-  } catch (error: any) {
-    console.error("[BACKEND ERROR] aggiunta opera:", error);
-    res.status(500).json({ error: "Errore durante l'aggiunta dell'opera" });
   }
 });
 

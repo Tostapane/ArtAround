@@ -261,17 +261,6 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async aggiungiOpera(qid: string, museo: string): Promise<any> {
-    const response = await call('/api/artworks', {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ qid, museo }),
-    });
-    if (!response.ok)
-      throw new Error(await readError(response, "Errore nell'aggiunta dell'opera"));
-    return response.json();
-  },
-
   async impattoOpera(qid: string): Promise<ArtworkImpactReport> {
     const response = await call(
       `/api/artworks/${encodeURIComponent(qid)}/impact`,

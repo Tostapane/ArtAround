@@ -19,7 +19,6 @@ import {
   VisitaNominata,
   isItem,
   isVisit,
-  isArtwork,
 } from "../../../shared/types.js";
 import {
   licenses,
@@ -58,7 +57,7 @@ function isSoggetto(c: Catalogabile): c is Soggetto {
 }
 
 export interface CatalogRow {
-  kind: "opera" | "item" | "visita";
+  kind: "item" | "visita";
   id: string;
   name: string;
   author: string;
@@ -67,9 +66,7 @@ export interface CatalogRow {
   price: number;
   privato?: boolean;
   guidata?: boolean;
-  qid?: string;
-  descrizioni?: number;
-  raw: Artwork | Item | Visit;
+  raw: Item | Visit;
 }
 
 export interface Soggetto {
@@ -99,6 +96,7 @@ export interface ArtworkGroup {
 export type View = "avvio" | (typeof marketplaceViews)[number];
 
 const indiceContenuti = new Map<string, Content>();
+const indiceRicerca = new Map<string, string>();
 
 export class AppState {
 
@@ -122,8 +120,9 @@ export class AppState {
   worksTypeFilter: "tutti" | "item" | "visite" = "tutti";
 
   catalogSearch: string = "";
+  museumArtworkSearch: string = "";
 
-  catalogTypeFilter: "tutti" | "opere" | "descrizioni" | "visite" = "tutti";
+  catalogTypeFilter: "tutti" | "descrizioni" | "visite" = "tutti";
 
   catalogSubjectFilter: "tutti" | "opera" | "meta" = "tutti";
   catalogToneFilter: string = "tutti";
@@ -148,8 +147,6 @@ export class AppState {
 
   museoToWipe: Museum | null = null;
 
-  nuovaOperaQid = "";
-  aggiungendoOpera = false;
   operaToDelete: Artwork | null = null;
   operaImpact: ArtworkImpactReport | null = null;
 
@@ -560,6 +557,7 @@ export class AppState {
     this.marketSearch = "";
     this.librarySearch = "";
     this.worksSearch = "";
+    this.museumArtworkSearch = "";
     this.editorSearch = "";
     this.marketType = "tutti";
     this.marketLevelFilter = "tutti";
@@ -585,6 +583,7 @@ export class AppState {
 
   async selectMuseum(m: Museum) {
     this.selectedMuseum = m;
+    this.museumArtworkSearch = "";
 
     if (await this.goToNavigatorIfAsked()) return;
     this.loading = true;
@@ -618,6 +617,15 @@ export class AppState {
     return this.availableArtworks.filter((a) => this.belongsToMuseum(a));
   }
 
+  filteredMuseumArtworks() {
+    const artworks = this.museumArtworks();
+    const terms = this.searchTerms(this.museumArtworkSearch);
+    if (terms.length === 0) return artworks;
+    return artworks.filter((artwork) =>
+      this.matchesSearchTerms(artwork, terms),
+    );
+  }
+
   contentName(c: Catalogabile): string {
     if (isSoggetto(c)) return c.name || "";
     if (isVisit(c)) return c.name || "";
@@ -638,6 +646,7 @@ export class AppState {
   private searchableFields(c: Catalogabile): string {
     const parts: string[] = [this.contentName(c)];
     if (isSoggetto(c)) {
+      parts.push(c.qid || "");
       parts.push((c.author && c.author.name) || "");
       parts.push((c.style && c.style.name) || "");
     } else if (isVisit(c)) {
@@ -649,6 +658,7 @@ export class AppState {
       const art = c.about;
       if (art && typeof art === "object") {
         parts.push(
+          art.qid || "",
           art.name || "",
           (art.author && art.author.name) || "",
           (art.style && art.style.name) || "",
@@ -658,14 +668,25 @@ export class AppState {
     return this.normalizeSearch(parts.join(" "));
   }
 
-  private matchesSearch(c: Catalogabile, query: string): boolean {
-    const q = this.normalizeSearch(query);
-    if (!q) return true;
-    const haystack = this.searchableFields(c);
+  private searchTerms(query: string): string[] {
+    return this.normalizeSearch(query).split(" ").filter(Boolean);
+  }
+
+  private matchesSearchTerms(c: Catalogabile, terms: string[]): boolean {
+    if (terms.length === 0) return true;
+    let haystack = indiceRicerca.get(c["@id"]);
+    if (haystack === undefined) {
+      haystack = this.searchableFields(c);
+      indiceRicerca.set(c["@id"], haystack);
+    }
     const compatto = haystack.replace(/ /g, "");
-    return q
-      .split(" ")
-      .every((tok) => !tok || haystack.includes(tok) || compatto.includes(tok));
+    return terms.every((term) =>
+      haystack.includes(term) || compatto.includes(term),
+    );
+  }
+
+  private matchesSearch(c: Catalogabile, query: string): boolean {
+    return this.matchesSearchTerms(c, this.searchTerms(query));
   }
 
   private levelOf(c: Catalogabile): string {
@@ -888,9 +909,7 @@ export class AppState {
       if (!this.overview) return this.t("Sto calcolando che cosa comporta…");
       const c = this.overview.conteggi;
       return this.t(
-        "Spariranno {opere} opere, {item} descrizioni e {visite} visite di {museo}, " +
-          "e con esse le righe nelle librerie di chi le aveva prese. Le immagini " +
-          "delle opere restano sul disco. L'operazione non è reversibile.",
+        "Spariranno {opere} opere, {item} descrizioni e {visite} visite di {museo}, e con esse le righe nelle librerie di chi le aveva prese. Saranno eliminate anche le immagini delle opere attive. L'operazione non è reversibile.",
         {
           opere: c.opere,
           item: c.item,
@@ -1182,11 +1201,11 @@ export class AppState {
     }
   }
 
-  percentualeCopertura(riga: { opere: number }): number {
+  percentualeCopertura(riga: { descrizioni: number }): number {
     if (!this.overview) return 0;
-    const totale = this.overview.copertura.opereTotali;
+    const totale = this.overview.copertura.combinazioniPerTono;
     if (!totale) return 0;
-    return Math.round((riga.opere / totale) * 100);
+    return Math.min(100, Math.round((riga.descrizioni / totale) * 100));
   }
 
   accountLine(): string {
@@ -1200,26 +1219,14 @@ export class AppState {
     return pezzi.join(" · ");
   }
 
-  setCatalogType(tipo: "tutti" | "opere" | "descrizioni" | "visite") {
+  setCatalogType(tipo: "tutti" | "descrizioni" | "visite") {
     this.catalogTypeFilter = tipo;
     this.catalogDurationFilter = "tutti";
-    if (tipo === "opere" || tipo === "visite")
-      this.catalogSubjectFilter = "tutti";
+    if (tipo === "visite") this.catalogSubjectFilter = "tutti";
   }
 
   setCatalogSubject(soggetto: "tutti" | "opera" | "meta") {
     this.catalogSubjectFilter = soggetto;
-  }
-
-  descrizioniDi(artwork: Artwork): number {
-    const id = artwork["@id"];
-    let quante = 0;
-    for (const it of this.curatedItems) {
-      const about = it.about;
-      const suo = typeof about === "object" && about ? about["@id"] : about;
-      if (suo === id) quante++;
-    }
-    return quante;
   }
 
   catalogDurationOptions(): { value: string; label: string }[] {
@@ -1229,22 +1236,12 @@ export class AppState {
   }
 
   catalogRowLabel(row: CatalogRow): string {
-    if (row.kind === "opera") return this.t("Opera");
     if (row.kind === "visita") return this.t("Visita");
     return this.t("Descrizione");
   }
 
   catalogPriceLabel(row: CatalogRow): string {
-    if (row.kind === "opera") return "n/d";
     return this.readablePrice(row.price);
-  }
-
-  catalogRowCaption(row: CatalogRow): string {
-    if (row.kind !== "opera") return "";
-    const n = row.descrizioni || 0;
-    const quante =
-      n === 1 ? this.t("1 descrizione") : this.t("{n} descrizioni", { n });
-    return `${row.qid} · ${quante}`;
   }
 
   private curatedVisits(): Visit[] {
@@ -1263,7 +1260,6 @@ export class AppState {
   }
 
   durationLabel(row: CatalogRow): string {
-    if (row.kind === "opera") return "n/d";
     if (row.kind === "item") return `${row.duration} s`;
     return this.readableDuration(row.duration);
   }
@@ -1275,36 +1271,14 @@ export class AppState {
   }
 
   catalogRows(): CatalogRow[] {
-    const cerca = this.catalogSearch.trim().toLowerCase();
     const rows: CatalogRow[] = [];
+    const searchTerms = this.searchTerms(this.catalogSearch);
 
-    if (
-      this.catalogTypeFilter === "tutti" ||
-      this.catalogTypeFilter === "opere"
-    ) {
-      for (const a of this.museumArtworks()) {
-        const artista =
-          a.author && typeof a.author === "object" ? a.author.name || "" : "";
-        rows.push({
-          kind: "opera",
-          id: a["@id"],
-          name: a.name || a.qid,
-          author: artista || "n/d",
-          tone: "",
-          duration: 0,
-          price: 0,
-          qid: a.qid,
-          descrizioni: this.descrizioniDi(a),
-          raw: a,
-        });
-      }
-    }
     if (
       this.catalogTypeFilter === "tutti" ||
       this.catalogTypeFilter === "descrizioni"
     ) {
       for (const it of this.curatedItems) {
-
         const soggetto = (it.kind || "opera") !== "opera";
         if (this.catalogSubjectFilter === "opera" && soggetto) continue;
         if (this.catalogSubjectFilter === "meta" && !soggetto) continue;
@@ -1341,29 +1315,18 @@ export class AppState {
     }
 
     return rows.filter((r) => {
-      const filtriDiContenuto =
-        this.catalogToneFilter !== "tutti" ||
-        this.catalogAuthorFilter !== "tutti" ||
-        this.catalogDurationFilter !== "tutti";
-      if (r.kind === "opera") {
-        if (filtriDiContenuto) return false;
-      } else {
-        if (
-          this.catalogToneFilter !== "tutti" &&
-          r.tone !== this.catalogToneFilter
-        )
-          return false;
-        if (
-          this.catalogAuthorFilter !== "tutti" &&
-          r.author !== this.catalogAuthorFilter
-        )
-          return false;
-        if (!this.matchesCatalogDuration(r)) return false;
-      }
-      if (!cerca) return true;
-      const dove =
-        `${r.name} ${r.author} ${r.tone} ${r.qid || ""}`.toLowerCase();
-      return dove.includes(cerca);
+      if (
+        this.catalogToneFilter !== "tutti" &&
+        r.tone !== this.catalogToneFilter
+      )
+        return false;
+      if (
+        this.catalogAuthorFilter !== "tutti" &&
+        r.author !== this.catalogAuthorFilter
+      )
+        return false;
+      if (!this.matchesCatalogDuration(r)) return false;
+      return this.matchesSearchTerms(r.raw, searchTerms);
     });
   }
 
@@ -1371,51 +1334,6 @@ export class AppState {
     if (!this.selectedMuseum) return;
     this.museoToWipe = this.selectedMuseum;
     this.confirmOpen = true;
-  }
-
-  async aggiungiOpera() {
-    if (!this.selectedMuseum) return;
-    const qid = this.nuovaOperaQid.trim().toUpperCase();
-    if (qid === "") return;
-    this.aggiungendoOpera = true;
-    try {
-      const esito = await ArtAPI.aggiungiOpera(qid, this.selectedMuseum.qid);
-      this.nuovaOperaQid = "";
-      await this.loadCatalogue();
-      await this.loadMuseumState();
-      const avvisi: string[] = [];
-      if (!esito.sullaMappa)
-        avvisi.push(
-          this.t(
-            "sulla mappa non c'è un nodo con questo codice, quindi non comparirà nella piantina",
-          ),
-        );
-      if (esito.nelMuseo === false)
-        avvisi.push(
-          this.t("Wikidata non la dà nella collezione di questo museo"),
-        );
-
-      if (avvisi.length === 0) {
-        this.showToast(
-          this.t("{opera} aggiunta al catalogo.", {
-            opera: esito.artwork.name,
-          }),
-          "success",
-        );
-      } else {
-        this.showToast(
-          this.t("{opera} aggiunta, ma {avvisi}.", {
-            opera: esito.artwork.name,
-            avvisi: avvisi.join("; "),
-          }),
-          "error",
-        );
-      }
-    } catch (e) {
-      this.showToast((e as Error).message, "error");
-    } finally {
-      this.aggiungendoOpera = false;
-    }
   }
 
   async openDeleteArtwork(opera: Artwork | null) {
@@ -1433,10 +1351,6 @@ export class AppState {
 
   async openDeleteRow(row: CatalogRow) {
     if (!row) return;
-    if (row.kind === "opera" && isArtwork(row.raw)) {
-      await this.openDeleteArtwork(row.raw);
-      return;
-    }
     if (row.kind === "visita" && isVisit(row.raw)) {
       this.visitToDelete = row.raw;
       this.confirmOpen = true;
@@ -2404,9 +2318,25 @@ export class AppState {
 
   private reindicizza() {
     indiceContenuti.clear();
+    indiceRicerca.clear();
     for (const c of this.visits) indiceContenuti.set(c["@id"], c);
     for (const c of this.marketItems) indiceContenuti.set(c["@id"], c);
     for (const c of this.myItems) indiceContenuti.set(c["@id"], c);
+    for (const c of this.availableArtworks) {
+      indiceRicerca.set(c["@id"], this.searchableFields(c));
+    }
+    for (const c of this.visits) {
+      indiceRicerca.set(c["@id"], this.searchableFields(c));
+    }
+    for (const c of this.marketItems) {
+      indiceRicerca.set(c["@id"], this.searchableFields(c));
+    }
+    for (const c of this.myItems) {
+      indiceRicerca.set(c["@id"], this.searchableFields(c));
+    }
+    for (const c of this.curatedItems) {
+      indiceRicerca.set(c["@id"], this.searchableFields(c));
+    }
   }
 
   findItem(id: string) {
