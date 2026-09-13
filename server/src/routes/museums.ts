@@ -16,9 +16,9 @@ import { VisitModel } from "../models/visit";
 import { UserModel } from "../models/user";
 import { educationalLevels } from "../../../shared/constants";
 import { findMuseumConfig } from "../data/museumConfigs";
-import { sortByFlow } from "../services/svgGraph";
+import { getMuseumGraph, sortByFlow } from "../services/svgGraph";
 import { rimuoviImmagine } from "./items";
-import { MuseumOverview } from "../../../shared/types";
+import { MapLocation, MuseumOverview } from "../../../shared/types";
 import { purchasedBy } from "../access";
 import { conto } from "../pricing";
 const router = Router();
@@ -82,9 +82,19 @@ router.get("/:qid/config", requireSession, async (req, res) => {
     if (!config) {
       return res.status(404).json({ error: "Configurazione del museo non trovata" });
     }
+    const mapLocations: Record<string, MapLocation> = {};
+    for (const node of getMuseumGraph(config.mapPath).nodes) {
+      if (node.kind !== "artwork" || !node.elementId) continue;
+      mapLocations[node.elementId] = {
+        room: node.room,
+        floor: node.floor,
+        tone: node.roomTone,
+      };
+    }
     return res.json({
       ...config,
       "@id": `http://www.wikidata.org/entity/${qid}`,
+      mapLocations,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore nel caricamento della configurazione del museo" });

@@ -580,6 +580,7 @@
 
           <form
             @submit.prevent="login()"
+            @invalid.capture.prevent="void 0"
             class="lastra flex flex-col gap-5 p-6"
           >
             <div>
@@ -612,6 +613,11 @@
                 class="campo"
               />
             </div>
+            <p
+              class="messaggio-campi text-caption text-danger"
+              role="alert"
+              x-text="t(`Completa tutti i campi`)"
+            ></p>
             <button
               type="submit"
               class="btn-primario w-full justify-center"
@@ -653,6 +659,7 @@
 
           <form
             @submit.prevent="register()"
+            @invalid.capture.prevent="void 0"
             class="lastra flex flex-col gap-5 p-6"
           >
             <div>
@@ -783,8 +790,8 @@
           <!-- MARCHIO COMPATTO -->
           <button
             type="button"
-            @click="goHome()"
-            :aria-label="t('Home')"
+            @click="changeMuseum()"
+            :aria-label="t('Scegli il museo')"
             class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-on-structure/10"
           >
             <svg
@@ -853,9 +860,9 @@
             <div class="hidden px-6 pt-7 lg:block">
               <button
                 type="button"
-                @click="goHome()"
+                @click="changeMuseum()"
                 class="flex items-center gap-2.5 font-display text-title-2"
-                :aria-label="t(`ArtAround, torna alla home`)"
+                :aria-label="t(`ArtAround, scegli il museo`)"
               >
                 <svg
                   class="h-7 w-7 shrink-0 text-accent"
@@ -893,6 +900,7 @@
             </div>
 
             <ul
+              x-show="selectedMuseum && view !== 'musei'"
               class="flex justify-around lg:mt-8 lg:flex-col lg:justify-start lg:gap-1 lg:px-3"
             >
               <template x-if="currentUserRole === 'visitatore'">

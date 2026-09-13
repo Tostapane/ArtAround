@@ -671,6 +671,7 @@ onUnmounted(() => {
       :can-ask-next="nextAnchorQid !== ''"
       @navigation="navigationHandler"
       @action="actionHandler"
+      @section="apriVista"
       @close-request="chiudiRisposta"
       @apri-tappa="apriTappaCorrente"
       @quiz="emit('quiz')"

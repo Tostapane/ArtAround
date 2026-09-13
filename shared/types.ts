@@ -39,6 +39,12 @@ export interface Artwork {
   lastUpdated: Date;
 }
 
+export interface MapLocation {
+  room: string;
+  floor: number;
+  tone: string;
+}
+
 export interface Museum {
   "@id": string;
   qid: string;
@@ -50,6 +56,7 @@ export interface Museum {
   opere?: number;
   visite?: number;
   logistics?: string[];
+  mapLocations?: Record<string, MapLocation>;
 }
 
 // ============================================================================

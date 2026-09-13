@@ -387,6 +387,9 @@ export class AppState {
 
   async start() {
     window.addEventListener("popstate", () => this.applyRoute());
+    window.addEventListener("pageshow", () => {
+      this.loading = false;
+    });
     this.interceptClicks();
 
     const scelta = linguaIniziale();

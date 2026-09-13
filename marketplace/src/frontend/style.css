@@ -21,6 +21,17 @@
 
 @layer components {
 
+  .campo:user-invalid {
+    border-color: color-mix(in oklab, var(--danger) 68%, var(--line-strong));
+  }
+
+  .messaggio-campi {
+    display: none;
+  }
+  form:has(.campo:user-invalid) .messaggio-campi {
+    display: block;
+  }
+
   .voce-binario {
     @apply relative flex min-h-14 flex-1 flex-col items-center justify-start gap-1 px-2 py-2
            text-center text-caption font-medium text-on-structure/70 transition-colors

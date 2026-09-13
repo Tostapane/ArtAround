@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * Pannello persistente dell'opera con testo, voce, avanzamento e domande. Sul
- * telefono separa contenuto e comandi; su schermi larghi li mostra insieme.
+ * Pannello persistente dell'opera con testo, voce, avanzamento e domande.
+ * Opera e domande sono separate in tab sia sul telefono sia su schermi larghi.
  */
 import { computed, ref, watch } from "vue";
 import Pannello from "./Pannello.vue";
@@ -39,6 +39,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   navigation: [value: string];
   action: [value: string];
+  section: [value: "opera" | "domande"];
   closeRequest: [];
   apriTappa: [];
   quiz: [];
@@ -83,9 +84,35 @@ const stile = computed(() => {
     class="flex min-h-0 flex-1 flex-col bg-surface
            lg:h-auto lg:w-[26rem] lg:flex-none lg:border-l lg:border-line"
   >
+    <div
+      class="mx-3 mt-3 hidden shrink-0 grid-cols-2 gap-1 rounded-plate border border-line bg-surface p-1 lg:grid"
+      role="tablist"
+      :aria-label="t('Contenuto della tappa')"
+    >
+      <button
+        v-for="s in [
+          { id: 'opera', label: t('Opera') },
+          { id: 'domande', label: t('Domande') },
+        ]"
+        :key="s.id"
+        type="button"
+        role="tab"
+        :aria-selected="sezione === s.id"
+        :aria-controls="'contenuto-' + s.id"
+        class="segmento"
+        :class="[
+          'segmento-' + s.id,
+          sezione === s.id ? 'segmento-attivo' : '',
+        ]"
+        @click="emit('section', s.id as 'opera' | 'domande')"
+      >
+        {{ s.label }}
+      </button>
+    </div>
+
     <!-- LINGUA -->
     <div
-      class="shrink-0 items-center gap-3 border-b border-line px-3 py-2 lg:flex"
+      class="shrink-0 items-center gap-3 border-b border-line px-3 py-2"
       :class="sezione === 'opera' ? 'flex' : 'hidden'"
     >
       <span class="etichetta-impostazione shrink-0" aria-hidden="true">
@@ -100,8 +127,10 @@ const stile = computed(() => {
 
     <!-- OPERA -->
     <div
+      id="contenuto-opera"
       ref="opera"
-      class="sezione-opera min-h-0 basis-0 overflow-y-auto lg:block"
+      role="tabpanel"
+      class="sezione-opera min-h-0 basis-0 overflow-y-auto"
       :class="[
         richiesta ? 'grow-[2]' : 'grow-[3]',
         sezione === 'opera' ? 'block' : 'hidden',
@@ -109,17 +138,17 @@ const stile = computed(() => {
     >
       <template v-if="content">
 
-        <div class="flex items-start gap-3 p-4 lg:block lg:p-0">
+        <div>
           <img
             v-if="immagine.src && !imgBroken"
-            class="figura figura-sfumata h-20 w-28 shrink-0 rounded-none object-cover
-                   lg:h-auto lg:max-h-48 lg:w-full lg:object-contain"
+            class="figura block max-h-[60dvh] w-full rounded-none bg-surface-2 object-contain
+                   lg:max-h-[52vh]"
             :src="immagine.src"
             :alt="t('Immagine di {nome}', { nome: immagine.name })"
             @error="imgBroken = true"
           />
 
-          <div class="min-w-0 lg:p-4 lg:pb-0">
+          <div class="min-w-0 p-4 pb-0">
             <div class="flex items-baseline gap-3">
               <span
                 v-if="numero > 0"
@@ -257,7 +286,9 @@ const stile = computed(() => {
 
     <!-- CHIEDI / ORIENTATI -->
     <div
-      class="sezione-domande min-h-0 basis-0 overflow-y-auto border-t border-line p-3 lg:block"
+      id="contenuto-domande"
+      role="tabpanel"
+      class="sezione-domande min-h-0 basis-0 overflow-y-auto border-t border-line p-3"
       :class="[
         richiesta ? 'grow-[3]' : 'grow-[2]',
         sezione === 'domande' ? 'block' : 'hidden',

@@ -23,6 +23,11 @@
     --segment-veil: var(--slate-velo);
   }
 
+  .segmento-opera {
+    --segment-color: var(--brass);
+    --segment-veil: var(--brass-velo);
+  }
+
   .segmento-domande {
     --segment-color: var(--sage);
     --segment-veil: var(--sage-velo);

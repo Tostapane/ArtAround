@@ -12,6 +12,7 @@ import {
   isOptionalItem,
   map,
   matchedContent,
+  museum,
   visit,
   stageView,
   setStageView,
@@ -40,17 +41,18 @@ const { announce } = useAnnouncer();
 const container = ref<HTMLElement | null>(null);
 const listeners: { element: Element; type: string; handler: EventListener }[] = [];
 const ZOOM_SIZES = ["100%", "200%", "300%"] as const;
+const ROOM_COLORS: Record<string, string> = {
+  notte: "var(--structure)",
+  verderame: "var(--accent)",
+  ottone: "var(--brass)",
+  salvia: "var(--sage)",
+  ardesia: "var(--slate)",
+  atrio: "color-mix(in oklab, var(--surface) 93%, var(--text))",
+  servizio: "color-mix(in oklab, var(--surface) 96%, var(--text))",
+};
 const zoomIndex = ref(0);
 const mapSize = computed(() => ZOOM_SIZES[zoomIndex.value]);
 let resizeObserver: ResizeObserver | null = null;
-let roomReadTimer: number | null = null;
-
-interface RoomInfo {
-  name: string;
-  color: string;
-}
-
-const roomsByLocation = ref(new Map<string, RoomInfo>());
 
 function stopNumber(index: number): number {
   return index + 1;
@@ -105,57 +107,15 @@ function pianoDi(el: Element | null): number | null {
   return numero;
 }
 
-function readRooms() {
-  const root = container.value;
-  if (!root) return;
-  const rooms = Array.from(
-    root.querySelectorAll<SVGGeometryElement>("[data-room]"),
-  );
-  const found = new Map<string, RoomInfo>();
-  for (const match of matchedContent.value) {
-    const location = match.anchor ? match.anchor.locationId : "";
-    if (!location || found.has(location)) continue;
-    const node = root.querySelector(
-      `#${CSS.escape(location)}`,
-    ) as SVGGraphicsElement | null;
-    if (!node) continue;
-    try {
-      const box = node.getBBox();
-      const point = new DOMPoint(box.x + box.width / 2, box.y + box.height / 2);
-      const floor = pianoDi(node);
-      const room = rooms.find(
-        (candidate) =>
-          pianoDi(candidate) === floor && candidate.isPointInFill(point),
-      );
-      if (!room) continue;
-      const style = getComputedStyle(room);
-      const color = style.getPropertyValue("--tinta").trim() || style.fill;
-      found.set(location, {
-        name: room.getAttribute("data-room") || "",
-        color,
-      });
-    } catch {
-    }
-  }
-  roomsByLocation.value = found;
-}
-
-function scheduleRoomRead() {
-  if (roomReadTimer !== null) window.clearTimeout(roomReadTimer);
-  roomReadTimer = window.setTimeout(() => {
-    roomReadTimer = null;
-    readRooms();
-  }, 0);
-}
-
-function roomInfo(match: (typeof matchedContent.value)[number]): RoomInfo | null {
+function roomInfo(match: (typeof matchedContent.value)[number]) {
   const location = match.anchor ? match.anchor.locationId : "";
-  return roomsByLocation.value.get(location) || null;
+  if (!location) return null;
+  return museum.value?.mapLocations?.[location] || null;
 }
 
 function roomName(match: (typeof matchedContent.value)[number]): string {
   const room = roomInfo(match);
-  return room ? room.name : "";
+  return room ? room.room : "";
 }
 
 function roomStyle(
@@ -164,9 +124,36 @@ function roomStyle(
 ): Record<string, string> | undefined {
   if (current) return undefined;
   const room = roomInfo(match);
-  if (!room || !room.color) return undefined;
-  return { "--room-color": room.color };
+  if (!room) return undefined;
+  return { "--room-color": ROOM_COLORS[room.tone] || "var(--slate)" };
 }
+
+const floorSections = computed(() => {
+  const sections: {
+    firstIndex: number;
+    floor: number | null;
+    label: string;
+    stops: { match: (typeof matchedContent.value)[number]; index: number }[];
+  }[] = [];
+
+  matchedContent.value.forEach((match, index) => {
+    const floor = roomInfo(match)?.floor ?? null;
+    let section = sections[sections.length - 1];
+    if (!section || section.floor !== floor) {
+      const known = piani.value.find((candidate) => candidate.numero === floor);
+      section = {
+        firstIndex: index,
+        floor,
+        label: known?.etichetta || (floor === null ? t("Piano non indicato") : `Piano ${floor}`),
+        stops: [],
+      };
+      sections.push(section);
+    }
+    section.stops.push({ match, index });
+  });
+
+  return sections;
+});
 
 function centerCurrentStop() {
   const root = container.value;
@@ -342,9 +329,6 @@ function prepareMap() {
   const root = container.value;
   if (!root) return;
   clearListeners();
-  root.querySelectorAll("[data-floor]").forEach((floor) =>
-    floor.removeAttribute("display"),
-  );
 
   root.querySelectorAll(".nodo-opera").forEach((el) => {
     el.classList.remove("nodo-opera", "nodo-opzionale");
@@ -441,7 +425,6 @@ function prepareMap() {
   preparePois();
   highlightCurrent();
   drawPosition();
-  scheduleRoomRead();
   leggiPiani();
   seguiTappa();
   inquadraPiano();
@@ -532,7 +515,6 @@ watch([stima, bussola, angoloNordMappa], () => nextTick(drawPosition));
 
 onBeforeUnmount(() => {
   clearListeners();
-  if (roomReadTimer !== null) window.clearTimeout(roomReadTimer);
   resizeObserver?.disconnect();
 });
 
@@ -656,38 +638,53 @@ const optionalCount = computed(() => {
 
     <!-- ELENCO -->
     <div v-show="stageView === 'elenco'" class="min-h-0 flex-1 overflow-auto p-3">
-      <ul v-if="matchedContent.length" class="mx-auto flex max-w-3xl flex-col gap-2">
-        <li v-for="(match, i) in matchedContent" :key="match.item['@id']">
-          <button
-            type="button"
-            class="lastra filo-accento tappa-elenco flex w-full items-center gap-4 p-4 text-left"
-            :class="{
-              'opacity-60': isOptionalItem(match.item['@id']) && !includeOptional,
-              'tappa-elenco-corrente': i === props.currentIndex,
-            }"
-            :style="roomStyle(match, i === props.currentIndex)"
-            @click="onStopPress(i)"
+      <div v-if="matchedContent.length" class="mx-auto flex max-w-3xl flex-col gap-5">
+        <section
+          v-for="section in floorSections"
+          :key="section.firstIndex"
+          :aria-labelledby="`titolo-piano-${section.firstIndex}`"
+        >
+          <h2
+            :id="`titolo-piano-${section.firstIndex}`"
+            class="mb-2 flex items-center gap-3 px-1 font-display text-title-3 text-slate"
           >
-            <span class="tabular w-9 shrink-0 text-center font-display text-title-2 text-muted">
-              {{ String(stopNumber(i)).padStart(2, "0") }}
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate font-medium">{{ stopName(match) }}</span>
-
-              <span class="block truncate text-small text-muted">
-                {{ stopSubtitle(match) }}
-                <span v-if="roomName(match)" class="tappa-sala">
-                  <span v-if="stopSubtitle(match)" aria-hidden="true"> · </span>
-                  {{ roomName(match) }}
+            <span>{{ section.label }}</span>
+            <span class="h-px flex-1 bg-slate-velo" aria-hidden="true"></span>
+          </h2>
+          <ul class="flex flex-col gap-2">
+            <li v-for="entry in section.stops" :key="entry.match.item['@id']">
+              <button
+                type="button"
+                class="lastra filo-accento tappa-elenco flex w-full items-center gap-4 p-4 text-left"
+                :class="{
+                  'opacity-60': isOptionalItem(entry.match.item['@id']) && !includeOptional,
+                  'tappa-elenco-corrente': entry.index === props.currentIndex,
+                }"
+                :style="roomStyle(entry.match, entry.index === props.currentIndex)"
+                @click="onStopPress(entry.index)"
+              >
+                <span class="tabular w-9 shrink-0 text-center font-display text-title-2 text-muted">
+                  {{ String(stopNumber(entry.index)).padStart(2, "0") }}
                 </span>
-              </span>
-            </span>
-            <span v-if="isOptionalItem(match.item['@id'])" class="pastiglia pastiglia-ametista shrink-0">
-              {{ t("Opzionale") }}
-            </span>
-          </button>
-        </li>
-      </ul>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{{ stopName(entry.match) }}</span>
+
+                  <span class="block truncate text-small text-muted">
+                    {{ stopSubtitle(entry.match) }}
+                    <span v-if="roomName(entry.match)" class="tappa-sala">
+                      <span v-if="stopSubtitle(entry.match)" aria-hidden="true"> · </span>
+                      {{ roomName(entry.match) }}
+                    </span>
+                  </span>
+                </span>
+                <span v-if="isOptionalItem(entry.match.item['@id'])" class="pastiglia pastiglia-ametista shrink-0">
+                  {{ t("Opzionale") }}
+                </span>
+              </button>
+            </li>
+          </ul>
+        </section>
+      </div>
       <p v-else class="vuoto">{{ t("Questa visita non ha tappe.") }}</p>
     </div>
   </div>
@@ -780,22 +777,23 @@ const optionalCount = computed(() => {
 
 .tappa-elenco {
   --room-color: var(--slate);
-  --accent: color-mix(in oklab, var(--room-color) 68%, var(--text));
-  --accent-velo: color-mix(in oklab, var(--room-color) 18%, transparent);
+  --room-accent: color-mix(in oklab, var(--room-color) 68%, var(--text));
+  --room-veil: color-mix(in oklab, var(--room-color) 18%, transparent);
   border-color: color-mix(in oklab, var(--room-color) 34%, var(--line));
-  background-image: linear-gradient(90deg, var(--accent-velo), transparent 58%);
+  background-image: linear-gradient(90deg, var(--room-veil), transparent 58%);
 }
 .tappa-elenco > .tabular,
 .tappa-sala {
-  color: var(--accent);
+  color: var(--room-accent);
 }
 .tappa-elenco-corrente {
-  --accent: var(--slate);
-  --accent-velo: var(--slate-velo);
-  border-left: 4px solid var(--slate);
+  --room-color: var(--location);
+  --room-accent: var(--location);
+  --room-veil: var(--location-veil);
+  border: 2px solid var(--location);
   background-image: linear-gradient(
     90deg,
-    var(--slate-velo),
+    var(--location-veil),
     transparent 48%
   );
 }

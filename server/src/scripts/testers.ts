@@ -533,10 +533,13 @@ function problemiDellaMappa(graph: MuseumGraph, qidAttesi: string[]): string[] {
   const problemi: string[] = [];
 
   for (const n of graph.nodes) {
-    if (n.room) continue;
-    problemi.push(
-      `nodo fuori da ogni sala: ${n.elementId || n.qid || n.poiType} (${n.x}, ${n.y})`,
-    );
+    if (!n.room) {
+      problemi.push(
+        `nodo fuori da ogni sala: ${n.elementId || n.qid || n.poiType} (${n.x}, ${n.y})`,
+      );
+    } else if (n.kind === "artwork" && !n.roomTone) {
+      problemi.push(`sala senza tono per il nodo: ${n.elementId || n.qid}`);
+    }
   }
   for (const o of graph.obstacles) {
     if (!o.room) problemi.push(`ostacolo fuori da ogni sala: "${o.description}"`);
@@ -663,7 +666,7 @@ async function ordiniDaCorreggere(): Promise<
     if (!museo.mapPath) continue;
     const visite = await VisitModel.find({
       ofMuseum: museo["@id"],
-      "@id": { $regex: "^visit-" },
+      "@id": { $regex: `^visit-${museo.qid}-` },
     });
     for (const visita of visite) {
       const ids = visita.itemListElement || [];

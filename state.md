@@ -330,8 +330,13 @@ Il file pubblico può cambiare museo senza ricompilare il navigator.
 - Più tappe della stessa opera condividono il nodo numerato sulla pianta.
 - La posizione corrente usa un azzurro acceso statico dedicato, senza animazioni o
   filtri che penalizzino lo scorrimento.
-- Nell'elenco ogni tappa riusa nome e colore della sala ricavati direttamente
-  dalla geometria SVG; la tappa corrente resta evidenziata in ametista.
+- Nell'elenco ogni tappa riusa nome e tono della sala esposti dall'indice del
+  grafo server; la tappa corrente usa l'azzurro della posizione su tutto il
+  bordo. Il browser non ricalcola l'appartenenza alle sale dalla geometria SVG.
+- L'elenco separa le tappe con il titolo del piano ogni volta che il percorso
+  cambia piano, senza riordinare i numeri della visita.
+- La scheda mostra l'immagine locale dell'opera senza dissolvenza e a tutta
+  larghezza; immagine e testo scorrono nella sezione quando superano lo spazio.
 - Il segnalino di posizione non intercetta il puntatore, così non copre il nodo
   corrente durante il teletrasporto.
 

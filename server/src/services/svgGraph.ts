@@ -16,6 +16,7 @@ export interface GraphNode {
   x: number;
   y: number;
   room: string;
+  roomTone: string;
   floor: number;
   elementId: string;
 }
@@ -46,7 +47,7 @@ export interface MuseumGraph {
   floors: GraphFloor[];
 }
 
-type RegionShape = { floor: number; flow: number } & (
+type RegionShape = { floor: number; flow: number; tone: string } & (
   | { kind: "circle"; name: string; cx: number; cy: number; r: number }
   | { kind: "rect"; name: string; x: number; y: number; w: number; h: number }
   | { kind: "polygon"; name: string; pts: { x: number; y: number }[] }
@@ -190,6 +191,7 @@ export function parseSvg(svg: string): MuseumGraph {
           x: center.x,
           y: center.y,
           room: "",
+          roomTone: "",
           floor,
           elementId: attrs["id"] || "",
         });
@@ -209,6 +211,7 @@ export function parseSvg(svg: string): MuseumGraph {
           x: center.x,
           y: center.y,
           room: "",
+          roomTone: "",
           floor,
           elementId: attrs["id"] || "",
         });
@@ -250,6 +253,7 @@ export function parseSvg(svg: string): MuseumGraph {
     const sala = regionAt(regions, n.x, n.y);
     if (sala) {
       n.room = sala.name;
+      n.roomTone = sala.tone;
       n.floor = sala.floor;
     }
   }
@@ -309,12 +313,13 @@ function makeRegion(
   floor: number,
 ): RegionShape | null {
   const name = attrs["data-room"];
+  const tone = roomTone(attrs["class"] || "");
   let flow = parseInt(attrs["data-flow"] || "", 10);
   if (isNaN(flow)) flow = 0;
   if (attrs["points"] !== undefined) {
     const pts = parsePoints(attrs["points"]);
     if (pts.length < 3) return null;
-    return { kind: "polygon", name, pts, floor, flow };
+    return { kind: "polygon", name, pts, floor, flow, tone };
   }
   if (
     attrs["r"] !== undefined &&
@@ -329,6 +334,7 @@ function makeRegion(
       r: parseFloat(attrs["r"]),
       floor,
       flow,
+      tone,
     };
   }
   if (
@@ -346,9 +352,20 @@ function makeRegion(
       h: parseFloat(attrs["height"]),
       floor,
       flow,
+      tone,
     };
   }
   return null;
+}
+
+function roomTone(className: string): string {
+  const values = className.split(/\s+/);
+  for (const value of values) {
+    if (/^t-[a-z0-9-]+$/i.test(value)) return value.slice(2);
+  }
+  if (values.includes("sala-atrio")) return "atrio";
+  if (values.includes("sala-servizio")) return "servizio";
+  return "";
 }
 
 function parsePoints(s: string): { x: number; y: number }[] {
