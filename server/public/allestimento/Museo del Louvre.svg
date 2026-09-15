@@ -1,5 +1,5 @@
 <svg viewBox="0 -1440 1300 2120" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="260">
-  <!-- Pianta del Louvre su tre piani. Il parser legge data-room, data-qid, data-poi, data-obstacle, data-edge, data-floor e data-width-m. Non trasformare gli elementi data-*; i nomi delle sale sono unici e gli archi fra piani restano fuori dai gruppi. -->
+  <!-- Pianta del Louvre su tre piani. Il parser legge data-room, data-qid, data-poi, data-obstacle, data-edge, data-floor e data-width-m. Non trasformare gli elementi data-*; i nomi delle sale sono unici, le tinte raggruppano le ali contigue e gli archi fra piani restano fuori dai gruppi. -->
 
   <style>
     /* Token del tema; :where() lascia prevalere gli stati runtime. */
@@ -155,9 +155,9 @@
     <polygon class="foglio" points="60,-1400 1240,-1400 1240,-860 900,-860 900,-1240 60,-1240" filter="url(#lv-ombra)" />
     <g pointer-events="none">
       <rect class="sala t-notte" data-room="Pittura francese del Settecento" data-flow="23" x="60" y="-1400" width="280" height="160" />
-      <rect class="sala t-verderame" data-room="Pittura del Nord" data-flow="24" x="340" y="-1400" width="280" height="160" />
-      <rect class="sala t-ottone" data-room="Pittura fiamminga e olandese" data-flow="25" x="620" y="-1400" width="280" height="160" />
-      <rect class="sala t-salvia" data-room="Pastelli e disegni" data-flow="26" x="900" y="-1400" width="340" height="270" />
+      <rect class="sala t-notte" data-room="Pittura del Nord" data-flow="24" x="340" y="-1400" width="280" height="160" />
+      <rect class="sala t-notte" data-room="Pittura fiamminga e olandese" data-flow="25" x="620" y="-1400" width="280" height="160" />
+      <rect class="sala t-notte" data-room="Pastelli e disegni" data-flow="26" x="900" y="-1400" width="340" height="270" />
       <rect class="sala sala-atrio" data-room="Scalone Lefuel" data-flow="27" x="900" y="-1130" width="340" height="270" />
     </g>
     <polygon points="60,-1400 1240,-1400 1240,-860 900,-860 900,-1240 60,-1240" fill="url(#lv-griglia)" pointer-events="none" />
@@ -212,7 +212,7 @@
       <!-- Pittura del Nord -->
       <circle id="art-4" class="interactive-node" data-qid="Q544315" data-label="L'astronomo" cx="464" cy="-1326" r="10" />
       <circle id="art-10" class="interactive-node" data-qid="Q1516449" data-label="Madonna del cancelliere Rolin" cx="496" cy="-1326" r="10" />
-      <circle id="art-9" class="interactive-node" data-qid="Q2653851" data-label="Innalzamento della Croce" cx="480" cy="-1294" r="10" />
+      <circle id="art-9" class="interactive-node" data-qid="Q1216387" data-label="La merlettaia" cx="480" cy="-1294" r="10" />
     </g>
     <g class="servizi">
       <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scalone Lefuel" x="1061" y="-1009" width="18" height="18" rx="5"><title>Scalone Lefuel</title></rect>
@@ -247,16 +247,16 @@
     <polygon class="foglio" points="60,-680 1240,-680 1240,-140 60,-140 60,-300 900,-300 900,-520 60,-520" filter="url(#lv-ombra)" />
     <g pointer-events="none">
       <rect class="sala t-notte" data-room="Appartamenti di Napoleone III" data-flow="22" x="60" y="-680" width="280" height="160" />
-      <rect class="sala t-verderame" data-room="Oggetti d'arte del Medioevo" data-flow="21" x="340" y="-680" width="280" height="160" />
-      <rect class="sala t-ottone" data-room="Pittura francese del Seicento" data-flow="20" x="620" y="-680" width="280" height="160" />
-      <rect class="sala t-salvia" data-room="Grande Galerie" data-flow="12" x="60" y="-300" width="320" height="160" />
-      <rect class="sala t-ardesia" data-room="Salle des Etats" data-flow="13" x="380" y="-300" width="240" height="160" />
-      <rect class="sala t-notte" data-room="Salle Mollien" data-flow="14" x="620" y="-300" width="160" height="160" />
+      <rect class="sala t-notte" data-room="Oggetti d'arte del Medioevo" data-flow="21" x="340" y="-680" width="280" height="160" />
+      <rect class="sala t-notte" data-room="Pittura francese del Seicento" data-flow="20" x="620" y="-680" width="280" height="160" />
+      <rect class="sala t-ottone" data-room="Grande Galerie" data-flow="12" x="60" y="-300" width="320" height="160" />
+      <rect class="sala t-ottone" data-room="Salle des Etats" data-flow="13" x="380" y="-300" width="240" height="160" />
+      <rect class="sala t-ottone" data-room="Salle Mollien" data-flow="14" x="620" y="-300" width="160" height="160" />
       <rect class="sala sala-atrio" data-room="Scalone Daru" data-flow="15" x="780" y="-300" width="120" height="160" />
-      <rect class="sala t-verderame" data-room="Salle des Bronzes" data-flow="18" x="900" y="-680" width="340" height="120" />
-      <rect class="sala t-ottone" data-room="Ceramiche greche" data-flow="17" x="900" y="-560" width="80" height="300" />
+      <rect class="sala t-salvia" data-room="Salle des Bronzes" data-flow="18" x="900" y="-680" width="340" height="120" />
+      <rect class="sala t-salvia" data-room="Ceramiche greche" data-flow="17" x="900" y="-560" width="80" height="300" />
       <rect class="sala t-salvia" data-room="Salle des Sept Cheminees" data-flow="19" x="1160" y="-560" width="80" height="300" />
-      <rect class="sala t-ardesia" data-room="Sale dell'Ottocento francese" data-flow="16" x="900" y="-260" width="340" height="120" />
+      <rect class="sala t-salvia" data-room="Sale dell'Ottocento francese" data-flow="16" x="900" y="-260" width="340" height="120" />
     </g>
     <polygon points="60,-680 1240,-680 1240,-140 60,-140 60,-300 900,-300 900,-520 60,-520" fill="url(#lv-griglia)" pointer-events="none" />
     <rect class="vuoto" x="980" y="-560" width="180" height="300" pointer-events="none" />
@@ -366,7 +366,7 @@
       <!-- Grande Galerie -->
       <circle id="art-3" class="interactive-node" data-qid="Q783215" data-label="San Giovanni Battista" cx="188" cy="-262" r="10" />
       <circle id="art-17" class="interactive-node" data-qid="Q563727" data-label="Sant'Anna, la Vergine e il Bambino con l'agnellino" cx="220" cy="-262" r="10" />
-      <circle id="art-20" class="interactive-node" data-qid="Q656434" data-label="La belle ferronniere" cx="252" cy="-262" r="10" />
+      <circle id="art-20" class="interactive-node" data-qid="Q2343778" data-label="La bella giardiniera" cx="252" cy="-262" r="10" />
       <circle id="art-12" class="interactive-node" data-qid="Q6287319" data-label="Giovane introdotto tra le Arti Liberali" cx="188" cy="-230" r="10" />
       <circle id="art-13" class="interactive-node" data-qid="Q1114881" data-label="Venere e le tre Grazie offrono doni a una giovane" cx="220" cy="-230" r="10" />
       <circle id="art-2" class="interactive-node" data-qid="Q597114" data-label="Morte della Vergine" cx="252" cy="-230" r="10" />
@@ -382,10 +382,10 @@
       <circle id="art-23" class="interactive-node" data-qid="Q1133821" data-label="La morte di Sardanapalo" cx="700" cy="-214" r="10" />
       <circle id="art-25" class="interactive-node" data-qid="Q2290433" data-label="Il massacro di Scio" cx="732" cy="-214" r="10" />
       <!-- Sale dell'Ottocento francese -->
-      <circle id="art-6" class="interactive-node" data-qid="Q1282840" data-label="Napoleone I sul trono imperiale" cx="1054" cy="-226" r="10" />
+      <circle id="art-6" class="interactive-node" data-qid="Q2985455" data-label="Ritratto di Monsieur Bertin" cx="1054" cy="-226" r="10" />
       <circle id="art-21" class="interactive-node" data-qid="Q1978815" data-label="La grande odalisca" cx="1086" cy="-226" r="10" />
       <circle id="art-5" class="interactive-node" data-qid="Q2027662" data-label="Il bagno turco" cx="1054" cy="-194" r="10" />
-      <circle id="art-24" class="interactive-node" data-qid="Q1215604" data-label="La sorgente" cx="1086" cy="-194" r="10" />
+      <circle id="art-24" class="interactive-node" data-qid="Q3080509" data-label="La bagnante di Valpinçon" cx="1086" cy="-194" r="10" />
     </g>
     <g class="servizi">
       <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scalone Daru" x="831" y="-259" width="18" height="18" rx="5"><title>Scalone Daru</title></rect>
@@ -425,15 +425,15 @@
     <g pointer-events="none">
       <polygon class="sala sala-atrio" data-room="Hall Napoleon" data-flow="1" points="480,240 570,330 480,420 390,330" />
       <rect class="sala t-notte" data-room="Cour Marly - sculture francesi" data-flow="3" x="60" y="60" width="280" height="160" />
-      <rect class="sala t-verderame" data-room="Antichita orientali - Khorsabad" data-flow="2" x="340" y="60" width="280" height="160" />
-      <rect class="sala t-ottone" data-room="Cour Puget - sculture del Seicento" data-flow="4" x="620" y="60" width="280" height="160" />
-      <rect class="sala t-salvia" data-room="Salle des Caryatides - antichita greche" data-flow="11" x="60" y="440" width="280" height="160" />
-      <rect class="sala t-ardesia" data-room="Galleria Michelangelo - sculture italiane" data-flow="10" x="340" y="440" width="280" height="160" />
-      <rect class="sala t-notte" data-room="Arti d'Africa, d'Asia e delle Americhe" data-flow="9" x="620" y="440" width="280" height="160" />
-      <rect class="sala t-verderame" data-room="Antichita egizie" data-flow="5" x="900" y="60" width="340" height="120" />
-      <rect class="sala t-ottone" data-room="Louvre medievale - il fossato" data-flow="8" x="900" y="180" width="80" height="300" />
+      <rect class="sala t-notte" data-room="Antichita orientali - Khorsabad" data-flow="2" x="340" y="60" width="280" height="160" />
+      <rect class="sala t-notte" data-room="Cour Puget - sculture del Seicento" data-flow="4" x="620" y="60" width="280" height="160" />
+      <rect class="sala t-ottone" data-room="Salle des Caryatides - antichita greche" data-flow="11" x="60" y="440" width="280" height="160" />
+      <rect class="sala t-ottone" data-room="Galleria Michelangelo - sculture italiane" data-flow="10" x="340" y="440" width="280" height="160" />
+      <rect class="sala t-ottone" data-room="Arti d'Africa, d'Asia e delle Americhe" data-flow="9" x="620" y="440" width="280" height="160" />
+      <rect class="sala t-salvia" data-room="Antichita egizie" data-flow="5" x="900" y="60" width="340" height="120" />
+      <rect class="sala t-salvia" data-room="Louvre medievale - il fossato" data-flow="8" x="900" y="180" width="80" height="300" />
       <rect class="sala t-salvia" data-room="Antichita del Levante" data-flow="6" x="1160" y="180" width="80" height="300" />
-      <rect class="sala t-ardesia" data-room="Salle du Manege - antichita romane" data-flow="7" x="900" y="480" width="340" height="120" />
+      <rect class="sala t-salvia" data-room="Salle du Manege - antichita romane" data-flow="7" x="900" y="480" width="340" height="120" />
     </g>
     <polygon points="60,60 1240,60 1240,600 60,600 60,440 900,440 900,220 60,220" fill="url(#lv-griglia)" pointer-events="none" />
     <rect class="vuoto" x="980" y="180" width="180" height="300" pointer-events="none" />

@@ -210,12 +210,18 @@ function studentView(s: Session, username?: string) {
 
 /**
  * POST /api/guided-sessions  { visitId }
- * Ritorna: la vista docente e apre o azzera la sala d'attesa. Solo l'autore della visita.
+ * Ritorna: la vista docente e apre o azzera la sala d'attesa. Richiede un account
+ * autore che possieda la visita.
  */
 router.post("/", async (req, res) => {
   try {
     const { visitId } = req.body;
-    const teacher = sessionUser(req).username;
+    const who = sessionUser(req);
+    if (who.role !== "autore")
+      return res
+        .status(403)
+        .json({ error: "Solo gli autori possono avviare visite guidate" });
+    const teacher = who.username;
     if (!visitId)
       return res.status(400).json({ error: "visitId richiesto" });
 

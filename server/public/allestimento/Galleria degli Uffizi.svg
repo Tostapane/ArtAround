@@ -1,5 +1,5 @@
 <svg viewBox="-640 0 2000 1500" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="200" data-north-angle="90">
-  <!-- Pianta verticale degli Uffizi su tre piani. data-north-angle mantiene GPS e bussola coerenti con il nord reale; coordinate, nodi e archi sono gia' nella geometria finale. -->
+  <!-- Pianta verticale degli Uffizi su tre piani. data-north-angle mantiene GPS e bussola coerenti con il nord reale; le tinte raggruppano sequenze cronologiche contigue, mentre passaggi e servizi restano neutri. Coordinate, nodi e archi sono gia' nella geometria finale. -->
 
   <style>
     /* Token del tema; :where() lascia prevalere gli stati runtime. */
@@ -156,32 +156,31 @@
       <rect class="sala sala-atrio" data-room="Secondo Corridoio sull'Arno" data-flow="35" x="800" y="50" width="520" height="150" />
       <rect class="sala sala-atrio" data-room="Corridoio di Levante" data-flow="49" x="915" y="200" width="55" height="1130" />
       <rect class="sala sala-atrio" data-room="Corridoio di Ponente" data-flow="34" x="1150" y="200" width="55" height="980" />
-      <rect class="sala t-notte" data-room="Approdo dello Scalone" data-flow="50" x="800" y="1330" width="170" height="120" />
-      <rect class="sala t-verderame" data-room="A3-A4 - Medioevo, Cimabue e Giotto" data-flow="48" x="800" y="1235" width="115" height="95" />
-      <rect class="sala t-ottone" data-room="A5-A6 - Siena e Trecento" data-flow="47" x="800" y="1150" width="115" height="85" />
-      <rect class="sala t-salvia" data-room="A7 - Lorenzo Monaco e Gentile" data-flow="46" x="800" y="1085" width="115" height="65" />
-      <rect class="sala t-ardesia" data-room="A8-A9 - Masaccio, Angelico e Lippi" data-flow="45" x="800" y="1000" width="115" height="85" />
-      <rect class="sala t-notte" data-room="A10 - Pollaiolo e Botticelli" data-flow="44" x="800" y="915" width="115" height="85" />
+      <rect class="sala sala-atrio" data-room="Approdo dello Scalone" data-flow="50" x="800" y="1330" width="170" height="120" />
+      <rect class="sala t-notte" data-room="A3-A4 - Medioevo, Cimabue e Giotto" data-flow="48" x="800" y="1235" width="115" height="95" />
+      <rect class="sala t-notte" data-room="A5-A6 - Siena e Trecento" data-flow="47" x="800" y="1150" width="115" height="85" />
+      <rect class="sala t-notte" data-room="A7 - Lorenzo Monaco e Gentile" data-flow="46" x="800" y="1095" width="115" height="55" />
+      <rect class="sala t-verderame" data-room="A8-A9 - Masaccio, Angelico e Lippi" data-flow="45" x="800" y="1030" width="115" height="65" />
+      <rect class="sala t-verderame" data-room="A10 - Pollaiolo e Botticelli" data-flow="44" x="800" y="915" width="115" height="115" />
       <rect class="sala t-verderame" data-room="A11 - Botticelli, Primavera" data-flow="43" x="800" y="830" width="115" height="85" />
-      <rect class="sala t-ottone" data-room="A12 - Botticelli, Venere" data-flow="42" x="800" y="730" width="115" height="100" />
-      <rect class="sala t-salvia" data-room="A13 - Hugo van der Goes" data-flow="41" x="800" y="630" width="115" height="100" />
-      <rect class="sala t-ardesia" data-room="A14-A15 - Mappe e matematica" data-flow="40" x="800" y="500" width="115" height="130" />
-      <rect class="sala t-notte" data-room="A21-A24 - Siena, miniature e corridoi" data-flow="39" x="800" y="400" width="115" height="100" />
-      <rect class="sala t-verderame" data-room="A36 - Iscrizioni antiche" data-flow="38" x="800" y="350" width="115" height="50" />
-      <rect class="sala t-ottone" data-room="A37 - Marmi antichi" data-flow="37" x="800" y="305" width="115" height="45" />
-      <polygon class="sala t-salvia" data-room="A16 - Tribuna" data-flow="36" points="915,231.5 915,273.5 883.5,305 831.5,305 800,273.5 800,231.5 831.5,200 883.5,200" />
-      <rect class="sala t-ardesia" data-room="A17-A18 - Rinascimento oltre le Alpi" data-flow="33" x="1205" y="200" width="115" height="120" />
-      <rect class="sala t-notte" data-room="A19-A20 - Rinascimento oltre le Alpi" data-flow="32" x="1205" y="320" width="115" height="95" />
-      <rect class="sala t-verderame" data-room="A25-A27 - Piero, Rosselli e Perugino" data-flow="31" x="1205" y="415" width="115" height="105" />
-      <rect class="sala t-ottone" data-room="A28-A30 - Filippino e Piero di Cosimo" data-flow="30" x="1205" y="520" width="115" height="110" />
-      <rect class="sala t-salvia" data-room="A31-A34 - Signorelli, Mantegna e Bellini" data-flow="29" x="1205" y="630" width="115" height="90" />
+      <rect class="sala t-verderame" data-room="A12 - Botticelli, Venere" data-flow="42" x="800" y="730" width="115" height="100" />
+      <rect class="sala t-verderame" data-room="A13 - Hugo van der Goes e Portinari" data-flow="41" x="800" y="630" width="115" height="100" />
+      <rect class="sala t-ottone" data-room="A14-A15 - Miti e allegorie" data-flow="40" x="800" y="500" width="115" height="130" />
+      <rect class="sala t-ottone" data-room="A21-A24 - Siena, miniature e corridoi" data-flow="39" x="800" y="400" width="115" height="100" />
+      <rect class="sala t-ottone" data-room="A36-A37 - Iscrizioni e marmi antichi" data-flow="37" x="800" y="305" width="115" height="95" />
+      <polygon class="sala t-ottone" data-room="A16 - Tribuna" data-flow="36" points="915,231.5 915,273.5 883.5,305 831.5,305 800,273.5 800,231.5 831.5,200 883.5,200" />
+      <rect class="sala t-salvia" data-room="A17-A18 - Rinascimento oltre le Alpi" data-flow="33" x="1205" y="200" width="115" height="120" />
+      <rect class="sala t-salvia" data-room="A19-A20 - Rinascimento oltre le Alpi" data-flow="32" x="1205" y="320" width="115" height="95" />
+      <rect class="sala t-ardesia" data-room="A25-A27 - Piero, Rosselli e Perugino" data-flow="31" x="1205" y="415" width="115" height="105" />
+      <rect class="sala t-ardesia" data-room="A28-A30 - Filippino e Piero di Cosimo" data-flow="30" x="1205" y="520" width="115" height="110" />
+      <rect class="sala t-ardesia" data-room="A31-A34 - Signorelli, Mantegna e Bellini" data-flow="29" x="1205" y="630" width="115" height="90" />
       <rect class="sala t-ardesia" data-room="A35 - Leonardo da Vinci" data-flow="28" x="1205" y="720" width="115" height="70" />
       <rect class="sala t-notte" data-room="A37 - Scultura antica" data-flow="27" x="1205" y="790" width="115" height="95" />
-      <rect class="sala t-verderame" data-room="A38 - Raffaello e Michelangelo" data-flow="26" x="1205" y="885" width="115" height="95" />
-      <rect class="sala t-ottone" data-room="A40-A42 - Cinquecento toscano" data-flow="25" x="1205" y="980" width="115" height="105" />
-      <rect class="sala t-salvia" data-room="Sale di raccordo del secondo piano" data-flow="24" x="1205" y="1085" width="115" height="95" />
-      <rect class="sala t-ardesia" data-room="Scala del Buontalenti" data-flow="23" x="1150" y="1180" width="170" height="120" />
-      <rect class="sala t-notte" data-room="Terrazza e Caffetteria" data-flow="22" x="1150" y="1300" width="170" height="150" />
+      <rect class="sala t-notte" data-room="A38 - Raffaello e Michelangelo" data-flow="26" x="1205" y="885" width="115" height="95" />
+      <rect class="sala t-notte" data-room="A40-A42 - Cinquecento toscano" data-flow="25" x="1205" y="980" width="115" height="105" />
+      <rect class="sala sala-atrio" data-room="Passaggio alla Scala del Buontalenti" data-flow="24" x="1205" y="1085" width="115" height="95" />
+      <rect class="sala sala-atrio" data-room="Scala del Buontalenti" data-flow="23" x="1150" y="1180" width="170" height="120" />
+      <rect class="sala sala-servizio" data-room="Terrazza e Caffetteria" data-flow="22" x="1150" y="1300" width="170" height="150" />
     </g>
     <polygon points="1320,50 1320,1450 1150,1450 1150,200 970,200 970,1450 800,1450 800,50" fill="url(#uf-griglia)" pointer-events="none" />
     <g class="muro">
@@ -195,18 +194,18 @@
       <line x1="915" y1="1235" x2="800" y2="1235" />
       <line x1="915" y1="1150" x2="915" y2="1174.5" />
       <line x1="915" y1="1210.5" x2="915" y2="1235" />
-      <line x1="915" y1="1085" x2="800" y2="1085" />
+      <line x1="915" y1="1095" x2="800" y2="1095" />
       <line x1="915" y1="1150" x2="800" y2="1150" />
-      <line x1="915" y1="1085" x2="915" y2="1099.5" />
-      <line x1="915" y1="1135.5" x2="915" y2="1150" />
-      <line x1="915" y1="1000" x2="800" y2="1000" />
-      <line x1="915" y1="1085" x2="800" y2="1085" />
-      <line x1="915" y1="1000" x2="915" y2="1024.5" />
-      <line x1="915" y1="1060.5" x2="915" y2="1085" />
+      <line x1="915" y1="1095" x2="915" y2="1104.5" />
+      <line x1="915" y1="1140.5" x2="915" y2="1150" />
+      <line x1="915" y1="1030" x2="800" y2="1030" />
+      <line x1="915" y1="1095" x2="800" y2="1095" />
+      <line x1="915" y1="1030" x2="915" y2="1044.5" />
+      <line x1="915" y1="1080.5" x2="915" y2="1095" />
       <line x1="915" y1="915" x2="800" y2="915" />
-      <line x1="915" y1="1000" x2="800" y2="1000" />
-      <line x1="915" y1="915" x2="915" y2="939.5" />
-      <line x1="915" y1="975.5" x2="915" y2="1000" />
+      <line x1="915" y1="1030" x2="800" y2="1030" />
+      <line x1="915" y1="915" x2="915" y2="954.5" />
+      <line x1="915" y1="990.5" x2="915" y2="1030" />
       <line x1="915" y1="830" x2="800" y2="830" />
       <line x1="915" y1="915" x2="800" y2="915" />
       <line x1="915" y1="830" x2="915" y2="854.5" />
@@ -227,14 +226,10 @@
       <line x1="915" y1="500" x2="800" y2="500" />
       <line x1="915" y1="400" x2="915" y2="432" />
       <line x1="915" y1="468" x2="915" y2="500" />
-      <line x1="915" y1="350" x2="800" y2="350" />
       <line x1="915" y1="400" x2="800" y2="400" />
-      <line x1="915" y1="350" x2="915" y2="357" />
-      <line x1="915" y1="393" x2="915" y2="400" />
       <line x1="915" y1="305" x2="800" y2="305" />
-      <line x1="915" y1="350" x2="800" y2="350" />
-      <line x1="915" y1="305" x2="915" y2="309.5" />
-      <line x1="915" y1="345.5" x2="915" y2="350" />
+      <line x1="915" y1="305" x2="915" y2="334.5" />
+      <line x1="915" y1="370.5" x2="915" y2="400" />
       <line x1="915" y1="200" x2="800" y2="200" />
       <line x1="915" y1="305" x2="800" y2="305" />
       <line x1="915" y1="200" x2="915" y2="234.5" />
@@ -292,16 +287,15 @@
       <text x="850" y="1359">DELLO SCALONE</text>
       <text x="857.5" y="1249">A3–A4</text>
       <text x="857.5" y="1164">A5–A6</text>
-      <text x="857.5" y="1099">A7</text>
-      <text x="857.5" y="1011">A8–A9</text>
+      <text x="857.5" y="1109">A7</text>
+      <text x="857.5" y="1044">A8–A9</text>
       <text x="857.5" y="926">A10</text>
       <text x="857.5" y="841">A11</text>
       <text x="857.5" y="744">A12</text>
       <text x="857.5" y="641">A13</text>
       <text x="857.5" y="511">A14–A15</text>
       <text x="857.5" y="414">A21–A24</text>
-      <text x="857.5" y="360">A36</text>
-      <text x="857.5" y="314">A37</text>
+      <text x="857.5" y="319">A36–A37</text>
       <text x="857.5" y="218">A16 · TRIBUNA</text>
       <text x="1262.5" y="214">A17–A18</text>
       <text x="1262.5" y="334">A19–A20</text>
@@ -312,7 +306,8 @@
       <text x="1262.5" y="804">A37 · SCULTURE</text>
       <text x="1262.5" y="899">A38</text>
       <text x="1262.5" y="994">A40–A42</text>
-      <text x="1262.5" y="1099">RACCORDO</text>
+      <text x="1262.5" y="1099">PASSAGGIO ALLA</text>
+      <text x="1262.5" y="1110">SCALA</text>
       <text x="1235" y="1225">SCALA DEL BUONTALENTI</text>
       <text x="1235" y="1340">TERRAZZA E CAFFETTERIA</text>
     </g>
@@ -333,16 +328,15 @@
       <line data-edge="" x1="1235" y1="1280" x2="1235" y2="1320" />
       <line data-edge="" x1="940" y1="1282.5" x2="890" y2="1282.5" />
       <line data-edge="" x1="940" y1="1192.5" x2="890" y2="1192.5" />
-      <line data-edge="" x1="940" y1="1117.5" x2="890" y2="1117.5" />
-      <line data-edge="" x1="940" y1="1042.5" x2="890" y2="1042.5" />
-      <line data-edge="" x1="940" y1="957.5" x2="890" y2="957.5" />
+      <line data-edge="" x1="940" y1="1122.5" x2="890" y2="1122.5" />
+      <line data-edge="" x1="940" y1="1062.5" x2="890" y2="1062.5" />
+      <line data-edge="" x1="940" y1="972.5" x2="890" y2="972.5" />
       <line data-edge="" x1="940" y1="872.5" x2="890" y2="872.5" />
       <line data-edge="" x1="940" y1="780" x2="890" y2="780" />
       <line data-edge="" x1="940" y1="680" x2="890" y2="680" />
       <line data-edge="" x1="940" y1="565" x2="890" y2="565" />
       <line data-edge="" x1="940" y1="450" x2="890" y2="450" />
-      <line data-edge="" x1="940" y1="375" x2="890" y2="375" />
-      <line data-edge="" x1="940" y1="327.5" x2="890" y2="327.5" />
+      <line data-edge="" x1="940" y1="352.5" x2="890" y2="352.5" />
       <line data-edge="" x1="940" y1="252.5" x2="890" y2="252.5" />
       <line data-edge="" x1="1180" y1="260" x2="1230" y2="260" />
       <line data-edge="" x1="1180" y1="367.5" x2="1230" y2="367.5" />
@@ -363,41 +357,50 @@
       <circle id="art-69" class="interactive-node" data-qid="Q1473546" data-label="Tondo Doni" cx="1250" cy="935" r="10" />
       <circle id="art-70" class="interactive-node" data-qid="Q2344505" data-label="Madonna del Cardellino" cx="1280" cy="935" r="10" />
       <!-- A37 - Scultura antica -->
-      <rect id="art-71" class="interactive-node" data-qid="Q3554904" data-label="Vaso Medici" x="1235" y="835" width="20" height="20" rx="3" />
-      <rect id="art-72" class="interactive-node" data-qid="Q60497283" data-label="Britannico in toga" x="1260" y="835" width="20" height="20" rx="3" />
-      <rect id="art-73" class="interactive-node" data-qid="Q89093070" data-label="Psiche tormentata" x="1285" y="835" width="20" height="20" rx="3" />
+      <rect id="art-73" class="interactive-node" data-qid="Q89093070" data-label="Psiche tormentata" x="1252.5" y="827.5" width="20" height="20" rx="3" />
       <!-- A35 - Leonardo da Vinci -->
-      <circle id="art-74" class="interactive-node" data-qid="Q1059211" data-label="Battesimo di Cristo" cx="1240" cy="765" r="10" />
-      <circle id="art-75" class="interactive-node" data-qid="Q1217213" data-label="Annunciazione" cx="1270" cy="765" r="10" />
-      <circle id="art-76" class="interactive-node" data-qid="Q1638622" data-label="Adorazione dei Magi" cx="1300" cy="765" r="10" />
+      <circle id="art-74" class="interactive-node" data-qid="Q1059211" data-label="Battesimo di Cristo" cx="1235" cy="755" r="10" />
+      <circle id="art-75" class="interactive-node" data-qid="Q1217213" data-label="Annunciazione" cx="1262.5" cy="755" r="10" />
+      <circle id="art-76" class="interactive-node" data-qid="Q1638622" data-label="Adorazione dei Magi" cx="1290" cy="755" r="10" />
       <!-- A31-A34 - Signorelli, Mantegna e Bellini -->
-      <circle id="art-77" class="interactive-node" data-qid="Q3207989" data-label="Crocifissione con santi" cx="1245" cy="675" r="10" />
-      <circle id="art-78" class="interactive-node" data-qid="Q3698237" data-label="Crocifisso con la Maddalena" cx="1275" cy="675" r="10" />
-      <circle id="art-79" class="interactive-node" data-qid="Q3685124" data-label="Compianto sul Cristo morto" cx="1305" cy="675" r="10" />
+      <circle id="art-77" class="interactive-node" data-qid="Q3207989" data-label="Crocifissione con santi" cx="1235" cy="675" r="10" />
+      <circle id="art-78" class="interactive-node" data-qid="Q3698237" data-label="Crocifisso con la Maddalena" cx="1262.5" cy="675" r="10" />
+      <circle id="art-79" class="interactive-node" data-qid="Q3685124" data-label="Compianto sul Cristo morto" cx="1290" cy="675" r="10" />
       <!-- A28-A30 - Filippino e Piero di Cosimo -->
-      <circle id="art-80" class="interactive-node" data-qid="Q3605532" data-label="Adorazione dei Magi" cx="1245" cy="575" r="10" />
-      <circle id="art-81" class="interactive-node" data-qid="Q3944518" data-label="Sacra conversazione degli Ingesuati" cx="1275" cy="575" r="10" />
-      <circle id="art-82" class="interactive-node" data-qid="Q3605549" data-label="Adorazione dei pastori" cx="1305" cy="575" r="10" />
+      <circle id="art-80" class="interactive-node" data-qid="Q3605532" data-label="Adorazione dei Magi" cx="1235" cy="575" r="10" />
+      <circle id="art-81" class="interactive-node" data-qid="Q3944518" data-label="Sacra conversazione degli Ingesuati" cx="1262.5" cy="575" r="10" />
+      <circle id="art-82" class="interactive-node" data-qid="Q3605549" data-label="Adorazione dei pastori" cx="1290" cy="575" r="10" />
       <!-- A25-A27 - Piero, Rosselli e Perugino -->
-      <circle id="art-83" class="interactive-node" data-qid="Q1227359" data-label="Duchi di Urbino" cx="1245" cy="465" r="10" />
-      <circle id="art-84" class="interactive-node" data-qid="Q2350980" data-label="Pala di Santa Lucia de' Magnoli" cx="1275" cy="465" r="10" />
-      <circle id="art-85" class="interactive-node" data-qid="Q368788" data-label="Pietà" cx="1305" cy="465" r="10" />
-      <circle id="art-86" class="interactive-node" data-qid="Q3201606" data-label="Orazione nell'orto" cx="1260" cy="500" r="10" />
-      <circle id="art-87" class="interactive-node" data-qid="Q945250" data-label="Ritratto di Francesco delle Opere" cx="1290" cy="500" r="10" />
+      <circle id="art-83" class="interactive-node" data-qid="Q1227359" data-label="Duchi di Urbino" cx="1235" cy="458" r="10" />
+      <circle id="art-84" class="interactive-node" data-qid="Q2350980" data-label="Pala di Santa Lucia de' Magnoli" cx="1262.5" cy="458" r="10" />
+      <circle id="art-85" class="interactive-node" data-qid="Q368788" data-label="Pietà" cx="1290" cy="458" r="10" />
+      <circle id="art-86" class="interactive-node" data-qid="Q3201606" data-label="Orazione nell'orto" cx="1248.5" cy="492" r="10" />
+      <circle id="art-87" class="interactive-node" data-qid="Q945250" data-label="Ritratto di Francesco delle Opere" cx="1276.5" cy="492" r="10" />
       <!-- A19-A20 - Rinascimento oltre le Alpi -->
       <circle id="art-88" class="interactive-node" data-qid="Q1988057" data-label="Ritratto di Albrecht Dürer il Vecchio" cx="1245" cy="365" r="10" />
       <circle id="art-89" class="interactive-node" data-qid="Q3605055" data-label="Adamo ed Eva" cx="1280" cy="365" r="10" />
       <circle id="art-90" class="interactive-node" data-qid="Q3630726" data-label="Autoritratto" cx="1245" cy="395" r="10" />
       <circle id="art-91" class="interactive-node" data-qid="Q3937666" data-label="Ritratto di Sir Richard Southwell" cx="1280" cy="395" r="10" />
       <!-- A17-A18 - Rinascimento oltre le Alpi -->
-      <circle id="art-92" class="interactive-node" data-qid="Q2604155" data-label="Deposizione di Cristo nel sepolcro" cx="1245" cy="245" r="10" />
-      <circle id="art-93" class="interactive-node" data-qid="Q43284760" data-label="Trittico di Benedetto Portinari" cx="1280" cy="245" r="10" />
-      <circle id="art-94" class="interactive-node" data-qid="Q4006168" data-label="Uomo con la lettera" cx="1245" cy="285" r="10" />
-      <circle id="art-95" class="interactive-node" data-qid="Q2628761" data-label="Adorazione dei Magi" cx="1280" cy="285" r="10" />
+      <circle id="art-92" class="interactive-node" data-qid="Q2604155" data-label="Deposizione di Cristo nel sepolcro" cx="1235" cy="260" r="10" />
+      <circle id="art-94" class="interactive-node" data-qid="Q4006168" data-label="Uomo con la lettera" cx="1262.5" cy="260" r="10" />
+      <circle id="art-95" class="interactive-node" data-qid="Q2628761" data-label="Adorazione dei Magi" cx="1290" cy="260" r="10" />
       <!-- A16 - Tribuna -->
       <rect id="art-96" class="interactive-node" data-qid="Q774967" data-label="Venere de' Medici" x="847.5" y="242.5" width="20" height="20" rx="3" />
-      <!-- A13 - Hugo van der Goes -->
-      <rect id="art-97" class="interactive-node" data-qid="Q18686031" data-label="Trittico Portinari" x="847.5" y="670" width="20" height="20" rx="3" />
+      <!-- A36-A37 - Iscrizioni e marmi antichi -->
+      <rect id="art-71" class="interactive-node" data-qid="Q3554904" data-label="Vaso Medici" x="830" y="345" width="20" height="20" rx="3" />
+      <rect id="art-72" class="interactive-node" data-qid="Q60497283" data-label="Britannico in toga" x="865" y="345" width="20" height="20" rx="3" />
+      <!-- A21-A24 - Siena, miniature e corridoi -->
+      <circle id="art-123" class="interactive-node" data-qid="Q3910903" data-label="Presentazione al Tempio" cx="830" cy="455" r="10" />
+      <circle id="art-124" class="interactive-node" data-qid="Q3974495" data-label="Storie di san Nicola" cx="857.5" cy="455" r="10" />
+      <circle id="art-126" class="interactive-node" data-qid="Q3889230" data-label="Pala della beata Umiltà" cx="885" cy="455" r="10" />
+      <!-- A14-A15 - Miti e allegorie -->
+      <circle id="art-32" class="interactive-node" data-qid="Q108123187" data-label="Età dell'oro" cx="830" cy="565" r="10" />
+      <circle id="art-112" class="interactive-node" data-qid="Q3731236" data-label="Ercole e l'idra" cx="857.5" cy="565" r="10" />
+      <circle id="art-113" class="interactive-node" data-qid="Q3731227" data-label="Ercole e Anteo" cx="885" cy="565" r="10" />
+      <!-- A13 - Hugo van der Goes e Portinari -->
+      <rect id="art-97" class="interactive-node" data-qid="Q18686031" data-label="Trittico Portinari" x="830" y="670" width="20" height="20" rx="3" />
+      <circle id="art-93" class="interactive-node" data-qid="Q43284760" data-label="Trittico di Benedetto Portinari" cx="875" cy="680" r="10" />
       <!-- A12 - Botticelli, Venere -->
       <circle id="art-98" class="interactive-node" data-qid="Q959174" data-label="Ritratto d'uomo con medaglia" cx="825" cy="770" r="10" />
       <circle id="art-99" class="interactive-node" data-qid="Q151047" data-label="Nascita di Venere" cx="857.5" cy="770" r="10" />
@@ -410,29 +413,24 @@
       <circle id="art-105" class="interactive-node" data-qid="Q2426058" data-label="Pallade e il centauro" cx="835" cy="895" r="10" />
       <circle id="art-106" class="interactive-node" data-qid="Q2714237" data-label="Annunciazione di Cestello" cx="875" cy="895" r="10" />
       <!-- A10 - Pollaiolo e Botticelli -->
-      <circle id="art-107" class="interactive-node" data-qid="Q3937539" data-label="Ritratto di Galeazzo Maria Sforza" cx="825" cy="940" r="10" />
-      <circle id="art-108" class="interactive-node" data-qid="Q3658722" data-label="Carità" cx="857.5" cy="940" r="10" />
-      <circle id="art-109" class="interactive-node" data-qid="Q3771744" data-label="Giustizia" cx="890" cy="940" r="10" />
-      <circle id="art-110" class="interactive-node" data-qid="Q3924777" data-label="Prudenza" cx="825" cy="965" r="10" />
-      <circle id="art-111" class="interactive-node" data-qid="Q1109340" data-label="Fortezza" cx="857.5" cy="965" r="10" />
-      <circle id="art-112" class="interactive-node" data-qid="Q3731236" data-label="Ercole e l'idra" cx="890" cy="965" r="10" />
-      <circle id="art-113" class="interactive-node" data-qid="Q3731227" data-label="Ercole e Anteo" cx="825" cy="990" r="10" />
-      <circle id="art-114" class="interactive-node" data-qid="Q3937782" data-label="Ritratto di donna" cx="857.5" cy="990" r="10" />
-      <circle id="art-115" class="interactive-node" data-qid="Q3618168" data-label="Annunciazione" cx="890" cy="990" r="10" />
+      <circle id="art-107" class="interactive-node" data-qid="Q3937539" data-label="Ritratto di Galeazzo Maria Sforza" cx="825" cy="950" r="10" />
+      <circle id="art-108" class="interactive-node" data-qid="Q3658722" data-label="Carità" cx="857.5" cy="950" r="10" />
+      <circle id="art-109" class="interactive-node" data-qid="Q3771744" data-label="Giustizia" cx="890" cy="950" r="10" />
+      <circle id="art-110" class="interactive-node" data-qid="Q3924777" data-label="Prudenza" cx="835" cy="982" r="10" />
+      <circle id="art-111" class="interactive-node" data-qid="Q1109340" data-label="Fortezza" cx="880" cy="982" r="10" />
+      <circle id="art-114" class="interactive-node" data-qid="Q3937782" data-label="Ritratto di donna" cx="835" cy="1014" r="10" />
+      <circle id="art-115" class="interactive-node" data-qid="Q3618168" data-label="Annunciazione" cx="880" cy="1014" r="10" />
       <!-- A8-A9 - Masaccio, Angelico e Lippi -->
-      <circle id="art-116" class="interactive-node" data-qid="Q3797771" data-label="Incoronazione della Vergine" cx="830" cy="1045" r="10" />
-      <circle id="art-117" class="interactive-node" data-qid="Q32381" data-label="Sant'Anna, la Madonna col Bambino e angeli" cx="857.5" cy="1045" r="10" />
-      <circle id="art-118" class="interactive-node" data-qid="Q3797764" data-label="Incoronazione Maringhi" cx="885" cy="1045" r="10" />
+      <circle id="art-116" class="interactive-node" data-qid="Q3797771" data-label="Incoronazione della Vergine" cx="830" cy="1065" r="10" />
+      <circle id="art-117" class="interactive-node" data-qid="Q32381" data-label="Sant'Anna, la Madonna col Bambino e angeli" cx="857.5" cy="1065" r="10" />
+      <circle id="art-118" class="interactive-node" data-qid="Q3797764" data-label="Incoronazione Maringhi" cx="885" cy="1065" r="10" />
       <!-- A7 - Lorenzo Monaco e Gentile -->
-      <circle id="art-119" class="interactive-node" data-qid="Q3797775" data-label="Incoronazione della Vergine" cx="830" cy="1120" r="10" />
-      <circle id="art-120" class="interactive-node" data-qid="Q3605536" data-label="Adorazione dei Magi" cx="857.5" cy="1120" r="10" />
-      <circle id="art-121" class="interactive-node" data-qid="Q1055117" data-label="Adorazione dei Magi" cx="885" cy="1120" r="10" />
+      <circle id="art-119" class="interactive-node" data-qid="Q3797775" data-label="Incoronazione della Vergine" cx="830" cy="1125" r="10" />
+      <circle id="art-120" class="interactive-node" data-qid="Q3605536" data-label="Adorazione dei Magi" cx="857.5" cy="1125" r="10" />
+      <circle id="art-121" class="interactive-node" data-qid="Q1055117" data-label="Adorazione dei Magi" cx="885" cy="1125" r="10" />
       <!-- A5-A6 - Siena e Trecento -->
-      <circle id="art-122" class="interactive-node" data-qid="Q979440" data-label="Annunciazione tra i santi Ansano e Margherita" cx="830" cy="1180" r="10" />
-      <circle id="art-123" class="interactive-node" data-qid="Q3910903" data-label="Presentazione al Tempio" cx="857.5" cy="1180" r="10" />
-      <circle id="art-124" class="interactive-node" data-qid="Q3974495" data-label="Storie di san Nicola" cx="885" cy="1180" r="10" />
-      <circle id="art-125" class="interactive-node" data-qid="Q3842761" data-label="Madonna in trono col Bambino e angeli" cx="842.5" cy="1215" r="10" />
-      <circle id="art-126" class="interactive-node" data-qid="Q3889230" data-label="Pala della beata Umiltà" cx="872.5" cy="1215" r="10" />
+      <circle id="art-122" class="interactive-node" data-qid="Q979440" data-label="Annunciazione tra i santi Ansano e Margherita" cx="840" cy="1195" r="10" />
+      <circle id="art-125" class="interactive-node" data-qid="Q3842761" data-label="Madonna in trono col Bambino e angeli" cx="875" cy="1195" r="10" />
       <!-- A3-A4 - Medioevo, Cimabue e Giotto -->
       <circle id="art-127" class="interactive-node" data-qid="Q948745" data-label="Madonna Rucellai" cx="835" cy="1270" r="10" />
       <circle id="art-128" class="interactive-node" data-qid="Q1569622" data-label="Maestà di Santa Trinita" cx="875" cy="1270" r="10" />
@@ -486,23 +484,23 @@
       <rect class="sala sala-atrio" data-room="Loggia sull'Arno" data-flow="12" x="120" y="50" width="520" height="150" />
       <rect class="sala sala-atrio" data-room="Galleria di Ponente" data-flow="20" x="470" y="200" width="55" height="980" />
       <rect class="sala sala-atrio" data-room="Galleria di Levante" data-flow="11" x="235" y="200" width="55" height="770" />
-      <rect class="sala t-notte" data-room="Pianerottolo del Buontalenti" data-flow="21" x="470" y="1180" width="170" height="120" />
+      <rect class="sala sala-atrio" data-room="Pianerottolo del Buontalenti" data-flow="21" x="470" y="1180" width="170" height="120" />
       <rect class="sala sala-servizio" data-room="Auditorium Vasariano" x="470" y="1300" width="170" height="150" />
-      <rect class="sala t-verderame" data-room="B1-B5 - Collezioni storiche" data-flow="19" x="525" y="1040" width="115" height="140" />
-      <rect class="sala t-ottone" data-room="C1-C5 - Autoritratti antichi" data-flow="18" x="525" y="910" width="115" height="130" />
-      <rect class="sala t-salvia" data-room="C6-C10 - Autoritratti moderni" data-flow="17" x="525" y="780" width="115" height="130" />
-      <rect class="sala t-ardesia" data-room="D1-D5 - Cinquecento settentrionale" data-flow="16" x="525" y="630" width="115" height="150" />
-      <rect class="sala t-notte" data-room="D7-D10 - Cinquecento italiano" data-flow="15" x="525" y="510" width="115" height="120" />
-      <rect class="sala t-verderame" data-room="D12-D15 - Pontormo, Rosso e Bronzino" data-flow="14" x="525" y="390" width="115" height="120" />
-      <rect class="sala t-ottone" data-room="D17-D20 - Tradizione classica e Venezia" data-flow="13" x="525" y="200" width="115" height="190" />
-      <rect class="sala t-salvia" data-room="D22-D28 - Tiziano, Tintoretto e Veronese" data-flow="10" x="120" y="200" width="115" height="140" />
-      <rect class="sala t-ardesia" data-room="D29-D32 - Caravaggio e Artemisia" data-flow="9" x="120" y="340" width="115" height="130" />
-      <rect class="sala t-notte" data-room="D33-D35 - Galileo e i Medici" data-flow="8" x="120" y="470" width="115" height="120" />
-      <rect class="sala t-verderame" data-room="E4 - Caravaggio" data-flow="7" x="120" y="590" width="115" height="130" />
-      <rect class="sala t-ottone" data-room="E5-E6 - Caravaggeschi" data-flow="6" x="120" y="720" width="115" height="125" />
+      <rect class="sala t-notte" data-room="B1-B5 - Collezioni storiche" data-flow="19" x="525" y="1040" width="115" height="140" />
+      <rect class="sala t-notte" data-room="C1-C5 - Autoritratti antichi" data-flow="18" x="525" y="910" width="115" height="130" />
+      <rect class="sala t-notte" data-room="C6-C10 - Autoritratti moderni" data-flow="17" x="525" y="780" width="115" height="130" />
+      <rect class="sala t-verderame" data-room="D1-D5 - Cinquecento settentrionale" data-flow="16" x="525" y="630" width="115" height="150" />
+      <rect class="sala t-verderame" data-room="D7-D10 - Cinquecento italiano" data-flow="15" x="525" y="560" width="115" height="70" />
+      <rect class="sala t-verderame" data-room="D12-D15 - Pontormo, Rosso e Bronzino" data-flow="14" x="525" y="390" width="115" height="170" />
+      <rect class="sala t-verderame" data-room="D17-D20 - Tradizione classica e Venezia" data-flow="13" x="525" y="200" width="115" height="190" />
+      <rect class="sala t-ottone" data-room="D22-D28 - Tiziano, Tintoretto e Veronese" data-flow="10" x="120" y="200" width="115" height="140" />
+      <rect class="sala t-ottone" data-room="D29-D32 - Artemisia e temi classici" data-flow="9" x="120" y="340" width="115" height="130" />
+      <rect class="sala t-ottone" data-room="D33-D35 - Galileo e i Medici" data-flow="8" x="120" y="470" width="115" height="120" />
+      <rect class="sala t-salvia" data-room="E4 - Caravaggio" data-flow="7" x="120" y="590" width="115" height="130" />
+      <rect class="sala t-salvia" data-room="E5-E6 - Caravaggeschi" data-flow="6" x="120" y="720" width="115" height="125" />
       <rect class="sala t-salvia" data-room="E7 - Rubens e Rembrandt" data-flow="5" x="120" y="845" width="115" height="125" />
-      <rect class="sala t-ardesia" data-room="Vestibolo dell'Uscita" data-flow="4" x="120" y="970" width="170" height="180" />
-      <rect class="sala t-notte" data-room="Collezione Contini Bonacossi" data-flow="3" x="120" y="1150" width="170" height="300" />
+      <rect class="sala sala-atrio" data-room="Vestibolo dell'Uscita" data-flow="4" x="120" y="970" width="170" height="180" />
+      <rect class="sala t-ardesia" data-room="Collezione Contini Bonacossi" data-flow="3" x="120" y="1150" width="170" height="300" />
     </g>
     <polygon points="640,50 640,1450 470,1450 470,200 290,200 290,1450 120,1450 120,50" fill="url(#uf-griglia)" pointer-events="none" />
     <g class="muro">
@@ -528,14 +526,14 @@
       <line x1="640" y1="780" x2="525" y2="780" />
       <line x1="525" y1="630" x2="525" y2="687" />
       <line x1="525" y1="723" x2="525" y2="780" />
-      <line x1="640" y1="510" x2="525" y2="510" />
+      <line x1="640" y1="560" x2="525" y2="560" />
       <line x1="640" y1="630" x2="525" y2="630" />
-      <line x1="525" y1="510" x2="525" y2="552" />
-      <line x1="525" y1="588" x2="525" y2="630" />
+      <line x1="525" y1="560" x2="525" y2="577" />
+      <line x1="525" y1="613" x2="525" y2="630" />
       <line x1="640" y1="390" x2="525" y2="390" />
-      <line x1="640" y1="510" x2="525" y2="510" />
-      <line x1="525" y1="390" x2="525" y2="432" />
-      <line x1="525" y1="468" x2="525" y2="510" />
+      <line x1="640" y1="560" x2="525" y2="560" />
+      <line x1="525" y1="390" x2="525" y2="457" />
+      <line x1="525" y1="493" x2="525" y2="560" />
       <line x1="640" y1="200" x2="525" y2="200" />
       <line x1="640" y1="390" x2="525" y2="390" />
       <line x1="525" y1="200" x2="525" y2="277" />
@@ -580,7 +578,7 @@
       <text x="582.5" y="925">C1–C5</text>
       <text x="582.5" y="795">C6–C10</text>
       <text x="582.5" y="645">D1–D5</text>
-      <text x="582.5" y="525">D7–D10</text>
+      <text x="582.5" y="575">D7–D10</text>
       <text x="582.5" y="405">D12–D15</text>
       <text x="582.5" y="215">D17–D20</text>
       <text x="177.5" y="215">D22–D28</text>
@@ -611,8 +609,8 @@
       <line data-edge="" x1="500" y1="975" x2="550" y2="975" />
       <line data-edge="" x1="500" y1="845" x2="550" y2="845" />
       <line data-edge="" x1="500" y1="705" x2="550" y2="705" />
-      <line data-edge="" x1="500" y1="570" x2="550" y2="570" />
-      <line data-edge="" x1="500" y1="450" x2="550" y2="450" />
+      <line data-edge="" x1="500" y1="595" x2="550" y2="595" />
+      <line data-edge="" x1="500" y1="475" x2="550" y2="475" />
       <line data-edge="" x1="500" y1="295" x2="550" y2="295" />
       <line data-edge="" x1="260" y1="270" x2="210" y2="270" />
       <line data-edge="" x1="260" y1="405" x2="210" y2="405" />
@@ -623,7 +621,12 @@
     </g>
     <g class="nodo-arte">
       <!-- Collezione Contini Bonacossi -->
-      <circle id="art-3" class="interactive-node" data-qid="Q3947292" data-label="San Girolamo Contini Bonacossi" cx="175" cy="1300" r="10" />
+      <circle id="art-3" class="interactive-node" data-qid="Q3947292" data-label="San Girolamo Contini Bonacossi" cx="165" cy="1260" r="10" />
+      <circle id="art-64" class="interactive-node" data-qid="Q3889225" data-label="Pala della Madonna della Neve" cx="245" cy="1260" r="10" />
+      <circle id="art-65" class="interactive-node" data-qid="Q3842513" data-label="Madonna col Bambino e otto santi" cx="165" cy="1325" r="10" />
+      <rect id="art-132" class="interactive-node" data-qid="Q6777716" data-label="Martirio di San Lorenzo" x="235" y="1315" width="20" height="20" rx="3" />
+      <circle id="art-26" class="interactive-node" data-qid="Q15974356" data-label="Ritratto di Iseppo da Porto col figlio Adriano" cx="165" cy="1390" r="10" />
+      <circle id="art-133" class="interactive-node" data-qid="Q3947301" data-label="San Girolamo nel deserto di Cima da Conegliano" cx="245" cy="1390" r="10" />
       <!-- E7 - Rubens e Rembrandt -->
       <circle id="art-4" class="interactive-node" data-qid="Q3725832" data-label="Enrico IV alla battaglia d'Ivry" cx="155" cy="890" r="10" />
       <circle id="art-5" class="interactive-node" data-qid="Q16938315" data-label="Ingresso trionfale di Enrico IV a Parigi" cx="190" cy="890" r="10" />
@@ -639,50 +642,46 @@
       <circle id="art-13" class="interactive-node" data-qid="Q2293905" data-label="Medusa" cx="155" cy="690" r="10" />
       <circle id="art-14" class="interactive-node" data-qid="Q2284829" data-label="Sacrificio di Isacco" cx="195" cy="690" r="10" />
       <!-- D33-D35 - Galileo e i Medici -->
-      <circle id="art-15" class="interactive-node" data-qid="Q97933450" data-label="Ritratto di Ainolfo de' Bardi" cx="150" cy="525" r="10" />
-      <circle id="art-16" class="interactive-node" data-qid="Q69087178" data-label="Famiglia di Cosimo II de' Medici" cx="180" cy="525" r="10" />
-      <circle id="art-17" class="interactive-node" data-qid="Q28972987" data-label="Ritratto di Dawit II" cx="210" cy="525" r="10" />
-      <circle id="art-18" class="interactive-node" data-qid="Q110392557" data-label="Ritratto di Solimano il Magnifico" cx="165" cy="565" r="10" />
-      <!-- D29-D32 - Caravaggio e Artemisia -->
-      <circle id="art-19" class="interactive-node" data-qid="Q3769169" data-label="Giuditta che decapita Oloferne" cx="177.5" cy="410" r="10" />
+      <circle id="art-15" class="interactive-node" data-qid="Q97933450" data-label="Ritratto di Ainolfo de' Bardi" cx="150" cy="515" r="10" />
+      <circle id="art-16" class="interactive-node" data-qid="Q69087178" data-label="Famiglia di Cosimo II de' Medici" cx="205" cy="515" r="10" />
+      <circle id="art-17" class="interactive-node" data-qid="Q28972987" data-label="Ritratto di Dawit II" cx="150" cy="565" r="10" />
+      <circle id="art-18" class="interactive-node" data-qid="Q110392557" data-label="Ritratto di Solimano il Magnifico" cx="205" cy="565" r="10" />
+      <!-- D29-D32 - Artemisia e temi classici -->
+      <circle id="art-19" class="interactive-node" data-qid="Q3769169" data-label="Giuditta che decapita Oloferne" cx="145" cy="390" r="10" />
+      <circle id="art-28" class="interactive-node" data-qid="Q15974337" data-label="Fucina di Vulcano" cx="177.5" cy="390" r="10" />
+      <circle id="art-29" class="interactive-node" data-qid="Q131825307" data-label="Ercole musagete e gli dei dell'Olimpo" cx="210" cy="390" r="10" />
+      <circle id="art-30" class="interactive-node" data-qid="Q125749753" data-label="Venere e Cupido" cx="160" cy="435" r="10" />
+      <circle id="art-31" class="interactive-node" data-qid="Q108123188" data-label="Età dell'argento" cx="195" cy="435" r="10" />
       <!-- D22-D28 - Tiziano, Tintoretto e Veronese -->
-      <circle id="art-20" class="interactive-node" data-qid="Q727875" data-label="Venere di Urbino" cx="150" cy="250" r="10" />
-      <circle id="art-21" class="interactive-node" data-qid="Q2046100" data-label="Flora" cx="177.5" cy="250" r="10" />
-      <circle id="art-22" class="interactive-node" data-qid="Q3937511" data-label="Ritratto di Eleonora Gonzaga della Rovere" cx="205" cy="250" r="10" />
-      <circle id="art-23" class="interactive-node" data-qid="Q3937531" data-label="Ritratto di Francesco Maria Della Rovere" cx="150" cy="285" r="10" />
-      <circle id="art-24" class="interactive-node" data-qid="Q11753618" data-label="Leda e il cigno" cx="177.5" cy="285" r="10" />
-      <circle id="art-25" class="interactive-node" data-qid="Q649875" data-label="Susanna e i vecchioni" cx="205" cy="285" r="10" />
-      <circle id="art-26" class="interactive-node" data-qid="Q15974356" data-label="Ritratto di Iseppo da Porto col figlio Adriano" cx="165" cy="320" r="10" />
-      <circle id="art-27" class="interactive-node" data-qid="Q48927682" data-label="Santi Giovanni Evangelista e Francesco" cx="195" cy="320" r="10" />
+      <circle id="art-20" class="interactive-node" data-qid="Q727875" data-label="Venere di Urbino" cx="145" cy="245" r="10" />
+      <circle id="art-21" class="interactive-node" data-qid="Q2046100" data-label="Flora" cx="177.5" cy="245" r="10" />
+      <circle id="art-22" class="interactive-node" data-qid="Q3937511" data-label="Ritratto di Eleonora Gonzaga della Rovere" cx="210" cy="245" r="10" />
+      <circle id="art-23" class="interactive-node" data-qid="Q3937531" data-label="Ritratto di Francesco Maria Della Rovere" cx="155" cy="285" r="10" />
+      <circle id="art-24" class="interactive-node" data-qid="Q11753618" data-label="Leda e il cigno" cx="200" cy="285" r="10" />
+      <circle id="art-25" class="interactive-node" data-qid="Q649875" data-label="Susanna e i vecchioni" cx="155" cy="322" r="10" />
+      <circle id="art-27" class="interactive-node" data-qid="Q48927682" data-label="Santi Giovanni Evangelista e Francesco" cx="200" cy="322" r="10" />
       <!-- D17-D20 - Tradizione classica e Venezia -->
-      <circle id="art-28" class="interactive-node" data-qid="Q15974337" data-label="Fucina di Vulcano" cx="540" cy="250" r="10" />
-      <circle id="art-29" class="interactive-node" data-qid="Q131825307" data-label="Ercole musagete e gli dei dell'Olimpo" cx="568" cy="250" r="10" />
-      <circle id="art-30" class="interactive-node" data-qid="Q125749753" data-label="Venere e Cupido" cx="596" cy="250" r="10" />
-      <circle id="art-31" class="interactive-node" data-qid="Q108123188" data-label="Età dell'argento" cx="624" cy="250" r="10" />
-      <circle id="art-32" class="interactive-node" data-qid="Q108123187" data-label="Età dell'oro" cx="540" cy="300" r="10" />
-      <circle id="art-33" class="interactive-node" data-qid="Q3937705" data-label="Ritratto di giovane" cx="568" cy="300" r="10" />
-      <circle id="art-34" class="interactive-node" data-qid="Q123912954" data-label="Ritratto del vescovo Ludovico Beccadelli" cx="596" cy="300" r="10" />
-      <circle id="art-35" class="interactive-node" data-qid="Q3210265" data-label="Madonna delle Cave" cx="624" cy="300" r="10" />
-      <circle id="art-36" class="interactive-node" data-qid="Q3937495" data-label="Ritratto di Carlo de' Medici" cx="540" cy="350" r="10" />
-      <circle id="art-37" class="interactive-node" data-qid="Q1629015" data-label="Allegoria sacra" cx="568" cy="350" r="10" />
-      <circle id="art-38" class="interactive-node" data-qid="Q2452374" data-label="Giudizio di Salomone" cx="596" cy="350" r="10" />
-      <circle id="art-39" class="interactive-node" data-qid="Q3924389" data-label="Prova di Mosè" cx="624" cy="350" r="10" />
-      <circle id="art-40" class="interactive-node" data-qid="Q3775535" data-label="Grande Calvario" cx="582" cy="375" r="10" />
+      <circle id="art-33" class="interactive-node" data-qid="Q3937705" data-label="Ritratto di giovane" cx="550" cy="255" r="10" />
+      <circle id="art-34" class="interactive-node" data-qid="Q123912954" data-label="Ritratto del vescovo Ludovico Beccadelli" cx="582.5" cy="255" r="10" />
+      <circle id="art-35" class="interactive-node" data-qid="Q3210265" data-label="Madonna delle Cave" cx="615" cy="255" r="10" />
+      <circle id="art-36" class="interactive-node" data-qid="Q3937495" data-label="Ritratto di Carlo de' Medici" cx="550" cy="300" r="10" />
+      <circle id="art-37" class="interactive-node" data-qid="Q1629015" data-label="Allegoria sacra" cx="582.5" cy="300" r="10" />
+      <circle id="art-38" class="interactive-node" data-qid="Q2452374" data-label="Giudizio di Salomone" cx="615" cy="300" r="10" />
+      <circle id="art-39" class="interactive-node" data-qid="Q3924389" data-label="Prova di Mosè" cx="565" cy="345" r="10" />
+      <circle id="art-40" class="interactive-node" data-qid="Q3775535" data-label="Grande Calvario" cx="600" cy="345" r="10" />
       <!-- D12-D15 - Pontormo, Rosso e Bronzino -->
-      <circle id="art-41" class="interactive-node" data-qid="Q3664358" data-label="Cena in Emmaus" cx="560" cy="420" r="10" />
-      <circle id="art-42" class="interactive-node" data-qid="Q1863885" data-label="Mosè difende le figlie di Jetro" cx="605" cy="420" r="10" />
-      <circle id="art-43" class="interactive-node" data-qid="Q3625842" data-label="Ritratto di Cosimo I de' Medici" cx="560" cy="440" r="10" />
-      <circle id="art-44" class="interactive-node" data-qid="Q1328065" data-label="Ritratto di Eleonora di Toledo col figlio Giovanni" cx="605" cy="440" r="10" />
-      <circle id="art-45" class="interactive-node" data-qid="Q3937472" data-label="Ritratto di Bia de' Medici" cx="560" cy="460" r="10" />
-      <circle id="art-46" class="interactive-node" data-qid="Q12118453" data-label="Ritratto di Lorenzo il Magnifico" cx="605" cy="460" r="10" />
-      <circle id="art-47" class="interactive-node" data-qid="Q1990128" data-label="Ritratto di Lucrezia Panciatichi" cx="560" cy="480" r="10" />
-      <circle id="art-48" class="interactive-node" data-qid="Q3944462" data-label="Sacra Famiglia Panciatichi" cx="605" cy="480" r="10" />
-      <circle id="art-49" class="interactive-node" data-qid="Q16670765" data-label="Ritratto di Alessandro de' Medici" cx="560" cy="500" r="10" />
-      <circle id="art-50" class="interactive-node" data-qid="Q3842736" data-label="Madonna di San Zaccaria" cx="605" cy="500" r="10" />
+      <circle id="art-41" class="interactive-node" data-qid="Q3664358" data-label="Cena in Emmaus" cx="550" cy="435" r="10" />
+      <circle id="art-42" class="interactive-node" data-qid="Q1863885" data-label="Mosè difende le figlie di Jetro" cx="582.5" cy="435" r="10" />
+      <circle id="art-43" class="interactive-node" data-qid="Q3625842" data-label="Ritratto di Cosimo I de' Medici" cx="615" cy="435" r="10" />
+      <circle id="art-44" class="interactive-node" data-qid="Q1328065" data-label="Ritratto di Eleonora di Toledo col figlio Giovanni" cx="550" cy="480" r="10" />
+      <circle id="art-45" class="interactive-node" data-qid="Q3937472" data-label="Ritratto di Bia de' Medici" cx="582.5" cy="480" r="10" />
+      <circle id="art-47" class="interactive-node" data-qid="Q1990128" data-label="Ritratto di Lucrezia Panciatichi" cx="615" cy="480" r="10" />
+      <circle id="art-48" class="interactive-node" data-qid="Q3944462" data-label="Sacra Famiglia Panciatichi" cx="565" cy="525" r="10" />
+      <circle id="art-50" class="interactive-node" data-qid="Q3842736" data-label="Madonna di San Zaccaria" cx="600" cy="525" r="10" />
       <!-- D7-D10 - Cinquecento italiano -->
-      <circle id="art-51" class="interactive-node" data-qid="Q867403" data-label="Madonna dal collo lungo" cx="550" cy="570" r="10" />
-      <circle id="art-52" class="interactive-node" data-qid="Q3620828" data-label="Apparizione della Madonna col Bambino" cx="582.5" cy="570" r="10" />
-      <circle id="art-53" class="interactive-node" data-qid="Q3936375" data-label="Riposo in Egitto con san Francesco" cx="615" cy="570" r="10" />
+      <circle id="art-51" class="interactive-node" data-qid="Q867403" data-label="Madonna dal collo lungo" cx="550" cy="600" r="10" />
+      <circle id="art-52" class="interactive-node" data-qid="Q3620828" data-label="Apparizione della Madonna col Bambino" cx="582.5" cy="600" r="10" />
+      <circle id="art-53" class="interactive-node" data-qid="Q3936375" data-label="Riposo in Egitto con san Francesco" cx="615" cy="600" r="10" />
       <!-- D1-D5 - Cinquecento settentrionale -->
       <circle id="art-54" class="interactive-node" data-qid="Q3945710" data-label="Salomè con la testa del Battista" cx="550" cy="690" r="10" />
       <circle id="art-55" class="interactive-node" data-qid="Q3612423" data-label="Allegoria di Ercole" cx="582.5" cy="690" r="10" />
@@ -697,9 +696,9 @@
       <circle id="art-62" class="interactive-node" data-qid="Q555821" data-label="Autoritratto di Raffaello" cx="582.5" cy="980" r="10" />
       <circle id="art-63" class="interactive-node" data-qid="Q2607072" data-label="Ritratto del Perugino" cx="615" cy="980" r="10" />
       <!-- B1-B5 - Collezioni storiche -->
-      <circle id="art-64" class="interactive-node" data-qid="Q3889225" data-label="Pala della Madonna della Neve" cx="550" cy="1110" r="10" />
-      <circle id="art-65" class="interactive-node" data-qid="Q3842513" data-label="Madonna col Bambino e otto santi" cx="582.5" cy="1110" r="10" />
-      <circle id="art-66" class="interactive-node" data-qid="Q3842742" data-label="Madonna di casa Pazzi" cx="615" cy="1110" r="10" />
+      <circle id="art-46" class="interactive-node" data-qid="Q12118453" data-label="Ritratto di Lorenzo il Magnifico" cx="550" cy="1110" r="10" />
+      <circle id="art-66" class="interactive-node" data-qid="Q3842742" data-label="Madonna di casa Pazzi" cx="582.5" cy="1110" r="10" />
+      <circle id="art-49" class="interactive-node" data-qid="Q16670765" data-label="Ritratto di Alessandro de' Medici" cx="615" cy="1110" r="10" />
     </g>
     <g class="servizi">
       <rect class="poi-node nodo-servizio" data-poi="stairs" data-label="Scala del Buontalenti al primo piano" x="562" y="1231" width="18" height="18" rx="5"><title>Scala del Buontalenti al primo piano</title></rect>
@@ -747,9 +746,9 @@
       <polygon class="sala sala-atrio" data-room="Portico di Levante" points="-390,200 -390,970 -445,970 -445,700 -560,700 -560,200" />
       <rect class="sala sala-servizio" data-room="Guardaroba" x="-560" y="700" width="115" height="100" />
       <rect class="sala sala-servizio" data-room="San Pier Scheraggio" data-flow="1" x="-560" y="800" width="115" height="170" />
-      <rect class="sala t-notte" data-room="Uscita e Bookshop" data-flow="2" x="-560" y="970" width="170" height="180" />
-      <rect class="sala t-verderame" data-room="Atrio e Biglietteria" data-flow="52" x="-560" y="1150" width="170" height="180" />
-      <rect class="sala t-ottone" data-room="Scalone Vasariano" data-flow="51" x="-560" y="1330" width="170" height="120" />
+      <rect class="sala sala-servizio" data-room="Uscita e Bookshop" data-flow="2" x="-560" y="970" width="170" height="180" />
+      <rect class="sala sala-atrio" data-room="Atrio e Biglietteria" data-flow="52" x="-560" y="1150" width="170" height="180" />
+      <rect class="sala sala-atrio" data-room="Scalone Vasariano" data-flow="51" x="-560" y="1330" width="170" height="120" />
     </g>
     <polygon points="-40,50 -40,1450 -210,1450 -210,200 -390,200 -390,1450 -560,1450 -560,50" fill="url(#uf-griglia)" pointer-events="none" />
     <g class="muro">
@@ -824,8 +823,9 @@
     </g>
     <g class="nodo-arte">
       <!-- San Pier Scheraggio -->
-      <circle id="art-1" class="interactive-node" data-qid="Q103231881" data-label="Giovanni Boccaccio" cx="-525" cy="930" r="10" />
-      <circle id="art-2" class="interactive-node" data-qid="Q127500037" data-label="Sibilla Cumana" cx="-485" cy="930" r="10" />
+      <circle id="art-1" class="interactive-node" data-qid="Q103231881" data-label="Giovanni Boccaccio" cx="-530" cy="875" r="10" />
+      <circle id="art-2" class="interactive-node" data-qid="Q127500037" data-label="Sibilla Cumana" cx="-475" cy="875" r="10" />
+      <circle id="art-131" class="interactive-node" data-qid="Q117352636" data-label="Dante Alighieri" cx="-502.5" cy="930" r="10" />
     </g>
     <g class="servizi">
       <rect class="poi-node nodo-servizio" data-poi="entrance" data-label="Ingresso" x="-448" y="1231" width="18" height="18" rx="5"><title>Ingresso</title></rect>

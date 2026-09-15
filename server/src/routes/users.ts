@@ -1,7 +1,7 @@
 /**
- * Rotte di account, sessione, acquisti e vendite. L'identita' arriva dal token; solo
- * il visitatore compra, e acquistare una visita include le tappe in un'operazione
- * verificata dal server.
+ * Rotte di account, sessione, acquisti e vendite. Le password diventano record
+ * scrypt prima di entrare nel database; l'identita' arriva dal token e soltanto il
+ * visitatore compra.
  */
 import { Router } from "express";
 import {
@@ -18,6 +18,7 @@ import { conto } from "../pricing";
 import { VisitModel } from "../models/visit";
 import { SEED_AUTHOR } from "../../../shared/constants";
 import { SaleRow } from "../../../shared/types";
+import { hashPassword, verifyPassword } from "../password";
 
 const router = Router();
 
@@ -34,20 +35,27 @@ async function withSession(u: any) {
   return { ...sanitize(u), token: await createSession(u) };
 }
 
-function isValidRole(role: any): boolean {
-  return role === "autore" || role === "visitatore" || role === "curatore";
+function isValidRegistrationRole(role: unknown): boolean {
+  return role === "autore" || role === "visitatore";
 }
 
 // --- Registrazione e accesso ------------------------------------------------
 
 /**
  * POST /api/users/register  { username, password, role }
+ * Accetta soltanto i ruoli autore e visitatore; i curatori sono predisposti dal seed.
  * Ritorna: account senza password e token; 409 se l'username e' gia' preso.
  */
 router.post("/register", async (req, res) => {
   try {
     const { username, password, role } = req.body;
-    if (!username || !password || !isValidRole(role))
+    if (
+      typeof username !== "string" ||
+      username.trim() === "" ||
+      typeof password !== "string" ||
+      password === "" ||
+      !isValidRegistrationRole(role)
+    )
       return res.status(400).json({ error: "Dati di registrazione non validi" });
 
     if (String(username).trim().toLowerCase() === SEED_AUTHOR.toLowerCase())
@@ -63,7 +71,7 @@ router.post("/register", async (req, res) => {
 
     const user = await UserModel.create({
       username,
-      password,
+      password: await hashPassword(password),
       role,
       ...(role === "visitatore" ? { wallet: 100 } : {}),
     });
@@ -80,11 +88,16 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password)
+    if (
+      typeof username !== "string" ||
+      username.trim() === "" ||
+      typeof password !== "string" ||
+      password === ""
+    )
       return res.status(400).json({ error: "Inserisci username e password" });
 
-    const user = await UserModel.findOne({ username, password });
-    if (!user)
+    const user = await UserModel.findOne({ username });
+    if (!user || !(await verifyPassword(password, user.password)))
       return res.status(401).json({
         error: "Credenziali non valide. Controlla username e password.",
       });
@@ -157,7 +170,8 @@ router.post("/logout", async (req, res) => {
 
 /**
  * POST /api/users/buy  { itemId }
- * Ritorna: account con portafoglio e collezione aggiornati; 400 se il credito non basta.
+ * Ritorna: account con portafoglio e collezione aggiornati; 404 per contenuti
+ * inesistenti o non visibili e 400 se il credito non basta.
  */
 router.post("/buy", requireSession, async (req, res) => {
   try {
@@ -170,12 +184,23 @@ router.post("/buy", requireSession, async (req, res) => {
         error: `Il profilo con cui sei entrato e' un ${who.role}: i contenuti si comprano da un profilo visitatore, che e' l'unico ad avere un portafoglio.`,
       });
 
+    if (typeof itemId !== "string" || itemId.trim() === "")
+      return res.status(400).json({ error: "Contenuto non valido" });
+    const contentId = itemId.trim();
+
     const user = await UserModel.findOne({ username, role: "visitatore" });
     if (!user) return res.status(404).json({ error: "Visitatore non trovato" });
 
     const content: any =
-      (await ItemModel.findOne({ "@id": itemId })) ||
-      (await VisitModel.findOne({ "@id": itemId }));
+      (await ItemModel.findOne({ "@id": contentId })) ||
+      (await VisitModel.findOne({ "@id": contentId }));
+    if (!content)
+      return res.status(404).json({ error: "Contenuto non trovato" });
+    if (
+      content.author !== username &&
+      (content.visibility === "privato" || Boolean(content.accessKey))
+    )
+      return res.status(404).json({ error: "Contenuto non trovato" });
 
     const owned = new Set<string>(user.collezione || []);
     const itemsById = new Map<string, any>();
@@ -187,7 +212,7 @@ router.post("/buy", requireSession, async (req, res) => {
     }
 
     const { daPrendere, totale: cost } = conto(
-      content || { "@id": itemId, price: 0 },
+      content,
       username,
       owned,
       itemsById,

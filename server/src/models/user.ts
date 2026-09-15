@@ -1,6 +1,6 @@
 /**
  * Schema degli account. L'username e' unico perche' autore e proprietario sono nomi
- * senza ruolo; wallet e collezione appartengono ai profili che possono acquistare.
+ * senza ruolo; password contiene il record scrypt, mai il segreto in chiaro.
  */
 import { Schema, model } from "mongoose";
 import { User as SharedUser } from "../../../shared/types";

@@ -33,15 +33,21 @@ const MAX_CUSTOM_ARTWORKS = 30;
 
 /**
  * GET /api/visits[?museum=Qxxx][&user=nome]
- * Ritorna: le visite del museo, o tutte; con `user` include mancanti e costi personali calcolati in
- * blocco dal server.
+ * Ritorna: le visite pubbliche non guidate e quelle dell'utente; con `user` include
+ * mancanti e costi personali calcolati in blocco dal server.
  */
 router.get("/", async (req, res) => {
   try {
     const museum = String(req.query.museum || "");
     const username = sessionUser(req).username;
     const filter: Record<string, unknown> = {
-      $or: [{ visibility: { $ne: "privato" } }, { author: username }],
+      $or: [
+        { author: username },
+        {
+          visibility: { $ne: "privato" },
+          accessKey: { $in: [null, ""] },
+        },
+      ],
     };
     if (museum) filter.ofMuseum = `http://www.wikidata.org/entity/${museum}`;
     const visits = await VisitModel.find(filter);
@@ -73,8 +79,9 @@ router.get("/", async (req, res) => {
 
 function nascostaA(visit: any, username: string): boolean {
   if (!visit) return false;
-  if (visit.visibility !== "privato") return false;
-  return visit.author !== username;
+  if (visit.author === username) return false;
+  if (visit.accessKey) return true;
+  return visit.visibility === "privato";
 }
 
 /**
@@ -209,7 +216,8 @@ router.post("/custom", async (req, res) => {
 /**
  * POST /api/visits
  * Ritorna: 201 dopo aver validato e calcolato la durata; una visita esistente e' modificabile
- * soltanto da chi l'ha composta. 400 sui dati, 403 sulla proprieta', 409 sui conflitti.
+ * soltanto da chi l'ha composta e una visita guidata richiede il ruolo autore.
+ * 400 sui dati, 403 sull'autorizzazione, 409 sui conflitti.
  */
 router.post("/", async (req, res) => {
   try {
@@ -321,6 +329,10 @@ router.post("/", async (req, res) => {
         : undefined;
 
     if (accessKey) {
+      if (ruolo !== "autore")
+        return res
+          .status(403)
+          .json({ error: "Solo gli autori possono creare visite guidate." });
       const clash = await VisitModel.findOne({
         accessKey,
         "@id": { $ne: visitId },

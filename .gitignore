@@ -29,6 +29,7 @@ Thumbs.db
 cypress/videos/
 cypress/screenshots/
 __screenshots__/
+/testers/
 
 # Vite
 *.timestamp-*-*.mjs

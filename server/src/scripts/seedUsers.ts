@@ -1,13 +1,15 @@
-/** Crea gli account dimostrativi richiesti dalle specifiche senza duplicarli. */
+/** Crea con password scrypt gli account dimostrativi senza duplicarli. */
 import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
 import { UserModel } from "../models/user";
+import { hashPassword } from "../password";
 
 const utenti = [
   { username: "autore1", password: "12345678", role: "autore" },
   { username: "autore2", password: "12345678", role: "autore" },
   { username: "visitatore1", password: "12345678", role: "visitatore" },
   { username: "visitatore2", password: "12345678", role: "visitatore" },
+  { username: "curatore", password: "12345678", role: "curatore" },
 ];
 
 async function seedUsers() {
@@ -22,10 +24,11 @@ async function seedUsers() {
   for (const u of utenti) {
     const onInsert: any =
       u.role === "visitatore" ? { wallet: 100, collezione: [] } : { collezione: [] };
+    const password = await hashPassword(u.password);
     await UserModel.updateOne(
       { username: u.username, role: u.role },
       {
-        $set: { password: u.password },
+        $set: { password },
         $setOnInsert: onInsert,
       },
       { upsert: true },

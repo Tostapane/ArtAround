@@ -4,7 +4,8 @@
  * della stessa opera, conserva fuoco e piano e inoltra il tocco al teletrasporto
  * quando e' armato. Tre ingrandimenti fissi ridimensionano l'SVG e lasciano lo
  * scorrimento al browser, mantenendo fluido il gesto e prevedibili i controlli.
- * Il segnalino non intercetta il puntatore, altrimenti coprirebbe il nodo corrente.
+ * La stanza corrente usa un semplice riempimento senza effetti aggiuntivi; il
+ * segnalino non intercetta il puntatore, altrimenti coprirebbe il nodo corrente.
  */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
@@ -317,12 +318,19 @@ function clearListeners() {
 function highlightCurrent() {
   const root = container.value;
   if (!root) return;
-  root.querySelectorAll(".nodo-corrente").forEach((el) =>
-    el.classList.remove("nodo-corrente"),
-  );
+  root.querySelectorAll(".nodo-corrente, .sala-corrente").forEach((el) => {
+    el.classList.remove("nodo-corrente", "sala-corrente");
+  });
   if (!props.currentLocationId) return;
   const el = root.querySelector(`#${CSS.escape(props.currentLocationId)}`);
   if (el) el.classList.add("nodo-corrente");
+
+  const currentRoom = museum.value?.mapLocations?.[props.currentLocationId]?.room;
+  if (!currentRoom) return;
+  root.querySelectorAll("[data-room]").forEach((room) => {
+    if (room.getAttribute("data-room") === currentRoom)
+      room.classList.add("sala-corrente");
+  });
 }
 
 function prepareMap() {
@@ -773,6 +781,9 @@ const optionalCount = computed(() => {
   stroke: var(--surface);
   stroke-width: 6px;
   paint-order: stroke;
+}
+.mappa :deep(.sala-corrente) {
+  fill: color-mix(in oklab, var(--surface) 68%, var(--location));
 }
 
 .tappa-elenco {

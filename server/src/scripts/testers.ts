@@ -27,6 +27,7 @@ import {
   priceForTone,
 } from "../../../shared/constants";
 import { UserRole } from "../../../shared/types";
+import { hashPassword } from "../password";
 
 const PUBLIC_DIR = path.join(SERVER_ROOT, "public");
 
@@ -420,16 +421,17 @@ export async function requiredAccounts() {
     { username: "autore2", role: "autore" },
     { username: "visitatore1", role: "visitatore" },
     { username: "visitatore2", role: "visitatore" },
-    { username: "curatore1", role: "curatore" },
+    { username: "curatore", role: "curatore" },
   ];
   for (const u of users) {
     const onInsert: any =
       u.role === "visitatore"
         ? { wallet: 100, collezione: [] }
         : { collezione: [] };
+    const password = await hashPassword("12345678");
     await UserModel.updateOne(
       { username: u.username, role: u.role },
-      { $set: { password: "12345678" }, $setOnInsert: onInsert },
+      { $set: { password }, $setOnInsert: onInsert },
       { upsert: true },
     );
     console.log(`  account pronto: ${u.username} (${u.role})`);

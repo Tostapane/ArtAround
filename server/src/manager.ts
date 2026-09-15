@@ -12,7 +12,7 @@ import {
   upsertMuseum,
 } from "./catalogue";
 import { createDescription } from "./services/llm";
-import { ArtworkModel } from "./models/artwork";
+import type { IArtwork } from "./models/artwork";
 import { MuseumConfig } from "./data/museumConfigs";
 import { getMuseumGraph } from "./services/svgGraph";
 import { LogisticNote } from "../../shared/types";
@@ -68,16 +68,13 @@ export async function populateArtwork(
 }
 
 export async function populateItem(
-  atworkQid: string,
+  artwork: IArtwork,
   level: string,
   duration: number,
   itemAuthor?: string,
   itemPrice?: number,
   description?: string,
 ) {
-  const artwork = await ArtworkModel.findOne({ qid: atworkQid });
-  if (!artwork) throw new Error(`Artwork non trovato per QID: ${atworkQid}`);
-
   if (!itemAuthor && !description) {
     description = await createDescription(
       artwork.name,
@@ -89,7 +86,7 @@ export async function populateItem(
 
     if (!description || description.trim() === "") {
       console.warn(
-        `[seed] item ${atworkQid} (${level}/${duration}s) NON creato: ` +
+        `[seed] item ${artwork.qid} (${level}/${duration}s) NON creato: ` +
           `il modello non ha prodotto una descrizione.`,
       );
       return;
@@ -98,9 +95,9 @@ export async function populateItem(
 
   let firma = itemAuthor;
   if (itemAuthor === SEED_AUTHOR) firma = SEED_ID_TOKEN;
-  const id = `${atworkQid}-${firma}-${level}-${duration}`;
+  const id = `${artwork.qid}-${firma}-${level}-${duration}`;
 
-  await upsertItem({
+  return await upsertItem({
     "@id": id,
     kind: "opera",
     about: artwork["@id"],

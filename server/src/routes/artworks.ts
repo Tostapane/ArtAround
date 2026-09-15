@@ -75,7 +75,11 @@ router.get("/:qid/preview", async (req, res) => {
       return res.status(404).json({ error: "Artwork non trovato" });
     }
 
-    const baseFilter = { about: artwork["@id"] };
+    const user = sessionUser(req).username;
+    const baseFilter = {
+      about: artwork["@id"],
+      $or: [{ visibility: { $ne: "privato" } }, { author: user }],
+    };
 
     let item = null;
     if (level && duration) {
@@ -93,7 +97,6 @@ router.get("/:qid/preview", async (req, res) => {
     }
 
     if (item) {
-      const user = sessionUser(req).username;
       const owned = await purchasedBy(user);
       if (!isReadable(item, user, owned)) {
         return res.json({ artwork, item: withoutText(item) });

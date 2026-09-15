@@ -1,14 +1,11 @@
 /**
- * Orchestra il seed ripetibile di musei, opere, griglia tono-durata, visite di
- * catalogo e visite guidate con quiz. Le modalita' completano una parte senza
- * rigenerare le chiamate gia' riuscite.
+ * Orchestra il seed ripetibile di musei, opere, griglia tono-durata e visite di
+ * catalogo. Ogni combinazione viene completata prima di passare alla successiva.
  */
 import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
-import { ArtworkModel } from "../models/artwork";
-import { ItemModel } from "../models/item";
-import { VisitModel } from "../models/visit";
-import { UserModel } from "../models/user";
+import { IArtwork, ArtworkModel } from "../models/artwork";
+import { IItem, ItemModel } from "../models/item";
 import {
   populateArtwork,
   populateItem,
@@ -32,7 +29,6 @@ import {
   findMuseumConfig,
   MuseumConfig,
 } from "../data/museumConfigs";
-import { costruisciQuiz } from "../data/quiz";
 
 const PAUSA_IMMAGINE_MS = 1000;
 
@@ -57,12 +53,11 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
   const uri = museumUri(config.qid);
   const positions = locationsFromMap(config.mapPath);
   const itemsPerArtwork = educationalLevels.length * secPerArt.length;
-  const totalItems = config.activeArtworks.length * itemsPerArtwork;
 
   console.log(
     `\n=== ${config.name} (${config.qid}): ${config.activeArtworks.length} opere ` +
       `x ${educationalLevels.length} toni x ${secPerArt.length} durate = ` +
-      `fino a ${totalItems} item ===`,
+      `fino a ${config.activeArtworks.length * itemsPerArtwork} item ===`,
   );
   const senzaNodo = config.activeArtworks.filter((q) => !positions.has(q));
   if (senzaNodo.length > 0) {
@@ -75,8 +70,7 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
   await populateMuseum(config);
 
   const startTime = Date.now();
-  let generati = 0;
-  let saltati = 0;
+  const artworks: IArtwork[] = [];
   let artworkIdx = 0;
 
   for (const qid of config.activeArtworks) {
@@ -103,39 +97,106 @@ async function seedMuseum(config: MuseumConfig, force: boolean) {
       }
     }
     if (!artwork) continue;
-
-    let nuoviQui = 0;
-    for (const level of educationalLevels) {
-      for (const duration of secPerArt) {
-        const gia = await ItemModel.findOne({
-          about: artwork["@id"],
-          educationalLevel: level,
-          timeRequired: `${duration}`,
-          author: SEED_AUTHOR,
-        });
-        if (gia && !force) {
-          saltati++;
-          continue;
-        }
-        await populateItem(qid, level, duration, undefined, priceForTone(level));
-        generati++;
-        nuoviQui++;
-        const elapsed = (Date.now() - startTime) / 1000;
-        const rimasti = totalItems - generati - saltati;
-        const eta = rimasti * (elapsed / generati);
-        console.log(
-          `${etichetta} item ${level}/${duration}s  ·  ${generati} generati, ` +
-            `${saltati} gia' presenti  ·  ETA ~${fmt(eta)}`,
-        );
-      }
-    }
-    if (nuoviQui === 0) console.log(`${etichetta} gia' completa.`);
+    artworks.push(artwork);
   }
 
-  await seedMuseumTopics(config, force);
-  await seedMuseumVisits(config);
+  const soggetti = museumTopics(config, artworks);
+  const notes = openingNotes(config);
+  const artworkIds = artworks.map((artwork) => artwork["@id"]);
+  const totalItems = artworks.length * itemsPerArtwork;
+  const generationStartTime = Date.now();
+  let elaborati = 0;
+  let generati = 0;
+  let saltati = 0;
+  let falliti = 0;
+
+  for (const level of educationalLevels) {
+    for (const duration of secPerArt) {
+      const items: IItem[] = [];
+      const esistenti = await ItemModel.find({
+        about: { $in: artworkIds },
+        educationalLevel: level,
+        timeRequired: `${duration}`,
+        author: SEED_AUTHOR,
+      });
+      const esistentiPerOpera = new Map(
+        esistenti.map((item) => [item.about || "", item]),
+      );
+
+      for (const artwork of artworks) {
+        const gia = esistentiPerOpera.get(artwork["@id"]);
+
+        let item = gia;
+        let esito = "gia' presente";
+        if (!gia || force) {
+          const creato = await populateItem(
+            artwork,
+            level,
+            duration,
+            undefined,
+            priceForTone(level),
+          );
+          if (creato) {
+            item = creato;
+            generati++;
+            esito = "generato";
+          } else {
+            falliti++;
+            esito = gia
+              ? "rigenerazione fallita, uso il precedente"
+              : "non creato";
+          }
+        } else {
+          saltati++;
+        }
+        if (item) items.push(item);
+
+        elaborati++;
+        const elapsed = (Date.now() - generationStartTime) / 1000;
+        const rimasti = totalItems - elaborati;
+        const eta = elaborati > 0 ? rimasti * (elapsed / elaborati) : 0;
+        console.log(
+          `[${config.qid} ${level}/${duration}s ${artwork.qid}] ${esito}  ·  ` +
+            `${elaborati}/${totalItems} elaborati  ·  ETA ~${fmt(eta)}`,
+        );
+      }
+
+      const topicItems = await seedMuseumTopics(
+        config,
+        soggetti,
+        level,
+        duration,
+        force,
+      );
+      const percorso = inOrdineDiPercorso(items, config.mapPath);
+      const tappe = tappeConSoggetti(topicItems, percorso, artworks);
+      if (tappe.length === 0) {
+        console.warn(
+          `[${config.qid}] visita ${level}/${duration}s non creata: nessun item.`,
+        );
+        continue;
+      }
+
+      await populateVisit(
+        level,
+        duration,
+        config.qid,
+        uri,
+        tappe,
+        notes,
+        undefined,
+        SEED_AUTHOR,
+        config.visitImages ? config.visitImages[level] : undefined,
+      );
+      console.log(
+        `[${config.qid}] visita ${level}/${duration}s aggiornata con ${tappe.length} tappe.`,
+      );
+    }
+  }
+
   console.log(
     `=== ${config.name}: ${generati} item generati, ${saltati} gia' presenti, ` +
+      `${falliti} generazioni fallite, ` +
       `in ${fmt((Date.now() - startTime) / 1000)} ===`,
   );
 }
@@ -176,69 +237,106 @@ function piuRicorrente(
   return { name: vincitore, qid: esempio.qid, artwork: esempio.artwork };
 }
 
-async function seedMuseumTopics(config: MuseumConfig, force: boolean) {
-  const uri = museumUri(config.qid);
-  const artworks = await ArtworkModel.find({ ofMuseum: uri });
-  if (artworks.length === 0) return;
+interface MuseumTopic {
+  kind: string;
+  name: string;
+  imagePath: string;
+  kindName: string;
+}
 
-  const soggetti = [
+function museumTopics(
+  config: MuseumConfig,
+  artworks: IArtwork[],
+): MuseumTopic[] {
+  const candidati = [
     { kind: "stile", scelto: piuRicorrente(artworks, (a) => a.style) },
     { kind: "artista", scelto: piuRicorrente(artworks, (a) => a.author) },
   ];
+  const soggetti: MuseumTopic[] = [];
 
-  for (const s of soggetti) {
+  for (const s of candidati) {
     if (!s.scelto) {
       console.log(
         `[${config.qid}] nessun ${s.kind} nel catalogo: soggetto saltato.`,
       );
       continue;
     }
-    const nome = s.scelto.name;
     const immagine =
       s.scelto.artwork.imagePath || s.scelto.artwork.imageUri || "";
     const genere = kindById(s.kind);
     if (!genere) continue;
-
-    for (const level of educationalLevels) {
-      for (const duration of secPerArt) {
-        const id = `${config.qid}-${s.kind}-${SEED_ID_TOKEN}-${level}-${duration}`;
-        const gia = await ItemModel.findOne({ "@id": id });
-        if (gia && !force) continue;
-
-        const text = await createSubjectDescription(
-          nome,
-          genere.name,
-          level,
-          duration,
-        );
-        if (!text || text.trim() === "") {
-          console.warn(
-            `[${config.qid}] soggetto "${nome}" (${level}/${duration}s) NON creato.`,
-          );
-          continue;
-        }
-        await ItemModel.findOneAndUpdate(
-          { "@id": id },
-          {
-            "@id": id,
-            kind: s.kind,
-            subject: nome,
-            imagePath: immagine,
-            ofMuseum: uri,
-            text,
-            timeRequired: `${duration}`,
-            educationalLevel: level,
-            author: SEED_AUTHOR,
-            price: priceForTone(level),
-          },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
-        );
-        console.log(
-          `[${config.qid}] soggetto ${s.kind} "${nome}" ${level}/${duration}s.`,
-        );
-      }
-    }
+    soggetti.push({
+      kind: s.kind,
+      name: s.scelto.name,
+      imagePath: immagine,
+      kindName: genere.name,
+    });
   }
+  return soggetti;
+}
+
+async function seedMuseumTopics(
+  config: MuseumConfig,
+  soggetti: MuseumTopic[],
+  level: string,
+  duration: number,
+  force: boolean,
+): Promise<IItem[]> {
+  const items: IItem[] = [];
+  const righe = soggetti.map((soggetto) => ({
+    soggetto,
+    id: `${config.qid}-${soggetto.kind}-${SEED_ID_TOKEN}-${level}-${duration}`,
+  }));
+  const esistenti = await ItemModel.find({
+    "@id": { $in: righe.map((riga) => riga.id) },
+  });
+  const esistentiPerId = new Map(
+    esistenti.map((item) => [item["@id"], item]),
+  );
+
+  for (const { soggetto, id } of righe) {
+    const gia = esistentiPerId.get(id);
+    if (gia && !force) {
+      items.push(gia);
+      continue;
+    }
+
+    const text = await createSubjectDescription(
+      soggetto.name,
+      soggetto.kindName,
+      level,
+      duration,
+    );
+    if (!text || text.trim() === "") {
+      console.warn(
+        `[${config.qid}] soggetto "${soggetto.name}" (${level}/${duration}s) NON creato.`,
+      );
+      if (gia) items.push(gia);
+      continue;
+    }
+
+    const item = await ItemModel.findOneAndUpdate(
+      { "@id": id },
+      {
+        "@id": id,
+        kind: soggetto.kind,
+        subject: soggetto.name,
+        imagePath: soggetto.imagePath,
+        ofMuseum: museumUri(config.qid),
+        text,
+        timeRequired: `${duration}`,
+        educationalLevel: level,
+        author: SEED_AUTHOR,
+        price: priceForTone(level),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    items.push(item);
+    console.log(
+      `[${config.qid}] soggetto ${soggetto.kind} "${soggetto.name}" ${level}/${duration}s.`,
+    );
+  }
+  return items;
 }
 
 function inOrdineDiPercorso<T extends { about?: string }>(
@@ -253,134 +351,40 @@ function inOrdineDiPercorso<T extends { about?: string }>(
   return sortByFlow(conQid, mapPath).map((riga) => riga.item);
 }
 
-async function seedMuseumVisits(config: MuseumConfig) {
-  const uri = museumUri(config.qid);
-  const aboutIds = config.activeArtworks.map(museumUri);
-  const notes = openingNotes(config);
+function tappeConSoggetti(
+  soggetti: IItem[],
+  percorso: IItem[],
+  artworks: IArtwork[],
+): string[] {
+  const operePerId = new Map(artworks.map((opera) => [opera["@id"], opera]));
+  const daCollocare = new Set(soggetti.map((item) => item["@id"]));
+  const tappe: string[] = [];
 
-  for (const level of educationalLevels) {
-    for (const duration of secPerArt) {
-      const items = await ItemModel.find({
-        timeRequired: `${duration}`,
-        educationalLevel: level,
-        about: { $in: aboutIds },
-      });
-      if (items.length === 0) continue;
-      const percorso = inOrdineDiPercorso(items, config.mapPath);
-
-      const soggetti = await ItemModel.find({
-        timeRequired: `${duration}`,
-        educationalLevel: level,
-        ofMuseum: uri,
-        kind: { $ne: "opera" },
-        author: SEED_AUTHOR,
-      });
-
-      const tappe = [
-        ...soggetti.map((item: any) => item["@id"]),
-        ...percorso.map((item) => item["@id"]),
-      ];
-      await populateVisit(
-        level,
-        duration,
-        config.qid,
-        uri,
-        tappe,
-        notes,
-        undefined,
-        SEED_AUTHOR,
-        config.visitImages ? config.visitImages[level] : undefined,
-      );
+  for (const item of percorso) {
+    const opera = operePerId.get(item.about || "");
+    if (opera) {
+      for (const soggetto of soggetti) {
+        if (!daCollocare.has(soggetto["@id"])) continue;
+        const nome = soggetto.subject || "";
+        const corrisponde =
+          (soggetto.kind === "artista" && opera.author?.name === nome) ||
+          (soggetto.kind === "stile" && opera.style?.name === nome);
+        if (!corrisponde) continue;
+        tappe.push(soggetto["@id"]);
+        daCollocare.delete(soggetto["@id"]);
+      }
     }
+    tappe.push(item["@id"]);
   }
-  console.log(`[${config.qid}] visite di catalogo aggiornate.`);
-}
 
-// ============================================================================
-
-const PAROLA_CHIAVE_GUIDATA = "Fenice rossa";
-const DOCENTE = "docente1";
-const STUDENTI = ["studente1", "studente2", "studente3"];
-
-function parolaChiave(config: MuseumConfig): string {
-  return `${PAROLA_CHIAVE_GUIDATA} ${config.qid}`;
-}
-
-async function seedSpecialVisits(config: MuseumConfig) {
-  const uri = museumUri(config.qid);
-  const aboutIds = config.activeArtworks.map(museumUri);
-
-  const level = educationalLevels[0];
-  const duration = secPerArt[0];
-  const items = await ItemModel.find({
-    timeRequired: `${duration}`,
-    educationalLevel: `${level}`,
-    about: { $in: aboutIds },
-  });
-  if (items.length === 0) {
-    console.log(
-      `Nessun item per ${config.qid} (${level}/${duration}s): semina prima il museo.`,
+  for (const soggetto of soggetti) {
+    if (!daCollocare.has(soggetto["@id"])) continue;
+    console.warn(
+      `[seed] soggetto "${soggetto.subject || soggetto.kind}" escluso dalla visita: ` +
+        `nessuna opera corrispondente nel percorso.`,
     );
-    return;
   }
-  const itemIds = inOrdineDiPercorso(items, config.mapPath).map((it) => it["@id"]);
-  const durataTotale = duration * itemIds.length;
-  const notes = openingNotes(config);
-
-  const opereDellaVisita = await ArtworkModel.find({
-    "@id": { $in: items.map((it: any) => it.about) },
-  });
-  const quiz = costruisciQuiz(opereDellaVisita);
-
-  const visitaGuidata = {
-    "@id": `visit-guidata-${config.qid}`,
-    name: "Visita guidata del docente",
-    level: `${level}`,
-    duration: durataTotale,
-    author: DOCENTE,
-    accessKey: parolaChiave(config),
-    ofMuseum: uri,
-    itemListElement: itemIds,
-    logistics: notes,
-    quiz,
-  };
-
-  await VisitModel.deleteMany({
-    "@id": { $in: [`visit-opzionali-${config.qid}`, visitaGuidata["@id"]] },
-  });
-  await VisitModel.create(visitaGuidata);
-  console.log(
-    `${config.name}: "${visitaGuidata.name}" ` +
-      `(parola chiave: «${visitaGuidata.accessKey}», quiz di ${quiz.length} domande).`,
-  );
-}
-
-async function seedDemoAccounts() {
-  const account: { username: string; role: "autore" | "visitatore" }[] = [
-    { username: DOCENTE, role: "autore" },
-    ...STUDENTI.map((username) => ({
-      username,
-      role: "visitatore" as const,
-    })),
-  ];
-  for (const a of account) {
-    const onInsert: any =
-      a.role === "visitatore"
-        ? { wallet: 100, collezione: [] }
-        : { collezione: [] };
-    await UserModel.updateOne(
-      { username: a.username, role: a.role },
-      {
-        $set: { password: "12345678" },
-        $setOnInsert: onInsert,
-      },
-      { upsert: true },
-    );
-    console.log(`  account pronto: ${a.username} (${a.role})`);
-  }
-  console.log(
-    `Docente: ${DOCENTE} · studenti: ${STUDENTI.join(", ")} (password "12345678").`,
-  );
+  return tappe;
 }
 
 // ============================================================================
@@ -392,9 +396,7 @@ function elenca(configs: MuseumConfig[]) {
       `  ${c.qid.padEnd(10)} ${c.name.padEnd(32)} ${String(c.activeArtworks.length).padStart(4)} opere  ${c.mapPath}`,
     );
   }
-  console.log(
-    "\nUso: npx ts-node src/scripts/seed.ts <qid|tutti|speciali> [--force]",
-  );
+  console.log("\nUso: npx ts-node src/scripts/seed.ts <qid|tutti> [--force]");
 }
 
 async function main() {
@@ -417,9 +419,6 @@ async function main() {
   try {
     if (comando === "tutti") {
       for (const config of configs) await seedMuseum(config, force);
-    } else if (comando === "speciali") {
-      await seedDemoAccounts();
-      for (const config of configs) await seedSpecialVisits(config);
     } else {
       const config = findMuseumConfig(comando);
       if (!config) {

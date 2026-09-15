@@ -138,10 +138,15 @@ const uploadImmagine = multer({
 
 /**
  * POST /api/items/image (multipart, campo `immagine`)
- * Ritorna: { path }, da rimandare in `immagine` quando si pubblica il contenuto.
+ * Solo autore. Ritorna: { path }, da rimandare in `immagine` quando si pubblica
+ * il contenuto.
  */
 router.post("/image", uploadImmagine.single("immagine"), async (req, res) => {
   try {
+    if (sessionUser(req).role !== "autore")
+      return res
+        .status(403)
+        .json({ error: "Solo gli autori possono caricare immagini." });
     if (!req.file) return res.status(400).json({ error: "Nessuna immagine ricevuta." });
     const estensione = FORMATI[req.file.mimetype];
     if (!estensione)

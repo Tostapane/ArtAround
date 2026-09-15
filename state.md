@@ -1,6 +1,6 @@
 # ArtAround: stato corrente del progetto
 
-Aggiornato al 12 settembre 2026. Questo è il riferimento unico per capire il
+Aggiornato al 14 settembre 2026. Questo è il riferimento unico per capire il
 progetto e riprendere il lavoro. Descrive il sistema presente nel repository,
 non la cronologia delle modifiche.
 
@@ -136,13 +136,13 @@ tutti i ruoli perché `Item.author` e `Visit.author` contengono il solo nome.
 - L'autore pubblica descrizioni e visite e consulta vendite e ricavi; non ha un
   portafoglio per comprare.
 - Il curatore amministra opere e contenuti del museo; non si auto-registra.
-- `seedUsers.ts` prepara i quattro account richiesti dalle slide:
-  `autore1`, `autore2`, `visitatore1`, `visitatore2`.
-- `seed.ts speciali` aggiunge `docente1` e `studente1..3` per la dimostrazione
-  guidata.
+- `seedUsers.ts` prepara cinque account dimostrativi: `autore1`, `autore2`,
+  `visitatore1`, `visitatore2` e `curatore`.
 
-Le password sono memorizzate in chiaro: è un limite deliberato del prototipo,
-non un modello da riutilizzare in produzione.
+Le password sono memorizzate come record scrypt autocontenuti con `N=16384`,
+`r=8`, `p=1`, salt casuale da 16 byte e hash da 32 byte; `maxmem` è 32 MiB.
+Registrazione, seed e collaudi producono lo stesso formato e il login confronta
+gli hash in tempo costante. Non esiste compatibilità con vecchie password in chiaro.
 
 ### Entità persistite
 
@@ -162,9 +162,11 @@ calcolati per l'utente che chiede e non sono salvati in Mongo.
 
 ### Accesso, acquisti e cancellazioni
 
-`shared/access.ts` contiene la regola comune: un item è leggibile se è gratuito,
-proprio o posseduto. L'identità arriva esclusivamente dalla sessione, mai da un
-nome inviato dal client.
+`shared/access.ts` contiene la regola comune: un item pubblico è leggibile se è
+gratuito, proprio o posseduto; un item privato è leggibile soltanto dal suo autore.
+La sessione guidata è l'unica eccezione e consegna le proprie tappe solo al docente
+e ai partecipanti. L'identità arriva esclusivamente dalla sessione, mai da un nome
+inviato dal client.
 
 - Comprare una visita acquista in un'unica transazione tutti gli item mancanti.
 - Ogni autore riceve il ricavo dei propri contenuti; credito insufficiente non
@@ -202,7 +204,7 @@ Configurazioni presenti nel repository:
 | Museo | QID | Opere configurate | Piani |
 | --- | --- | ---: | ---: |
 | British Museum | Q6373 | 20 | 2 |
-| Galleria degli Uffizi | Q51252 | 129 | 3 |
+| Galleria degli Uffizi | Q51252 | 133 | 3 |
 | Metropolitan Museum of Art | Q160236 | 50 | 2 |
 | Museo del Louvre | Q19675 | 25 | 3 |
 
@@ -218,6 +220,14 @@ Il parser `server/src/services/svgGraph.ts` interpreta:
 - `data-width-m` sulla radice per convertire unità SVG in metri.
 - `data-north-angle` facoltativo sulla radice per orientare GPS e bussola nelle
   piante che non hanno il nord verso l'alto.
+
+La pianta degli Uffizi distribuisce le 133 opere in 3 al piano terra, 65 al
+primo piano e 65 al secondo. Le prime tre tappe sono gli affreschi di Andrea del
+Castagno in San Pier Scheraggio; la Collezione Contini Bonacossi raccoglie sei
+opere. Al secondo piano soltanto la Tribuna e la sala A37 della scultura hanno
+un'unica opera; A36-A37 riunisce iscrizioni e marmi antichi. Le altre sale
+espositive annotate contengono almeno due nodi, mentre corridoi, scale, atri,
+terrazza, vestiboli e passaggi di collegamento restano intenzionalmente senza opere.
 
 Le porte sono rappresentate soltanto dal varco fra due segmenti di muro. Il
 relativo `data-edge`, invisibile nell'interfaccia, attraversa il varco e collega
@@ -308,15 +318,22 @@ Il file pubblico può cambiare museo senza ricompilare il navigator.
 - Su telefono una barra permette di passare fra mappa, elenco, opera e domande.
 - Le quattro aree usano accenti funzionali distinti: petrolio per la mappa,
   ametista per l'elenco, ottone per l'opera e salvia per le domande.
-- Più descrizioni ancorate alla stessa opera condividono il nodo: il cerchio
+- Più descrizioni associate alla stessa opera condividono il nodo: il cerchio
   mostra il primo numero seguito da `+`, mentre il nome accessibile conserva
-  l'elenco completo delle tappe.
+  l'elenco completo delle tappe. Il seed colloca un contenuto generale subito
+  prima della prima opera del percorso che ha davvero quell'artista o stile;
+  il navigator può quindi usare l'opera seguente come riferimento visivo senza
+  attribuire il contenuto a un nodo estraneo.
 - Quando la mappa torna visibile su telefono, il piano attivo viene nuovamente
   inquadrato; il pannello "Dove sono?" dispone i quattro metodi su due colonne
   e resta contenuto nell'altezza dello schermo.
 - La mappa usa lo scorrimento nativo del browser e tre ingrandimenti fissi
   controllati dai pulsanti `+`/`−`. Il livello minimo mostra il piano completo;
   cambiando livello resta al centro lo stesso punto della pianta.
+- La stanza del nodo corrente usa lo stesso colore di posizione mescolato al 32%,
+  applicato come semplice riempimento senza transizioni, ombre o filtri aggiuntivi.
+- Le cinque tinte di base raggruppano sale contigue per tema, ala o sequenza;
+  corridoi, atrii e servizi restano neutri e separano visivamente le zone.
 - La pianta degli Uffizi ha coordinate verticali native; le altre piante restano
   orizzontali per consentire il confronto fra le due impostazioni.
 - Il selettore nativo del piano e "Dove sono?" compaiono soltanto sulla mappa.
@@ -515,19 +532,17 @@ npx ts-node src/scripts/seed.ts
 npx ts-node src/scripts/seed.ts <QID>
 npx ts-node src/scripts/seed.ts <QID> --force
 npx ts-node src/scripts/seed.ts tutti
-npx ts-node src/scripts/seed.ts speciali
 ```
 
 Senza argomenti elenca le configurazioni. Il seed di un museo è additivo e
 riprendibile: non cancella gli altri musei e riusa opere e item già presenti.
 La griglia standard è quattro toni per cinque durate, quindi venti item per
-opera e fino a venti visite di catalogo per museo. Le durate sono 15, 30, 60,
-120 e 180 secondi.
-
-`speciali` crea una visita guidata per ogni museo, con parola chiave che include
-il QID per evitare collisioni, quiz generato dalle opere reali e account docente
-e studenti. I quattro account ordinari richiesti dalla consegna vengono gestiti
-anche da `seedUsers.ts`.
+opera e fino a venti visite di catalogo per museo. Il seed completa tutti gli
+item di una combinazione, li ordina secondo la pianta e crea subito la relativa
+visita prima di passare alla combinazione successiva. Le durate sono 15, 30, 60,
+120 e 180 secondi. Le visite guidate e i loro quiz vengono creati manualmente;
+il seed non prepara visite, docenti o studenti dimostrativi. I quattro account
+ordinari e il curatore dimostrativo vengono gestiti da `seedUsers.ts`.
 
 Un'opera Wikidata senza immagine P18 viene saltata. Il completamento del seed
 non va dedotto dal numero di QID nel JSON: va misurato sul database.
@@ -696,7 +711,7 @@ Risultati di questa revisione:
   `Missing`;
 - `git diff --check`: passato;
 - `README.txt`: non modificato;
-- nessuna suite automatica di test applicativi è presente.
+- la suite browser locale in `testers/` è predisposta ma, su richiesta, non è stata eseguita.
 
 ## Missing
 
@@ -704,7 +719,7 @@ Risultati di questa revisione:
    interrogare Mongo. Nel container che lo raggiunge vanno eseguiti `testers.ts
    stato`, `griglia`, `account` e i riallineamenti indicati sopra; vanno poi
    controllati quantità di opere/item/visite, tre visite da almeno dieci opere
-   nello stesso museo, quattro account richiesti, visite guidate e quiz.
+   nello stesso museo, cinque account dimostrativi, visite guidate e quiz.
 
 2. **Prova completa su dispositivi reali.** Restano da verificare due browser
    simultanei per docente/studente, presenza e domande, quiz, chiusura prevista,
@@ -736,10 +751,10 @@ Risultati di questa revisione:
    ricevere cache lunga, ma `config.json` deve restare ricontrollabile; marketplace
    e file senza hash non vanno marcati immutabili.
 
-7. **Verifica applicativa automatica.** Le build, il type-check, il controllo
-   delle mappe e quello dei cataloghi non coprono router Alpine, autorizzazioni,
-   acquisti atomici, cascate di cancellazione, hard reload e flussi browser.
-   Servono almeno test di integrazione API e pochi percorsi end-to-end critici.
+7. **Copertura applicativa incompleta.** La suite browser locale copre sessioni,
+   handoff, caricamento di museo, mappa e catalogo e segnala le API Web disponibili.
+   Restano fuori router Alpine, autorizzazioni complete, acquisti atomici, cascate
+   di cancellazione, hard reload e percorsi end-to-end con hardware reale.
 
 8. **Baseline ESLint.** `npx eslint . --no-cache` nel navigator segnala otto usi
    di `any` in `api.ts`, due nelle viste delle sessioni di `guided.ts` e nove nomi
@@ -748,10 +763,10 @@ Risultati di questa revisione:
    diretto è pulito. Va deciso se tipizzare/rinominare o configurare eccezioni
    esplicite, poi rendere coerenti i due lint.
 
-9. **Debito di sicurezza del prototipo.** Password e credenziali del database
-   non sono gestite come in produzione. Prima di riusare il sistema fuori dalla
-   consegna vanno introdotti hash delle password, segreti esterni al repository,
-   rotazione delle credenziali e limiti alle richieste.
+9. **Debito di sicurezza del prototipo.** Le password usano scrypt, ma credenziali
+   del database, rotazione dei segreti e limiti alle richieste non sono gestiti
+   come in produzione. Vanno affrontati prima di riusare il sistema fuori dalla
+   consegna.
 
 10. **Documentazione immutabile o storica.** `README.txt` non va toccato, ma
    descrive ancora l'avvio del server sorgente con `ts-node`; il codice corrente

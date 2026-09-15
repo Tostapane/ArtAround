@@ -1,5 +1,5 @@
 <svg viewBox="0 -840 1300 1660" xmlns="http://www.w3.org/2000/svg" class="museum-map" data-width-m="250">
-  <!-- Pianta del Metropolitan su due piani. Il parser legge data-room, data-qid, data-poi, data-obstacle, data-edge, data-floor e data-width-m. Non trasformare gli elementi data-*; i nomi delle sale sono unici e gli archi fra piani restano fuori dai gruppi. -->
+  <!-- Pianta del Metropolitan su due piani. Il parser legge data-room, data-qid, data-poi, data-obstacle, data-edge, data-floor e data-width-m. Non trasformare gli elementi data-*; i nomi delle sale sono unici, le tinte raggruppano fasce e ali contigue e gli archi fra piani restano fuori dai gruppi. -->
 
   <style>
     /* Token del tema; :where() lascia prevalere gli stati runtime. */
@@ -156,15 +156,15 @@
     <g pointer-events="none">
       <rect class="sala sala-atrio" data-room="Balconata della Great Hall" data-flow="14" x="1000" y="-540" width="250" height="260" />
       <rect class="sala t-notte" data-room="Ala americana - pittura" data-flow="18" x="50" y="-800" width="350" height="260" />
-      <rect class="sala t-verderame" data-room="Stampe, disegni e fotografie" data-flow="17" x="400" y="-800" width="300" height="260" />
-      <rect class="sala t-ottone" data-room="Arte asiatica - Cina" data-flow="16" x="700" y="-800" width="300" height="260" />
-      <rect class="sala t-salvia" data-room="Arte asiatica - Giappone" data-flow="15" x="1000" y="-800" width="250" height="260" />
-      <rect class="sala t-ardesia" data-room="Pittura europea 1250-1600" data-flow="19" x="50" y="-540" width="300" height="260" />
-      <rect class="sala t-notte" data-room="Pittura europea 1600-1800" data-flow="20" x="350" y="-540" width="350" height="260" />
-      <rect class="sala t-verderame" data-room="Pittura europea 1800-1900" data-flow="21" x="700" y="-540" width="300" height="260" />
-      <rect class="sala t-ottone" data-room="Sale degli strumenti musicali" data-flow="24" x="50" y="-280" width="350" height="180" />
+      <rect class="sala t-notte" data-room="Stampe, disegni e fotografie" data-flow="17" x="400" y="-800" width="300" height="260" />
+      <rect class="sala t-verderame" data-room="Arte asiatica - Cina" data-flow="16" x="700" y="-800" width="300" height="260" />
+      <rect class="sala t-verderame" data-room="Arte asiatica - Giappone" data-flow="15" x="1000" y="-800" width="250" height="260" />
+      <rect class="sala t-ottone" data-room="Pittura europea 1250-1600" data-flow="19" x="50" y="-540" width="300" height="260" />
+      <rect class="sala t-ottone" data-room="Pittura europea 1600-1800" data-flow="20" x="350" y="-540" width="350" height="260" />
+      <rect class="sala t-ottone" data-room="Pittura europea 1800-1900" data-flow="21" x="700" y="-540" width="300" height="260" />
+      <rect class="sala t-salvia" data-room="Sale degli strumenti musicali" data-flow="24" x="50" y="-280" width="350" height="180" />
       <rect class="sala t-salvia" data-room="Arte islamica" data-flow="23" x="400" y="-280" width="300" height="180" />
-      <rect class="sala t-ardesia" data-room="Arte moderna e contemporanea" data-flow="22" x="700" y="-280" width="300" height="180" />
+      <rect class="sala t-salvia" data-room="Arte moderna e contemporanea" data-flow="22" x="700" y="-280" width="300" height="180" />
       <rect class="sala sala-atrio" data-room="Scalone Superiore" data-flow="13" x="1000" y="-280" width="250" height="180" />
     </g>
     <polygon points="50,-800 1250,-800 1250,-100 50,-100" fill="url(#met-griglia)" pointer-events="none" />
@@ -296,7 +296,7 @@
       <!-- Stampe, disegni e fotografie -->
       <circle id="art-42" class="interactive-node" data-qid="Q1362177" data-label="Melencolia I" cx="534" cy="-676" r="10" />
       <circle id="art-26" class="interactive-node" data-qid="Q1755464" data-label="Il cavaliere, la morte e il diavolo" cx="566" cy="-676" r="10" />
-      <circle id="art-45" class="interactive-node" data-qid="Q671237" data-label="Il sonno della ragione genera mostri" cx="550" cy="-644" r="10" />
+      <circle id="art-45" class="interactive-node" data-qid="Q3898508" data-label="Adamo ed Eva" cx="550" cy="-644" r="10" />
       <!-- Arte asiatica - Cina -->
       <circle id="art-37" class="interactive-node" data-qid="Q28092249" data-label="Cavallo bianco che brilla nella notte" cx="850" cy="-655" r="10" />
       <!-- Arte asiatica - Giappone -->
@@ -319,9 +319,9 @@
       <circle id="art-30" class="interactive-node" data-qid="Q4717953" data-label="Ritratto di Juan de Pareja" cx="573" cy="-400" r="10" />
       <circle id="art-4" class="interactive-node" data-qid="Q3035829" data-label="Don Manuel Osorio de Zuniga" cx="493" cy="-368" r="10" />
       <circle id="art-41" class="interactive-node" data-qid="Q1752990" data-label="La morte di Socrate" cx="525" cy="-368" r="10" />
-      <circle id="art-10" class="interactive-node" data-qid="Q2324840" data-label="L'Antico dei Giorni" cx="557" cy="-368" r="10" />
+      <circle id="art-10" class="interactive-node" data-qid="Q613928" data-label="Ritratto di Antoine-Laurent Lavoisier e sua moglie" cx="557" cy="-368" r="10" />
       <!-- Pittura europea 1800-1900 -->
-      <circle id="art-11" class="interactive-node" data-qid="Q152509" data-label="Colazione sull'erba" cx="802" cy="-432" r="10" />
+      <circle id="art-11" class="interactive-node" data-qid="Q2664039" data-label="Madame X" cx="802" cy="-432" r="10" />
       <circle id="art-36" class="interactive-node" data-qid="Q2024709" data-label="Il chitarrista spagnolo" cx="834" cy="-432" r="10" />
       <circle id="art-15" class="interactive-node" data-qid="Q734082" data-label="Regata a Sainte-Adresse" cx="866" cy="-432" r="10" />
       <circle id="art-19" class="interactive-node" data-qid="Q432253" data-label="La terrazza a Sainte-Adresse" cx="898" cy="-432" r="10" />
@@ -372,10 +372,10 @@
       <rect class="sala t-verderame" data-room="Armi e armature" data-flow="4" x="400" y="40" width="300" height="220" />
       <rect class="sala t-ottone" data-room="Ala egizia - Tempio di Dendur" data-flow="3" x="700" y="40" width="300" height="220" />
       <rect class="sala t-salvia" data-room="Sale medievali" data-flow="2" x="1000" y="40" width="250" height="220" />
-      <rect class="sala t-ardesia" data-room="Arti dell'Africa e delle Americhe" data-flow="6" x="50" y="260" width="300" height="260" />
+      <rect class="sala t-notte" data-room="Arti dell'Africa e delle Americhe" data-flow="6" x="50" y="260" width="300" height="260" />
       <rect class="sala sala-atrio" data-room="Cortile delle sculture europee" data-flow="9" x="350" y="260" width="350" height="260" />
-      <rect class="sala t-notte" data-room="Sale greche e romane" data-flow="10" x="700" y="260" width="300" height="260" />
-      <rect class="sala t-verderame" data-room="Ala Robert Lehman" data-flow="7" x="50" y="520" width="350" height="220" />
+      <rect class="sala t-ottone" data-room="Sale greche e romane" data-flow="10" x="700" y="260" width="300" height="260" />
+      <rect class="sala t-notte" data-room="Ala Robert Lehman" data-flow="7" x="50" y="520" width="350" height="220" />
       <rect class="sala sala-servizio" data-room="Caffetteria e bookshop" data-flow="8" x="400" y="520" width="300" height="220" />
       <rect class="sala t-ottone" data-room="Sale del Vicino Oriente antico" data-flow="11" x="700" y="520" width="300" height="220" />
       <rect class="sala sala-atrio" data-room="Scalone Principale" data-flow="12" x="1000" y="520" width="250" height="220" />
@@ -504,20 +504,20 @@
       <rect id="art-32" class="interactive-node" data-qid="Q7818635" data-label="Tomba di Perneb" x="824" y="155" width="20" height="20" rx="3" />
       <rect id="art-38" class="interactive-node" data-qid="Q845853" data-label="Stele di Metternich" x="856" y="155" width="20" height="20" rx="3" />
       <!-- Sale medievali -->
-      <rect id="art-3" class="interactive-node" data-qid="Q1603141" data-label="Elmo di Sutton Hoo" x="1099" y="150" width="20" height="20" rx="3" />
-      <rect id="art-9" class="interactive-node" data-qid="Q217796" data-label="Scacchi di Lewis" x="1131" y="150" width="20" height="20" rx="3" />
+      <rect id="art-3" class="interactive-node" data-qid="Q27033728" data-label="Madonna in trono col Bambino e santi" x="1099" y="150" width="20" height="20" rx="3" />
+      <rect id="art-9" class="interactive-node" data-qid="Q574004" data-label="Crocifissione e Giudizio universale" x="1131" y="150" width="20" height="20" rx="3" />
       <!-- Arti dell'Africa e delle Americhe -->
-      <rect id="art-8" class="interactive-node" data-qid="Q248101" data-label="Bronzi del Benin" x="190" y="390" width="20" height="20" rx="3" />
+      <rect id="art-8" class="interactive-node" data-qid="Q52624955" data-label="Labret a serpente con lingua articolata" x="190" y="390" width="20" height="20" rx="3" />
       <!-- Cortile delle sculture europee -->
-      <rect id="art-24" class="interactive-node" data-qid="Q2734209" data-label="Piccola danzatrice di quattordici anni" x="515" y="390" width="20" height="20" rx="3" />
+      <rect id="art-24" class="interactive-node" data-qid="Q4656688" data-label="Fauno molestato da bambini" x="515" y="390" width="20" height="20" rx="3" />
       <!-- Sale greche e romane -->
-      <rect id="art-2" class="interactive-node" data-qid="Q606662" data-label="Marmi del Partenone" x="824" y="390" width="20" height="20" rx="3" />
-      <rect id="art-6" class="interactive-node" data-qid="Q609292" data-label="Vaso Portland" x="856" y="390" width="20" height="20" rx="3" />
+      <rect id="art-2" class="interactive-node" data-qid="Q2957596" data-label="Carro di Monteleone" x="824" y="390" width="20" height="20" rx="3" />
+      <rect id="art-6" class="interactive-node" data-qid="Q28810545" data-label="Kouros di New York" x="856" y="390" width="20" height="20" rx="3" />
       <!-- Ala Robert Lehman -->
       <circle id="art-5" class="interactive-node" data-qid="Q19912235" data-label="Cristo che porta la croce" cx="225" cy="620" r="10" />
       <!-- Sale del Vicino Oriente antico -->
-      <rect id="art-13" class="interactive-node" data-qid="Q1246609" data-label="Tesoro dell'Oxus" x="824" y="610" width="20" height="20" rx="3" />
-      <rect id="art-44" class="interactive-node" data-qid="Q4115387" data-label="Tesoro di Creso" x="856" y="610" width="20" height="20" rx="3" />
+      <rect id="art-13" class="interactive-node" data-qid="Q29384443" data-label="Rilievo ortostatico con caccia al leone" x="824" y="610" width="20" height="20" rx="3" />
+      <rect id="art-44" class="interactive-node" data-qid="Q29384425" data-label="Divinità in trono" x="856" y="610" width="20" height="20" rx="3" />
     </g>
     <g class="servizi">
       <rect class="poi-node nodo-servizio" data-poi="entrance" data-label="Ingresso della Quinta Strada" x="1191" y="331" width="18" height="18" rx="5"><title>Ingresso della Quinta Strada</title></rect>
