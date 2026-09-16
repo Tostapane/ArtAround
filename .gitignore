@@ -43,3 +43,6 @@ CLAUDE.md
 
 # istantanea dei sorgenti, ricostruita da deploy-build.js a ogni build
 /sources/
+
+# archivio Mongo autosufficiente prodotto per il trasferimento al dipartimento
+/import-db.js
