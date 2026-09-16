@@ -47,7 +47,7 @@ servizi esterni.
 | --- | --- | --- |
 | Visita condotta dal docente | Coperto | `guided.ts`, `GuidedGate.vue`, `guidedSessions.ts` |
 | Accesso con parola chiave | Coperto | `Visit.accessKey`, rotta `/join` |
-| Contenuti privati della visita | Coperto | endpoint `/guided-sessions/:id/items` |
+| Contenuti privati della visita | Coperto | endpoint `/guided-sessions/:id/content` |
 | Presenza degli studenti | Coperto | long poll a 10 s, online e primo piano mantenuti per studente |
 | Domande degli studenti al docente | Coperto | cronologia della sessione con autore, opera e orario |
 | Quiz e voto | Coperto | soluzioni e correzione sul server, una consegna |
@@ -429,6 +429,8 @@ sincronizzazione ferma invece la lettura manuale.
 
 Durante la preparazione della prima tappa il comando del docente è disabilitato
 e mostra "Avvio in corso…", così una seconda pressione non duplica la richiesta.
+Nei cambi tappa il pulsante precedente o successivo premuto mostra
+"Caricamento…", si schiarisce e resta disabilitato finché l'audio è pronto.
 
 Per ogni cambio tappa il server recupera il testo dell'item e completa Google
 TTS prima di aggiornare la revisione e risvegliare gli studenti. La risposta

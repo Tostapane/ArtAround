@@ -3,15 +3,13 @@
  * polling leggero; lo studente mantiene una richiesta in attesa dei cambiamenti.
  */
 import { ref, watch } from "vue";
-import type { Visit } from "../../shared/types";
 import { buildStops, loadMuseum, setCustomVisit, clearVisit } from "./state";
 import {
-  getVisit,
   createGuidedSession,
   getGuidedTeacherView,
   getGuidedStudentState,
   waitForGuidedState,
-  getGuidedItems,
+  getGuidedContent,
   postGuidedStart,
   postGuidedStep,
   postGuidedEnd,
@@ -151,10 +149,11 @@ function applyStato(stato: Stato) {
   guidedStato.value = stato;
 }
 
-async function ensureContent(visitId: string) {
+async function ensureContent() {
   if (contentLoaded) return;
-  const currentVisit: Visit = await getVisit(visitId);
-  const items = await getGuidedItems(guidedSessionId.value);
+  const { visit: currentVisit, items } = await getGuidedContent(
+    guidedSessionId.value,
+  );
   if (currentVisit.ofMuseum)
     await loadMuseum(qidFromUri(currentVisit.ofMuseum));
   setCustomVisit(currentVisit, buildStops(items));
@@ -258,7 +257,7 @@ export async function startAsTeacher(visitId: string) {
   guidedError.value = "";
   const view = await createGuidedSession(visitId);
   applyTeacherView(view);
-  await ensureContent(visitId);
+  await ensureContent();
   startPolling();
 }
 
@@ -268,7 +267,7 @@ export async function attachAsStudent(sessionId: string) {
   guidedSessionId.value = sessionId;
   const state = await getGuidedStudentState(sessionId);
   applyStudentState(state);
-  await ensureContent(state.visitId);
+  await ensureContent();
   startPolling();
 }
 

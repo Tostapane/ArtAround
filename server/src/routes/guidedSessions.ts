@@ -616,10 +616,10 @@ router.post("/:id/wait", (req, res) => {
 });
 
 /**
- * GET /api/guided-sessions/:id/items
- * Ritorna: le tappe ordinate con l'opera popolata. Solo docente e partecipanti.
+ * GET /api/guided-sessions/:id/content
+ * Ritorna: visita senza quiz e tappe ordinate. Solo docente e partecipanti.
  */
-router.get("/:id/items", async (req, res) => {
+router.get("/:id/content", async (req, res) => {
   try {
     const s = sessions.get(req.params.id);
     if (!s)
@@ -629,7 +629,7 @@ router.get("/:id/items", async (req, res) => {
     if (!allowed)
       return res.status(403).json({ error: "Non partecipi a questa visita guidata" });
 
-    const visit = await VisitModel.findOne({ "@id": s.visitId });
+    const visit = await VisitModel.findOne({ "@id": s.visitId }).select("-quiz");
     if (!visit) return res.status(404).json({ error: "Visita non trovata" });
 
     const ids = visit.itemListElement || [];
@@ -644,7 +644,7 @@ router.get("/:id/items", async (req, res) => {
       .lean();
     const byId = new Map(items.map((it: any) => [it["@id"], it]));
     const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
-    res.json(ordered);
+    res.json({ visit, items: ordered });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Errore caricamento contenuti" });
   }

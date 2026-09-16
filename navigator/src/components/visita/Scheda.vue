@@ -22,6 +22,7 @@ const props = defineProps<{
   optional: boolean;
   hasPrev: boolean;
   hasNext: boolean;
+  navigationLoading: "" | "prev" | "next";
   canEnd: boolean;
   canStartQuiz: boolean;
   numero: number;
@@ -37,7 +38,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  navigation: [value: string];
+  navigation: [value: "prev" | "next"];
   action: [value: string];
   section: [value: "opera" | "domande"];
   closeRequest: [];
@@ -196,13 +197,16 @@ const stile = computed(() => {
         v-if="!guidedStudent"
         type="button"
         class="btn-secondario"
-        :disabled="!hasPrev"
+        :class="navigationLoading === 'prev' ? 'disabled:opacity-70' : ''"
+        :disabled="!hasPrev || navigationLoading !== ''"
+        :aria-busy="navigationLoading === 'prev'"
+        :aria-label="navigationLoading === 'prev' ? t('Caricamento…') : t(labelForCommand('Precedente'))"
         @click="emit('navigation', 'prev')"
       >
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <span v-if="navigationLoading === 'prev'">{{ t("Caricamento…") }}</span>
+        <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19 8 12l7-7" />
         </svg>
-        <span class="sr-only">{{ t(labelForCommand("Precedente")) }}</span>
       </button>
 
       <button
@@ -239,14 +243,17 @@ const stile = computed(() => {
         v-if="!guidedStudent && !canEnd && !canStartQuiz"
         type="button"
         class="btn-primario"
-        :disabled="!hasNext"
-        :aria-label="nextLabel"
+        :class="navigationLoading === 'next' ? 'disabled:opacity-70' : ''"
+        :disabled="!hasNext || navigationLoading !== ''"
+        :aria-busy="navigationLoading === 'next'"
+        :aria-label="navigationLoading === 'next' ? t('Caricamento…') : nextLabel"
         @click="emit('navigation', 'next')"
       >
-        <span class="hidden sm:inline lg:hidden xl:inline">
+        <span v-if="navigationLoading === 'next'">{{ t("Caricamento…") }}</span>
+        <span v-else class="hidden sm:inline lg:hidden xl:inline">
           {{ guidedTeacher ? t("Tutti avanti") : t(labelForCommand("Prossimo")) }}
         </span>
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <svg v-if="navigationLoading !== 'next'" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
         </svg>
       </button>

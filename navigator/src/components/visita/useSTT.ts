@@ -41,7 +41,7 @@ export const startRecording = async () => {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !AudioContextClass) {
     errorMsg.value = t(
-      "Il comando vocale non è disponibile ora. Usa i pulsanti qui sopra.",
+      "Il comando vocale non è disponibile ora. Usa i pulsanti.",
     );
     return;
   }

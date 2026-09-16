@@ -77,7 +77,7 @@ watch(finalBlob, async (blob) => {
     }
   } catch {
 
-    riferisci(t("Il comando vocale non è disponibile ora. Usa i pulsanti qui sopra."));
+    riferisci(t("Il comando vocale non è disponibile ora. Usa i pulsanti."));
   } finally {
     processing.value = false;
   }

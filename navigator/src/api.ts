@@ -263,8 +263,10 @@ export async function waitForGuidedState(
   return res.json();
 }
 
-export async function getGuidedItems(id: string): Promise<Item[]> {
-  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/items`);
+export async function getGuidedContent(
+  id: string,
+): Promise<{ visit: Visit; items: Item[] }> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/content`);
   if (res.status === 410) throw new GuidedEndedError();
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();

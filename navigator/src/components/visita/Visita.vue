@@ -162,6 +162,8 @@ const guidedTeacher = computed(
     guidedRole.value === "docente" &&
     guidedStato.value === "attiva",
 );
+type NavigationDirection = "prev" | "next";
+const navigationLoading = ref<NavigationDirection | "">("");
 
 const hasNext = computed(() => {
   if (guidedStudent.value) return false;
@@ -270,14 +272,23 @@ function apriTappaCorrente() {
 }
 
 // --- Navigazione -----------------------------------------------------------
-async function goToIndex(i: number, closeOpenTransition = true): Promise<boolean> {
+async function goToIndex(
+  i: number,
+  closeOpenTransition = true,
+  direction: NavigationDirection | "" = "",
+): Promise<boolean> {
   if (closeOpenTransition) transition.value = null;
   if (guidedTeacher.value) {
-    if (await teacherGoToStep(i)) {
-      selectIndex(i);
-      return true;
+    if (direction) navigationLoading.value = direction;
+    try {
+      if (await teacherGoToStep(i)) {
+        selectIndex(i);
+        return true;
+      }
+      return false;
+    } finally {
+      if (navigationLoading.value === direction) navigationLoading.value = "";
     }
-    return false;
   }
   selectIndex(i);
   return true;
@@ -292,8 +303,8 @@ function showTransition(
   announce(notes.join(". "));
 }
 
-function navigationHandler(direction: string) {
-  if (guidedStudent.value) return;
+function navigationHandler(direction: NavigationDirection) {
+  if (guidedStudent.value || navigationLoading.value) return;
   const base = navBase();
   const target = stepIndex(base, direction === "next" ? 1 : -1);
   if (target < 0) {
@@ -316,14 +327,14 @@ function navigationHandler(direction: string) {
     if (notes.length > 0) {
       if (guidedTeacher.value) {
         showTransition(notes, target, false);
-        void goToIndex(target, false);
+        void goToIndex(target, false, direction);
       } else {
         showTransition(notes, target, true);
       }
       return;
     }
   }
-  void goToIndex(target);
+  void goToIndex(target, true, direction);
 }
 
 function closeTransition() {
@@ -661,6 +672,7 @@ onUnmounted(() => {
       :optional="currentArtwork ? isOptionalItem(currentArtwork.item['@id']) : false"
       :has-next="hasNext"
       :has-prev="hasPrev"
+      :navigation-loading="navigationLoading"
       :can-end="canEnd"
       :can-start-quiz="canStartQuiz"
       :numero="currentPosition"
