@@ -377,8 +377,8 @@ function annullaTeletrasporto() {
   announce(t("Teletrasporto annullato"));
 }
 
-function teletrasportaSuPunto(x: number, y: number) {
-  reanchor(x, y);
+function teletrasportaSuPunto(x: number, y: number, floor: number) {
+  reanchor(x, y, floor);
   teletrasportoArmato.value = false;
   announce(t("Posizione aggiornata"));
 }
@@ -396,7 +396,7 @@ function teletrasportaSuTappa(i: number) {
     announce(t("Non so dove si trovi quest'opera sulla pianta"));
     return;
   }
-  reanchor(nodo.x, nodo.y);
+  reanchor(nodo.x, nodo.y, nodo.floor);
   teletrasportoArmato.value = false;
   announce(t("Sei accanto a {nome}", { nome: ancora.name }));
 }
@@ -413,7 +413,7 @@ async function goToArtwork(qid: string) {
   showLocator.value = false;
 
   const nodo = nodeOf(qid);
-  if (nodo) reanchor(nodo.x, nodo.y);
+  if (nodo) reanchor(nodo.x, nodo.y, nodo.floor);
 
   const i = matchedContent.value.findIndex((m) => m.artwork && m.artwork.qid === qid);
   if (i >= 0) {

@@ -1,7 +1,8 @@
 /**
  * Geometria della localizzazione, separata dalle API dei sensori. Un'ancora lega una
  * lettura fisica alla pianta; distanza, accuratezza e bussola classificano le opere,
- * mentre una nuova dichiarazione azzera la deriva.
+ * mentre una nuova dichiarazione azzera la deriva. Il piano arriva dal selettore
+ * della mappa, perche' la geolocalizzazione interna non offre un'altitudine utile.
  */
 import { ref, computed } from "vue";
 import { map } from "./state";
@@ -23,17 +24,21 @@ const METRI_PER_GRADO_LON = 111320;
 
 // ============================================================================
 
-export interface MapNode {
-  qid: string;
+interface MapPoint {
   x: number;
   y: number;
+  floor: number;
+}
+
+export interface MapNode extends MapPoint {
+  qid: string;
 }
 
 interface MapGeometry {
   metriPerUnita: number;
   larghezzaMetri: number;
   angoloNord: number;
-  entrance: { x: number; y: number } | null;
+  entrance: MapPoint | null;
   nodes: MapNode[];
 }
 
@@ -55,6 +60,12 @@ function centro(el: Element): { x: number; y: number } | null {
     return { x: parseFloat(x) + w / 2, y: parseFloat(y) + h / 2 };
   }
   return null;
+}
+
+function floorOf(el: Element): number {
+  const group = el.closest("[data-floor]");
+  if (!group) return 0;
+  return parseInt(group.getAttribute("data-floor") || "", 10) || 0;
 }
 
 function leggiGeometria(svgText: string): MapGeometry | null {
@@ -79,12 +90,16 @@ function leggiGeometria(svgText: string): MapGeometry | null {
       qid: el.getAttribute("data-qid") || "",
       x: punto.x,
       y: punto.y,
+      floor: floorOf(el),
     });
   });
 
-  let entrance: { x: number; y: number } | null = null;
+  let entrance: MapPoint | null = null;
   const porta = root.querySelector('[data-poi="entrance"]');
-  if (porta) entrance = centro(porta);
+  if (porta) {
+    const punto = centro(porta);
+    if (punto) entrance = { ...punto, floor: floorOf(porta) };
+  }
 
   return {
     metriPerUnita: larghezzaMetri / larghezzaUnita,
@@ -103,15 +118,11 @@ export const localizzabile = computed(
 
 // ============================================================================
 
-export interface Stima {
-  x: number;
-  y: number;
+export interface Stima extends MapPoint {
   accuracy: number;
 }
 
-const ancora = ref<{
-  x: number;
-  y: number;
+const ancora = ref<MapPoint & {
   lat: number | null;
   lon: number | null;
 } | null>(null);
@@ -126,17 +137,29 @@ export function startAtEntrance() {
   const g = geometria.value;
   if (!g || !g.entrance) return;
   if (ancora.value) return;
-  ancora.value = { x: g.entrance.x, y: g.entrance.y, lat: null, lon: null };
-  stima.value = {
-    x: g.entrance.x,
-    y: g.entrance.y,
-    accuracy: g.larghezzaMetri,
-  };
+  ancora.value = { ...g.entrance, lat: null, lon: null };
+  stima.value = { ...g.entrance, accuracy: g.larghezzaMetri };
 }
 
-export function reanchor(x: number, y: number) {
-  ancora.value = { x, y, lat: null, lon: null };
-  stima.value = { x, y, accuracy: ACCURACY_DICHIARATA };
+export function reanchor(x: number, y: number, floor: number) {
+  ancora.value = { x, y, floor, lat: null, lon: null };
+  stima.value = { x, y, floor, accuracy: ACCURACY_DICHIARATA };
+}
+
+export function changeFloor(floor: number, dx: number, dy: number) {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+
+  const a = ancora.value;
+  if (a) {
+    a.x += dx;
+    a.y += dy;
+    a.floor = floor;
+  }
+
+  const current = stima.value;
+  if (current) {
+    stima.value = { ...current, x: current.x + dx, y: current.y + dy, floor };
+  }
 }
 
 export function nodeOf(qid: string): MapNode | null {
@@ -162,7 +185,7 @@ export function applyFix(coords: {
   if (a.lat === null || a.lon === null) {
     a.lat = coords.latitude;
     a.lon = coords.longitude;
-    stima.value = { x: a.x, y: a.y, accuracy: coords.accuracy };
+    stima.value = { x: a.x, y: a.y, floor: a.floor, accuracy: coords.accuracy };
     return;
   }
 
@@ -182,6 +205,7 @@ export function applyFix(coords: {
       a.y +
       (est * Math.sin(rotazione) - nord * Math.cos(rotazione)) /
         g.metriPerUnita,
+    floor: a.floor,
     accuracy: coords.accuracy,
   };
 }
@@ -213,6 +237,7 @@ export function rank(): Verdetto | null {
   const costi: { qid: string; costo: number }[] = [];
 
   for (const n of g.nodes) {
+    if (n.floor !== dove.floor) continue;
     const dx = n.x - dove.x;
     const dy = n.y - dove.y;
     const metri = Math.sqrt(dx * dx + dy * dy) * g.metriPerUnita;

@@ -15,21 +15,21 @@ import { UserModel } from "../models/user";
 import { ArtworkModel } from "../models/artwork";
 import { MuseumModel } from "../models/museum";
 import { sortByFlow } from "../services/svgGraph";
-import { planVisit } from "../services/llm";
+import { chooseVisitArtworkCount, planVisit } from "../services/llm";
 import { resolveOrGenerateItem } from "../services/customVisit";
 import { purchasedBy, readableItems } from "../access";
 import { conto } from "../pricing";
 import {
   AI_LEVEL,
   CUSTOM_LEVEL,
+  educationalLevels,
   MAX_VISITE_VISITATORE,
   DEFAULT_LICENSE,
+  secPerArt,
 } from "../../../shared/constants";
 import { rimuoviImmagine } from "./items";
 
 const router = Router();
-
-const MAX_CUSTOM_ARTWORKS = 30;
 
 /**
  * GET /api/visits[?museum=Qxxx][&user=nome]
@@ -151,28 +151,48 @@ router.post("/custom", async (req, res) => {
       return res.status(404).json({ error: "Nessuna opera disponibile per questo museo" });
     }
 
-    const catalog = artworks.map((a) => ({
-      qid: a.qid,
-      name: a.name,
-      author: a.author.name,
-      style: a.style.name,
+    const artworkCount = await chooseVisitArtworkCount(artworks.length, request);
+    if (artworkCount === undefined) {
+      return res.status(502).json({ error: "Impossibile determinare il numero di opere" });
+    }
+
+    const catalog = artworks.map((artwork) => ({
+      qid: artwork.qid,
+      name: artwork.name,
+      author: artwork.author.name,
+      style: artwork.style.name,
     }));
 
-    const plan = await planVisit(catalog, request);
+    const plan = await planVisit(catalog, request, artworkCount);
     if (!plan || !Array.isArray(plan.artworks)) {
       return res.status(502).json({ error: "Impossibile generare la visita su misura" });
+    }
+
+    const byQid = new Map(artworks.map((artwork) => [artwork.qid, artwork]));
+    const plannedQids = new Set<string>();
+    let validPlan = plan.artworks.length === artworkCount;
+    for (const planned of plan.artworks) {
+      if (plannedQids.has(planned.qid) || !byQid.has(planned.qid)) validPlan = false;
+      if (!educationalLevels.includes(planned.tone)) validPlan = false;
+      if (!secPerArt.includes(Number(planned.durationSec))) validPlan = false;
+      if (typeof planned.twist !== "string") validPlan = false;
+      plannedQids.add(planned.qid);
+    }
+    if (!validPlan || plannedQids.size !== artworkCount) {
+      return res.status(502).json({ error: "Il modello non ha rispettato il piano richiesto" });
     }
 
     const museo = await MuseumModel.findOne({ qid: museumQid });
     plan.artworks = sortByFlow(plan.artworks, museo ? museo.mapPath : "");
 
-    const byQid = new Map(artworks.map((a) => [a.qid, a]));
     const content: { artwork: unknown; item: unknown }[] = [];
     let totalSec = 0;
 
-    for (const planned of plan.artworks.slice(0, MAX_CUSTOM_ARTWORKS)) {
+    for (const planned of plan.artworks) {
       const artwork = byQid.get(planned.qid);
-      if (!artwork) continue;
+      if (!artwork) {
+        return res.status(502).json({ error: "Il modello ha scelto un'opera inesistente" });
+      }
       const durationSec = Number(planned.durationSec);
       const item = await resolveOrGenerateItem(
         artwork,
@@ -180,14 +200,11 @@ router.post("/custom", async (req, res) => {
         durationSec,
         planned.twist,
       );
-      if (item) {
-        content.push({ artwork, item });
-        totalSec += Number((item as any).timeRequired) || 0;
+      if (!item) {
+        return res.status(502).json({ error: "Impossibile preparare tutte le tappe" });
       }
-    }
-
-    if (content.length === 0) {
-      return res.status(502).json({ error: "Impossibile generare la visita su misura" });
+      content.push({ artwork, item });
+      totalSec += Number((item as any).timeRequired) || 0;
     }
 
     let name = "Visita su misura";

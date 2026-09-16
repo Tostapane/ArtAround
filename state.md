@@ -1,6 +1,6 @@
 # ArtAround: stato corrente del progetto
 
-Aggiornato al 14 settembre 2026. Questo è il riferimento unico per capire il
+Aggiornato al 15 settembre 2026. Questo è il riferimento unico per capire il
 progetto e riprendere il lavoro. Descrive il sistema presente nel repository,
 non la cronologia delle modifiche.
 
@@ -337,6 +337,11 @@ Il file pubblico può cambiare museo senza ricompilare il navigator.
 - La pianta degli Uffizi ha coordinate verticali native; le altre piante restano
   orizzontali per consentire il confronto fra le due impostazioni.
 - Il selettore nativo del piano e "Dove sono?" compaiono soltanto sulla mappa.
+- La geolocalizzazione non deduce il piano dall'altitudine del dispositivo: il
+  selettore lo registra insieme alle coordinate della posizione. Il segnalino
+  resta nello stesso punto planimetrico passando fra piani sovrapponibili e la
+  ricerca delle opere vicine considera soltanto i nodi del piano selezionato. Il
+  piano delle opere deriva dall'SVG, senza duplicarlo nei documenti `Artwork`.
 - Nella visita guidata dello studente, il controllo dell'audio sincronizzato è
   nella barra superiore, fra l'uscita e l'avanzamento.
 - I limiti o i rifiuti di fotocamera e sensori non espongono dettagli tecnici:
@@ -513,13 +518,20 @@ I quattro usi richiesti dalle slide sono separati:
 2. `mapRequest` restituisce soltanto un id del vocabolario controllato o `null`.
 3. La traduzione dei contenuti passa da Google Translation; le risposte LLM
    vengono richieste direttamente nella lingua scelta.
-4. `planVisit` restituisce JSON vincolato da schema; `customVisit.ts` risolve o
-   genera gli item e `sortByFlow` impone l'ordine spaziale della pianta.
+4. La pianificazione su misura usa due richieste: la prima restituisce soltanto
+   il numero di opere, la seconda un piano con quella cardinalita' esatta. Il
+   server comunica che ogni opera dispone di tutte le combinazioni tono/durata,
+   valida QID distinti e numero finale, poi `sortByFlow` impone l'ordine spaziale
+   della pianta. Il piano viaggia come record compatti `QID|tono|durata|twist`:
+   cosi' lo schema puo' imporre la cardinalita' anche sui 133 elementi degli Uffizi
+   senza superare il limite di complessita' degli oggetti strutturati di Gemini.
 
-Le visite su misura hanno al massimo trenta opere e non vengono salvate in
-Mongo. Un `twist` non vuoto forza una nuova descrizione; senza twist si prova a
-riusare un item esistente. La correttezza del percorso, dei prezzi e dei
-permessi resta nel codice, non nel prompt.
+Le visite su misura possono comprendere fino all'intero catalogo e non vengono
+salvate in Mongo. Un `twist` non vuoto forza una nuova descrizione ed e' richiesto
+per le opere pertinenti a preferenze esplicite come colori, temi o tecniche, ma
+non viene propagato alle altre; senza twist si prova a riusare un item esistente.
+La correttezza del percorso, dei prezzi e dei permessi resta nel codice, non nel
+prompt.
 
 ## 10. Seed, migrazioni e stato dei dati
 

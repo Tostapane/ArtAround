@@ -6,6 +6,8 @@
  * scorrimento al browser, mantenendo fluido il gesto e prevedibili i controlli.
  * La stanza corrente usa un semplice riempimento senza effetti aggiuntivi; il
  * segnalino non intercetta il puntatore, altrimenti coprirebbe il nodo corrente.
+ * I piani occupano zone diverse nello stesso SVG: il selettore conserva il punto
+ * planimetrico e dichiara su quale piano cercare le opere vicine.
  */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
@@ -20,14 +22,19 @@ import {
   stopName,
   stopSubtitle,
 } from "@/state";
-import { angoloNordMappa, bussola, stima } from "@/localization";
+import {
+  angoloNordMappa,
+  bussola,
+  changeFloor,
+  stima,
+} from "@/localization";
 import { useAnnouncer } from "@/composables/useAnnouncer";
 import { t } from "@/i18n";
 
 const emit = defineEmits<{
   select: [value: number];
   locate: [];
-  teleportPoint: [x: number, y: number];
+  teleportPoint: [x: number, y: number, floor: number];
   teleportStop: [index: number];
   poi: [value: { target: string; label: string }];
 }>();
@@ -66,12 +73,37 @@ interface Piano {
   etichetta: string;
 }
 
+interface FloorOrigin {
+  x: number;
+  y: number;
+}
+
 const piani = ref<Piano[]>([]);
 const pianoAttivo = ref<number | null>(null);
+const floorOrigins = new Map<number, FloorOrigin>();
+
+function originOf(element: Element): FloorOrigin | null {
+  const graphics = element as SVGGraphicsElement;
+  if (typeof graphics.getBBox !== "function") return null;
+
+  const display = graphics.getAttribute("display");
+  graphics.removeAttribute("display");
+  try {
+    const box = graphics.getBBox();
+    if (!box.width || !box.height) return null;
+    return { x: box.x, y: box.y };
+  } catch {
+    return null;
+  } finally {
+    if (display === null) graphics.removeAttribute("display");
+    else graphics.setAttribute("display", display);
+  }
+}
 
 function leggiPiani() {
   const root = container.value;
   const trovati = new Map<number, string>();
+  floorOrigins.clear();
   if (root) {
     root.querySelectorAll("[data-floor]").forEach((el) => {
       const numero = parseInt(el.getAttribute("data-floor") || "", 10);
@@ -80,6 +112,8 @@ function leggiPiani() {
       let etichetta = el.getAttribute("data-floor-label") || "";
       if (!etichetta) etichetta = `Piano ${numero}`;
       trovati.set(numero, etichetta);
+      const origin = originOf(el);
+      if (origin) floorOrigins.set(numero, origin);
     });
   }
 
@@ -97,6 +131,16 @@ function leggiPiani() {
     if (piuBasso) pianoAttivo.value = piuBasso.numero;
     else pianoAttivo.value = null;
   }
+}
+
+function syncPositionFloor() {
+  const floor = pianoAttivo.value;
+  const current = stima.value;
+  if (floor === null || !current || floor === current.floor) return;
+  const source = floorOrigins.get(current.floor);
+  const target = floorOrigins.get(floor);
+  if (!source || !target) return;
+  changeFloor(floor, target.x - source.x, target.y - source.y);
 }
 
 function pianoDi(el: Element | null): number | null {
@@ -171,7 +215,7 @@ function centerCurrentStop() {
     currentRect.top + currentRect.height / 2 - rootRect.top - rootRect.height / 2;
 }
 
-function inquadraPiano() {
+function inquadraPiano(centerStop = false) {
   const root = container.value;
   if (!root || pianoAttivo.value === null) return;
   const svg = root.querySelector("svg");
@@ -206,7 +250,7 @@ function inquadraPiano() {
       bounds.height = height;
     }
     svg.setAttribute("viewBox", `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
-    centerCurrentStop();
+    if (centerStop) centerCurrentStop();
   } catch {
   }
 }
@@ -257,7 +301,8 @@ function onMapClick(event: MouseEvent) {
   const ctm = svg.getScreenCTM();
   if (!ctm) return;
   const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
-  emit("teleportPoint", point.x, point.y);
+  if (pianoAttivo.value === null) return;
+  emit("teleportPoint", point.x, point.y, pianoAttivo.value);
 }
 
 function onStopPress(index: number) {
@@ -432,10 +477,11 @@ function prepareMap() {
 
   preparePois();
   highlightCurrent();
-  drawPosition();
   leggiPiani();
   seguiTappa();
-  inquadraPiano();
+  syncPositionFloor();
+  inquadraPiano(true);
+  drawPosition();
   aggiornaFuoco();
 }
 
@@ -506,12 +552,16 @@ watch(() => props.currentLocationId, () =>
   nextTick(() => {
     highlightCurrent();
     seguiTappa();
-    inquadraPiano();
+    syncPositionFloor();
+    inquadraPiano(true);
+    drawPosition();
   }),
 );
 watch(pianoAttivo, (nuovo, vecchio) => {
   nextTick(() => {
+    syncPositionFloor();
     inquadraPiano();
+    drawPosition();
     aggiornaFuoco();
   });
   if (vecchio === null || nuovo === vecchio) return;
@@ -519,7 +569,12 @@ watch(pianoAttivo, (nuovo, vecchio) => {
     if (p.numero === nuovo) announce(t("Pianta: {nome}", { nome: p.etichetta }));
   }
 });
-watch([stima, bussola, angoloNordMappa], () => nextTick(drawPosition));
+watch([stima, bussola, angoloNordMappa], () =>
+  nextTick(() => {
+    syncPositionFloor();
+    drawPosition();
+  }),
+);
 
 onBeforeUnmount(() => {
   clearListeners();
