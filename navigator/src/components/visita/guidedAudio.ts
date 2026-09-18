@@ -9,6 +9,8 @@ let source: AudioBufferSourceNode | null = null;
 let tone: OscillatorNode | null = null;
 let toneGain: GainNode | null = null;
 let toneEndsAt = 0;
+export let guidedAudioPaused = false;
+let sourcePlayAt: number | null = null;
 let requestId = 0;
 
 function audioContext(): AudioContext {
@@ -57,10 +59,12 @@ function stopSource() {
   } catch {}
   source.disconnect();
   source = null;
+  sourcePlayAt = null;
 }
 
 export function stopGuidedAudio() {
   requestId++;
+  guidedAudioPaused = false;
   stopSource();
   if (tone) {
     tone.onended = null;
@@ -76,10 +80,25 @@ export function stopGuidedAudio() {
 }
 
 export function enableGuidedAutoplay(): boolean {
+  if (guidedAudioPaused && source) {
+    guidedAudioPaused = false;
+    guidedAutoplayEnabled.value = true;
+    return true;
+  }
   stopGuidedAudio();
   guidedAutoplayEnabled.value = true;
   playActivationTone();
   return guidedAutoplayEnabled.value;
+}
+
+export function pauseGuidedAudio() {
+  if (source && context) {
+    guidedAudioPaused = true;
+    void context.suspend().catch(stopGuidedAudio);
+  } else {
+    stopGuidedAudio();
+  }
+  guidedAutoplayEnabled.value = false;
 }
 
 export function disableGuidedAutoplay() {
@@ -94,6 +113,10 @@ export async function playGuidedAudio(
   playAt: number,
 ) {
   if (!guidedAutoplayEnabled.value) return;
+  if (source && sourcePlayAt === playAt) {
+    await audioContext().resume().catch(disableGuidedAutoplay);
+    return;
+  }
   requestId++;
   stopSource();
   const myRequest = requestId;
@@ -118,10 +141,14 @@ export async function playGuidedAudio(
     next.buffer = buffer;
     next.connect(ctx.destination);
     next.onended = () => {
-      if (source === next) source = null;
+      if (source === next) {
+        source = null;
+        sourcePlayAt = null;
+      }
       next.disconnect();
     };
     source = next;
+    sourcePlayAt = playAt;
     const delay = Math.max(0, playAt - Date.now(), toneEndsAt - Date.now());
     next.start(ctx.currentTime + delay / 1000);
   } catch {

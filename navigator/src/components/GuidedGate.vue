@@ -26,9 +26,9 @@ import {
   studentLeave,
 } from "@/guided";
 import {
-  disableGuidedAutoplay,
   enableGuidedAutoplay,
   guidedAutoplayEnabled,
+  pauseGuidedAudio,
 } from "./visita/guidedAudio";
 import { useTTS } from "./visita/useTTS";
 import { language, visit } from "@/state";
@@ -61,7 +61,7 @@ function yesNo(value: boolean): string {
 
 function toggleAudio() {
   if (guidedAutoplayEnabled.value) {
-    disableGuidedAutoplay();
+    pauseGuidedAudio();
     announce(`${t("Audio sincronizzato")}: ${t("No")}`);
     return;
   }

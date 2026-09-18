@@ -299,8 +299,8 @@ router.post("/", async (req, res) => {
 
 /**
  * POST /api/guided-sessions/join  { accessKey, museum }
- * Ritorna: la vista studente e registra la presenza. 409 se sala o museo non coincidono; 404 se la
- * parola non esiste.
+ * Ritorna la vista studente senza segnarlo online: la presenza inizia quando apre
+ * il navigator. 409 se sala o museo non coincidono; 404 se la parola non esiste.
  */
 router.post("/join", async (req, res) => {
   const { accessKey, museum } = req.body;
@@ -329,7 +329,10 @@ router.post("/join", async (req, res) => {
       .json({ error: "Nessuna visita guidata attiva con questa parola chiave" });
   }
 
-  markPresent(s, username);
+  if (!s.partecipanti.has(username)) {
+    markPresent(s, username);
+    s.partecipanti.get(username)!.lastSeen = 0;
+  }
   res.json(studentView(s, username));
 });
 

@@ -5,10 +5,10 @@
 import { ref } from "vue";
 import { getSpeechAudio } from "@/api";
 import { language } from "@/state";
-import { disableGuidedAutoplay } from "./guidedAudio";
+import { pauseGuidedAudio } from "./guidedAudio";
 
 const isSpeaking = ref(false);
-const autoRead = ref(false);
+const isLoading = ref(false);
 
 let audio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
@@ -24,10 +24,14 @@ function cleanup() {
 function stop() {
   requestId++;
   if (audio) {
+    audio.onplay = null;
+    audio.onended = null;
+    audio.onerror = null;
     audio.pause();
     audio.removeAttribute("src");
   }
   cleanup();
+  isLoading.value = false;
   isSpeaking.value = false;
 }
 
@@ -35,10 +39,11 @@ async function speak(text: string | undefined) {
   let content = "";
   if (text) content = text.trim();
   if (!content) return;
-  disableGuidedAutoplay();
+  pauseGuidedAudio();
   stop();
   const myId = requestId;
   const lang = language.value;
+  isLoading.value = true;
   try {
     const blob = await getSpeechAudio(content, lang.tts);
     if (myId !== requestId) return;
@@ -46,22 +51,31 @@ async function speak(text: string | undefined) {
     if (!audio) audio = new Audio();
     currentUrl = URL.createObjectURL(blob);
     audio.src = currentUrl;
-    audio.onended = () => {
+    const finish = () => {
       if (myId === requestId) {
         cleanup();
+        isLoading.value = false;
         isSpeaking.value = false;
       }
     };
+    audio.onplay = () => {
+      if (myId === requestId) isSpeaking.value = true;
+    };
+    audio.onended = finish;
+    audio.onerror = finish;
+    isLoading.value = false;
     isSpeaking.value = true;
     await audio.play();
-  } catch (e) {
-    if ((e as DOMException)?.name !== "AbortError") {
-      if (myId === requestId) isSpeaking.value = false;
+  } catch {
+    if (myId !== requestId) return;
+    isLoading.value = false;
+    if (!audio || audio.paused || audio.ended) {
+      isSpeaking.value = false;
       cleanup();
     }
   }
 }
 
 export function useTTS() {
-  return { isSpeaking, autoRead, speak, stop };
+  return { isLoading, isSpeaking, speak, stop };
 }

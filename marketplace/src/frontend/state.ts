@@ -155,7 +155,7 @@ export class AppState {
   itemToDelete: { id: string; name: string } | null = null;
   itemImpact: ImpactReport | null = null;
 
-  toast: { messaggio: string; tipo: "success" | "error" } | null = null;
+  toast: { messaggio: string } | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   visits: Visit[] = [];
@@ -416,7 +416,7 @@ export class AppState {
 
   private sessionLost() {
     this.resetToThreshold();
-    this.showToast("La sessione è scaduta: entra di nuovo.", "error");
+    this.showError("La sessione è scaduta: entra di nuovo.");
   }
 
   async initApp() {
@@ -436,9 +436,8 @@ export class AppState {
       await this.afterPaint();
     } catch (e) {
       console.error("Errore durante l'inizializzazione dei dati:", e);
-      this.showToast(
+      this.showError(
         "Non riesco a contattare il server. Controlla che sia avviato e riprova.",
-        "error",
       );
     } finally {
       this.loading = false;
@@ -487,13 +486,13 @@ export class AppState {
   async login() {
     const { username, password } = this.loginForm;
     if (!username || !password)
-      return this.showToast("Inserisci username e password.", "error");
+      return this.showError("Inserisci username e password.");
     this.loading = true;
     await this.afterPaint();
     try {
       await this.enterAs(await ArtAPI.login(username, password));
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     } finally {
       this.loading = false;
     }
@@ -512,9 +511,9 @@ export class AppState {
   async register() {
     const { username, password, conferma, role } = this.registerForm;
     if (!username || !password)
-      return this.showToast("Compila username e password.", "error");
+      return this.showError("Compila username e password.");
     if (password !== conferma)
-      return this.showToast("Le due password non coincidono.", "error");
+      return this.showError("Le due password non coincidono.");
     try {
       const u = await ArtAPI.register(username, password, role);
       this.registerForm = {
@@ -525,7 +524,7 @@ export class AppState {
       };
       await this.enterAs(u);
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -591,7 +590,7 @@ export class AppState {
     try {
       await this.loadCatalogue();
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
 
     this.goTo(this.roleHome());
@@ -805,10 +804,8 @@ export class AppState {
       }
 
       await this.reloadVisits();
-      const nome = this.contentName(item) || "Contenuto";
-      this.showToast(`"${nome}" è ora nella tua libreria.`);
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -885,7 +882,7 @@ export class AppState {
       this.itemImpact = await ArtAPI.impattoItem(item["@id"]);
     } catch (e) {
       this.itemImpact = null;
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -1078,25 +1075,11 @@ export class AppState {
       const scelta = this.visiteScelta;
       this.cancelConfirm();
       try {
-        const esito = await ArtAPI.eliminaOpera(opera.qid, scelta);
+        await ArtAPI.eliminaOpera(opera.qid, scelta);
         await this.loadCatalogue();
         await this.loadMuseumState();
-        const accorciate = (esito.visiteAccorciate || []).length;
-        const sparite = (esito.visiteEliminate || []).length;
-        this.showToast(
-          this.t(
-            "{opera} rimossa: {n} descrizioni, {a} visite accorciate, {v} eliminate.",
-            {
-              opera: esito.nome,
-              n: esito.descrizioni,
-              a: accorciate,
-              v: sparite,
-            },
-          ),
-          "success",
-        );
       } catch (e) {
-        this.showToast((e as Error).message, "error");
+        this.showError((e as Error).message);
       }
       return;
     }
@@ -1104,21 +1087,10 @@ export class AppState {
       const museo = this.museoToWipe;
       this.cancelConfirm();
       try {
-        const esito = await ArtAPI.svuotaMuseo(museo.qid);
+        await ArtAPI.svuotaMuseo(museo.qid);
         await this.loadMuseumState();
-        this.showToast(
-          this.t(
-            "{museo} svuotato: {opere} opere, {item} descrizioni, {visite} visite.",
-            {
-              museo: esito.museo,
-              opere: esito.opere,
-              item: esito.item,
-              visite: esito.visite,
-            },
-          ),
-        );
       } catch (e) {
-        this.showToast((e as Error).message, "error");
+        this.showError((e as Error).message);
       }
       return;
     }
@@ -1128,21 +1100,12 @@ export class AppState {
       const scelta = this.visiteScelta;
       this.cancelConfirm();
       try {
-        const esito = await ArtAPI.eliminaItem(row.id, scelta);
-        const eliminate = esito.visiteEliminate || [];
-        const accorciate = esito.visiteAccorciate || [];
+        await ArtAPI.eliminaItem(row.id, scelta);
 
         if (this.currentUserRole === "curatore") await this.loadMuseumState();
         else await this.loadCatalogue();
-        if (eliminate.length > 0 || accorciate.length > 0) {
-          this.showToast(
-            `Descrizione eliminata: ${accorciate.length} visite accorciate, ${eliminate.length} eliminate.`,
-          );
-        } else {
-          this.showToast("Descrizione eliminata.");
-        }
       } catch (e) {
-        this.showToast((e as Error).message, "error");
+        this.showError((e as Error).message);
       }
       return;
     }
@@ -1157,12 +1120,11 @@ export class AppState {
         this.userCollection = this.userCollection.filter(
           (id) => id !== visit["@id"],
         );
-        this.showToast("Visita eliminata.");
         if (this.currentUserRole === "curatore") await this.loadMuseumState();
 
         if (this.view === "visita") this.goHome();
       } catch (e) {
-        this.showToast((e as Error).message, "error");
+        this.showError((e as Error).message);
       }
       return;
     }
@@ -1175,9 +1137,8 @@ export class AppState {
         const u = await ArtAPI.buy(visit["@id"]);
         this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
         this.userCollection = u.collezione;
-        this.showToast("Contenuti sbloccati: la visita è pronta.");
       } catch (e) {
-        this.showToast((e as Error).message, "error");
+        this.showError((e as Error).message);
       }
       return;
     }
@@ -1197,7 +1158,7 @@ export class AppState {
       this.visits = await ArtAPI.fetchVisite(qid);
       this.reindicizza();
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -1345,7 +1306,7 @@ export class AppState {
       this.operaImpact = await ArtAPI.impattoOpera(opera.qid);
     } catch (e) {
       this.operaImpact = null;
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -1363,7 +1324,7 @@ export class AppState {
       this.itemImpact = await ArtAPI.impattoItem(row.id);
     } catch (e) {
       this.itemImpact = null;
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -1428,8 +1389,8 @@ export class AppState {
     if (this.view === "vendite") this.loadSales();
   }
 
-  showToast(messaggio: string, tipo: "success" | "error" = "success") {
-    this.toast = { messaggio, tipo };
+  showError(messaggio: string) {
+    this.toast = { messaggio };
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => {
       this.toast = null;
@@ -1748,9 +1709,8 @@ export class AppState {
     if (!file) return;
     try {
       this.draft.immagine = await ArtAPI.uploadItemImage(file);
-      this.showToast("Immagine caricata.");
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     } finally {
       input.value = "";
     }
@@ -1813,7 +1773,7 @@ export class AppState {
       const risposta = await ArtAPI.fetchItemText(item["@id"]);
       (item as Item).text = risposta.text;
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -1829,7 +1789,7 @@ export class AppState {
       }
       this.artworksWithText.push(artworkQid);
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -1988,7 +1948,7 @@ export class AppState {
       return true;
     } catch (e) {
       this.loading = false;
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
       return false;
     }
   }
@@ -2047,9 +2007,8 @@ export class AppState {
   async joinWithPasskey() {
     const key = this.passkeyInput.trim();
     if (!key || !this.currentUser)
-      return this.showToast(
+      return this.showError(
         "Scrivi la parola chiave che ti ha dato il docente.",
-        "error",
       );
     try {
       const s = await ArtAPI.joinGuidedSession(
@@ -2065,7 +2024,7 @@ export class AppState {
       );
     } catch (e) {
       this.guidedSession = null;
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -2155,7 +2114,7 @@ export class AppState {
   async saveItem() {
     const issues = this.itemIssues();
     if (issues.length > 0)
-      return this.showToast(`Manca ancora: ${issues.join(", ")}.`, "error");
+      return this.showError(`Manca ancora: ${issues.join(", ")}.`);
     const payload = {
       tipo: "Item",
       editId: this.editingId || undefined,
@@ -2178,14 +2137,11 @@ export class AppState {
 
     try {
       await ArtAPI.pubblica(payload);
-      this.showToast(
-        this.editingId ? "Descrizione aggiornata." : "Descrizione pubblicata.",
-      );
       this.editingId = null;
       await this.initApp();
       this.goTo("lavori");
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 
@@ -2259,15 +2215,9 @@ export class AppState {
     if (this.currentUserRole === "autore") {
       if (!this.draft.titolo.trim())
         this.draft.titolo = src.name ? `${src.name} (copia)` : "";
-      this.showToast(
-        "Percorso importato. L'originale non è stato toccato: scegli il tipo di visita nelle impostazioni.",
-      );
     } else {
       if (!this.draft.titolo.trim())
         this.draft.titolo = src.name ? `${src.name} (mia versione)` : "";
-      this.showToast(
-        "Percorso importato. L'originale non è stato toccato: personalizzalo e salvalo.",
-      );
     }
   }
 
@@ -2384,7 +2334,7 @@ export class AppState {
 
   addStop(tipo: "item" | "logistica", value: string = "") {
     if (tipo === "item" && this.itemInVisit(value)) {
-      return this.showToast("Questa descrizione è già nel percorso.", "error");
+      return this.showError("Questa descrizione è già nel percorso.");
     }
     this.draft.tappe.push({ tipo, value });
     if (tipo === "item") {
@@ -2533,10 +2483,10 @@ export class AppState {
 
   async saveVisit() {
     if (this.visitCapReached())
-      return this.showToast(this.visitCapMessage(), "error");
+      return this.showError(this.visitCapMessage());
     const issues = this.visitIssues();
     if (issues.length > 0)
-      return this.showToast(`Manca ancora: ${issues.join(", ")}.`, "error");
+      return this.showError(`Manca ancora: ${issues.join(", ")}.`);
 
     const guidata = this.currentUserRole === "autore" && this.draft.guidata;
     let quizPayload:
@@ -2580,16 +2530,16 @@ export class AppState {
 
     try {
       await ArtAPI.pubblica(payload);
-      this.showToast(
-        guidata
-          ? "Visita guidata attiva: comunica la parola chiave alla classe."
-          : "Visita salvata.",
-      );
       this.editingId = null;
+      this.visitStep = "percorso";
+      this.editorPane = "percorso";
+      this.editorSearch = "";
+      this.editorFilter = "tutti";
+      this.draft = this.emptyDraft();
       await this.initApp();
       this.goTo(this.currentUserRole === "autore" ? "lavori" : "libreria");
     } catch (e) {
-      this.showToast((e as Error).message, "error");
+      this.showError((e as Error).message);
     }
   }
 

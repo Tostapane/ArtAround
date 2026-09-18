@@ -6,7 +6,7 @@
 import { computed, ref, watch } from "vue";
 import Pannello from "./Pannello.vue";
 import Comando from "./Comando.vue";
-import { useTTS } from "./useTTS";
+import TTSButton from "./TTSButton.vue";
 import LanguageSelector from "../selection/LanguageSelector.vue";
 import { labelForCommand } from "../../../../shared/constants";
 import { stopImage } from "@/state";
@@ -45,8 +45,6 @@ const emit = defineEmits<{
   apriTappa: [];
   quiz: [];
 }>();
-
-const tts = useTTS();
 
 const nextLabel = computed(() => {
   if (props.guidedTeacher) return t("Porta tutti alla prossima opera");
@@ -209,29 +207,14 @@ const stile = computed(() => {
         </svg>
       </button>
 
-      <button
-        v-if="!guidedStudent && !tts.isSpeaking.value"
-        type="button"
+      <TTSButton
+        v-if="!guidedStudent"
         class="icona-tonda shrink-0"
+        active-class="icona-tonda-attiva"
+        :text="fields[2] || ''"
+        :label="t('Leggi la descrizione ad alta voce')"
         :disabled="!content"
-        :aria-label="t('Leggi la descrizione ad alta voce')"
-        @click="emit('action', 'Leggi')"
-      >
-        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z" />
-        </svg>
-      </button>
-      <button
-        v-else-if="!guidedStudent"
-        type="button"
-        class="icona-tonda icona-tonda-attiva shrink-0"
-        :aria-label="t('Ferma la lettura')"
-        @click="emit('action', 'Ferma lettura')"
-      >
-        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 6h12v12H6z" />
-        </svg>
-      </button>
+      />
 
       <Comando
         class="min-w-0 flex-1"

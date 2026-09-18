@@ -5,14 +5,13 @@
  */
 import { computed, ref, watch } from "vue";
 import { getInfo, getDirections } from "@/api";
-import { useTTS } from "./useTTS";
+import TTSButton from "./TTSButton.vue";
 import { language, museum, posizioneAttiva } from "@/state";
 import { rank } from "@/localization";
 import { labelForCommand } from "../../../../shared/constants";
 import { t } from "@/i18n";
 import type { Match } from "../../../../shared/types";
 
-const tts = useTTS();
 const props = defineProps<{ request: string; about: Match; target: string }>();
 defineEmits<{ close: [] }>();
 
@@ -139,29 +138,12 @@ watch(
         {{ title }}
       </h3>
       <div class="flex shrink-0 items-center">
-        <button
-          v-if="!tts.isSpeaking.value"
-          type="button"
+        <TTSButton
           class="icona-mini"
+          :text="responseText"
+          :label="t('Leggi la risposta ad alta voce')"
           :disabled="!canRead"
-          :aria-label="t('Leggi la risposta ad alta voce')"
-          @click="tts.speak(responseText)"
-        >
-          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z" />
-          </svg>
-        </button>
-        <button
-          v-else
-          type="button"
-          class="icona-mini text-accent"
-          :aria-label="t('Ferma la lettura')"
-          @click="tts.stop()"
-        >
-          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 6h12v12H6z" />
-          </svg>
-        </button>
+        />
         <button
           type="button"
           class="icona-mini"

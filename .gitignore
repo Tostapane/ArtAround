@@ -46,3 +46,6 @@ CLAUDE.md
 
 # archivio Mongo autosufficiente prodotto per il trasferimento al dipartimento
 /import-db.js
+
+# comando distruttivo trasferito a mano soltanto quando serve
+/nuke-db.js

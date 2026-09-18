@@ -875,6 +875,7 @@
               </button>
               <button
                 type="button"
+                x-show="selectedMuseum && view !== 'musei'"
                 @click="changeMuseum()"
                 class="mt-5 block w-full text-left"
                 :aria-label="'Museo: ' + (selectedMuseum ? selectedMuseum.name : '') + '. Cambia museo'"
@@ -1059,14 +1060,14 @@
                 class="font-display text-title-1"
                 x-text="t(`Scegli il museo`)"
               ></h1>
-              <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div class="mt-8 flex flex-wrap justify-center gap-4">
                 <template x-for="m in museums" :key="m.qid">
 
                   <button
                     type="button"
                     @click="selectMuseum(m)"
                     x-data="{ rotta: false }"
-                    class="lastra filo-accento group relative flex flex-col overflow-hidden text-left transition-colors hover:border-accent"
+                    class="lastra filo-accento group relative flex w-full flex-col overflow-hidden text-left transition-colors hover:border-accent sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333333%-0.666667rem)]"
                     :aria-label="t(`Entra nel museo {nome}`, { nome: m.name })"
                   >
                     <template x-if="museumImage(m) && !rotta">
@@ -2615,6 +2616,7 @@
 
               <div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
                 <form @submit.prevent="saveItem()" class="flex flex-col gap-8">
+                  <div class="flex flex-col gap-8 border-l-4 border-l-accent py-2 pl-4">
                   <div>
                     <label
                       for="ed-genere"
@@ -2707,7 +2709,9 @@
                       ></p>
                     </div>
                   </div>
+                  </div>
 
+                  <div class="flex flex-col gap-8 border-l-4 border-l-accent py-2 pl-4">
                   <fieldset>
                     <legend class="etichetta" x-text="t(`Tono`)"></legend>
                     <p
@@ -2781,7 +2785,9 @@
                       aria-live="polite"
                     ></p>
                   </div>
+                  </div>
 
+                  <div class="flex flex-col gap-8 border-l-4 border-l-accent py-2 pl-4">
                   <div class="grid gap-6 sm:grid-cols-2">
                     <div x-show="!draft.privato">
                       <label
@@ -2840,6 +2846,7 @@
                       </span>
                     </span>
                   </label>
+                  </div>
 
                   <p x-show="!!editingId" class="avviso" role="note">
                     <svg class="h-5 w-5 shrink-0" aria-hidden="true">
@@ -3073,201 +3080,211 @@
                     x-show="editorPane === 'percorso'"
                     class="min-w-0 lg:!block"
                   >
-                    <label
-                      for="v-titolo"
-                      class="etichetta"
-                      x-text="t(`Titolo della visita`)"
-                    ></label>
-                    <input
-                      id="v-titolo"
-                      type="text"
-                      x-model="draft.titolo"
-                      class="campo"
-                      :placeholder="t(`I capolavori in mezz'ora`)"
-                    />
-
-                    <div class="mt-6 flex items-baseline justify-between">
-                      <h2
-                        class="font-display text-title-3"
-                        x-text="t(`Il percorso`)"
-                      ></h2>
-                      <span
-                        class="tabular text-caption text-muted"
-                        x-text="draftSummary()"
-                      ></span>
+                    <div
+                      class="border-l-4 border-l-accent py-2 pl-4"
+                    >
+                      <label
+                        for="v-titolo"
+                        class="block font-display text-title-3 text-accent"
+                        x-text="t(`Titolo della visita`)"
+                      ></label>
+                      <input
+                        id="v-titolo"
+                        type="text"
+                        x-model="draft.titolo"
+                        class="campo"
+                        :placeholder="t(`I capolavori in mezz'ora`)"
+                      />
                     </div>
 
-                    <ol class="mt-3 flex flex-col gap-2">
-                      <template
-                        x-for="(stop, index) in draft.tappe"
-                        :key="index"
+                    <div
+                      class="mt-6 border-l-4 border-l-accent py-2 pl-4"
+                    >
+                      <div class="flex items-baseline justify-between">
+                        <h2
+                          class="font-display text-title-3 text-accent"
+                          x-text="t(`Il percorso`)"
+                        ></h2>
+                        <span
+                          class="tabular text-caption text-muted"
+                          x-text="draftSummary()"
+                        ></span>
+                      </div>
+
+                      <ol
+                        class="mt-3 flex max-h-[60dvh] flex-col gap-2 overflow-y-auto overscroll-contain pr-1"
                       >
-                        <li
-                          class="lastra riga-figurata"
-                          :class="stop.tipo === 'logistica' ? 'bg-surface-2' : ''"
+                        <template
+                          x-for="(stop, index) in draft.tappe"
+                          :key="index"
                         >
-
-                          <span
-                            x-show="stop.tipo === 'item'"
-                            class="figura-riga figura-riga-corta"
+                          <li
+                            class="lastra riga-figurata shrink-0"
+                            :class="stop.tipo === 'logistica' ? 'bg-surface-2' : ''"
                           >
-                            <img
-                              x-show="itemImage(stop.value)"
-                              :src="miniatura(itemImage(stop.value))"
-                              alt=""
-                              loading="lazy"
-                            />
+
                             <span
-                              class="numero-tappa"
-                              x-text="String(stopNumber(index)).padStart(2,'0')"
-                            ></span>
-                          </span>
-                          <span
-                            x-show="stop.tipo === 'logistica'"
-                            class="flex w-12 shrink-0 items-center justify-center self-stretch"
-                          >
-                            <svg class="h-5 w-5 text-muted" aria-hidden="true">
-                              <use href="#ico-nota" />
-                            </svg>
-                          </span>
+                              x-show="stop.tipo === 'item'"
+                              class="figura-riga figura-riga-corta"
+                            >
+                              <img
+                                x-show="itemImage(stop.value)"
+                                :src="miniatura(itemImage(stop.value))"
+                                alt=""
+                                loading="lazy"
+                              />
+                              <span
+                                class="numero-tappa"
+                                x-text="String(stopNumber(index)).padStart(2,'0')"
+                              ></span>
+                            </span>
+                            <span
+                              x-show="stop.tipo === 'logistica'"
+                              class="flex w-12 shrink-0 items-center justify-center self-stretch"
+                            >
+                              <svg class="h-5 w-5 text-muted" aria-hidden="true">
+                                <use href="#ico-nota" />
+                              </svg>
+                            </span>
 
-                          <div
-                            class="riga-corpo flex flex-wrap items-center gap-3"
-                          >
-                            <div class="min-w-0 grow basis-full sm:basis-0">
-                              <template x-if="stop.tipo === 'item'">
-                                <div>
-                                  <p
-                                    class="line-clamp-2 font-medium"
-                                    x-text="itemName(stop.value)"
-                                  ></p>
-                                  <p
-                                    class="text-caption text-muted"
-                                    x-text="itemDetail(stop.value)"
-                                  ></p>
-                                </div>
-                              </template>
-                              <template x-if="stop.tipo === 'logistica'">
-                                <div>
-                                  <label
-                                    :for="'nota-' + index"
-                                    class="sr-only"
-                                    x-text="t(`Indicazione logistica`)"
-                                  ></label>
-                                  <input
-                                    :id="'nota-' + index"
-                                    type="text"
-                                    x-model="stop.value"
-                                    class="campo campo-piatto italic"
-                                    :placeholder="t(`Prosegui a sinistra della scala verso la sala 12`)"
-                                  />
-                                </div>
-                              </template>
-                            </div>
+                            <div
+                              class="riga-corpo flex flex-wrap items-center gap-3"
+                            >
+                              <div class="min-w-0 grow basis-full sm:basis-0">
+                                <template x-if="stop.tipo === 'item'">
+                                  <div>
+                                    <p
+                                      class="line-clamp-2 font-medium"
+                                      x-text="itemName(stop.value)"
+                                    ></p>
+                                    <p
+                                      class="text-caption text-muted"
+                                      x-text="itemDetail(stop.value)"
+                                    ></p>
+                                  </div>
+                                </template>
+                                <template x-if="stop.tipo === 'logistica'">
+                                  <div>
+                                    <label
+                                      :for="'nota-' + index"
+                                      class="sr-only"
+                                      x-text="t(`Indicazione logistica`)"
+                                    ></label>
+                                    <input
+                                      :id="'nota-' + index"
+                                      type="text"
+                                      x-model="stop.value"
+                                      class="campo campo-piatto italic"
+                                      :placeholder="t(`Prosegui a sinistra della scala verso la sala 12`)"
+                                    />
+                                  </div>
+                                </template>
+                              </div>
 
-                            <div class="flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                x-show="stop.tipo === 'item'"
-                                @click="toggleOptional(index)"
-                                :aria-pressed="!!stop.opzionale"
-                                :aria-label="toggleOptionalLabel(stop.opzionale, index)"
-                                class="pastiglia-bottone"
-                                :class="stop.opzionale ? 'pastiglia-attiva' : ''"
-                                x-text="t(`Opzionale`)"
-                              ></button>
-                              <div class="flex flex-col">
+                              <div class="flex shrink-0 items-center gap-1">
                                 <button
                                   type="button"
-                                  @click="moveStop(index, -1)"
-                                  :disabled="index === 0"
-                                  :aria-label="'Sposta in su la posizione ' + (index+1)"
-                                  class="icona-mini"
-                                >
-                                  <svg class="h-4 w-4" aria-hidden="true">
-                                    <use href="#ico-su" />
-                                  </svg>
-                                </button>
+                                  x-show="stop.tipo === 'item'"
+                                  @click="toggleOptional(index)"
+                                  :aria-pressed="!!stop.opzionale"
+                                  :aria-label="toggleOptionalLabel(stop.opzionale, index)"
+                                  class="pastiglia-bottone"
+                                  :class="stop.opzionale ? 'pastiglia-attiva' : ''"
+                                  x-text="t(`Opzionale`)"
+                                ></button>
+                                <div class="flex flex-col">
+                                  <button
+                                    type="button"
+                                    @click="moveStop(index, -1)"
+                                    :disabled="index === 0"
+                                    :aria-label="'Sposta in su la posizione ' + (index+1)"
+                                    class="icona-mini"
+                                  >
+                                    <svg class="h-4 w-4" aria-hidden="true">
+                                      <use href="#ico-su" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    @click="moveStop(index, 1)"
+                                    :disabled="index === draft.tappe.length - 1"
+                                    :aria-label="'Sposta in giù la posizione ' + (index+1)"
+                                    class="icona-mini"
+                                  >
+                                    <svg class="h-4 w-4" aria-hidden="true">
+                                      <use href="#ico-giu" />
+                                    </svg>
+                                  </button>
+                                </div>
                                 <button
                                   type="button"
-                                  @click="moveStop(index, 1)"
-                                  :disabled="index === draft.tappe.length - 1"
-                                  :aria-label="'Sposta in giù la posizione ' + (index+1)"
-                                  class="icona-mini"
+                                  @click="removeStop(index)"
+                                  :aria-label="'Rimuovi la posizione ' + (index+1)"
+                                  class="icona-mini text-danger"
                                 >
                                   <svg class="h-4 w-4" aria-hidden="true">
-                                    <use href="#ico-giu" />
+                                    <use href="#ico-chiudi" />
                                   </svg>
                                 </button>
                               </div>
-                              <button
-                                type="button"
-                                @click="removeStop(index)"
-                                :aria-label="'Rimuovi la posizione ' + (index+1)"
-                                class="icona-mini text-danger"
-                              >
-                                <svg class="h-4 w-4" aria-hidden="true">
-                                  <use href="#ico-chiudi" />
-                                </svg>
-                              </button>
                             </div>
-                          </div>
-                        </li>
-                      </template>
-                    </ol>
+                          </li>
+                        </template>
+                      </ol>
 
-                    <div x-show="draft.tappe.length === 0" class="vuoto mt-3">
-                      <p x-text="t(`Il percorso è vuoto.`)"></p>
-                      <p
-                        class="mt-1 text-small text-muted"
-                        x-text="t(`Aggiungi le descrizioni dalla libreria qui accanto.`)"
-                      ></p>
-                    </div>
-
-                    <button
-                      type="button"
-                      @click="addStop('logistica')"
-                      class="btn-secondario mt-3 w-full justify-center"
-                    >
-                      <svg class="h-4 w-4" aria-hidden="true">
-                        <use href="#ico-nota" />
-                      </svg>
-                      <span
-                        x-text="t(`Aggiungi un'indicazione logistica`)"
-                      ></span>
-                    </button>
-
-                    <template
-                      x-if="!editingId && importableVisits().length > 0"
-                    >
-                      <div class="lastra mt-6 p-4">
-                        <label
-                          for="importa"
-                          class="etichetta"
-                          x-text="t(`Parti da una visita esistente`)"
-                        ></label>
+                      <div x-show="draft.tappe.length === 0" class="vuoto mt-3">
+                        <p x-text="t(`Il percorso è vuoto.`)"></p>
                         <p
-                          class="mb-2 text-caption text-muted"
-                          x-text="t(`Ne copia le tappe. L'originale non viene toccato.`)"
+                          class="mt-1 text-small text-muted"
+                          x-text="t(`Aggiungi le descrizioni dalla libreria qui accanto.`)"
                         ></p>
-                        <select
-                          id="importa"
-                          class="campo"
-                          @change="importVisit($event.target.value); $event.target.value=''"
-                        >
-                          <option value="" x-text="t(`Scegli…`)"></option>
-                          <template
-                            x-for="v in importableVisits()"
-                            :key="v['@id']"
-                          >
-                            <option
-                              :value="v['@id']"
-                              x-text="v.name + (v.author ? ' · ' + v.author : '')"
-                            ></option>
-                          </template>
-                        </select>
                       </div>
-                    </template>
+
+                      <button
+                        type="button"
+                        @click="addStop('logistica')"
+                        class="btn-secondario mt-3 w-full justify-center"
+                      >
+                        <svg class="h-4 w-4" aria-hidden="true">
+                          <use href="#ico-nota" />
+                        </svg>
+                        <span
+                          x-text="t(`Aggiungi un'indicazione logistica`)"
+                        ></span>
+                      </button>
+
+                      <template
+                        x-if="!editingId && importableVisits().length > 0"
+                      >
+                        <div class="lastra mt-6 p-4">
+                          <label
+                            for="importa"
+                            class="etichetta"
+                            x-text="t(`Parti da una visita esistente`)"
+                          ></label>
+                          <p
+                            class="mb-2 text-caption text-muted"
+                            x-text="t(`Ne copia le tappe. L'originale non viene toccato.`)"
+                          ></p>
+                          <select
+                            id="importa"
+                            class="campo"
+                            @change="importVisit($event.target.value); $event.target.value=''"
+                          >
+                            <option value="" x-text="t(`Scegli…`)"></option>
+                            <template
+                              x-for="v in importableVisits()"
+                              :key="v['@id']"
+                            >
+                              <option
+                                :value="v['@id']"
+                                x-text="v.name + (v.author ? ' · ' + v.author : '')"
+                              ></option>
+                            </template>
+                          </select>
+                        </div>
+                      </template>
+                    </div>
                   </div>
 
                   <!-- La libreria da cui si pesca -->
@@ -4439,23 +4456,14 @@
         class="fixed bottom-24 left-1/2 z-50 w-[min(28rem,90vw)] -translate-x-1/2 md:bottom-6 md:left-auto md:right-6 md:translate-x-0"
       >
         <div
-          :role="toast?.tipo === 'error' ? 'alert' : 'status'"
-          class="flex items-start gap-3 rounded-card border border-line bg-surface p-4 shadow-l2"
-          :class="toast?.tipo === 'error' ? 'border-l-4 border-l-danger' : 'border-l-4 border-l-sage'"
+          role="alert"
+          class="flex items-start gap-3 rounded-card border border-line border-l-4 border-l-danger bg-surface p-4 shadow-l2"
         >
           <svg
-            x-show="toast?.tipo === 'error'"
             class="h-5 w-5 shrink-0 text-danger"
             aria-hidden="true"
           >
             <use href="#ico-attenzione" />
-          </svg>
-          <svg
-            x-show="toast?.tipo !== 'error'"
-            class="h-5 w-5 shrink-0 text-sage"
-            aria-hidden="true"
-          >
-            <use href="#ico-check" />
           </svg>
           <p class="flex-1 text-small" x-text="toast?.messaggio"></p>
           <button

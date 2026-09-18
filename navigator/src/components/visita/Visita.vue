@@ -11,6 +11,7 @@ import Stage from "./Stage.vue";
 import Scheda from "./Scheda.vue";
 import Attesa from "../Attesa.vue";
 import Posizione from "./Posizione.vue";
+import TTSButton from "./TTSButton.vue";
 import { marketplaceHome } from "@/config";
 import { useTTS } from "./useTTS";
 import { useTranslation } from "@/composables/useTranslation";
@@ -49,7 +50,10 @@ import {
   studentAsk,
 } from "@/guided";
 import {
+  enableGuidedAutoplay,
+  guidedAudioPaused,
   guidedAutoplayEnabled,
+  pauseGuidedAudio,
   playGuidedAudio,
   stopGuidedAudio,
 } from "./guidedAudio";
@@ -76,11 +80,7 @@ watch(
     if (guidedStep >= 0) selectIndex(guidedStep);
     const opening = openingNotes();
     if (opening.length && !openingShown.value) {
-      transition.value = {
-        notes: opening,
-        target: guidedStep,
-        navigateOnClose: guidedStep < 0,
-      };
+      showTransition(opening, guidedStep, guidedStep < 0);
       openingShown.value = true;
     }
   },
@@ -121,6 +121,7 @@ const transition = ref<{
   target: number;
   navigateOnClose: boolean;
 } | null>(null);
+let resumeGuidedAfterTransition = false;
 
 const fine = ref<{ notes: string[] } | null>(null);
 
@@ -299,6 +300,10 @@ function showTransition(
   target: number,
   navigateOnClose: boolean,
 ) {
+  if (guidedStudent.value && guidedAutoplayEnabled.value) {
+    resumeGuidedAfterTransition = true;
+    pauseGuidedAudio();
+  }
   transition.value = { notes, target, navigateOnClose };
   announce(notes.join(". "));
 }
@@ -338,8 +343,12 @@ function navigationHandler(direction: NavigationDirection) {
 }
 
 function closeTransition() {
+  tts.stop();
   const t = transition.value;
   transition.value = null;
+  if (resumeGuidedAfterTransition && guidedStato.value === "attiva")
+    enableGuidedAutoplay();
+  resumeGuidedAfterTransition = false;
   if (!t) return;
   if (!t.navigateOnClose) return;
   if (t.target >= 0) {
@@ -556,6 +565,7 @@ watch(
         return;
       }
     }
+    if (guidedStato.value === "attiva" && guidedAudioPaused) return;
     stopGuidedAudio();
   },
   { immediate: true },
@@ -721,13 +731,12 @@ onUnmounted(() => {
           </li>
         </ul>
         <div class="mt-6 flex shrink-0 gap-3">
-          <button
-            type="button"
-            class="btn-secondario"
-            @click="tts.speak(transition.notes.join('. '))"
-          >
-            {{ t("Leggi") }}
-          </button>
+          <TTSButton
+            class="icona-tonda shrink-0"
+            active-class="icona-tonda-attiva"
+            :text="transition.notes.join('. ')"
+            :label="t('Leggi')"
+          />
           <button type="button" class="btn-primario flex-1 justify-center" @click="closeTransition">
             {{ t("Continua") }}
           </button>
