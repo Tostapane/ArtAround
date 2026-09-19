@@ -296,7 +296,9 @@ Nella lista dei contenuti dell'autore la parola chiave delle visite guidate è
 mostrata in minuscolo, senza modificare il valore conservato e usato per
 l'accesso. Le interfacce mostrano soltanto istruzioni operative: le spiegazioni
 duplicate, gli stati positivi ovvi e il testo promozionale interno sono rimossi
-anche dai cataloghi di traduzione.
+anche dai cataloghi di traduzione. La soglia iniziale occupa un solo viewport
+senza scorrimento; negli schermi orizzontali molto bassi nasconde soltanto il
+marchio, lasciando visibili lingua, titolo e accessi.
 
 I binding Alpine sono stringhe valutate a runtime: rinominare un metodo richiede
 una ricerca nei file HTML oltre al type-check. `i18next` deve essere caricato
@@ -659,7 +661,7 @@ Build e server occupano lo stesso slot Node. Il giro corretto è quindi:
 ```text
 fermare il server
 avviare il container Node con deploy-build.js
-controllare che tutti i passi risultino OK
+controllare che tutte le fasi terminino senza errori
 fermare il container di build
 avviare Mongo se necessario
 avviare il container Node con index.js
@@ -735,7 +737,7 @@ Risultati di questa revisione:
   `/navigator/`, `/sources/` e una pianta rispondono 200; un asset inesistente
   risponde 404;
 - controllo delle quattro piante: passato;
-- copertura dei dodici cataloghi: 530/530;
+- copertura dei dodici cataloghi: 494/494;
 - Oxlint sul navigator: zero errori e zero avvisi;
 - ESLint sul navigator: non passa, con 19 errori preesistenti descritti in
   `Missing`;
@@ -768,8 +770,8 @@ Risultati di questa revisione:
    della descrizione vengono tradotti, ma nomi di visite, titoli delle opere,
    etichette della mappa e molti messaggi testuali del server possono restare in
    italiano. Va stabilita una politica per i nomi propri e introdotti codici
-   errore traducibili. Le 48 traduzioni orfane possono essere eliminate solo
-   dopo aver verificato che non siano chiavi dinamiche.
+   errore traducibili. I cataloghi non contengono traduzioni orfane; i tre
+   residui segnalati dal controllo automatico sono le parole del marchio grafico.
 
 5. **Ingresso autonomo del navigator.** Oggi serve una sessione ottenuta dal
    marketplace, anche se `config.json` identifica un museo specifico. Decidere
@@ -812,3 +814,9 @@ Risultati di questa revisione:
     circa 3,38 MB in BSON, contro 268 KB per i quattro campi necessari, il 92% in
     meno. Una futura ottimizzazione KISS può aggiungere una proiezione Mongoose
     alle query già aggregate, senza cambiare schema, calcolo o payload pubblico.
+
+12. **Attesa della preview fuori visita.** Quando QR, codice o localizzazione
+    aprono un'opera non inclusa nella visita, il pannello si chiude prima della
+    richiesta e non compare alcun caricamento durante il recupero o la generazione
+    AI della descrizione. Va mostrato uno stato di attesa esplicito fino all'apertura
+    della scheda o all'errore.

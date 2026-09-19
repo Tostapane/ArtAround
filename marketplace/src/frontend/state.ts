@@ -1,7 +1,7 @@
 /**
  * Stato unico e azioni del marketplace. Tiene insieme router History API, sessione,
- * catalogo per museo ed editor, cosi' i binding Alpine chiamano metodi semplici; le
- * note logistiche conservano l'ordine relativo alle tappe.
+ * catalogo per museo ed editor, cosi' i binding Alpine chiamano metodi semplici. Il
+ * QID del museo resta nella sessione della scheda perche' le route non lo contengono.
  */
 import {
   UserRole,
@@ -97,6 +97,22 @@ export type View = "avvio" | (typeof marketplaceViews)[number];
 
 const indiceContenuti = new Map<string, Content>();
 const indiceRicerca = new Map<string, string>();
+const MUSEUM_SESSION_KEY = "artaround-museum";
+
+function storedMuseumQid(): string {
+  try {
+    return sessionStorage.getItem(MUSEUM_SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function storeMuseumQid(qid: string | null) {
+  try {
+    if (qid) sessionStorage.setItem(MUSEUM_SESSION_KEY, qid);
+    else sessionStorage.removeItem(MUSEUM_SESSION_KEY);
+  } catch {}
+}
 
 export class AppState {
 
@@ -133,7 +149,7 @@ export class AppState {
   catalogAuthorFilter: string = "tutti";
 
   editorSearch: string = "";
-  editorFilter: "tutti" | "disponibili" | "da_acquistare" = "tutti";
+  editorFilter: "tutti" | "disponibili" = "tutti";
 
   customRequest: string = "";
 
@@ -428,14 +444,21 @@ export class AppState {
     try {
       this.museums = await ArtAPI.fetchMuseums();
 
+      const selectedQid = this.selectedMuseum?.qid || storedMuseumQid();
+      this.selectedMuseum =
+        this.museums.find((museum) => museum.qid === selectedQid) || null;
       if (!this.selectedMuseum && this.museums.length === 1) {
         this.selectedMuseum = this.museums[0];
       }
+      storeMuseumQid(this.selectedMuseum?.qid || null);
 
       if (await this.goToNavigatorIfAsked()) return;
-      if (this.selectedMuseum) await this.loadCatalogue();
-
-      this.redirectTo(this.selectedMuseum ? this.roleHome() : "musei");
+      if (this.selectedMuseum) {
+        await this.loadCatalogue();
+        this.applyRoute();
+      } else {
+        this.redirectTo("musei");
+      }
       await this.afterPaint();
     } catch (e) {
       console.error("Errore durante l'inizializzazione dei dati:", e);
@@ -549,6 +572,7 @@ export class AppState {
     this.reindicizza();
     this.museums = [];
     this.selectedMuseum = null;
+    storeMuseumQid(null);
     this.sales = [];
     this.editingId = null;
 
@@ -587,6 +611,7 @@ export class AppState {
 
   async selectMuseum(m: Museum) {
     this.selectedMuseum = m;
+    storeMuseumQid(m.qid);
     this.museumArtworkSearch = "";
 
     if (await this.goToNavigatorIfAsked()) return;
@@ -1370,7 +1395,6 @@ export class AppState {
     return [
       { v: "tutti", t: "Tutte" },
       { v: "disponibili", t: "Che possiedo" },
-      { v: "da_acquistare", t: "Da sbloccare" },
     ];
   }
 
@@ -2235,12 +2259,8 @@ export class AppState {
 
   editorLibrary(): ArtworkGroup[] {
     let base = this.visibleItems();
-    if (this.editorFilter !== "tutti") {
-      base = base.filter((i) =>
-        this.editorFilter === "disponibili"
-          ? this.canRead(i)
-          : !this.canRead(i),
-      );
+    if (this.editorFilter === "disponibili") {
+      base = base.filter((i) => this.canRead(i));
     }
     const groups = this.percorrenza(this.groupByArtwork(base));
     if (!this.editorSearch.trim()) return groups;

@@ -156,6 +156,13 @@
     color-mix(in oklab, var(--accent) 55%, var(--lastra)) 44%,
     color-mix(in oklab, var(--slate) 55%, var(--lastra)) 100%
   );
+  --iride-inversa: linear-gradient(
+    112deg,
+    color-mix(in oklab, var(--slate) 55%, var(--lastra)) 0%,
+    color-mix(in oklab, var(--accent) 55%, var(--lastra)) 56%,
+    color-mix(in oklab, var(--sage) 55%, var(--lastra)) 74%,
+    color-mix(in oklab, var(--brass) 55%, var(--lastra)) 100%
+  );
   --iride-l: 0.72;
   --iride-c: 0.17;
 
@@ -236,6 +243,13 @@
       oklch(from var(--sage) var(--iride-l) var(--iride-c) h) 26%,
       oklch(from var(--accent) var(--iride-l) var(--iride-c) h) 44%,
       oklch(from var(--slate) var(--iride-l) var(--iride-c) h) 100%
+    );
+    --iride-inversa: linear-gradient(
+      112deg in oklch,
+      oklch(from var(--slate) var(--iride-l) var(--iride-c) h) 0%,
+      oklch(from var(--accent) var(--iride-l) var(--iride-c) h) 56%,
+      oklch(from var(--sage) var(--iride-l) var(--iride-c) h) 74%,
+      oklch(from var(--brass) var(--iride-l) var(--iride-c) h) 100%
     );
   }
 }

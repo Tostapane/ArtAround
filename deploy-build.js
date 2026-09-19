@@ -1,7 +1,7 @@
 /*
- * Installa e compila le tre applicazioni nel container di dipartimento, dove
- * sposta anche la cache npm in una cartella scrivibile. Infine ricrea sources/;
- * il server va avviato separatamente perche' usa lo stesso slot Node.
+ * Installa e compila le tre applicazioni nel container di dipartimento, mostrando
+ * solo le fasi del deploy; l'output tecnico viene conservato per spiegare gli
+ * errori. Infine ricrea sources/ e lascia libero lo slot Node per il server.
  */
 
 const { execSync } = require('child_process');
@@ -14,29 +14,41 @@ const ambiente = {
   ...process.env,
   HOME: root,
   npm_config_cache: path.join(root, '.npm-cache'),
+  npm_config_update_notifier: 'false',
 };
 
 const passi = [
-  ['dipendenze server',      'npm install --include=dev --no-audit --no-fund --prefix server'],
-  ['dipendenze marketplace', 'npm install --include=dev --no-audit --no-fund --prefix marketplace'],
-  ['dipendenze navigator',   'npm install --include=dev --no-audit --no-fund --prefix navigator'],
-  ['build server',           'npm run build --prefix server'],
-  ['build marketplace',      'npm run build --prefix marketplace'],
-  ['build navigator',        'npm run build --prefix navigator'],
+  ['Controllo dipendenze', [
+    'npm install --include=dev --no-audit --no-fund --prefix server',
+    'npm install --include=dev --no-audit --no-fund --prefix marketplace',
+    'npm install --include=dev --no-audit --no-fund --prefix navigator',
+  ]],
+  ['Compilazione server', ['npm run build --prefix server']],
+  ['Compilazione navigator', ['npm run build --prefix navigator']],
+  ['Compilazione marketplace', ['npm run build --prefix marketplace']],
 ];
 
-console.log('=== deploy-build: inizio in ' + root);
-console.log('=== node ' + process.version);
+console.log('Build ArtAround');
+console.log('Node ' + process.version);
 
-for (const [nome, comando] of passi) {
-  console.log('\n--- ' + nome + ': ' + comando);
-  try {
-    execSync(comando, { cwd: root, stdio: 'inherit', env: ambiente });
-    console.log('--- ' + nome + ': OK');
-  } catch (errore) {
-    console.error('\n!!! ' + nome + ' FALLITO (uscita ' + errore.status + ')');
-    console.error('!!! i passi successivi non vengono eseguiti');
-    process.exit(1);
+for (const [nome, comandi] of passi) {
+  console.log('\n' + nome);
+  for (const comando of comandi) {
+    try {
+      execSync(comando, {
+        cwd: root,
+        env: ambiente,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 20 * 1024 * 1024,
+      });
+    } catch (errore) {
+      console.error('\nBuild interrotta durante: ' + nome);
+      console.error('Comando: ' + comando + '\n');
+      if (errore.stdout) process.stdout.write(String(errore.stdout));
+      if (errore.stderr) process.stderr.write(String(errore.stderr));
+      process.exit(1);
+    }
   }
 }
 
@@ -52,7 +64,7 @@ function tieni(p) {
   return path.relative(root, p) !== path.join('server', 'public', 'images');
 }
 
-console.log('\n--- istantanea sorgenti: sources/');
+console.log('\nPreparazione sorgenti');
 try {
   fs.rmSync(sorgenti, { recursive: true, force: true });
   fs.mkdirSync(sorgenti);
@@ -61,10 +73,10 @@ try {
     fs.cpSync(path.join(root, v), path.join(sorgenti, v), { recursive: true, filter: tieni });
   }
   try { execSync("chmod -R u=rwX,go=rX '" + sorgenti + "'"); } catch {}
-  console.log('--- istantanea sorgenti: OK');
 } catch (e) {
-  console.error('!!! istantanea sorgenti fallita: ' + e.message + ' (il deploy prosegue)');
+  console.error('Preparazione sorgenti non riuscita: ' + e.message);
+  console.error('Il deploy puo\' proseguire.');
 }
 
-console.log('\n=== deploy-build: tutto riuscito.');
-console.log('=== Ora si puo\' spegnere questo e accendere il server.');
+console.log('\nBuild completata.');
+console.log('Spegnere il builder e avviare il server.');

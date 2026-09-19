@@ -437,6 +437,9 @@
     @apply absolute inset-y-0 left-0 w-[3px];
     background-image: var(--iride);
   }
+  .filo-accento.filo-iride::after {
+    background-image: var(--iride-inversa);
+  }
   .btn-iride {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-plate px-4
            text-small font-semibold transition-opacity hover:opacity-90;

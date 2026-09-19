@@ -13,6 +13,7 @@
 :root {
   --app-bar: 4rem;
 }
+
 @media (min-width: 1024px) {
   :root {
     --app-bar: 0px;
@@ -167,4 +168,10 @@
 .marchio {
   width: clamp(3rem, 7vw, 4.5rem);
   height: clamp(3rem, 7vw, 4.5rem);
+}
+
+@media (max-height: 500px) {
+  .soglia .marchio {
+    display: none;
+  }
 }

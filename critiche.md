@@ -2,7 +2,6 @@
 
 ## Da affrontare
 
-- "Una visita guidata può contenere solo item gratuiti o posseduti da te. L'item "Q1114881-sistema-Medio-60" è a pagamento e non è tuo. _A quanto pare quando un autore fa "Parti da una visita esistente" durante la creazione di una visita, il sistema mostra anche visite non gratuite o contenenti opere a pagamento_.
 - Le informazioni riguardo la posizione non vengono fornite in funzione del puntino blu (posizione reale), ma in funzione dell'opera che si sta visitando.
 
 ## da discutere
@@ -12,6 +11,7 @@
 
 ## risolte
 
+- "Una visita guidata può contenere solo item gratuiti o posseduti da te. L'item "Q1114881-sistema-Medio-60" è a pagamento e non è tuo. _A quanto pare quando un autore fa "Parti da una visita esistente" durante la creazione di una visita, il sistema mostra anche visite non gratuite o contenenti opere a pagamento_.
 - Quando uno studente durante la riproduzione di un opera disattiva l'audio, una volta riattivato non riprende da dove si era interrotto ma ricomincia da capo.
 - Dopo aver premuto il tasto parla, non ce n'è uno per annullare la richiesta e ricominciare da capo a parlare.
 - Tasto per cambiare museo, presente anche nella schermata di scelta del museo.

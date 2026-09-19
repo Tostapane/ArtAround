@@ -26,6 +26,7 @@ function toggle() {
 <template>
   <button
     type="button"
+    class="rounded-plate border border-line-strong"
     :class="active ? activeClass || 'text-accent' : ''"
     :disabled="!active && (disabled || !text.trim())"
     :aria-busy="tts.isLoading.value"

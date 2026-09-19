@@ -485,7 +485,7 @@
 
       <section
         x-show="view === 'soglia'"
-        class="relative min-h-[100dvh] overflow-hidden bg-structure text-on-structure"
+        class="soglia relative h-[100dvh] overflow-hidden bg-structure text-on-structure"
       >
         <!-- fondale animato -->
         <canvas
@@ -497,7 +497,7 @@
         <div class="sciame-velo" aria-hidden="true"></div>
 
         <div
-          class="relative flex min-h-[100dvh] flex-col justify-between p-6 sm:p-10 lg:p-16"
+          class="relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] px-[clamp(1rem,4vw,4rem)] py-[clamp(1rem,4vh,4rem)]"
         >
           <!-- LINGUA -->
           <div class="flex justify-start">
@@ -520,9 +520,9 @@
             </div>
           </div>
 
-          <div class="my-auto max-w-4xl py-16">
+          <div class="flex min-h-0 max-w-4xl flex-col justify-center py-4">
             <svg
-              class="marchio mb-8 text-accent"
+              class="marchio mb-[clamp(1rem,4vh,2rem)] text-accent"
               viewBox="0 0 64 64"
               role="img"
               :aria-label="t(`ArtAround`)"
@@ -535,11 +535,13 @@
               ART<br />AROUND<span class="text-accent">.</span>
             </h1>
             <p
-              class="measure mt-8 text-title-3 text-on-structure/85"
+              class="measure mt-[clamp(1rem,4vh,2rem)] text-title-3 text-on-structure/85"
               x-text="t(`Prepara, scopri e vivi la visita di un museo, alla tua maniera. Scegli un percorso già pronto, componi il tuo, o fatti guidare.`)"
             ></p>
             <!-- ACCESSO -->
-            <div class="mt-10 flex flex-col gap-3 sm:flex-row">
+            <div
+              class="mt-[clamp(1.5rem,5vh,2.5rem)] flex flex-col gap-3 sm:flex-row"
+            >
               <button
                 type="button"
                 @click="enterFrom('marketplace')"
@@ -910,7 +912,7 @@
                     x-for="v in [
                     {id:'home',     ico:'#ico-banco',    label:t('Home')},
                     {id:'vetrina',  ico:'#ico-visite',   label:t('Vetrina')},
-                    {id:'libreria', ico:'#ico-libreria', label:t('Libreria')}
+                    {id:'libreria', ico:'#ico-libreria', label:t('La mia libreria')}
                   ]"
                     :key="v.id"
                   >
@@ -1067,7 +1069,7 @@
                     type="button"
                     @click="selectMuseum(m)"
                     x-data="{ rotta: false }"
-                    class="lastra filo-accento group relative flex w-full flex-col overflow-hidden text-left transition-colors hover:border-accent sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333333%-0.666667rem)]"
+                    class="lastra group relative flex w-full flex-col overflow-hidden border-2 text-left transition-colors hover:border-accent sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333333%-0.666667rem)]"
                     :aria-label="t(`Entra nel museo {nome}`, { nome: m.name })"
                   >
                     <template x-if="museumImage(m) && !rotta">
@@ -1095,13 +1097,13 @@
                         x-text="m.location"
                       ></p>
                       <p
-                        class="tabular mt-4 text-caption uppercase tracking-wider text-muted"
+                        class="tabular mb-5 mt-4 text-caption uppercase tracking-wider text-muted"
                         x-text="museumSummary(m)"
                       ></p>
                       <span
-                        class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent"
+                        class="mt-auto flex w-full items-center justify-between border-t border-line pt-4 text-small font-semibold text-accent"
                       >
-                        <span x-text="t(`Entra`)"></span>
+                        <span x-text="t(`Entra nel museo`)"></span>
                         <svg class="h-4 w-4" aria-hidden="true">
                           <use href="#ico-avanti" />
                         </svg>

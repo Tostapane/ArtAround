@@ -63,7 +63,7 @@ router.get("/:qid/items", async (req, res) => {
 /**
  * GET /api/artworks/:qid/preview[?level=&duration=]
  * Ritorna: { artwork, item } per QR e codice, scegliendo per tono e durata. Se manca una descrizione
- * la genera e salva; 502 se il modello non risponde.
+ * la genera per la sola risposta; 502 se il modello non risponde.
  */
 router.get("/:qid/preview", async (req, res) => {
   try {
@@ -119,21 +119,16 @@ router.get("/:qid/preview", async (req, res) => {
       return res.status(502).json({ error: "Impossibile generare la descrizione dell'opera" });
     }
 
-    const generatedId = `${qid}-AI-${usedLevel}-${usedDuration}`;
-    const generated = await ItemModel.findOneAndUpdate(
-      { "@id": generatedId },
-      {
-        "@id": generatedId,
-        kind: "opera",
-        about: artwork["@id"],
-        ofMuseum: artwork.ofMuseum,
-        text,
-        timeRequired: String(usedDuration),
-        educationalLevel: usedLevel,
-        author: "AI",
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    const generated = {
+      "@id": `${qid}-AI-${usedLevel}-${usedDuration}`,
+      kind: "opera",
+      about: artwork["@id"],
+      ofMuseum: artwork.ofMuseum,
+      text,
+      timeRequired: String(usedDuration),
+      educationalLevel: usedLevel,
+      author: "AI",
+    };
 
     res.json({ artwork, item: generated });
   } catch (error: any) {
