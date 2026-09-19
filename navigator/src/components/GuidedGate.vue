@@ -67,7 +67,7 @@ function toggleAudio() {
   }
   manualTts.stop();
   enableGuidedAutoplay();
-  announce(t("Audio sincronizzato attivato"));
+  announce(`${t("Audio sincronizzato")}: ${t("Sì")}`);
 }
 
 function formatTime(at: number): string {
@@ -281,9 +281,6 @@ async function consegna() {
         <p class="mt-2 font-mono text-display font-semibold leading-none">
           {{ guidedAccessKey }}
         </p>
-        <p class="mt-3 text-small text-on-structure/80">
-          {{ t("Gli studenti la digitano dal marketplace per entrare.") }}
-        </p>
       </div>
 
       <div class="mt-10">
@@ -336,9 +333,6 @@ async function consegna() {
       >
         {{ guidedAutoplayEnabled ? t("Disattiva audio") : t("Attiva audio") }}
       </button>
-      <p v-if="guidedAutoplayEnabled" class="mt-3 text-small text-on-structure/80" role="status">
-        {{ t("Audio sincronizzato attivato") }}
-      </p>
     </div>
 
     <div class="flex flex-wrap gap-3">
@@ -455,13 +449,6 @@ async function consegna() {
 
         <!-- Avvio del quiz -->
         <template v-else-if="panel === 'quiz'">
-          <p class="mt-4 text-small text-muted">
-            {{
-              t(
-                "Il quiz parte su tutti i dispositivi insieme. Il voto è il numero di risposte corrette, e lo calcola il server.",
-              )
-            }}
-          </p>
           <div class="mt-4">
             <label for="quiz-durata" class="text-caption uppercase tracking-wider text-muted">
               {{ t("Tempo a disposizione") }}
@@ -675,9 +662,8 @@ async function consegna() {
 
         <p v-if="erroreQuiz" class="avviso mt-4" role="alert">{{ erroreQuiz }}</p>
 
-        <p class="mt-6 text-small text-on-structure/70" role="status">
-          <span v-if="!tutteRisposte">{{ t("Rispondi a tutte le domande per consegnare.") }}</span>
-          <span v-else>{{ t("Puoi consegnare. Si consegna una volta sola.") }}</span>
+        <p v-if="!tutteRisposte" class="mt-6 text-small text-on-structure/70" role="status">
+          {{ t("Rispondi a tutte le domande per consegnare.") }}
         </p>
         <button
           type="submit"
@@ -703,12 +689,8 @@ async function consegna() {
       <h1 class="font-display text-title-1">
         {{ guidedPlannedEnd ? t("La visita è finita.") : t("La sessione è stata chiusa.") }}
       </h1>
-      <p class="mt-3 text-body text-on-structure/85">
-        {{
-          guidedPlannedEnd
-            ? t("Grazie per aver partecipato.")
-            : t("Il collegamento con la visita si è interrotto. Chiedi al docente di riaprire la sala d'attesa.")
-        }}
+      <p v-if="!guidedPlannedEnd" class="mt-3 text-body text-on-structure/85">
+        {{ t("Il collegamento con la visita si è interrotto. Chiedi al docente di riaprire la sala d'attesa.") }}
       </p>
       <p
         v-if="guidedQuizPunteggio !== null && guidedQuizStudente"

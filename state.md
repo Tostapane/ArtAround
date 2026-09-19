@@ -1,6 +1,6 @@
 # ArtAround: stato corrente del progetto
 
-Aggiornato al 15 settembre 2026. Questo è il riferimento unico per capire il
+Aggiornato al 18 settembre 2026. Questo è il riferimento unico per capire il
 progetto e riprendere il lavoro. Descrive il sistema presente nel repository,
 non la cronologia delle modifiche.
 
@@ -164,9 +164,10 @@ calcolati per l'utente che chiede e non sono salvati in Mongo.
 
 `shared/access.ts` contiene la regola comune: un item pubblico è leggibile se è
 gratuito, proprio o posseduto; un item privato è leggibile soltanto dal suo autore.
-La sessione guidata è l'unica eccezione e consegna le proprie tappe solo al docente
-e ai partecipanti. L'identità arriva esclusivamente dalla sessione, mai da un nome
-inviato dal client.
+La sessione guidata è l'unica eccezione: prezzo e collezione non limitano la
+preparazione del docente o la lettura degli studenti, mentre contenuti e audio
+sono consegnati soltanto al docente e ai partecipanti. L'identità arriva
+esclusivamente dalla sessione, mai da un nome inviato dal client.
 
 - Comprare una visita acquista in un'unica transazione tutti gli item mancanti.
 - Ogni autore riceve il ricavo dei propri contenuti; credito insufficiente non
@@ -281,6 +282,21 @@ autore, tono e durata e riceve un suffisso in caso di collisione. Il compositore
 ordina tappe, opzionali, note logistiche, copertina, licenza, parola chiave e
 quiz. La visita su misura passa al navigator come richiesta e non viene
 persistita.
+
+Nel compositore l'autore vede anche gli item pubblici a pagamento degli altri
+autori, con il prezzo accanto, e può inserirli sia nelle visite normali sia in
+quelle guidate. Un item privato resta disponibile al proprio autore, non agli
+altri. Il resoconto vendite dispone di ricerca e filtri per item e visite, con la
+tabella contenuta in un'area scorrevole. Gli errori tecnici di pubblicazione non
+espongono identificativi o dettagli di autorizzazione nel riquadro: invitano a
+riprovare più tardi, mentre campi mancanti, quiz e conflitti della parola chiave
+restano messaggi specifici e operativi.
+
+Nella lista dei contenuti dell'autore la parola chiave delle visite guidate è
+mostrata in minuscolo, senza modificare il valore conservato e usato per
+l'accesso. Le interfacce mostrano soltanto istruzioni operative: le spiegazioni
+duplicate, gli stati positivi ovvi e il testo promozionale interno sono rimossi
+anche dai cataloghi di traduzione.
 
 I binding Alpine sono stringhe valutate a runtime: rinominare un metodo richiede
 una ricerca nei file HTML oltre al type-check. `i18next` deve essere caricato
@@ -788,3 +804,11 @@ Risultati di questa revisione:
    cui `.env` avrebbe precedenza sul processo e una stima del seed basata su due
    durate. Per operare usare la descrizione corrente di questo file e il codice,
    poi riallineare soltanto i documenti che è consentito modificare.
+
+11. **Dati caricati per calcolare il prezzo delle visite.** Le rotte che
+    restituiscono gli elenchi delle visite recuperano documenti `Item` completi,
+    anche se `conto()` usa soltanto `@id`, `price`, `author` e `visibility`. Sugli
+    Uffizi, 25 visite coinvolgono 2.701 item unici: i documenti completi occupano
+    circa 3,38 MB in BSON, contro 268 KB per i quattro campi necessari, il 92% in
+    meno. Una futura ottimizzazione KISS può aggiungere una proiezione Mongoose
+    alle query già aggregate, senza cambiare schema, calcolo o payload pubblico.

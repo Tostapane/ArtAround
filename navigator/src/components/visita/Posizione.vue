@@ -212,9 +212,6 @@ onUnmounted(() => scanner.stop());
         <p v-if="scanner.error.value" class="avviso mt-3 text-danger" role="alert">
           {{ scanner.error.value }}
         </p>
-        <p v-else class="mt-3 text-small text-muted">
-          {{ t("Inquadra il QR posto accanto all'opera.") }}
-        </p>
       </div>
 
       <!-- Codice digitato -->

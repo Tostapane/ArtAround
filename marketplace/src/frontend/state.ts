@@ -119,6 +119,9 @@ export class AppState {
   worksSearch: string = "";
   worksTypeFilter: "tutti" | "item" | "visite" = "tutti";
 
+  salesSearch: string = "";
+  salesTypeFilter: "tutti" | "item" | "visite" = "tutti";
+
   catalogSearch: string = "";
   museumArtworkSearch: string = "";
 
@@ -563,6 +566,8 @@ export class AppState {
     this.marketDurationFilter = "tutti";
     this.libraryTypeFilter = "tutti";
     this.worksTypeFilter = "tutti";
+    this.salesSearch = "";
+    this.salesTypeFilter = "tutti";
     this.editorFilter = "tutti";
     this.draft = this.emptyDraft();
     this.goTo("soglia");
@@ -961,28 +966,12 @@ export class AppState {
     }
     if (this.visitToComplete) {
       const v = this.visitToComplete;
-      return `Per usare questa visita servono ${this.mancantiDi(v)} contenuti che non hai ancora. Sbloccarli tutti costa € ${(v.costoMancanti || 0).toFixed(2)}.`;
+      return `Vuoi procedere a comprare i contenuti mancanti di "${v.name}"?`;
     }
     const item = this.itemToBuy;
     if (!item) return "";
     const nome = this.contentName(item) || "questo contenuto";
-    const totale = this.costoDi(item);
-    const credito = this.wallet.toFixed(2);
-
-    const mancanti = this.mancantiDi(item);
-    if (mancanti > 0) {
-      const curatela = (Number(item.price) || 0).toFixed(2);
-      const daPagare = isVisit(item) ? item.costoMancanti : 0;
-      const contenuti = (Number(daPagare) || 0).toFixed(2);
-      const quante =
-        mancanti === 1 ? "1 descrizione" : `${mancanti} descrizioni`;
-      return (
-        `"${nome}" costa € ${curatela}, e comprende ${quante} a pagamento che ` +
-        `non hai ancora (€ ${contenuti}): in tutto € ${totale.toFixed(2)}, e la ` +
-        `visita e' subito percorribile. Il tuo credito è € ${credito}.`
-      );
-    }
-    return `"${nome}" resterà nella tua libreria. Costa € ${totale.toFixed(2)}, il tuo credito è € ${credito}.`;
+    return `Vuoi procedere a comprare "${nome}"?`;
   }
 
   private elencoVisite(visite: { name: string }[]): string {
@@ -2246,12 +2235,6 @@ export class AppState {
 
   editorLibrary(): ArtworkGroup[] {
     let base = this.visibleItems();
-    if (this.currentUserRole === "autore") {
-      base = base.filter((i) => this.canRead(i));
-    }
-    if (this.draft.guidata) {
-      base = base.filter((op) => this.canRead(op));
-    }
     if (this.editorFilter !== "tutti") {
       base = base.filter((i) =>
         this.editorFilter === "disponibili"
@@ -2543,8 +2526,6 @@ export class AppState {
     }
   }
 
-  periodFilter: string = "sempre";
-
   async loadSales() {
     if (!this.currentUser) return;
     try {
@@ -2558,7 +2539,17 @@ export class AppState {
   filteredSales(): SaleRow[] {
     const museo = this.museumEntityId();
     if (!museo) return [];
-    return this.sales.filter((r) => r.ofMuseum === museo);
+    const terms = this.searchTerms(this.salesSearch);
+    return this.sales.filter((r) => {
+      if (r.ofMuseum !== museo) return false;
+      if (this.salesTypeFilter === "item" && r.type !== "Item") return false;
+      if (this.salesTypeFilter === "visite" && r.type !== "Visita") return false;
+      if (terms.length === 0) return true;
+      const haystack = this.normalizeSearch(
+        [r.name, r.type, r.educationalLevel || "", r.license].join(" "),
+      );
+      return terms.every((term) => haystack.includes(term));
+    });
   }
 
   totalAdoptions() {

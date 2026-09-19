@@ -10,7 +10,6 @@ import { Router } from "express";
 import { sessionUser } from "../session";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
-import { isReadable } from "../../../shared/access";
 import { UserModel } from "../models/user";
 import { ArtworkModel } from "../models/artwork";
 import { MuseumModel } from "../models/museum";
@@ -30,6 +29,7 @@ import {
 import { rimuoviImmagine } from "./items";
 
 const router = Router();
+const PUBLICATION_ERROR = "Errore, riprova più tardi.";
 
 /**
  * GET /api/visits[?museum=Qxxx][&user=nome]
@@ -286,17 +286,15 @@ router.post("/", async (req, res) => {
       typeof requestedVisitId !== "string" ||
       requestedVisitId.trim() === ""
     )
-      return res.status(400).json({ error: "Manca l'identificativo della visita." });
+      return res.status(400).json({ error: PUBLICATION_ERROR });
     const visitId = requestedVisitId.trim();
     const author = sessionUser(req).username;
     const ruolo = sessionUser(req).role;
     const precedente = await VisitModel.findOne({ "@id": visitId });
     if (precedente && precedente.author !== author) {
       if (nascostaA(precedente, author))
-        return res.status(404).json({ error: "Visita non trovata" });
-      return res
-        .status(403)
-        .json({ error: "Puoi modificare solo le visite che hai composto." });
+        return res.status(404).json({ error: PUBLICATION_ERROR });
+      return res.status(403).json({ error: PUBLICATION_ERROR });
     }
     let visibility: "pubblico" | "privato" = "privato";
     if (ruolo === "autore") visibility = "pubblico";
@@ -331,13 +329,7 @@ router.post("/", async (req, res) => {
     const trovati = new Set(items.map((it: any) => String(it["@id"])));
     const assenti = itemIds.filter((id) => !trovati.has(id));
     if (assenti.length > 0)
-      return res.status(400).json({
-        error:
-          "Queste tappe non esistono nel catalogo: " +
-          assenti.slice(0, 3).join(", ") +
-          (assenti.length > 3 ? ` e altre ${assenti.length - 3}` : "") +
-          ".",
-      });
+      return res.status(400).json({ error: PUBLICATION_ERROR });
 
     // --- Visita GUIDATA (con parola chiave) ---
     const accessKey: string | undefined =
@@ -347,9 +339,7 @@ router.post("/", async (req, res) => {
 
     if (accessKey) {
       if (ruolo !== "autore")
-        return res
-          .status(403)
-          .json({ error: "Solo gli autori possono creare visite guidate." });
+        return res.status(403).json({ error: PUBLICATION_ERROR });
       const clash = await VisitModel.findOne({
         accessKey,
         "@id": { $ne: visitId },
@@ -359,16 +349,9 @@ router.post("/", async (req, res) => {
           error: `La parola chiave "${accessKey}" è già usata da un'altra visita. Scegline un'altra.`,
         });
 
-      const authorAccount = await UserModel.findOne({ username: author });
-      const owned = new Set(authorAccount?.collezione || []);
       for (const it of items as any[]) {
-        if (!isReadable(it, author, owned.has(it["@id"]))) {
-          return res.status(400).json({
-            error:
-              "Una visita guidata può contenere solo item gratuiti o posseduti da te. " +
-              `L'item "${it["@id"]}" è a pagamento e non è tuo.`,
-          });
-        }
+        if (it.visibility === "privato" && it.author !== author)
+          return res.status(400).json({ error: PUBLICATION_ERROR });
       }
     }
 
@@ -436,11 +419,9 @@ router.post("/", async (req, res) => {
     res.status(201).send({ message: "Visita pubblicata con successo" });
   } catch (error: any) {
     if (error?.code === 11000)
-      return res
-        .status(409)
-        .json({ error: "Esiste già una visita con questo identificativo." });
+      return res.status(409).json({ error: PUBLICATION_ERROR });
     console.error("[BACKEND ERROR] Errore durante il salvataggio della visita:", error);
-    res.status(500).json({ error: error.message || "Errore interno del server" });
+    res.status(500).json({ error: PUBLICATION_ERROR });
   }
 });
 

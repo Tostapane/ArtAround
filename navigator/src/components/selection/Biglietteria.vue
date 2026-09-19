@@ -339,10 +339,6 @@ async function createCustom() {
           </button>
         </div>
 
-        <p class="mt-1 text-small text-muted">
-          {{ t("Descrivi il tempo che hai, con chi sei, cosa ti interessa.") }}
-        </p>
-
         <label for="su-misura-testo" class="sr-only">
           {{ t("Descrizione della visita che desideri") }}
         </label>
