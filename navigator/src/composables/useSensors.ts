@@ -1,29 +1,8 @@
 /**
- * I SENSORI DEL DEVICE: posizione e orientamento.
- *
- * L'unico posto con gli effetti collaterali del browser, cioe' permessi,
- * ascoltatori e `watchPosition`, come useQRScanner lo e' per la fotocamera. La
- * geometria sta
- * in localization.ts e non sa che questi esistano.
- *
- * DUE STRADE PER UNA BUSSOLA SOLA. Android e Chrome danno `alpha` riferito al
- * nord su `deviceorientationabsolute`; iOS lo da' su `deviceorientation` come
- * `webkitCompassHeading`, e prima vuole `requestPermission()` DENTRO il gesto
- * dell'utente: per questo si parte dal tocco che apre "Dove sono?" e non al
- * caricamento della pagina. Se nessuna delle due strada da' un riferimento
- * assoluto la bussola resta spenta: `alpha` relativo e' un numero che sembra una
- * direzione senza esserlo, e una bussola sicura di se' e sbagliata e' peggio di
- * nessuna bussola, perche' salta il pannello di scelta invece di mostrarlo.
- *
- * IL TELEFONO NON E' PIATTO. `alpha` da solo e' una bussola solo tenendo il
- * telefono orizzontale; davanti a un quadro lo si tiene dritto, e allora la
- * direzione guardata e' quella della fotocamera posteriore. Si costruisce la
- * matrice di rotazione da alpha/beta/gamma, si prende l'asse della fotocamera e
- * lo si proietta sul piano orizzontale. Quando il telefono torna quasi piatto
- * quell'asse punta al pavimento e la proiezione non dice piu' niente: li' si usa
- * la direzione del bordo superiore, che e' la bussola classica.
+ * Isola permessi e ascoltatori di posizione e orientamento. Normalizza le API
+ * Android e iOS e ignora orientamenti relativi, che sembrerebbero direzioni assolute
+ * senza esserlo.
  */
-
 import { ref } from "vue";
 import { applyFix, bussola } from "@/localization";
 import { t } from "@/i18n";
@@ -39,12 +18,13 @@ export function useSensors() {
   // --- Bussola --------------------------------------------------------------
 
   function headingFromEvent(e: DeviceOrientationEvent): number | null {
-    const vendor = e as DeviceOrientationEvent & { webkitCompassHeading?: number };
+    const vendor = e as DeviceOrientationEvent & {
+      webkitCompassHeading?: number;
+    };
 
     let alpha = e.alpha;
     if (typeof vendor.webkitCompassHeading === "number") {
-      // iOS: la bussola e' gia' un rilevamento orario dal nord, e alpha gira al
-      // contrario. Riportarlo ad alpha assoluto permette una formula sola sotto.
+
       alpha = 360 - vendor.webkitCompassHeading;
     } else if (!e.absolute) {
       return null;
@@ -61,8 +41,6 @@ export function useSensors() {
     const cG = Math.cos(g);
     const sG = Math.sin(g);
 
-    // Asse della fotocamera posteriore (l'opposto della normale dello schermo)
-    // portato in coordinate del mondo: est e nord.
     const estCamera = -(cA * sG + cG * sA * sB);
     const nordCamera = -(sA * sG - cA * cG * sB);
 
@@ -70,8 +48,6 @@ export function useSensors() {
       return normalizza((Math.atan2(estCamera, nordCamera) * 180) / Math.PI);
     }
 
-    // Telefono quasi piatto: la fotocamera guarda il pavimento, decide il bordo
-    // superiore dello schermo.
     const estBordo = -cB * sA;
     const nordBordo = cA * cB;
     return normalizza((Math.atan2(estBordo, nordBordo) * 180) / Math.PI);
@@ -84,7 +60,8 @@ export function useSensors() {
   }
 
   async function startCompass() {
-    const anyEvent = DeviceOrientationEvent as unknown as {
+    if (!("DeviceOrientationEvent" in window)) return;
+    const anyEvent = window.DeviceOrientationEvent as unknown as {
       requestPermission?: () => Promise<string>;
     };
     if (typeof anyEvent.requestPermission === "function") {
@@ -111,7 +88,7 @@ export function useSensors() {
 
   function startPosition() {
     if (!navigator.geolocation) {
-      error.value = t("Questo dispositivo non sa dire dove si trova.");
+      error.value = t("Errore. Prova a inserire il codice.");
       return;
     }
     watchId = navigator.geolocation.watchPosition(
@@ -123,14 +100,8 @@ export function useSensors() {
           accuracy: pos.coords.accuracy,
         });
       },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          error.value = t("Permesso di posizione negato.");
-        } else if (err.code === err.TIMEOUT) {
-          error.value = t("Il satellite non risponde: al chiuso capita.");
-        } else {
-          error.value = t("Posizione non disponibile.");
-        }
+      () => {
+        error.value = t("Errore. Prova a inserire il codice.");
       },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
     );
@@ -142,11 +113,6 @@ export function useSensors() {
     if (attivo.value) return;
     attivo.value = true;
     error.value = "";
-    if (!window.isSecureContext) {
-      error.value =
-        t("I sensori funzionano solo su indirizzi sicuri (https o localhost).");
-      return;
-    }
     startPosition();
     await startCompass();
   }

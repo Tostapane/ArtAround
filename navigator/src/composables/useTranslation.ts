@@ -1,8 +1,6 @@
 /**
- * Traduzione reattiva di una lista di testi.
- *
- * Se la lingua scelta e' quella di partenza non si chiama il server. In caso di
- * errore si mostrano i testi originali: meglio in italiano che assenti.
+ * Traduce reattivamente una lista di testi e conserva l'originale se il servizio non
+ * risponde o la lingua richiesta e' gia' quella sorgente.
  */
 import { ref, watch, type Ref } from "vue";
 import { language } from "@/state";

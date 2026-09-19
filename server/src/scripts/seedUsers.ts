@@ -1,28 +1,15 @@
-/**
- * Crea i quattro account richiesti dalla specifica.
- *
- * Cancella anche i documenti rimasti senza ruolo dal vecchio modello "account
- * unico": non potrebbero piu' accedere. Se quegli account servono, si usa invece
- * `testers.ts account`, che non cancella niente.
- */
+/** Crea con password scrypt gli account dimostrativi senza duplicarli. */
 import { MONGO_URI } from "../env";
 import mongoose from "mongoose";
 import { UserModel } from "../models/user";
-
-/*
- * Seed dei 4 account richiesti dalla spec (slide "Requisiti di progetto"):
- * autore1, autore2 (ruolo autore) e visitatore1, visitatore2 (ruolo
- * visitatore), con password "12345678". Il ruolo fa parte dell'identità: la
- * chiave d'upsert è la coppia (username, role).
- * Idempotente: aggiorna la password se già presenti, senza toccare
- * wallet/collezione esistenti (upsert con $setOnInsert sui campi mutabili).
- */
+import { hashPassword } from "../password";
 
 const utenti = [
   { username: "autore1", password: "12345678", role: "autore" },
   { username: "autore2", password: "12345678", role: "autore" },
   { username: "visitatore1", password: "12345678", role: "visitatore" },
   { username: "visitatore2", password: "12345678", role: "visitatore" },
+  { username: "curatore", password: "12345678", role: "curatore" },
 ];
 
 async function seedUsers() {
@@ -37,10 +24,11 @@ async function seedUsers() {
   for (const u of utenti) {
     const onInsert: any =
       u.role === "visitatore" ? { wallet: 100, collezione: [] } : { collezione: [] };
+    const password = await hashPassword(u.password);
     await UserModel.updateOne(
       { username: u.username, role: u.role },
       {
-        $set: { password: u.password },
+        $set: { password },
         $setOnInsert: onInsert,
       },
       { upsert: true },

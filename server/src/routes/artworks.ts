@@ -1,35 +1,6 @@
 /**
- * Rotte delle opere.
- *
- * `/preview` e' quella interessante: restituisce un'opera anche se NON fa parte
- * della visita in corso (serve al QR e al codice digitato). Sceglie l'item per
- * livello e durata, ripiega sul solo livello, poi su uno qualsiasi; se l'opera non
- * ha descrizioni ne genera una con l'LLM e la salva, cosi' la volta dopo c'e'.
- *
- * `/:qid/items` e' l'altra meta' di `GET /items/metadata`: quella porta tutto il
- * catalogo senza i testi, questa i testi di una sola opera, quando qualcuno la
- * apre davvero. I testi sono la parte piu' pesante del catalogo e quasi nessuno
- * li legge tutti, quindi si mandano su richiesta.
- *
- * Le ultime tre rotte sono del curatore e cambiano il catalogo: aggiungono
- * un'opera al museo e la tolgono. Due avvertenze su come toglierla.
- *
- * NON usare `dbActions.deleteArtwork`: cancella il documento dell'opera e basta,
- * lasciando in giro le descrizioni che la raccontano e le visite che le citano.
- * Una tappa che non si risolve non da' errore, semplicemente non compare, quindi
- * il danno resta invisibile fino a quando qualcuno apre quella visita. La
- * cascata sta qui sotto ed e' la stessa di `DELETE /items/:id`, allargata
- * all'opera: le sue descrizioni spariscono, le visite che le citano si
- * ACCORCIANO invece di sparire (`dbActions.rimuoviTappeDalleVisite`), e le righe
- * nelle collezioni di chi le aveva prese se ne vanno con quel che e' sparito
- * davvero. Una visita se ne va solo se resta senza tappe.
- *
- * Chi aggiunge un'opera scrive solo il suo qid: il resto lo dice Wikidata, e
- * DOVE sta lo dice la mappa. Un qid che sulla pianta non ha un nodo entra lo
- * stesso, senza posizione: si legge nel catalogo ma non compare sulla piantina
- * (vedi `locationsFromMap` in `manager.ts`). Aggiungerla non crea descrizioni,
- * che costano una chiamata al modello l'una: le scrive il seed, che salta le
- * opere gia' presenti, oppure un autore.
+ * Rotte delle opere. Il catalogo legge per museo; il curatore elimina con una cascata
+ * dichiarata prima dall'endpoint impact.
  */
 import { Router } from "express";
 import { sessionUser } from "../session";
@@ -41,11 +12,9 @@ import { sortByFlow } from "../services/svgGraph";
 import { ItemModel } from "../models/item";
 import { createDescription } from "../services/llm";
 import { purchasedBy, isReadable, withoutText, readableItems } from "../access";
-import { findMuseumConfig } from "../data/museumConfigs";
-import { appartieneAlMuseo } from "../services/wikidata";
-import { locationsFromMap, populateArtwork } from "../manager";
-import { rimuoviTappeDalleVisite } from "../dbActions";
+import { rimuoviTappeDalleVisite } from "../catalogue";
 import { rimuoviImmagine } from "./items";
+import { ArtworkImpactReport } from "../../../shared/types";
 
 const router = Router();
 
@@ -59,7 +28,7 @@ router.get("/", async (req, res) => {
     const filter = museum
       ? { ofMuseum: `http://www.wikidata.org/entity/${museum}` }
       : {};
-    const artworks = await ArtworkModel.find(filter);
+    const artworks = await ArtworkModel.find(filter).lean();
     if (!museum) return res.json(artworks);
     const doc = await MuseumModel.findOne({ qid: museum });
     res.json(sortByFlow(artworks, doc ? doc.mapPath : ""));
@@ -70,9 +39,8 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/artworks/:qid/items[?user=nome]
- * Ritorna: le descrizioni PUBBLICHE di quell'opera, col testo (protetto dalla
- * regola di `access.ts`: si legge se e' gratuito, se l'hai scritto o comprato).
- * E' la meta' "pesante" del catalogo, chiesta un'opera alla volta.
+ * Ritorna: le descrizioni pubbliche dell'opera; il testo e' leggibile solo se gratuito, proprio o
+ * posseduto.
  */
 router.get("/:qid/items", async (req, res) => {
   try {
@@ -83,7 +51,7 @@ router.get("/:qid/items", async (req, res) => {
     const items = await ItemModel.find({
       about: artwork["@id"],
       visibility: { $ne: "privato" },
-    });
+    }).lean();
     const user = sessionUser(req).username;
     const owned = await purchasedBy(user);
     res.json(readableItems(items, user, owned));
@@ -92,6 +60,11 @@ router.get("/:qid/items", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/artworks/:qid/preview[?level=&duration=]
+ * Ritorna: { artwork, item } per QR e codice, scegliendo per tono e durata. Se manca una descrizione
+ * la genera per la sola risposta; 502 se il modello non risponde.
+ */
 router.get("/:qid/preview", async (req, res) => {
   try {
     const { qid } = req.params;
@@ -102,7 +75,11 @@ router.get("/:qid/preview", async (req, res) => {
       return res.status(404).json({ error: "Artwork non trovato" });
     }
 
-    const baseFilter = { about: artwork["@id"] };
+    const user = sessionUser(req).username;
+    const baseFilter = {
+      about: artwork["@id"],
+      $or: [{ visibility: { $ne: "privato" } }, { author: user }],
+    };
 
     let item = null;
     if (level && duration) {
@@ -120,7 +97,6 @@ router.get("/:qid/preview", async (req, res) => {
     }
 
     if (item) {
-      const user = sessionUser(req).username;
       const owned = await purchasedBy(user);
       if (!isReadable(item, user, owned)) {
         return res.json({ artwork, item: withoutText(item) });
@@ -143,21 +119,16 @@ router.get("/:qid/preview", async (req, res) => {
       return res.status(502).json({ error: "Impossibile generare la descrizione dell'opera" });
     }
 
-    const generatedId = `${qid}-AI-${usedLevel}-${usedDuration}`;
-    const generated = await ItemModel.findOneAndUpdate(
-      { "@id": generatedId },
-      {
-        "@id": generatedId,
-        kind: "opera",
-        about: artwork["@id"],
-        ofMuseum: artwork.ofMuseum,
-        text,
-        timeRequired: String(usedDuration),
-        educationalLevel: usedLevel,
-        author: "AI",
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    const generated = {
+      "@id": `${qid}-AI-${usedLevel}-${usedDuration}`,
+      kind: "opera",
+      about: artwork["@id"],
+      ofMuseum: artwork.ofMuseum,
+      text,
+      timeRequired: String(usedDuration),
+      educationalLevel: usedLevel,
+      author: "AI",
+    };
 
     res.json({ artwork, item: generated });
   } catch (error: any) {
@@ -167,16 +138,12 @@ router.get("/:qid/preview", async (req, res) => {
 
 // --- Il catalogo del curatore: aggiungere e togliere un'opera ---------------
 
-/** Il curatore, o niente. Le tre rotte qui sotto cambiano il catalogo del museo. */
 function soloCuratore(req: any, res: any): boolean {
   if (sessionUser(req).role === "curatore") return true;
   res.status(403).json({ error: "Solo il curatore può modificare il catalogo." });
   return false;
 }
 
-/** Che cosa se ne va insieme all'opera. Non scrive niente: lo usano sia il
- *  preventivo che l'eliminazione, cosi' contano la stessa cosa. */
-/** L'altro modo: le visite che la citano se ne vanno intere. */
 async function eliminaVisiteCitanti(impatto: {
   visitIds: string[];
   visits: any[];
@@ -189,12 +156,6 @@ async function eliminaVisiteCitanti(impatto: {
   };
 }
 
-/**
- * Cosa comporta togliere un'opera: le sue descrizioni, le visite che le citano
- * e, fra queste, quelle che resterebbero SENZA tappe. Le prime si accorciano,
- * le seconde spariscono (`rimuoviTappeDalleVisite`), ed e' la differenza che va
- * detta prima di chiedere conferma.
- */
 async function impattoOpera(artworkId: string) {
   const items = await ItemModel.find({ about: artworkId }).select("@id imagePath");
   const itemIds = items.map((i: any) => i["@id"]);
@@ -214,8 +175,7 @@ async function impattoOpera(artworkId: string) {
 
 /**
  * GET /api/artworks/:qid/impact
- * Ritorna: { descrizioni, visite[], adozioni }, cioe' cosa sparirebbe togliendo
- * l'opera. Serve a dichiararlo prima di chiedere conferma. Non scrive nulla.
+ * Ritorna: { descrizioni, visite[], adozioni }, senza scrivere, per anticipare la cascata.
  */
 router.get("/:qid/impact", async (req, res) => {
   try {
@@ -225,7 +185,7 @@ router.get("/:qid/impact", async (req, res) => {
     if (!artwork) return res.status(404).json({ error: "Opera non trovata" });
 
     const impatto = await impattoOpera(artwork["@id"]);
-    res.json({
+    const rapporto: ArtworkImpactReport = {
       qid,
       nome: artwork.name,
       descrizioni: impatto.itemIds.length,
@@ -237,7 +197,8 @@ router.get("/:qid/impact", async (req, res) => {
       })),
       svuotate: impatto.svuotate.map((v: any) => ({ id: v["@id"], name: v.name })),
       adozioni: impatto.adozioni,
-    });
+    };
+    res.json(rapporto);
   } catch (error: any) {
     console.error("[BACKEND ERROR] impatto eliminazione opera:", error);
     res.status(500).json({ error: "Errore nel calcolo dell'impatto" });
@@ -246,11 +207,8 @@ router.get("/:qid/impact", async (req, res) => {
 
 /**
  * DELETE /api/artworks/:qid[?visite=accorcia|elimina]
- * Ritorna: { descrizioni, visiteAccorciate[], visiteEliminate[], adozioni }.
- * Toglie l'opera dal museo con le descrizioni che la raccontano. `visite` dice
- * che fare di quelle che la citano: "accorcia" (predefinito) toglie la tappa e
- * lascia in piedi il resto del percorso, "elimina" le butta via intere. Una
- * visita che resterebbe senza tappe sparisce in entrambi i casi.
+ * Elimina opera e descrizioni; accorcia le visite citanti o, su richiesta, le elimina. Ritorna la
+ * cascata applicata; una visita rimasta vuota sparisce sempre.
  */
 router.delete("/:qid", async (req, res) => {
   try {
@@ -261,13 +219,10 @@ router.delete("/:qid", async (req, res) => {
 
     const impatto = await impattoOpera(artwork["@id"]);
 
-    // Che ne e' delle visite che la citano lo decide il curatore, perche' e'
-    // una scelta di curatela e non una conseguenza tecnica: accorciarle (togliere
-    // la tappa e rimettere a posto note, durata e quiz) oppure eliminarle.
     const esito =
       String(req.query.visite || "") === "elimina"
         ? await eliminaVisiteCitanti(impatto)
-        : await rimuoviTappeDalleVisite(impatto.itemIds, [artwork.name]);
+        : await rimuoviTappeDalleVisite(impatto.itemIds);
     if (impatto.itemIds.length > 0)
       await ItemModel.deleteMany({ "@id": { $in: impatto.itemIds } });
     await ArtworkModel.deleteOne({ qid });
@@ -276,9 +231,6 @@ router.delete("/:qid", async (req, res) => {
       {},
       { $pull: { collezione: { $in: [...impatto.itemIds, ...spariti] } } },
     );
-    // Le immagini caricate a mano appartengono alla descrizione e a nient'altro.
-    // Quella dell'opera resta: e' la copia locale di Wikidata, e riscaricarla
-    // costa una richiesta per opera (vedi `DELETE /museums/:qid/contents`).
     for (const it of impatto.items as any[]) rimuoviImmagine(it.imagePath);
 
     console.log(
@@ -297,55 +249,6 @@ router.delete("/:qid", async (req, res) => {
   } catch (error: any) {
     console.error("[BACKEND ERROR] eliminazione opera:", error);
     res.status(500).json({ error: "Errore durante la rimozione dell'opera" });
-  }
-});
-
-/**
- * POST /api/artworks  { qid, museo }
- * Ritorna: l'opera creata. Il qid e' di Wikidata; nome, autore, stile e immagine
- * arrivano da li', la posizione dalla mappa del museo.
- */
-router.post("/", async (req, res) => {
-  try {
-    if (!soloCuratore(req, res)) return;
-    const qid = String(req.body.qid || "").trim().toUpperCase();
-    const museo = String(req.body.museo || "").trim();
-    if (!/^Q\d+$/.test(qid))
-      return res.status(400).json({ error: "Il codice dev'essere un qid di Wikidata, come Q12418." });
-
-    const config = findMuseumConfig(museo);
-    if (!config) return res.status(404).json({ error: "Museo non configurato" });
-
-    // Lo stesso qid in due musei collide: l'`@id` di una descrizione e'
-    // `qid-autore-tono-durata` e il museo non ci compare.
-    const gia = await ArtworkModel.findOne({ qid });
-    if (gia)
-      return res.status(409).json({
-        error: `"${gia.name}" è già nel catalogo di questo o di un altro museo.`,
-      });
-
-    const posizione = locationsFromMap(config.mapPath).get(qid) || "";
-    const creata = await populateArtwork(
-      qid,
-      `http://www.wikidata.org/entity/${museo}`,
-      posizione,
-    );
-    if (!creata)
-      return res.status(422).json({
-        error: "Su Wikidata quest'opera non ha un'immagine (P18), quindi non si può esporre.",
-      });
-
-    const artwork = await ArtworkModel.findOne({ qid });
-    const nelMuseo = await appartieneAlMuseo(qid, museo);
-    console.log(
-      `[curatore ${sessionUser(req).username}] aggiunta l'opera ${qid} a ${config.name}` +
-        (posizione ? ` (nodo ${posizione})` : " (senza nodo sulla mappa)") +
-        (nelMuseo ? "" : " — Wikidata non la dà in questa collezione"),
-    );
-    res.status(201).json({ artwork, sullaMappa: posizione !== "", nelMuseo });
-  } catch (error: any) {
-    console.error("[BACKEND ERROR] aggiunta opera:", error);
-    res.status(500).json({ error: "Errore durante l'aggiunta dell'opera" });
   }
 });
 

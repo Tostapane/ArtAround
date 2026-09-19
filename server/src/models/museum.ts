@@ -1,13 +1,6 @@
-/**
- * Documento Mongoose di un museo.
- */
+/** Materializza in Mongo i musei configurati per servirli senza rileggere Wikidata. */
 import { Schema, model } from "mongoose";
 import { Museum as SharedMuseum } from "../../../shared/types";
-
-/**
- * Interface representing the Museum document in Mongoose.
- * It extends the SharedMuseum interface to include Schema.org metadata.
- */
 
 export interface IMuseum extends SharedMuseum {
   "@context": string;
@@ -23,6 +16,7 @@ const museumSchema = new Schema<IMuseum>({
   created: String,
   location: String,
   mapPath: String,
+  imagePath: String,
 });
 
 export const MuseumModel = model<IMuseum>("Museum", museumSchema);

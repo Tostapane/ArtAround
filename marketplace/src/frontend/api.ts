@@ -1,53 +1,32 @@
 /**
- * Chiamate al server.
- *
- * Tutti i percorsi sono relativi: il marketplace e' servito dallo stesso server
- * delle API, quindi qui non compaiono host ne' porte.
- *
- * Chi chiede non sta nell'indirizzo. L'unica cosa che dice chi siamo e' il
- * biglietto coniato dal server all'accesso, che `call` attacca da se' a ogni
- * richiesta: nessuna funzione qui sotto ha un parametro `user`, quindi non c'e'
- * nessun posto in cui dimenticarselo e nessun nome che si possa riscrivere a
- * mano per leggere i testi a pagamento di un altro o spenderne il portafoglio.
- *
- * Il biglietto sta in `sessionStorage` e non in `localStorage`: muore chiudendo
- * la scheda, cosi' riaprire l'applicazione mostra di nuovo la soglia. Sopravvive
- * pero' al ricaricamento e all'andata e ritorno verso il navigator, che stanno
- * nella stessa scheda: e' proprio quel viaggio a non funzionare senza.
- *
- * Il login puo' rispondere 300 quando le stesse credenziali valgono per due
- * profili: non e' un errore, e' una domanda.
+ * Client HTTP del marketplace. Centralizza le rotte same-origin e allega la sessione
+ * della scheda; l'identita' non arriva mai dai parametri delle singole funzioni.
  */
 import {
+  ArtworkImpactReport,
   Content,
   Artwork,
+  ImpactReport,
   Item,
   Museum,
+  MuseumOverview,
+  SaleRow,
   User,
   UserRole,
   Visit,
 } from '../../../shared/types.js';
+import { SESSION_KEY } from '../../../shared/constants.js';
 
 export type UserDTO = Pick<User, 'username' | 'role' | 'wallet' | 'collezione'>;
-
-/** Risposta del login quando le stesse credenziali valgono per due profili:
- *  il server non sceglie al posto nostro, restituisce le opzioni. */
-export type ScelteRuolo = { scelta: true; ruoli: UserRole[] };
+export type UserWithToken = UserDTO & { token: string };
 
 // --- Il biglietto -------------------------------------------------------------
 
-const TOKEN_KEY = 'artaround-sessione';
 let onExpired: () => void = () => {};
 
-/**
- * Un browser che nega la memoria non deve far cadere il modulo: senza guardia
- * l'eccezione arriva mentre `api` si valuta, cioe' prima che esista qualcosa in
- * grado di dirlo, e la pagina resta bianca. Senza memoria la sessione dura
- * quanto questa pagina, e a rompersi e' solo il ricaricamento.
- */
 function leggiToken(): string {
   try {
-    return sessionStorage.getItem(TOKEN_KEY) || '';
+    return sessionStorage.getItem(SESSION_KEY) || '';
   } catch {
     return '';
   }
@@ -58,19 +37,15 @@ let token = leggiToken();
 export function setToken(value: string): void {
   token = value;
   try {
-    sessionStorage.setItem(TOKEN_KEY, value);
-  } catch {
-    // vedi leggiToken
-  }
+    sessionStorage.setItem(SESSION_KEY, value);
+  } catch {}
 }
 
 export function clearToken(): void {
   token = '';
   try {
-    sessionStorage.removeItem(TOKEN_KEY);
-  } catch {
-    // vedi leggiToken
-  }
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {}
 }
 
 export function hasToken(): boolean {
@@ -81,12 +56,6 @@ export function onSessionExpired(handler: () => void): void {
   onExpired = handler;
 }
 
-/**
- * Il 401 si gestisce QUI e non nelle ~25 chiamate: una sola di quelle
- * dimenticata darebbe una schermata vuota invece di riportare alla soglia.
- * Si avvisa solo se un biglietto c'era davvero, altrimenti il 401 di una
- * password sbagliata butterebbe fuori chi non e' ancora entrato.
- */
 async function call(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers || {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -112,17 +81,12 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async login(
-    username: string,
-    password: string,
-    role?: UserRole,
-  ): Promise<UserDTO | ScelteRuolo> {
+  async login(username: string, password: string): Promise<UserWithToken> {
     const response = await call('/api/users/login', {
       method: 'POST',
       headers: JSON_HEADERS,
-      body: JSON.stringify({ username, password, role }),
+      body: JSON.stringify({ username, password }),
     });
-    if (response.status === 300) return response.json();
     if (!response.ok)
       throw new Error(
         await readError(response, 'Credenziali non valide. Controlla username e password.'),
@@ -134,7 +98,7 @@ export const ArtAPI = {
     username: string,
     password: string,
     role: UserRole,
-  ): Promise<UserDTO> {
+  ): Promise<UserWithToken> {
     const response = await call('/api/users/register', {
       method: 'POST',
       headers: JSON_HEADERS,
@@ -155,7 +119,6 @@ export const ArtAPI = {
     await call('/api/users/logout', { method: 'POST' });
   },
 
-  /** Un biglietto nuovo per un solo viaggio verso il navigator. */
   async newHandoff(): Promise<string> {
     const response = await call('/api/users/handoff', { method: 'POST' });
     if (!response.ok) throw new Error('Non riesco ad aprire il navigator');
@@ -190,7 +153,7 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async fetchSales(): Promise<any[]> {
+  async fetchSales(): Promise<SaleRow[]> {
     const response = await call('/api/users/sales');
     if (!response.ok) throw new Error('Errore caricamento vendite');
     return response.json();
@@ -209,7 +172,6 @@ export const ArtAPI = {
     return response.json();
   },
 
-  /** Ogni visita torna col suo conto: quanto costerebbe a chi sta chiedendo. */
   async fetchVisite(museumQid?: string): Promise<Visit[]> {
     const q = museumQid ? `?museum=${encodeURIComponent(museumQid)}` : '';
     const response = await call(`/api/visits${q}`);
@@ -270,7 +232,7 @@ export const ArtAPI = {
 
   // --- Gestione del museo -------------------------------------------------------------
 
-  async fetchOverview(qid: string): Promise<any> {
+  async fetchOverview(qid: string): Promise<MuseumOverview> {
     const response = await call(`/api/museums/${encodeURIComponent(qid)}/overview`);
     if (!response.ok) throw new Error("Errore caricamento del quadro d'insieme");
     return response.json();
@@ -282,7 +244,7 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async impattoItem(id: string): Promise<any> {
+  async impattoItem(id: string): Promise<ImpactReport> {
     const response = await call(`/api/items/${encodeURIComponent(id)}/impact`);
     if (!response.ok)
       throw new Error(await readError(response, "Errore nel calcolo dell'impatto"));
@@ -299,18 +261,7 @@ export const ArtAPI = {
     return response.json();
   },
 
-  async aggiungiOpera(qid: string, museo: string): Promise<any> {
-    const response = await call('/api/artworks', {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ qid, museo }),
-    });
-    if (!response.ok)
-      throw new Error(await readError(response, "Errore nell'aggiunta dell'opera"));
-    return response.json();
-  },
-
-  async impattoOpera(qid: string): Promise<any> {
+  async impattoOpera(qid: string): Promise<ArtworkImpactReport> {
     const response = await call(
       `/api/artworks/${encodeURIComponent(qid)}/impact`,
     );

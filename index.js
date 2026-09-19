@@ -1,24 +1,21 @@
 /*
- * Punto d'ingresso per i docker di dipartimento.
- *
- * Gocker avvia `nodemon-22 <sito> index.js` e pretende che lo script stia nella
- * radice di /home/web/<sito>/html/. Il server pero' e' TypeScript e in locale si
- * avvia con `ts-node src/index.ts`: questo file e' il raccordo fra le due cose e
- * non contiene nient'altro.
- *
- * `ts-node` si carica per percorso ESPLICITO perche' sta in server/node_modules:
- * la risoluzione di `require` parte dalla cartella di QUESTO file, dove non c'e'
- * nessun node_modules, e un `require("ts-node")` nudo non lo troverebbe.
- * Registrato una volta, il gancio vale per tutto il processo, quindi la riga
- * dopo puo' chiedere direttamente un `.ts`.
- *
- * In locale non serve a nessuno: `npm start` dentro server/ resta la strada di
- * sviluppo. Questo file esiste per la macchina del laboratorio.
+ * Raccordo per gocker: imposta i valori predefiniti del dipartimento e avvia il
+ * server compilato. ARTAROUND_ROOT ancora gli asset all'albero del progetto;
+ * eventuali variabili gia' fornite dall'ambiente hanno precedenza.
  */
-const path = require("path");
+const mongoCredentials = {
+  user: "site252627",
+  pwd: "eiGhuo4e",
+  site: "mongo_site252627",
+};
 
-require(path.join(__dirname, "server", "node_modules", "ts-node")).register({
-  project: path.join(__dirname, "server", "tsconfig.json"),
-});
+process.env.ARTAROUND_ROOT = __dirname;
+process.env.PORT ||= "8000";
+process.env.MONGO_URI ||=
+  `mongodb://${mongoCredentials.user}:${mongoCredentials.pwd}` +
+  `@${mongoCredentials.site}:27017/${mongoCredentials.user}?authSource=admin`;
+process.env.NAVIGATOR_ORIGIN ||= "https://site252627.tw.cs.unibo.it/navigator";
 
-require("./server/src/index.ts");
+console.log("Configurazione caricata da index.js");
+
+require("./server/dist/server/src/index.js");

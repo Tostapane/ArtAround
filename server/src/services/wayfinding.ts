@@ -1,32 +1,10 @@
 /**
- * Calcolo del percorso fra due punti del museo.
- *
- * Lavora sulle SALE, non sui singoli nodi: opere e servizi servono solo da
- * estremi, e il percorso e' la sequenza di sale da attraversare. Essendo collegate
- * da porte e passaggi, la ricerca in ampiezza basta: il cammino piu' breve e'
- * quello che attraversa meno sale.
- *
- * Restituisce una struttura intermedia, non una frase: la lingua la mette l'LLM.
- * Gli ostacoli riportati sono solo quelli nelle sale davvero attraversate.
- *
- * I PIANI non sono un caso a parte. Il vano scale e' una sala su ciascun piano e
- * le due sono collegate come due sale confinanti (`svgGraph.ts`), quindi la
- * stessa ricerca in ampiezza sale e scende senza saperlo. Quel che serve a valle
- * e' solo il piano di ogni sala attraversata: chi mette le parole dice "sali" o
- * "scendi" dove il piano cambia, e in un museo a un piano solo non lo dice mai:
- * non c'e' nessuna soglia da attivare e nessun museo da distinguere.
- *
- * Come si chiama un piano non lo decide il codice: la parola sta sulla mappa
- * (`data-floor-label`) e da qui passa e basta. Un museo puo' avere il Mezzanino
- * e il Piano Nobile, un altro cinque piani numerati: qualunque elenco scritto
- * qui sarebbe l'italiano di un museo solo, imposto a tutti gli altri.
+ * Calcola il percorso minimo fra sale e restituisce una struttura indipendente dalla
+ * lingua. Scale e piani restano normali archi e nodi; l'LLM formula soltanto le
+ * indicazioni.
  */
 import { GraphNode, GraphObstacle, MuseumGraph } from "./svgGraph";
 
-/**
- * Una sala del percorso. `floor` serve a sapere se si sale o si scende;
- * `floorLabel` e' la parola con cui il piano si nomina, e viene dalla mappa.
- */
 export interface RouteStep {
   room: string;
   floor: number;
@@ -37,13 +15,13 @@ export interface RouteIR {
   kind: "route" | "obstacles" | "unavailable";
   reason: string;
   from: RouteStep;
-  /**
-   * `label` e' come si chiama la destinazione. Per un servizio la mappa lo sa
-   * (`data-label`), per un'opera no: sul disegno un nodo opera porta il qid e il
-   * titolo sta nel database. `qid` e' vuoto per i servizi, ed e' il modo in cui
-   * chi ha accesso alle opere sa che qui c'e' un nome da andare a prendere.
-   */
-  to: { label: string; qid: string; room: string; floor: number; floorLabel: string };
+  to: {
+    label: string;
+    qid: string;
+    room: string;
+    floor: number;
+    floorLabel: string;
+  };
   steps: RouteStep[];
   obstacles: GraphObstacle[];
 }
@@ -53,11 +31,6 @@ export function computeDirections(
   fromQid: string,
   target: string,
 ): RouteIR {
-  // Partenza VUOTA = l'ingresso. E' dove si e' prima di essersi mossi, ed e'
-  // l'unico punto che ogni pianta dichiara comunque (`data-poi="entrance"`),
-  // perche' e' li' che nasce il sistema di riferimento della localizzazione.
-  // Un `from` sconosciuto resta un errore: confonderlo con "non l'ho detto"
-  // farebbe rispondere dall'ingresso a chi ha indicato un punto che non c'e'.
   const fromNode = fromQid
     ? graph.nodes.find((n) => n.id === fromQid)
     : graph.nodes.find((n) => n.poiType === "entrance");

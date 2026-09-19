@@ -7,12 +7,7 @@
     <meta name="description" content="ArtAround — la visita del museo, raccontata." />
     <meta name="theme-color" content="#284b63" />
     <title>ArtAround</title>
-    <!--
-      Anti-FOUC: applica il tema prima del primo paint. Deve restare inline (piu'
-      tardi sarebbe gia' tardi). Stessa chiave localStorage del marketplace: le due
-      app condividono la preferenza, cosi' passare dall'una all'altra non cambia
-      l'aspetto.
-    -->
+    <!-- Applica il tema condiviso prima del primo paint. -->
     <script>
       (function () {
         try {

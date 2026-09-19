@@ -1,22 +1,7 @@
 <script setup lang="ts">
 /**
- * LA VISITA GUIDATA: sala d'attesa, conduzione, quiz, chiusura.
- *
- * La sala d'attesa e' una schermata PROIETTATA: viene letta a voce alta in una
- * stanza e trenta persone la guardano insieme, percio' la parola chiave ha la
- * dimensione di un'insegna.
- *
- * Durante la visita i comandi di CONDUZIONE (chi c'e', chi ha chiesto cosa,
- * termina) stanno in una barra dedicata, separati dai comandi di visita: un
- * docente che preme "Prossimo" sta muovendo trenta persone, e la scheda lo dice
- * con parole sue.
- *
- * Quattro fasi, non tre. La fase "quiz" ha una sua schermata anche se
- * l'interfaccia del quiz non c'e' ancora: senza, all'avvio del quiz tutti
- * vedrebbero "Visita terminata" a meta' visita, che e' una cosa falsa. E la
- * chiusura distingue "il docente ha terminato" da "la sessione e' sparita":
- * riusare la stessa frase per entrambe e' il modo in cui un guasto diventa
- * invisibile.
+ * Interfaccia della visita sincronizzata: attesa, conduzione, quiz e chiusura.
+ * Docente e studente vedono controlli diversi sullo stesso stato.
  */
 import { computed, onUnmounted, ref, watch } from "vue";
 import Visita from "./visita/Visita.vue";
@@ -28,8 +13,8 @@ import {
   guidedParticipants,
   guidedParticipantsCount,
   guidedQuestions,
+  guidedError,
   guidedPlannedEnd,
-  guidedHasQuiz,
   guidedQuizDocente,
   guidedQuizStudente,
   guidedQuizPunteggio,
@@ -39,14 +24,20 @@ import {
   teacherEndQuiz,
   studentSubmitQuiz,
   studentLeave,
-  resetGuided,
 } from "@/guided";
-import { visit } from "@/state";
+import {
+  enableGuidedAutoplay,
+  guidedAutoplayEnabled,
+  pauseGuidedAudio,
+} from "./visita/guidedAudio";
+import { useTTS } from "./visita/useTTS";
+import { language, visit } from "@/state";
 import { marketplaceHome } from "@/config";
 import { useAnnouncer } from "@/composables/useAnnouncer";
 import { t } from "@/i18n";
 
 const { announce } = useAnnouncer();
+const manualTts = useTTS();
 
 const isTeacher = computed(() => guidedRole.value === "docente");
 const currVisit = computed(() => (visit.value ? visit.value["@id"] : ""));
@@ -57,14 +48,30 @@ function togglePanel(p: "studenti" | "domande" | "quiz") {
 }
 
 const panelTitle = computed(() => {
-  if (panel.value === "studenti") return t("Studenti collegati");
+  if (panel.value === "studenti") return t("Studenti");
   if (panel.value === "domande") return t("Domande degli studenti");
-  return "Quiz di fine visita";
+  return t("Quiz di fine visita");
 });
 
 const recentQuestions = computed(() => [...guidedQuestions.value].reverse());
+
+function yesNo(value: boolean): string {
+  return value ? t("Sì") : t("No");
+}
+
+function toggleAudio() {
+  if (guidedAutoplayEnabled.value) {
+    pauseGuidedAudio();
+    announce(`${t("Audio sincronizzato")}: ${t("No")}`);
+    return;
+  }
+  manualTts.stop();
+  enableGuidedAutoplay();
+  announce(`${t("Audio sincronizzato")}: ${t("Sì")}`);
+}
+
 function formatTime(at: number): string {
-  return new Date(at).toLocaleTimeString("it-IT", {
+  return new Date(at).toLocaleTimeString(language.value.translate, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -92,12 +99,19 @@ watch(
   },
 );
 
+const starting = ref(false);
+
 async function start() {
+  if (starting.value) return;
+  starting.value = true;
   try {
     await teacherStart();
-    announce(t("Visita avviata per tutti"));
+    if (guidedStato.value === "attiva")
+      announce(t("Visita avviata per tutti"));
   } catch (err) {
     console.error("Impossibile avviare la visita guidata", err);
+  } finally {
+    starting.value = false;
   }
 }
 
@@ -123,24 +137,15 @@ function exitVisit() {
 }
 
 function backToSelection() {
-  resetGuided();
-  window.location.href = window.location.pathname;
+  window.location.replace(window.location.pathname);
 }
 
 function backHome() {
-  resetGuided();
-  window.location.href = marketplaceHome();
+  window.location.replace(marketplaceHome());
 }
 
 // ---------------------------------------------------------------------------
-//                          Quiz di fine visita
-// ---------------------------------------------------------------------------
 
-/**
- * La correzione e' sempre del server: qui si tengono solo le scelte, e il voto
- * arriva dalla risposta. Il conto alla rovescia e' informativo: la scadenza
- * vera la controlla il server, che rifiuta le consegne in ritardo.
- */
 const quizDurata = ref(120);
 const risposte = ref<number[]>([]);
 const inviando = ref(false);
@@ -189,7 +194,13 @@ const tempoRimasto = computed(() => {
 const quizChiuso = computed(() => {
   if (isTeacher.value && guidedQuizDocente.value)
     return guidedQuizDocente.value.closed;
-  if (guidedQuizStudente.value) return guidedQuizStudente.value.closed;
+  if (guidedQuizStudente.value) {
+    const quiz = guidedQuizStudente.value;
+    return (
+      quiz.closed ||
+      (quiz.endsAt !== null && quiz.endsAt <= adesso.value)
+    );
+  }
   return false;
 });
 
@@ -270,9 +281,6 @@ async function consegna() {
         <p class="mt-2 font-mono text-display font-semibold leading-none">
           {{ guidedAccessKey }}
         </p>
-        <p class="mt-3 text-small text-on-structure/80">
-          {{ t("Gli studenti la digitano dal marketplace per entrare.") }}
-        </p>
       </div>
 
       <div class="mt-10">
@@ -285,14 +293,19 @@ async function consegna() {
         </p>
         <ul
           v-if="guidedParticipants.length"
-          class="mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto"
+          class="mt-4 flex max-h-56 flex-col gap-2 overflow-y-auto"
         >
           <li
             v-for="p in guidedParticipants"
             :key="p.username"
-            class="rounded-plate border border-on-structure/30 px-3 py-1.5 text-small"
+            class="rounded-plate border border-on-structure/30 px-3 py-2 text-small"
           >
-            {{ p.username }}
+            <span class="font-semibold">{{ p.username }}</span>
+            <span class="ml-3 text-on-structure/75">
+              {{ t("Online") }}: {{ yesNo(p.online) }} ·
+              {{ t("Attento") }}: {{ yesNo(p.attentive) }} ·
+              {{ t("Audio sincronizzato") }}: {{ yesNo(p.autoplay) }}
+            </span>
           </li>
         </ul>
         <p v-else class="mt-3 text-small text-on-structure/70">
@@ -311,18 +324,36 @@ async function consegna() {
         {{ guidedParticipantsCount }}
         {{ guidedParticipantsCount === 1 ? "collegato" : "collegati" }}
       </p>
+      <button
+        type="button"
+        class="mt-6"
+        :class="guidedAutoplayEnabled ? 'btn-fantasma-chiaro' : 'btn-primario'"
+        :aria-pressed="guidedAutoplayEnabled"
+        @click="toggleAudio"
+      >
+        {{ guidedAutoplayEnabled ? t("Disattiva audio") : t("Attiva audio") }}
+      </button>
     </div>
 
     <div class="flex flex-wrap gap-3">
       <template v-if="isTeacher">
-        <button type="button" class="btn-primario text-title-3" @click="start">
-          {{ t("Avvia la visita") }}
+        <button
+          type="button"
+          class="btn-primario text-title-3"
+          :disabled="starting"
+          :aria-busy="starting"
+          @click="start"
+        >
+          {{ starting ? t("Avvio in corso…") : t("Avvia la visita") }}
         </button>
         <button type="button" class="btn-fantasma-chiaro" @click="end">
           {{ t("Annulla") }}
         </button>
       </template>
-      <button v-else type="button" class="btn-fantasma-chiaro" @click="studentExit">
+      <p v-if="isTeacher && guidedError" class="avviso w-full" role="alert">
+        {{ guidedError }}
+      </p>
+      <button v-if="!isTeacher" type="button" class="btn-fantasma-chiaro" @click="studentExit">
         {{ t("Esci") }}
       </button>
     </div>
@@ -352,30 +383,19 @@ async function consegna() {
       >
         {{ t("Domande") }} (<span class="tabular">{{ guidedQuestions.length }}</span>)
       </button>
-      <button
-        v-if="guidedHasQuiz"
-        type="button"
-        class="btn-fantasma-chiaro"
-        :aria-pressed="panel === 'quiz'"
-        @click="togglePanel('quiz')"
-      >
-        {{ t("Quiz") }}
-      </button>
       <button type="button" class="btn-pericolo-pieno" @click="end">
         {{ t("Termina per tutti") }}
       </button>
+      <p v-if="guidedError" class="avviso w-full" role="alert">
+        {{ guidedError }}
+      </p>
     </div>
-    <p
-      v-else
-      class="shrink-0 border-b border-line bg-structure px-3 py-2 text-center text-caption text-on-structure"
-    >
-      {{ t("Visita guidata dal docente") }}
-    </p>
-
     <Visita
       :curr-visit="currVisit"
       :title="guidedVisitName"
       @exit="exitVisit"
+      @quiz="panel = 'quiz'"
+      @toggle-audio="toggleAudio"
     />
 
     <div
@@ -384,7 +404,7 @@ async function consegna() {
       @click.self="panel = ''"
     >
       <aside
-        class="lastra flex max-h-[80dvh] w-full max-w-md flex-col p-5 shadow-l2"
+        class="lastra flex max-h-[80dvh] w-full max-w-3xl flex-col p-5 shadow-l2"
         :aria-label="panelTitle"
       >
         <div class="flex shrink-0 items-center justify-between gap-3">
@@ -398,27 +418,37 @@ async function consegna() {
 
         <!-- Studenti -->
         <template v-if="panel === 'studenti'">
-          <ul v-if="guidedParticipants.length" class="mt-4 flex flex-1 flex-col gap-2 overflow-y-auto">
-            <li
-              v-for="p in guidedParticipants"
-              :key="p.username"
-              class="rounded-plate border border-line px-3 py-2 text-small font-medium"
-            >
-              {{ p.username }}
-            </li>
-          </ul>
+          <div v-if="guidedParticipants.length" class="mt-4 overflow-auto">
+            <table class="w-full min-w-[38rem] text-left text-small">
+              <thead>
+                <tr class="border-b border-line text-caption uppercase tracking-wider text-muted">
+                  <th scope="col" class="py-2 pr-4">{{ t("Studente") }}</th>
+                  <th scope="col" class="px-3 py-2">{{ t("Online") }}</th>
+                  <th scope="col" class="px-3 py-2">{{ t("Attento") }}</th>
+                  <th scope="col" class="px-3 py-2">{{ t("Audio sincronizzato") }}</th>
+                  <th scope="col" class="py-2 pl-3">{{ t("Test completato") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="p in guidedParticipants"
+                  :key="p.username"
+                  class="border-b border-line/70"
+                >
+                  <th scope="row" class="py-2.5 pr-4 font-semibold">{{ p.username }}</th>
+                  <td class="px-3 py-2.5">{{ yesNo(p.online) }}</td>
+                  <td class="px-3 py-2.5">{{ yesNo(p.attentive) }}</td>
+                  <td class="px-3 py-2.5">{{ yesNo(p.autoplay) }}</td>
+                  <td class="py-2.5 pl-3">{{ yesNo(p.testCompleted) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <p v-else class="vuoto mt-4">{{ t("Nessuno studente collegato.") }}</p>
         </template>
 
         <!-- Avvio del quiz -->
         <template v-else-if="panel === 'quiz'">
-          <p class="mt-4 text-small text-muted">
-            {{
-              t(
-                "Il quiz parte su tutti i dispositivi insieme. Il voto è il numero di risposte corrette, e lo calcola il server.",
-              )
-            }}
-          </p>
           <div class="mt-4">
             <label for="quiz-durata" class="text-caption uppercase tracking-wider text-muted">
               {{ t("Tempo a disposizione") }}
@@ -465,9 +495,7 @@ async function consegna() {
     </div>
   </template>
 
-  <!-- ===================== QUIZ DI FINE VISITA ===================== -->
-
-  <!-- DOCENTE: il tabellone dei risultati -->
+  <!-- DOCENTE -->
   <div
     v-else-if="guidedStato === 'quiz' && isTeacher"
     class="min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
@@ -484,7 +512,7 @@ async function consegna() {
         <div>
           <p class="text-caption uppercase tracking-wider text-on-structure/70">{{ t("Consegne") }}</p>
           <p class="tabular font-display text-title-1">
-            {{ consegneFatte }} / {{ guidedParticipantsCount }}
+            {{ consegneFatte }} / {{ guidedQuizDocente?.risultati.length || 0 }}
           </p>
         </div>
         <div v-if="!quizChiuso">
@@ -552,7 +580,7 @@ async function consegna() {
     </div>
   </div>
 
-  <!-- STUDENTE: il compito -->
+  <!-- STUDENTE -->
   <div
     v-else-if="guidedStato === 'quiz'"
     class="min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
@@ -634,9 +662,8 @@ async function consegna() {
 
         <p v-if="erroreQuiz" class="avviso mt-4" role="alert">{{ erroreQuiz }}</p>
 
-        <p class="mt-6 text-small text-on-structure/70" role="status">
-          <span v-if="!tutteRisposte">{{ t("Rispondi a tutte le domande per consegnare.") }}</span>
-          <span v-else>{{ t("Puoi consegnare. Si consegna una volta sola.") }}</span>
+        <p v-if="!tutteRisposte" class="mt-6 text-small text-on-structure/70" role="status">
+          {{ t("Rispondi a tutte le domande per consegnare.") }}
         </p>
         <button
           type="submit"
@@ -662,12 +689,8 @@ async function consegna() {
       <h1 class="font-display text-title-1">
         {{ guidedPlannedEnd ? t("La visita è finita.") : t("La sessione è stata chiusa.") }}
       </h1>
-      <p class="mt-3 text-body text-on-structure/85">
-        {{
-          guidedPlannedEnd
-            ? t("Grazie per aver partecipato.")
-            : t("Il collegamento con la visita si è interrotto. Chiedi al docente di riaprire la sala d'attesa.")
-        }}
+      <p v-if="!guidedPlannedEnd" class="mt-3 text-body text-on-structure/85">
+        {{ t("Il collegamento con la visita si è interrotto. Chiedi al docente di riaprire la sala d'attesa.") }}
       </p>
       <p
         v-if="guidedQuizPunteggio !== null && guidedQuizStudente"

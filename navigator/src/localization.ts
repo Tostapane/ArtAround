@@ -1,74 +1,44 @@
 /**
- * Localizzazione avanzata: dove sei, e quindi davanti a cosa (slide 33).
- *
- * Qui c'e' solo la geometria. I sensori stanno in `composables/useSensors.ts`, la
- * tappa aperta resta affare di `Visita.vue`: questo modulo stima dove si e'
- * FISICAMENTE, che e' altra cosa da quel che si sta guardando.
- *
- * Il sistema di coordinate nasce all'avvio, col visitatore all'ingresso e la
- * pianta stesa intorno a lui: il nord della Terra e' il su del disegno per
- * definizione, quindi nessun museo ha bisogno di coordinate vere. Dall'SVG
- * servono due dati soli: `data-width-m` (quanti metri e' larga la pianta) e il
- * POI `entrance`. Senza il primo non si sa quanti pixel vale un passo e la
- * localizzazione automatica non parte.
- *
- * L'ancora e' il cuore: una lettura GPS da sola non dice niente, conta solo la
- * DIFFERENZA fra due letture, quindi si ricorda una coppia sola (quella lettura
- * stava in quel punto della pianta) e si misura da li'. Chi dichiara dove si
- * trova rifa' la coppia e butta la deriva; il movimento GPS invece accumula. Ne
- * segue che tre metri a est sono tre metri a est DAL PUNTO DICHIARATO, e che se
- * il GPS tace il segnalino resta sull'ultima ancora, che e' la verita': so dov'eri,
- * non ti ho visto muovere.
- *
- * La certezza e' un'equazione sola, senza rami per piattaforma: ogni opera ha due
- * scarti, distanza e disallineamento, pesati per quanto vale la misura. Sigma
- * della distanza e' l'accuratezza dichiarata dal dispositivo, sigma dell'angolo la
- * tolleranza di una bussola dentro un edificio pieno di acciaio. Senza bussola il
- * termine angolare sparisce dalla stessa equazione, le probabilita' si
- * appiattiscono e compare il pannello di scelta: l'orientamento non viene tolto,
- * e' assente, e la formula dice gia' cosa vuol dire.
+ * Geometria della localizzazione, separata dalle API dei sensori. Un'ancora lega una
+ * lettura fisica alla pianta; distanza, accuratezza e bussola classificano le opere,
+ * mentre una nuova dichiarazione azzera la deriva. Il piano arriva dal selettore
+ * della mappa, perche' la geolocalizzazione interna non offre un'altitudine utile.
  */
-
 import { ref, computed } from "vue";
 import { map } from "./state";
 
 // ============================================================================
-//                                 Costanti
-// ============================================================================
 
-/** Quanto sbaglia una bussola al chiuso, in gradi. */
 const SIGMA_ANGOLO = 30;
-/** Nessun fix e' piu' preciso di cosi': sotto, la fiducia diventa finta. */
 const SIGMA_DISTANZA_MINIMA = 4;
-/** Quanto vale la parola del visitatore, in metri: sta davanti all'opera. */
 const ACCURACY_DICHIARATA = 2;
 
-/** Si apre senza chiedere solo con un vincitore netto: alto e staccato. */
 const P_SICURO = 0.55;
 const STACCO_SICURO = 2;
 
-/** Cosa finisce nel pannello di scelta. */
 const P_MINIMO = 0.05;
 const MAX_CANDIDATI = 6;
 
-/** Metri per grado: bastano, alle distanze di un edificio. */
 const METRI_PER_GRADO_LAT = 110540;
 const METRI_PER_GRADO_LON = 111320;
 
 // ============================================================================
-//                            Lettura della pianta
-// ============================================================================
 
-export interface MapNode {
-  qid: string;
+interface MapPoint {
   x: number;
   y: number;
+  floor: number;
+}
+
+export interface MapNode extends MapPoint {
+  qid: string;
 }
 
 interface MapGeometry {
   metriPerUnita: number;
   larghezzaMetri: number;
-  entrance: { x: number; y: number } | null;
+  angoloNord: number;
+  entrance: MapPoint | null;
   nodes: MapNode[];
 }
 
@@ -92,6 +62,12 @@ function centro(el: Element): { x: number; y: number } | null {
   return null;
 }
 
+function floorOf(el: Element): number {
+  const group = el.closest("[data-floor]");
+  if (!group) return 0;
+  return parseInt(group.getAttribute("data-floor") || "", 10) || 0;
+}
+
 function leggiGeometria(svgText: string): MapGeometry | null {
   if (!svgText) return null;
   const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
@@ -100,6 +76,7 @@ function leggiGeometria(svgText: string): MapGeometry | null {
 
   const viewBox = root.getAttribute("viewBox");
   const larghezzaMetri = parseFloat(root.getAttribute("data-width-m") || "");
+  const angoloNord = parseFloat(root.getAttribute("data-north-angle") || "0");
   if (!viewBox || isNaN(larghezzaMetri) || larghezzaMetri <= 0) return null;
   const parti = viewBox.trim().split(/[\s,]+/);
   const larghezzaUnita = parseFloat(parti[2] || "");
@@ -109,16 +86,25 @@ function leggiGeometria(svgText: string): MapGeometry | null {
   root.querySelectorAll("[data-qid]").forEach((el) => {
     const punto = centro(el);
     if (!punto) return;
-    nodes.push({ qid: el.getAttribute("data-qid") || "", x: punto.x, y: punto.y });
+    nodes.push({
+      qid: el.getAttribute("data-qid") || "",
+      x: punto.x,
+      y: punto.y,
+      floor: floorOf(el),
+    });
   });
 
-  let entrance: { x: number; y: number } | null = null;
+  let entrance: MapPoint | null = null;
   const porta = root.querySelector('[data-poi="entrance"]');
-  if (porta) entrance = centro(porta);
+  if (porta) {
+    const punto = centro(porta);
+    if (punto) entrance = { ...punto, floor: floorOf(porta) };
+  }
 
   return {
     metriPerUnita: larghezzaMetri / larghezzaUnita,
     larghezzaMetri,
+    angoloNord: isNaN(angoloNord) ? 0 : angoloNord,
     entrance,
     nodes,
   };
@@ -126,67 +112,56 @@ function leggiGeometria(svgText: string): MapGeometry | null {
 
 const geometria = computed(() => leggiGeometria(map.value));
 
-/** La localizzazione automatica esiste solo se la pianta porta i suoi due dati. */
 export const localizzabile = computed(
   () => geometria.value !== null && geometria.value.entrance !== null,
 );
 
 // ============================================================================
-//                             Stima e ancoraggio
-// ============================================================================
 
-export interface Stima {
-  x: number;
-  y: number;
-  /** Raggio di incertezza in metri, come lo dichiara il device. */
+export interface Stima extends MapPoint {
   accuracy: number;
 }
 
-/**
- * L'ancora: un punto della pianta e la lettura GPS che gli corrisponde. `lat` e
- * `lon` restano nulle finche' un fix non arriva, perche' si puo' dichiarare
- * davanti a un'opera prima che il GPS abbia parlato, e allora sara' la prima
- * lettura utile a prendere il posto.
- */
-const ancora = ref<{ x: number; y: number; lat: number | null; lon: number | null } | null>(
-  null,
-);
+const ancora = ref<MapPoint & {
+  lat: number | null;
+  lon: number | null;
+} | null>(null);
 
 export const stima = ref<Stima | null>(null);
 export const bussola = ref<number | null>(null);
+export const angoloNordMappa = computed(
+  () => geometria.value?.angoloNord || 0,
+);
 
-/** Prima di qualunque fix si e' all'ingresso, e non si sa altro: l'incertezza
- *  vale l'intero edificio, cioe' nessuna opera e' piu' probabile per posizione.
- *  Se c'e' la bussola, decide da sola; se non c'e', si sceglie dal pannello. */
 export function startAtEntrance() {
   const g = geometria.value;
   if (!g || !g.entrance) return;
   if (ancora.value) return;
-  ancora.value = { x: g.entrance.x, y: g.entrance.y, lat: null, lon: null };
-  stima.value = { x: g.entrance.x, y: g.entrance.y, accuracy: g.larghezzaMetri };
+  ancora.value = { ...g.entrance, lat: null, lon: null };
+  stima.value = { ...g.entrance, accuracy: g.larghezzaMetri };
 }
 
-/**
- * Un atto dichiarato (QR, codice, scelta fra i candidati, teletrasporto): da
- * qui in avanti "qui" e' questo punto della pianta, e la deriva accumulata si
- * butta via. Chi dichiara sta davanti all'opera, quindi l'incertezza torna a
- * pochi passi: e' il dato migliore che il sistema possa avere, meglio di
- * qualunque fix.
- *
- * `lat` e `lon` tornano nulle, e non e' una dimenticanza: la lettura ricordata
- * nell'ancora e' la PRIMA arrivata e non viene piu' aggiornata, quindi tenerla
- * qui vorrebbe dire misurare il prossimo fix a partire da quella, cioe'
- * riapplicare tutta in una volta la deriva accumulata da allora, buttando via
- * il punto appena dichiarato. Azzerandole, la prima lettura utile ridiventa il
- * riferimento proprio qui. Al chiuso, dove nessun fix arriva, la differenza non
- * si vede: e' il motivo per cui non si vedeva.
- */
-export function reanchor(x: number, y: number) {
-  ancora.value = { x, y, lat: null, lon: null };
-  stima.value = { x, y, accuracy: ACCURACY_DICHIARATA };
+export function reanchor(x: number, y: number, floor: number) {
+  ancora.value = { x, y, floor, lat: null, lon: null };
+  stima.value = { x, y, floor, accuracy: ACCURACY_DICHIARATA };
 }
 
-/** Il punto della pianta di un'opera, per chi deve ri-ancorare a una scansione. */
+export function changeFloor(floor: number, dx: number, dy: number) {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+
+  const a = ancora.value;
+  if (a) {
+    a.x += dx;
+    a.y += dy;
+    a.floor = floor;
+  }
+
+  const current = stima.value;
+  if (current) {
+    stima.value = { ...current, x: current.x + dx, y: current.y + dy, floor };
+  }
+}
+
 export function nodeOf(qid: string): MapNode | null {
   const g = geometria.value;
   if (!g) return null;
@@ -207,12 +182,10 @@ export function applyFix(coords: {
   const a = ancora.value;
   if (!a) return;
 
-  // La prima lettura utile diventa la lettura dell'ancora: da qui in poi conta
-  // solo di quanto ci si e' spostati rispetto a questa.
   if (a.lat === null || a.lon === null) {
     a.lat = coords.latitude;
     a.lon = coords.longitude;
-    stima.value = { x: a.x, y: a.y, accuracy: coords.accuracy };
+    stima.value = { x: a.x, y: a.y, floor: a.floor, accuracy: coords.accuracy };
     return;
   }
 
@@ -221,16 +194,22 @@ export function applyFix(coords: {
     METRI_PER_GRADO_LON *
     Math.cos((a.lat * Math.PI) / 180);
   const nord = (coords.latitude - a.lat) * METRI_PER_GRADO_LAT;
+  const rotazione = (g.angoloNord * Math.PI) / 180;
 
   stima.value = {
-    x: a.x + est / g.metriPerUnita,
-    y: a.y - nord / g.metriPerUnita, // la y dell'SVG cresce verso il basso
+    x:
+      a.x +
+      (est * Math.cos(rotazione) + nord * Math.sin(rotazione)) /
+        g.metriPerUnita,
+    y:
+      a.y +
+      (est * Math.sin(rotazione) - nord * Math.cos(rotazione)) /
+        g.metriPerUnita,
+    floor: a.floor,
     accuracy: coords.accuracy,
   };
 }
 
-// ============================================================================
-//                         Davanti a cosa mi trovo
 // ============================================================================
 
 export interface Candidato {
@@ -243,18 +222,12 @@ export interface Verdetto {
   sicuro: boolean;
 }
 
-/** Differenza fra due direzioni, sempre fra 0 e 180 gradi. */
 function scartoAngolare(a: number, b: number): number {
   let d = Math.abs(a - b) % 360;
   if (d > 180) d = 360 - d;
   return d;
 }
 
-/**
- * Il verdetto: le opere ordinate per probabilita', e se una vince abbastanza.
- * Ritorna null solo quando non c'e' niente su cui ragionare (pianta senza dati,
- * o nessuna posizione stimata).
- */
 export function rank(): Verdetto | null {
   const g = geometria.value;
   const dove = stima.value;
@@ -264,23 +237,21 @@ export function rank(): Verdetto | null {
   const costi: { qid: string; costo: number }[] = [];
 
   for (const n of g.nodes) {
+    if (n.floor !== dove.floor) continue;
     const dx = n.x - dove.x;
     const dy = n.y - dove.y;
     const metri = Math.sqrt(dx * dx + dy * dy) * g.metriPerUnita;
     let costo = (metri / sigmaD) * (metri / sigmaD);
 
-    // Il termine angolare esiste solo se una bussola ha risposto. Dove manca,
-    // sparisce dall'equazione invece di essere sostituito da un valore finto.
     if (bussola.value !== null && metri > 0.5) {
-      const direzione = (Math.atan2(dx, -dy) * 180) / Math.PI;
+      const direzione =
+        (Math.atan2(dx, -dy) * 180) / Math.PI - g.angoloNord;
       const scarto = scartoAngolare(direzione, bussola.value);
       costo += (scarto / SIGMA_ANGOLO) * (scarto / SIGMA_ANGOLO);
     }
     costi.push({ qid: n.qid, costo });
   }
 
-  // Si sottrae il costo minimo prima di esponenziare: senza, un edificio grande
-  // manda tutti gli esponenti a zero e le probabilita' diventano 0/0.
   let minimo = Infinity;
   for (const c of costi) {
     if (c.costo < minimo) minimo = c.costo;

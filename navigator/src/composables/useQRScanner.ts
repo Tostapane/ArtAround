@@ -1,8 +1,6 @@
 /**
- * Lettura di un QR dalla fotocamera.
- *
- * La decodifica avviene dentro l'app, senza ricaricare la pagina: la visita in
- * corso, la lingua e il punto in cui si e' arrivati restano in memoria.
+ * Decodifica QR dalla fotocamera senza ricaricare la visita. Se il pannello si
+ * chiude durante il permesso, lo stream tardivo viene arrestato subito.
  */
 import { ref } from "vue";
 import jsQR from "jsqr";
@@ -23,7 +21,7 @@ export function useQRScanner() {
     stopped = false;
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        error.value = t("Fotocamera non disponibile (serve https o localhost).");
+        error.value = t("Errore. Prova a inserire il codice.");
         return;
       }
 
@@ -33,6 +31,10 @@ export function useQRScanner() {
         });
       } catch {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+      if (stopped) {
+        stop();
+        return;
       }
       video.srcObject = stream;
       await video.play();
@@ -50,21 +52,14 @@ export function useQRScanner() {
           const code = jsQR(image.data, image.width, image.height);
           if (code && code.data) {
             onResult(code.data);
-            return; 
+            return;
           }
         }
         rafId = requestAnimationFrame(tick);
       };
       rafId = requestAnimationFrame(tick);
-    } catch (e) {
-      const err = e as DOMException;
-      if (err.name === "NotAllowedError") {
-        error.value = t("Permesso fotocamera negato.");
-      } else if (err.name === "NotFoundError") {
-        error.value = t("Nessuna fotocamera trovata.");
-      } else {
-        error.value = t("Impossibile accedere alla fotocamera.");
-      }
+    } catch {
+      error.value = t("Errore. Prova a inserire il codice.");
     }
   }
 

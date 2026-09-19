@@ -1,20 +1,16 @@
 /**
- * Tutte le chiamate al modello generativo.
- *
- * Quattro usi, come chiede la specifica: creare descrizioni mancanti, mappare una
- * richiesta vocale libera su un comando del vocabolario, comporre una visita dai
- * vincoli dell'utente, e verbalizzare un percorso gia' calcolato.
- *
- * La regola che tiene insieme il tutto: il codice deterministico possiede la
- * CORRETTEZZA, il modello possiede l'INTERPRETAZIONE e la lingua. Per questo il
- * pianificatore risponde in JSON con tono e durata presi da un elenco chiuso, e
- * per questo le indicazioni di percorso arrivano gia' calcolate dal grafo.
- *
- * La mappatura dei comandi avviene sugli id, non sulle etichette: le etichette
- * sono testo mostrato e possono cambiare senza rompere il protocollo.
+ * Unico accesso a Gemini per generazione, rielaborazione, comandi, indicazioni e
+ * pianificazione. Il server valida le strutture prodotte invece di affidare al
+ * modello identita' e ordine del catalogo.
  */
 import { GoogleGenAI, Type } from "@google/genai";
-import { options, educationalLevels, secPerArt , WORDS_PER_MINUTE } from "../../../shared/constants";
+import {
+  options,
+  educationalLevelHints,
+  educationalLevels,
+  secPerArt,
+  WORDS_PER_MINUTE,
+} from "../../../shared/constants";
 import { RouteIR } from "./wayfinding";
 import { conTentativi } from "./retry";
 
@@ -29,10 +25,6 @@ function wordsForDuration(duration: number): number {
   return words;
 }
 
-/**
- * La richiesta di una descrizione. Cambia solo la riga che dice CHE COSA
- * descrivere: un'opera con il suo autore, oppure un soggetto che opera non e'.
- */
 async function descrizione(
   cosa: string,
   etichetta: string,
@@ -71,15 +63,6 @@ async function descrizione(
   }
 }
 
-/**
- * L'autore entra nella richiesta solo se c'e'.
- *
- * Di un'opera Wikidata puo' non sapere chi l'ha fatta, e li' il campo resta
- * vuoto (`services/wikidata.ts`). Incollandolo comunque, la richiesta finisce
- * con "realizzata da" e basta: al modello si chiede di descrivere un'opera di
- * un autore il cui nome non e' stato detto, e il testo che torna se lo inventa
- * o si scusa. Senza quella meta' la domanda resta invece una domanda intera.
- */
 export async function createTwistedDescription(
   name: string,
   author: string,
@@ -103,8 +86,6 @@ export async function createDescription(
   return createTwistedDescription(name, author, level, duration, "");
 }
 
-/** Un soggetto che non e' un'opera: il genere entra nella richiesta perche'
- *  "Caravaggio" come artista o come periodo darebbe due testi diversi. */
 export async function createSubjectDescription(
   subject: string,
   kindName: string,
@@ -120,40 +101,98 @@ export interface PlannedArtwork {
   durationSec: string;
   twist: string;
 }
+
 export interface VisitPlan {
   name: string;
   artworks: PlannedArtwork[];
 }
 
-export async function planVisit(
-  catalog: { qid: string; name: string; author: string; style: string }[],
+export interface VisitCatalogArtwork {
+  qid: string;
+  name: string;
+  author: string;
+  style: string;
+}
+
+export async function chooseVisitArtworkCount(
+  totalArtworks: number,
   userRequest: string,
+): Promise<number | undefined> {
+  try {
+    const request = `Determina quante opere includere in una visita museale.
+      Il museo contiene ${totalArtworks} opere.
+      Richiesta del visitatore: "${userRequest}".
+      Se il visitatore indica un numero preciso, rispettalo entro le opere disponibili.
+      "Visita completa", "tutte le opere", "visita esaustiva" ed espressioni
+      equivalenti significano ${totalArtworks} opere.
+      Se la richiesta indica una visita breve, lunga o un limite temporale, scegli
+      un numero coerente. Non ridurre arbitrariamente una richiesta ampia a poche opere.
+      Restituisci esclusivamente il numero intero.`;
+    const response = await conTentativi("numero di opere della visita", () =>
+      ai.models.generateContent({
+        model: MODEL,
+        contents: request,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.INTEGER,
+            minimum: 1,
+            maximum: totalArtworks,
+          },
+        },
+      }),
+    );
+    if (!response.text) return undefined;
+    const count = JSON.parse(response.text);
+    if (!Number.isInteger(count) || count < 1 || count > totalArtworks) return undefined;
+    return count;
+  } catch (err) {
+    console.error("Richiesta al modello fallita dopo i tentativi", err);
+    return undefined;
+  }
+}
+
+export async function planVisit(
+  catalog: VisitCatalogArtwork[],
+  userRequest: string,
+  artworkCount: number,
 ): Promise<VisitPlan | undefined> {
   try {
-    const catalogText = catalog
-      .map((a) => `- ${a.qid}: "${a.name}" di ${a.author} (stile: ${a.style})`)
+    const catalogLines = catalog.map(
+      (artwork) =>
+        `- ${artwork.qid}: "${artwork.name}" di ${artwork.author} (stile: ${artwork.style})`,
+    );
+    const toneLines = educationalLevels
+      .map((tone) => `- ${tone}: ${educationalLevelHints[tone]}`)
       .join("\n");
     const request = `Sei un curatore che compone visite museali su misura.
-      Ricevi il catalogo delle opere di un museo e la richiesta di un visitatore.
-      Scegli le opere piu' adatte alla richiesta, in un ordine di visita sensato.
-      Per ogni opera scelta indica:
-      - tone: il livello di linguaggio adatto al visitatore;
-      - durationSec: la durata in secondi della descrizione;
-      - twist: una breve indicazione IN ITALIANO su quale aspetto enfatizzare
-        nella descrizione di QUELL'opera, in base alla richiesta del visitatore
-        (es. "enfatizza l'uso del colore verde", "analizza i rapporti con Bedoli").
-        Usa stringa vuota se non c'e' un'angolazione particolare da dare.
-      Se il visitatore e' un gruppo con eta' diverse (es. adulti e bambini), NON
-      creare descrizioni separate: usa il twist per chiedere un linguaggio
-      comprensibile ai bambini ma interessante anche per gli adulti.
-      Considera il tempo a disposizione indicato nella richiesta: bilancia il
-      numero di opere e la durata di ciascuna per avvicinarti al tempo totale,
-      lasciando un margine per gli spostamenti. Se non c'e' un vincolo di tempo,
-      scegli un numero ragionevole di opere.
-      Assegna alla visita un nome mnemonico breve in italiano (campo name).
-      Catalogo delle opere:
-      ${catalogText}
-      Richiesta del visitatore: "${userRequest}".`;
+      Richiesta del visitatore: "${userRequest}".
+      Per ogni opera sono gia' disponibili tutte le combinazioni tra i toni e
+      le durate elencati sotto.
+      Seleziona ESATTAMENTE ${artworkCount} opere distinte dal catalogo, senza
+      inventare o ripetere QID. Restituisci ogni opera come una stringa nel formato
+      QID|tone|durationSec|twist. Non usare il carattere | nel twist.
+
+      Toni disponibili:
+      ${toneLines}
+      Mantieni normalmente un tono coerente con il pubblico della visita.
+
+      Durate disponibili: ${secPerArt.join(", ")} secondi.
+      Assegna piu' tempo alle opere centrali per la richiesta e meno alle opere
+      secondarie. Tieni conto di eventuali indicazioni temporali della richiesta.
+
+      Usa un twist breve in italiano quando una preferenza esplicita dell'utente,
+      come colore, tema, tecnica o punto di vista, e' pertinente alla singola opera.
+      Per esempio, una preferenza per il giallo richiede un twist sulle opere in cui
+      quel colore ha un ruolo significativo. Se il catalogo lo permette, una preferenza
+      esplicita deve emergere in almeno un twist, ma non inventare collegamenti deboli
+      o dettagli dell'opera. Valuta ogni opera separatamente: alcune possono avere un
+      twist e altre no. Richieste che riguardano soltanto completezza, numero di opere,
+      tempo o pubblico hanno invece twist vuoto per tutte le opere.
+
+      Assegna alla visita un nome breve in italiano.
+      Catalogo:
+      ${catalogLines.join("\n")}`;
     const response = await conTentativi("pianificazione della visita", () =>
       ai.models.generateContent({
         model: MODEL,
@@ -166,20 +205,9 @@ export async function planVisit(
               name: { type: Type.STRING },
               artworks: {
                 type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    qid: { type: Type.STRING },
-                    tone: { type: Type.STRING, enum: educationalLevels },
-                    durationSec: {
-                      type: Type.STRING,
-                      enum: secPerArt.map((s) => String(s)),
-                    },
-                    twist: { type: Type.STRING },
-                  },
-                  required: ["qid", "tone", "durationSec", "twist"],
-                  propertyOrdering: ["qid", "tone", "durationSec", "twist"],
-                },
+                minItems: String(artworkCount),
+                maxItems: String(artworkCount),
+                items: { type: Type.STRING },
               },
             },
             required: ["name", "artworks"],
@@ -189,7 +217,16 @@ export async function planVisit(
       }),
     );
     if (!response.text) return undefined;
-    return JSON.parse(response.text) as VisitPlan;
+    const raw = JSON.parse(response.text) as { name?: unknown; artworks?: unknown };
+    if (typeof raw.name !== "string" || !Array.isArray(raw.artworks)) return undefined;
+    const artworks: PlannedArtwork[] = [];
+    for (const entry of raw.artworks) {
+      if (typeof entry !== "string") return undefined;
+      const [qid, tone, durationSec, ...twist] = entry.split("|");
+      if (!qid || !tone || !durationSec || twist.length === 0) return undefined;
+      artworks.push({ qid, tone, durationSec, twist: twist.join("|") });
+    }
+    return { name: raw.name, artworks };
   } catch (err) {
     console.error("Richiesta al modello fallita dopo i tentativi", err);
     return undefined;
@@ -293,17 +330,6 @@ export async function directionsFromRoute(route: RouteIR, language: string) {
   }
 }
 
-/**
- * Ritorna il comando riconosciuto, la stringa vuota se non c'era niente da
- * riconoscere, e **null se il modello non ha risposto affatto**.
- *
- * I tre casi non si possono confondere, perche' «non ho capito quel che hai
- * detto» e «il servizio non risponde» chiedono due cose diverse a chi ascolta:
- * ripetere, oppure smettere di provare e usare i pulsanti. Il fallimento va
- * quindi restituito esplicitamente: tornando `undefined` verrebbe tolto dalla
- * risposta da `JSON.stringify`, e il client leggerebbe `{}` con stato 200, cioe'
- * «ho capito, e non era niente».
- */
 export async function mapRequest(transcript: string): Promise<string | null> {
   try {
     const range = options.map((o) => o.id);

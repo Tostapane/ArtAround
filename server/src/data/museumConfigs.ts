@@ -1,19 +1,11 @@
 /**
- * I file di configurazione dei musei: uno per museo, in `data/museums/`.
- *
- * E' il file che la slide 19 chiede, "adattarsi a musei diversi solo cambiando
- * qualche immagine e file di configurazione", quindi e' un ingresso e non un
- * prodotto: aggiungere un museo vuol dire posare un JSON qui e una SVG in
- * `public/maps/`, senza toccare una riga di codice. Niente qui dentro viene mai
- * riscritto dal seed, o le scelte del curatore andrebbero perse.
- *
- * Il file dice solo quel che non si puo' dedurre: il qid, il nome (che vince su
- * Wikidata, perche' e' una scelta e non un dato), luogo e anno, la pianta, le
- * indicazioni logistiche del museo e le opere da mettere in vetrina. Tutto lo
- * spazio - sale, opere, servizi, ostacoli, metri - sta dentro il disegno.
+ * Legge e valida gli allestimenti che rendono generico il sistema. Ogni museo e'
+ * configurazione, pianta e copertina facoltativa; i file vengono riletti e non sono
+ * mai riscritti dal seed.
  */
 import fs from "fs";
 import path from "path";
+import { SERVER_ROOT } from "../env";
 
 export interface MuseumConfig {
   qid: string;
@@ -21,21 +13,16 @@ export interface MuseumConfig {
   location: string;
   created: string;
   mapPath: string;
+  imagePath?: string;
+  visitImages?: Record<string, string>;
   logistics?: string[];
   activeArtworks: string[];
 }
 
-const CONFIG_DIR = path.join(__dirname, "museums");
+const CONFIG_DIR = path.join(SERVER_ROOT, "public/allestimento");
 
 // --- Lettura ---------------------------------------------------------------
 
-/**
- * Tutti i musei configurati, in ordine di nome file.
- *
- * Si rilegge a ogni chiamata: cambiare un file non richiede di riavviare il
- * server, e un errore di sintassi ferma il file che lo contiene invece di far
- * sparire tutti i musei.
- */
 export function loadMuseumConfigs(): MuseumConfig[] {
   let files: string[] = [];
   try {
@@ -72,16 +59,22 @@ export function findMuseumConfig(qid: string): MuseumConfig | null {
   return null;
 }
 
-/**
- * Ritorna il primo campo che manca, oppure la stringa vuota se il file va bene.
- * Un museo mezzo configurato non entra: la sua assenza si legge nel log, mentre
- * un museo senza mappa o senza opere e' una schermata vuota senza spiegazione.
- */
 function validate(config: any): string {
   if (!config || typeof config !== "object") return "non e' un oggetto";
   if (!config.qid) return "manca qid";
   if (!config.name) return "manca name";
   if (!config.mapPath) return "manca mapPath";
+  if (config.imagePath !== undefined && typeof config.imagePath !== "string") {
+    return "imagePath non e' una stringa";
+  }
+  if (config.visitImages !== undefined) {
+    if (typeof config.visitImages !== "object" || Array.isArray(config.visitImages))
+      return "visitImages non e' un oggetto tono -> percorso";
+    for (const [tono, percorso] of Object.entries(config.visitImages)) {
+      if (typeof percorso !== "string")
+        return `visitImages["${tono}"] non e' una stringa`;
+    }
+  }
   if (!Array.isArray(config.activeArtworks) || config.activeArtworks.length === 0) {
     return "activeArtworks assente o vuoto";
   }

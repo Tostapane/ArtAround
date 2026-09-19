@@ -1,25 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ArtAround">
   <title>ArtAround</title>
-  <!--
-    Il marchio in versione autonoma: serve da favicon e da immagine, quindi ha
-    colori propri (dentro una pagina si usa invece il simbolo #ico-marchio, che
-    prende currentColor e segue il tema).
-
-    Segno: l'angolo di una sala in assonometria, con un quadro appeso su ognuna
-    delle tre facce. Si legge come l'angolo dentro cui si sta e come uno spigolo
-    che sporge in fuori — le due letture si alternano e non stanno insieme.
-
-    E' lo STESSO disegno del simbolo, non una seconda versione: quello di prima
-    aveva un tratteggio che alla favicon diventava poltiglia, e per esistere
-    aveva bisogno di due disegni diversi. Qui cambiano solo i colori, perche'
-    fuori da una pagina non c'e' nessun currentColor da seguire: la struttura fa
-    da fondo, gli spigoli sono chiari e i quadri prendono l'accento, cosi' a
-    16 px resta comunque leggibile un cubo con tre macchie chiare.
-
-    ⚠️ Le due battute interne dei quadri sotto i 28 px si impastano con le
-    cornici. E' il costo dichiarato di questa variante: la profondita' si paga
-    li'.
-  -->
+  <!-- Favicon: stesso marchio delle pagine, con colori autonomi per restare leggibile fuori dal tema. -->
   <rect width="64" height="64" rx="12" fill="#0a3a55" />
   <g fill="none" stroke-linecap="round" stroke-linejoin="round">
     <g stroke="#ffffff" stroke-width="2.8">

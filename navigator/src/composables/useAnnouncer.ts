@@ -1,8 +1,6 @@
 /**
- * Annunci per gli screen reader.
- *
- * Il messaggio viene azzerato prima di riscriverlo, altrimenti due annunci uguali
- * di fila non verrebbero riletti.
+ * Espone una regione viva per gli screen reader; azzera il valore prima di ripeterlo
+ * affinche' due messaggi uguali vengano annunciati entrambi.
  */
 import { ref } from "vue";
 

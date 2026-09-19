@@ -1,50 +1,8 @@
 <script setup lang="ts">
 /**
- * Lo svolgimento della visita.
- *
- * Tiene insieme la guida d'avanzamento ("Tappa 3 di 13", che conta solo le tappe
- * che "Prossimo" raggiungera' davvero), il palcoscenico e la scheda.
- *
- * Lo schermo e' diviso in due meta' che convivono sempre, pianta e scheda,
- * perche' "dove sono" e "che cos'e' questo" sono due domande che il visitatore si
- * fa insieme: la scheda non copre mai niente e non ha uno stato di apertura. E'
- * anche l'unico posto da cui si chiede qualcosa, cosi' il vocabolario controllato
- * (slide 27-28) sta in un elenco solo.
- *
- * SUL TELEFONO LE META' NON CI STANNO, e diventano quattro schede: Mappa, Elenco,
- * Opera, Domande (`vistaMobile`). Su 844 px di altezza le due meta' facevano una
- * pianta alta 255 px sopra una scheda in cui il testo dell'opera e le pastiglie
- * delle domande si spartivano 400 px: tutto presente e niente usabile. La
- * divisione e' solo la' sotto — da `lg` in su questo file monta esattamente quel
- * che montava prima, perche' li' lo schermo le due domande le tiene davvero
- * insieme, ed e' la ragione per cui la scheda non ha uno stato di apertura.
- *
- * Non c'e' nessun `matchMedia`: ogni pezzo porta la sua classe `hidden` per il
- * telefono e la sua `lg:` per rimetterlo, quindi a decidere e' il foglio di
- * stile, che la larghezza la sa. Un `matchMedia` qui e' gia' stato tolto una
- * volta (era quello che pilotava la scheda a scatti).
- *
- * Le quattro schede non sono quattro stati sciolti: `Mappa` ed `Elenco` scrivono
- * `stageView`, che e' dove quella scelta viveva gia' e resta ricordata, e aprire
- * una tappa porta su `Opera`, perche' scegliere che cosa leggere e leggerlo sono
- * lo stesso gesto interrotto a meta'.
- *
- * Andando avanti, l'indicazione per raggiungere l'opera successiva si mostra
- * PRIMA di aprirla, e le note d'apertura prima della prima tappa: e' lo scopo per
- * cui esistono (slide 21). QR e codice digitato approdano entrambi in
- * `goToArtwork`, e un'opera fuori dalla visita si apre senza toccare la
- * progressione.
- *
- * Il teletrasporto cambia il significato di un tocco sul palcoscenico, quindi lo
- * stato sta qui: si arma da "Dove sono?" e dura un tocco solo, perche' una
- * modalita' e' una cosa in cui si resta intrappolati.
- *
- * Le due finestre - la transizione e la fine - hanno un tetto in altezza, e a
- * scorrere e' l'ELENCO delle note: quelle d'apertura sono le logistiche del museo
- * piu' quelle della visita, quindi quante siano non lo decide questo file. Perche'
- * scorra l'elenco e non la finestra, l'elenco vuole `min-h-0` e tutto il resto
- * `shrink-0`: senza, a uscire dallo schermo sono i bottoni, cioe' la finestra non
- * si chiude piu'.
+ * Orchestra avanzamento, logistica, mappa, scheda, localizzazione e fine della
+ * visita. Le tappe opzionali e quelle aperte da QR non alterano la progressione
+ * principale.
  */
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useSensors } from "@/composables/useSensors";
@@ -53,6 +11,7 @@ import Stage from "./Stage.vue";
 import Scheda from "./Scheda.vue";
 import Attesa from "../Attesa.vue";
 import Posizione from "./Posizione.vue";
+import TTSButton from "./TTSButton.vue";
 import { marketplaceHome } from "@/config";
 import { useTTS } from "./useTTS";
 import { useTranslation } from "@/composables/useTranslation";
@@ -73,28 +32,41 @@ import {
   visit,
   posizioneAttiva,
   setPosizioneAttiva,
+  currentArtwork,
+  lastVisitIndex,
+  openingShown,
 } from "@/state";
 import {
   guidedActive,
   guidedRole,
   guidedStato,
+  guidedRevision,
   guidedCurrentStep,
+  guidedPlayAt,
+  guidedAudioText,
+  guidedAudioLanguage,
+  guidedHasQuiz,
   teacherGoToStep,
   studentAsk,
 } from "@/guided";
+import {
+  enableGuidedAutoplay,
+  guidedAudioPaused,
+  guidedAutoplayEnabled,
+  pauseGuidedAudio,
+  playGuidedAudio,
+  stopGuidedAudio,
+} from "./guidedAudio";
 import { NEXT_STOP_COMMAND, labelForCommand } from "../../../../shared/constants";
 import { t } from "@/i18n";
 import type { Match } from "../../../../shared/types";
 
 const props = defineProps<{ currVisit: string; title: string }>();
-const emit = defineEmits<{ exit: [] }>();
+const emit = defineEmits<{ exit: []; quiz: []; toggleAudio: [] }>();
 
 const tts = useTTS();
 const { announce } = useAnnouncer();
 
-/** Le tappe arrivano dalla rete, e finche' non ci sono la pianta e' vuota e
- *  l'elenco pure: senza un segno, una visita che si apre lenta sembra una visita
- *  senza tappe. */
 const caricando = ref(true);
 
 watch(
@@ -104,8 +76,13 @@ watch(
     caricando.value = true;
     await loadVisitContent(id);
     caricando.value = false;
+    const guidedStep = guidedActive.value ? guidedCurrentStep.value : -1;
+    if (guidedStep >= 0) selectIndex(guidedStep);
     const opening = openingNotes();
-    if (opening.length) transition.value = { notes: opening, target: -1 };
+    if (opening.length && !openingShown.value) {
+      showTransition(opening, guidedStep, guidedStep < 0);
+      openingShown.value = true;
+    }
   },
   { immediate: true },
 );
@@ -114,8 +91,6 @@ watch(
 type VistaMobile = "mappa" | "elenco" | "opera" | "domande";
 const vistaMobile = ref<VistaMobile>(stageView.value);
 
-/** Mappa ed Elenco sono la stessa scelta che il palcoscenico gia' ricorda: si
- *  scrive li', o cambiando scheda si perderebbe quale dei due si guardava. */
 function apriVista(v: VistaMobile) {
   vistaMobile.value = v;
   if (v === "mappa" || v === "elenco") setStageView(v);
@@ -126,19 +101,8 @@ const schedaVisibile = computed(
 );
 
 // --- Posizione corrente ----------------------------------------------------
-const currentArtwork = ref<Match | null>(null);
-const lastVisitIndex = ref(-1);
 const showLocator = ref(false);
 
-/**
- * I sensori partono solo se il visitatore ha ACCESO la posizione (`posizioneAttiva`,
- * spenta di suo): finche' e' spenta non si chiede nessun permesso e non si legge
- * nessun sensore. Da accesa partono col tocco che apre "Dove sono?", perche' iOS
- * concede il permesso per l'orientamento solo dentro un gesto dell'utente, e
- * quello e' il gesto. Non si spengono richiudendo il pannello: il segnalino deve
- * continuare a seguire chi cammina. Muoversi pero' non apre mai una scheda: a
- * decidere e' solo la pressione del bottone.
- */
 const sensori = useSensors();
 watch(map, () => startAtEntrance(), { immediate: true });
 
@@ -147,28 +111,24 @@ function apriPosizione() {
   if (posizioneAttiva.value) sensori.start();
 }
 
-/** L'interruttore della posizione: accendendola i sensori partono subito, e il
- *  tocco che l'ha accesa e' il gesto dentro cui iOS concede il permesso. */
 function cambiaPosizione(attiva: boolean) {
   setPosizioneAttiva(attiva);
   if (attiva) sensori.start();
   else sensori.stop();
 }
-const transition = ref<{ notes: string[]; target: number } | null>(null);
+const transition = ref<{
+  notes: string[];
+  target: number;
+  navigateOnClose: boolean;
+} | null>(null);
+let resumeGuidedAfterTransition = false;
 
-/** Percorso finito: si mostra la chiusura, con la via di casa in evidenza. */
 const fine = ref<{ notes: string[] } | null>(null);
 
 function tornaAllaHome() {
   window.location.href = marketplaceHome();
 }
 
-/**
- * La posizione si cerca sull'item e non sull'opera. Una visita puo' avere piu'
- * item per lo stesso oggetto, e la slide 21 dice che dovrebbe averne: cercando
- * per opera, la seconda descrizione ritroverebbe sempre l'indice della prima, e
- * "Prossimo" riporterebbe alla tappa gia' vista bloccando li' la visita.
- */
 function indexInVisit(): number {
   if (!currentArtwork.value) return -1;
   const id = currentArtwork.value.item["@id"];
@@ -203,6 +163,8 @@ const guidedTeacher = computed(
     guidedRole.value === "docente" &&
     guidedStato.value === "attiva",
 );
+type NavigationDirection = "prev" | "next";
+const navigationLoading = ref<NavigationDirection | "">("");
 
 const hasNext = computed(() => {
   if (guidedStudent.value) return false;
@@ -219,6 +181,13 @@ const canEnd = computed(() => {
   if (lastVisitIndex.value < 0) return false;
   return !hasNext.value;
 });
+const canStartQuiz = computed(
+  () =>
+    guidedTeacher.value &&
+    guidedHasQuiz.value &&
+    lastVisitIndex.value >= 0 &&
+    !hasNext.value,
+);
 
 // --- Avanzamento: "Tappa 3 di 13" -----------------------------------------
 const navigableStops = computed(() =>
@@ -232,11 +201,6 @@ const currentPosition = computed(() => {
   return navigableStops.value.findIndex((m) => m.item["@id"] === id) + 1;
 });
 
-/*
- * Le due scritture dell'avanzamento. Quella per esteso e' la sola che arriva a
- * chi ascolta; quella breve serve sotto `sm`, dove "Tappa 104 di 104" non ci sta
- * accanto agli altri comandi. Prima di aprire una tappa sono la stessa frase.
- */
 const progresso = computed(() => {
   const totale = navigableStops.value.length;
   const qui = currentPosition.value;
@@ -255,9 +219,6 @@ function selectIndex(i: number) {
   if (!match) return;
   currentArtwork.value = match;
   lastVisitIndex.value = i;
-  // Sul telefono aprire una tappa porta sull'opera: scegliere che cosa leggere e
-  // leggerlo sono lo stesso gesto, e restare sulla pianta vorrebbe dire che il
-  // tocco su un disco non ha fatto niente di visibile.
   vistaMobile.value = "opera";
   const pos = currentPosition.value;
   if (pos > 0) {
@@ -278,8 +239,11 @@ function onStageSelect(i: number) {
     if (i === guidedCurrentStep.value) selectIndex(i);
     return;
   }
+  if (guidedTeacher.value) {
+    apriTappa(i);
+    return;
+  }
   selectIndex(i);
-  if (guidedTeacher.value) teacherGoToStep(i);
 }
 
 const currentLocationId = computed(() => {
@@ -295,12 +259,6 @@ const currentLocationId = computed(() => {
   return "";
 });
 
-/**
- * La porta d'ingresso alla visita, dentro la scheda finche' non c'e' nessuna
- * tappa aperta: senza, l'unico modo di cominciare sarebbe scoprire che i dischi
- * sulla pianta si toccano. Nella visita guidata non compare: li' a decidere la
- * tappa e' il docente.
- */
 const azioneTappa = computed(() => {
   if (guidedStudent.value) return null;
   if (currentArtwork.value) return null;
@@ -315,20 +273,46 @@ function apriTappaCorrente() {
 }
 
 // --- Navigazione -----------------------------------------------------------
-function goToIndex(i: number) {
-  transition.value = null;
+async function goToIndex(
+  i: number,
+  closeOpenTransition = true,
+  direction: NavigationDirection | "" = "",
+): Promise<boolean> {
+  if (closeOpenTransition) transition.value = null;
+  if (guidedTeacher.value) {
+    if (direction) navigationLoading.value = direction;
+    try {
+      if (await teacherGoToStep(i)) {
+        selectIndex(i);
+        return true;
+      }
+      return false;
+    } finally {
+      if (navigationLoading.value === direction) navigationLoading.value = "";
+    }
+  }
   selectIndex(i);
-  if (guidedTeacher.value) teacherGoToStep(i);
+  return true;
 }
 
-function navigationHandler(direction: string) {
-  if (guidedStudent.value) return;
+function showTransition(
+  notes: string[],
+  target: number,
+  navigateOnClose: boolean,
+) {
+  if (guidedStudent.value && guidedAutoplayEnabled.value) {
+    resumeGuidedAfterTransition = true;
+    pauseGuidedAudio();
+  }
+  transition.value = { notes, target, navigateOnClose };
+  announce(notes.join(". "));
+}
+
+function navigationHandler(direction: NavigationDirection) {
+  if (guidedStudent.value || navigationLoading.value) return;
   const base = navBase();
   const target = stepIndex(base, direction === "next" ? 1 : -1);
   if (target < 0) {
-    // Fine del percorso: senza questo ramo la visita non finirebbe mai.
-    // In visita guidata no: li' la chiusura la decide il docente, che dopo
-    // l'ultima opera fa partire il quiz.
     if (
       direction === "next" &&
       lastVisitIndex.value >= 0 &&
@@ -346,56 +330,61 @@ function navigationHandler(direction: string) {
   if (direction === "next" && currentArtwork.value) {
     const notes = notesAfter(currentArtwork.value.item["@id"]);
     if (notes.length > 0) {
-      transition.value = { notes, target };
-      announce(notes.join(". "));
+      if (guidedTeacher.value) {
+        showTransition(notes, target, false);
+        void goToIndex(target, false, direction);
+      } else {
+        showTransition(notes, target, true);
+      }
       return;
     }
   }
-  goToIndex(target);
+  void goToIndex(target, true, direction);
 }
 
 function closeTransition() {
+  tts.stop();
   const t = transition.value;
   transition.value = null;
+  if (resumeGuidedAfterTransition && guidedStato.value === "attiva")
+    enableGuidedAutoplay();
+  resumeGuidedAfterTransition = false;
   if (!t) return;
+  if (!t.navigateOnClose) return;
   if (t.target >= 0) {
-    goToIndex(t.target);
+    void goToIndex(t.target);
     return;
   }
-  // Note d'apertura: "Continua" deve continuare, cioe' portare alla prima tappa.
-  // Chiudendo solo il riquadro la visita resterebbe ferma senza niente di aperto.
   const primo = stepIndex(-1, 1);
-  if (primo >= 0) goToIndex(primo);
+  if (primo >= 0) void goToIndex(primo);
 }
 
-/**
- * Aprire una tappa a cui si e' arrivati: prima l'indicazione logistica scritta
- * per quel passaggio, poi la scheda. E' lo stesso passo intermedio di
- * "Prossimo", ed e' il secondo scopo che la slide 33 assegna alla
- * localizzazione. Se la tappa e' gia' quella aperta la nota non si ripete.
- */
 function apriTappa(i: number) {
   let notes: string[] = [];
   if (i === 0) {
-    notes = openingNotes();
+    if (!openingShown.value) {
+      notes = openingNotes();
+      openingShown.value = true;
+    }
   } else {
     const precedente = matchedContent.value[i - 1];
     if (precedente) notes = notesAfter(precedente.item["@id"]);
   }
   if (notes.length > 0 && i !== indexInVisit()) {
-    transition.value = { notes, target: i };
-    announce(notes.join(". "));
+    if (guidedTeacher.value) {
+      showTransition(notes, i, false);
+      void goToIndex(i, false);
+    } else {
+      showTransition(notes, i, true);
+    }
     return;
   }
-  selectIndex(i);
+  void goToIndex(i);
 }
 
 // --- Teletrasporto (slide 34) ----------------------------------------------
 const teletrasportoArmato = ref(false);
 
-/** Sposta la posizione e basta: non apre nessuna tappa e non fa avanzare la
- *  visita, perche' dichiarare dove si e' e decidere cosa leggere sono due atti
- *  diversi. */
 function armaTeletrasporto() {
   showLocator.value = false;
   teletrasportoArmato.value = true;
@@ -408,15 +397,12 @@ function annullaTeletrasporto() {
   announce(t("Teletrasporto annullato"));
 }
 
-/** Su un punto qualunque non c'e' un nome da dire: quale opera sia e' il
- *  mestiere di "Trovami", non di chi sposta. */
-function teletrasportaSuPunto(x: number, y: number) {
-  reanchor(x, y);
+function teletrasportaSuPunto(x: number, y: number, floor: number) {
+  reanchor(x, y, floor);
   teletrasportoArmato.value = false;
   announce(t("Posizione aggiornata"));
 }
 
-/** Una tappa: la "posizione predeterminata" accanto all'opera (slide 34). */
 function teletrasportaSuTappa(i: number) {
   const match = matchedContent.value[i];
   if (!match) return;
@@ -430,7 +416,7 @@ function teletrasportaSuTappa(i: number) {
     announce(t("Non so dove si trovi quest'opera sulla pianta"));
     return;
   }
-  reanchor(nodo.x, nodo.y);
+  reanchor(nodo.x, nodo.y, nodo.floor);
   teletrasportoArmato.value = false;
   announce(t("Sei accanto a {nome}", { nome: ancora.name }));
 }
@@ -446,10 +432,8 @@ watch(teletrasportoArmato, (armato) => {
 async function goToArtwork(qid: string) {
   showLocator.value = false;
 
-  // Dire dove si e' ri-ancora il sistema di coordinate: da qui in poi i passi
-  // si contano da questo punto, non da dove il GPS credeva di essere.
   const nodo = nodeOf(qid);
-  if (nodo) reanchor(nodo.x, nodo.y);
+  if (nodo) reanchor(nodo.x, nodo.y, nodo.floor);
 
   const i = matchedContent.value.findIndex((m) => m.artwork && m.artwork.qid === qid);
   if (i >= 0) {
@@ -481,26 +465,8 @@ async function goToArtwork(qid: string) {
 // --- Comandi ---------------------------------------------------------------
 const openRequest = ref("");
 
-/**
- * DOVE si vuole andare, quando la domanda non e' un comando che se lo porta
- * dietro. Due sorgenti, che il grafo tratta allo stesso modo perche' per lui una
- * destinazione e' un nodo e basta: il `data-poi` del servizio toccato sulla
- * pianta, quindi tutti i servizi di tutte le piante e non i quattro che il
- * vocabolario sa nominare, e il qid dell'opera della tappa successiva. La
- * risposta esce dove escono le altre, dentro Orientati: una risposta sola in un
- * posto solo e' la ragione per cui la scheda sta sempre aperta.
- */
 const openTarget = ref("");
 
-/**
- * L'opera verso cui si va, cioe' l'ANCORA della tappa successiva e non la sua
- * opera: una tappa che parla di uno stile non sta da nessuna parte sulla pianta,
- * ma chi la ascolta si', ed e' quella la posizione che tutto il resto usa gia'.
- *
- * Vuoto vuol dire "non c'e' un dopo", e sono i due casi in cui il comando si
- * spegne: l'ultima tappa e lo studente di una visita guidata, dove la tappa la
- * decide il docente e mandare avanti chi chiede spezzerebbe la classe.
- */
 const nextAnchorQid = computed(() => {
   if (guidedStudent.value) return "";
   const i = stepIndex(navBase(), 1);
@@ -510,11 +476,6 @@ const nextAnchorQid = computed(() => {
   return stop.anchor.qid;
 });
 
-/**
- * L'opera a cui si riferiscono le domande. Finche' non se n'e' aperta nessuna
- * vale la prima della visita: "dov'e' il bagno?" deve poter partire da dove ci
- * si trova, non richiedere di aprire prima una didascalia.
- */
 const riferimento = computed<Match | null>(() => {
   if (currentArtwork.value) return currentArtwork.value;
   if (lastVisitIndex.value >= 0) {
@@ -538,11 +499,8 @@ function actionHandler(option: string) {
   if (option === "Prossimo") return navigationHandler("next");
   if (option === "Precedente") return navigationHandler("prev");
 
-  // Chiedere la strada non e' andarci: si apre la risposta, la tappa non cambia.
   if (option === NEXT_STOP_COMMAND) {
     if (!nextAnchorQid.value) {
-      // Il bottone e' spento, ma la voce ci arriva lo stesso: se qui si tacesse,
-      // un comando riconosciuto e ripetuto non produrrebbe niente.
       announce(t("Non c'è una tappa successiva: sei all'ultima."));
       return;
     }
@@ -580,22 +538,38 @@ watch(currentArtwork, () => {
   tts.stop();
 });
 
-/**
- * Una risposta aperta porta sulle Domande, ed e' l'unico punto in cui serve
- * dirlo: le domande partono anche da fuori quel pannello — la voce, che sta
- * nella barra, e un servizio toccato sulla pianta. Senza, toccare il bagno sulla
- * pianta sembrerebbe non fare niente, perche' la risposta comparirebbe in una
- * scheda che non si sta guardando.
- */
 watch(openRequest, (richiesta) => {
   if (richiesta) vistaMobile.value = "domande";
 });
 
-watch(guidedCurrentStep, (step) => {
+watch(guidedCurrentStep, (step, previousStep) => {
   if (!guidedStudent.value) return;
   if (step < 0) return;
+  let notes: string[] = [];
+  if (previousStep >= 0 && step > previousStep) {
+    const previous = matchedContent.value[previousStep];
+    if (previous) notes = notesAfter(previous.item["@id"]);
+  }
   selectIndex(step);
+  if (notes.length > 0) showTransition(notes, step, false);
 });
+
+watch(
+  [guidedRevision, guidedStato, guidedAutoplayEnabled],
+  () => {
+    if (guidedStudent.value && guidedAutoplayEnabled.value) {
+      const playAt = guidedPlayAt.value;
+      const text = guidedAudioText.value;
+      if (playAt && text) {
+        void playGuidedAudio(text, guidedAudioLanguage.value, playAt);
+        return;
+      }
+    }
+    if (guidedStato.value === "attiva" && guidedAudioPaused) return;
+    stopGuidedAudio();
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   if (guidedCurrentStep.value < 0) return;
@@ -604,23 +578,17 @@ onMounted(() => {
 
 onUnmounted(() => {
   tts.stop();
+  stopGuidedAudio();
   sensori.stop();
   window.removeEventListener("keydown", onKeyTeletrasporto);
 });
 </script>
 
 <template>
-  <!-- Il guscio esterno esiste per la barra delle schede, che sul telefono sta
-       in fondo e deve stare FUORI dalla riga che da `lg` in su affianca pianta e
-       scheda. Da `lg` la barra non c'e' e questo guscio e' un contenitore che
-       non fa niente. -->
+
   <div class="flex min-h-0 flex-1 flex-col">
   <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
-    <!-- La guida d'avanzamento sta qui dentro e non si spegne mai: e' l'unico
-         posto da cui si esce, e il conto delle tappe vale per tutte le schede.
-         Quando il palcoscenico e' spento la colonna non deve pero' prendersi lo
-         spazio: senza `shrink-0` resterebbe `flex-1` e la scheda dell'opera si
-         schiaccerebbe contro il fondo. -->
+
     <div
       class="flex min-h-0 flex-col lg:flex-1"
       :class="schedaVisibile ? 'shrink-0' : 'flex-1'"
@@ -639,6 +607,19 @@ onUnmounted(() => {
           <span class="sr-only sm:not-sr-only">{{ t("Esci") }}</span>
         </button>
 
+        <button
+          v-if="guidedStudent"
+          type="button"
+          class="btn-primario shrink-0 px-3"
+          :aria-pressed="guidedAutoplayEnabled"
+          @click="emit('toggleAudio')"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5 6.5 9H3v6h3.5l4.5 4V5zM15 9a4 4 0 0 1 0 6M17.5 6.5a7.5 7.5 0 0 1 0 11" />
+          </svg>
+          {{ guidedAutoplayEnabled ? t("Disattiva audio") : t("Attiva audio") }}
+        </button>
+
         <p class="hidden min-w-0 flex-1 truncate text-small font-medium sm:block">
           {{ title }}
         </p>
@@ -655,12 +636,15 @@ onUnmounted(() => {
       <div
         v-if="navigableStops.length"
         class="h-0.5 shrink-0"
-        style="background-color: var(--accent-velo)"
+        style="background-color: var(--location-veil)"
         aria-hidden="true"
       >
         <div
-          class="h-full bg-accent transition-[width] duration-200"
-          :style="{ width: (currentPosition / navigableStops.length) * 100 + '%' }"
+          class="h-full transition-[width] duration-200"
+          :style="{
+            width: (currentPosition / navigableStops.length) * 100 + '%',
+            backgroundColor: 'var(--location)',
+          }"
         ></div>
       </div>
 
@@ -677,6 +661,7 @@ onUnmounted(() => {
         :current-location-id="currentLocationId"
         :current-index="lastVisitIndex"
         :armed="teletrasportoArmato"
+        :active="!schedaVisibile"
         @select="onStageSelect"
         @locate="apriPosizione"
         @poi="chiediServizio"
@@ -697,7 +682,9 @@ onUnmounted(() => {
       :optional="currentArtwork ? isOptionalItem(currentArtwork.item['@id']) : false"
       :has-next="hasNext"
       :has-prev="hasPrev"
+      :navigation-loading="navigationLoading"
       :can-end="canEnd"
+      :can-start-quiz="canStartQuiz"
       :numero="currentPosition"
       :guided-student="guidedStudent"
       :guided-teacher="guidedTeacher"
@@ -706,12 +693,12 @@ onUnmounted(() => {
       :can-ask-next="nextAnchorQid !== ''"
       @navigation="navigationHandler"
       @action="actionHandler"
+      @section="apriVista"
       @close-request="chiudiRisposta"
       @apri-tappa="apriTappaCorrente"
+      @quiz="emit('quiz')"
     />
 
-    <!-- Le tappe non sono ancora arrivate: si copre tutto, perche' sotto non
-         c'e' niente da guardare e una pianta senza dischi dice il falso. -->
     <div v-if="caricando" class="fixed inset-0 z-50 flex items-center justify-center bg-bg">
       <Attesa :testo="t('Caricamento delle visite…')" />
     </div>
@@ -744,13 +731,12 @@ onUnmounted(() => {
           </li>
         </ul>
         <div class="mt-6 flex shrink-0 gap-3">
-          <button
-            type="button"
-            class="btn-secondario"
-            @click="tts.speak(transition.notes.join('. '))"
-          >
-            {{ t("Leggi") }}
-          </button>
+          <TTSButton
+            class="icona-tonda shrink-0"
+            active-class="icona-tonda-attiva"
+            :text="transition.notes.join('. ')"
+            :label="t('Leggi')"
+          />
           <button type="button" class="btn-primario flex-1 justify-center" @click="closeTransition">
             {{ t("Continua") }}
           </button>
@@ -817,12 +803,8 @@ onUnmounted(() => {
     />
   </div>
 
-    <!-- LE QUATTRO SCHEDE, solo sul telefono. Sono `radio` e non `tab` perche'
-         nessuno dei quattro pannelli e' figlio di questa barra: due stanno nel
-         palcoscenico e due nella scheda, e un `tablist` prometterebbe un legame
-         `aria-controls` che qui non esiste. -->
     <nav
-      class="shrink-0 border-t border-line bg-surface lg:hidden"
+      class="nav-visita shrink-0 border-t border-line lg:hidden"
       style="padding-bottom: env(safe-area-inset-bottom)"
       role="radiogroup"
       :aria-label="t('Come vedere la visita')"
@@ -839,12 +821,9 @@ onUnmounted(() => {
           type="button"
           role="radio"
           :aria-checked="vistaMobile === s.id"
-          class="min-h-12 flex-1 border-b-2 px-1 text-small font-medium transition-colors"
-          :class="
-            vistaMobile === s.id
-              ? 'border-accent text-accent'
-              : 'border-transparent text-muted'
-          "
+          :data-section="s.id"
+          class="nav-visita-tab min-h-12 flex-1 border-b-2 border-transparent px-1 text-small font-medium transition-colors"
+          :class="vistaMobile === s.id ? 'nav-visita-tab-attivo' : ''"
           @click="apriVista(s.id as VistaMobile)"
         >
           {{ s.label }}

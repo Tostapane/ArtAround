@@ -1,37 +1,27 @@
 /**
- * Popolamento di un museo a partire dal suo file di configurazione.
- *
- * Il file dice QUALI opere esporre; Wikidata dice com'e' fatta ciascuna; la
- * mappa dice dove sta. Qui si mettono insieme le tre cose e si salva quel che
- * ne esce, scaricando una copia locale delle immagini e generando le
- * descrizioni mancanti. Un'opera senza immagine (P18) viene saltata: meglio non
- * averla che averla senza volto.
+ * Popola un museo unendo configurazione, Wikidata e pianta. Gli upsert rendono il
+ * seed ripetibile e gli item senza testo non vengono salvati, evitando tappe mute
+ * che sembrerebbero valide.
  */
 import { fetchArtwork, fetchMuseum } from "./services/wikidata";
 import { downloadImage } from "./services/imageDownloader";
 import {
-  insertArtwork,
-  insertItem,
-  insertVisit,
-  intertMuseum,
-} from "./dbActions";
+  upsertArtwork,
+  upsertItem,
+  upsertVisit,
+  upsertMuseum,
+} from "./catalogue";
 import { createDescription } from "./services/llm";
-import { ArtworkModel } from "./models/artwork";
+import type { IArtwork } from "./models/artwork";
 import { MuseumConfig } from "./data/museumConfigs";
 import { getMuseumGraph } from "./services/svgGraph";
 import { LogisticNote } from "../../shared/types";
-import { DEFAULT_LICENSE } from "../../shared/constants";
+import {
+  DEFAULT_LICENSE,
+  SEED_AUTHOR,
+  SEED_ID_TOKEN,
+} from "../../shared/constants";
 
-/**
- * Da qid dell'opera a id del nodo che la rappresenta sulla pianta
- * (`Artwork.locationId`). E' la mappa a dire dove sta un'opera: legarla invece
- * alla sua POSIZIONE nell'elenco del file di configurazione vorrebbe dire tenere
- * allineati a mano due elenchi, e basta inserirne una in mezzo perche' tutte
- * quelle dopo finiscano sul nodo sbagliato senza un errore da nessuna parte.
- *
- * Un'opera che sulla pianta non c'e' resta senza nodo: non compare sulla mappa,
- * ma il suo contenuto si legge lo stesso.
- */
 export function locationsFromMap(mapPath: string): Map<string, string> {
   const positions = new Map<string, string>();
   for (const node of getMuseumGraph(mapPath).nodes) {
@@ -42,9 +32,6 @@ export function locationsFromMap(mapPath: string): Map<string, string> {
   return positions;
 }
 
-/**
- * Popola un artwork nel database ottenendo dati da Wikidata.
- */
 export async function populateArtwork(
   qid: string,
   museum: string,
@@ -60,7 +47,7 @@ export async function populateArtwork(
 
   const imagePath = await downloadImage(data.image, `${qid}`);
 
-  await insertArtwork({
+  await upsertArtwork({
     qid: qid,
     name: data.name,
     author: {
@@ -81,16 +68,13 @@ export async function populateArtwork(
 }
 
 export async function populateItem(
-  atworkQid: string,
+  artwork: IArtwork,
   level: string,
   duration: number,
   itemAuthor?: string,
   itemPrice?: number,
   description?: string,
 ) {
-  const artwork = await ArtworkModel.findOne({ qid: atworkQid });
-  if (!artwork) throw new Error(`Artwork non trovato per QID: ${atworkQid}`);
-
   if (!itemAuthor && !description) {
     description = await createDescription(
       artwork.name,
@@ -98,26 +82,22 @@ export async function populateItem(
       level,
       duration,
     );
-    itemAuthor = "sistema";
+    itemAuthor = SEED_AUTHOR;
 
-    /*
-     * Anche dopo i ritentativi il modello puo' non rispondere. In quel caso
-     * NON si scrive l'item: uno che manca si vede nel conteggio finale e nel
-     * log, uno senza testo diventa invece una tappa muta dentro una visita,
-     * e nessuno se ne accorge finche' non la si apre.
-     */
     if (!description || description.trim() === "") {
       console.warn(
-        `[seed] item ${atworkQid} (${level}/${duration}s) NON creato: ` +
+        `[seed] item ${artwork.qid} (${level}/${duration}s) NON creato: ` +
           `il modello non ha prodotto una descrizione.`,
       );
       return;
     }
   }
 
-  const id = `${atworkQid}-${itemAuthor}-${level}-${duration}`;
+  let firma = itemAuthor;
+  if (itemAuthor === SEED_AUTHOR) firma = SEED_ID_TOKEN;
+  const id = `${artwork.qid}-${firma}-${level}-${duration}`;
 
-  await insertItem({
+  return await upsertItem({
     "@id": id,
     kind: "opera",
     about: artwork["@id"],
@@ -140,10 +120,11 @@ export async function populateVisit(
   logist: LogisticNote[],
   visitPrice?: number,
   visitAuthor?: string,
+  imagePath?: string,
 ) {
   const id = `visit-${museum}-${level}-${durationPerArt}`;
   const name = `Visita ${level} · ${durationPerArt}s per opera`;
-  await insertVisit({
+  await upsertVisit({
     "@id": id,
     name: name,
     level: level,
@@ -151,19 +132,14 @@ export async function populateVisit(
     price: visitPrice,
     author: visitAuthor,
     ofMuseum: museumUri,
+    visibility: "pubblico",
+    imagePath: imagePath || "",
     itemListElement: items,
     logistics: logist,
     license: DEFAULT_LICENSE,
   });
 }
 
-/**
- * Scrive nel database il museo descritto dal suo file di configurazione.
- *
- * Il file vince su Wikidata, che si interroga solo per i campi che il curatore
- * ha lasciato in bianco. Il nome in particolare e' una scelta e non un dato: per
- * gli Uffizi Wikidata risponde "Palazzo degli Uffizi", che e' l'edificio.
- */
 export async function populateMuseum(config: MuseumConfig) {
   let name = config.name;
   let created = config.created;
@@ -178,12 +154,13 @@ export async function populateMuseum(config: MuseumConfig) {
     }
   }
 
-  await intertMuseum({
+  await upsertMuseum({
     "@id": `http://www.wikidata.org/entity/${config.qid}`,
     qid: config.qid,
     name,
     created,
     location,
     mapPath: config.mapPath,
+    imagePath: config.imagePath,
   });
 }

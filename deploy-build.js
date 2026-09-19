@@ -1,65 +1,82 @@
 /*
- * deploy-build.js — `npm run setup` + `npm run build`, ma dentro un container.
- *
- * Sulla macchina di laboratorio node non esiste: sta solo dentro le immagini che
- * gocker accende. Questo file esiste per farci passare i due comandi di
- * installazione e compilazione, che altrimenti non avrebbero un interprete.
- *
- *   (gocker): start node-22 site252627 deploy-build.js
- *   (gocker): logs site252627
- *
- * La cartella e' la stessa che vede il server, quindi node_modules/ e i due
- * dist/ restano sul disco quando il processo finisce.
- *
- * ⚠️ Un sito ha un solo slot node: finche' gira questo, il server non puo'
- * essere acceso. Per gli aggiornamenti: spegnere, buildare, riaccendere.
+ * Installa e compila le tre applicazioni nel container di dipartimento, mostrando
+ * solo le fasi del deploy; l'output tecnico viene conservato per spiegare gli
+ * errori. Infine ricrea sources/ e lascia libero lo slot Node per il server.
  */
 
 const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const root = __dirname;
 
-/*
- * Dentro il container HOME non e' scrivibile: npm prova a creare la sua cache
- * in /.npm e prende EACCES, fallendo con codice 243 dopo aver scaricato tutto.
- * Cache e home vanno quindi spostate sotto /webapp, che e' la cartella montata
- * e l'unica su cui abbiamo diritto di scrittura.
- */
 const ambiente = {
   ...process.env,
   HOME: root,
   npm_config_cache: path.join(root, '.npm-cache'),
+  npm_config_update_notifier: 'false',
 };
 
-// I comandi sono quelli di package.json, spezzati uno per riga: se qualcosa
-// fallisce vogliamo sapere *quale* passo, non che «setup» e' andato male.
-// --no-audit --no-fund: due giri di rete in meno per passo, su una macchina
-// dove l'installazione e' gia' la parte lenta.
 const passi = [
-  ['dipendenze server',      'npm install --include=dev --no-audit --no-fund --prefix server'],
-  ['dipendenze marketplace', 'npm install --include=dev --no-audit --no-fund --prefix marketplace'],
-  ['dipendenze navigator',   'npm install --include=dev --no-audit --no-fund --prefix navigator'],
-  ['build marketplace',      'npm run build --prefix marketplace'],
-  ['build navigator',        'npm run build --prefix navigator'],
+  ['Controllo dipendenze', [
+    'npm install --include=dev --no-audit --no-fund --prefix server',
+    'npm install --include=dev --no-audit --no-fund --prefix marketplace',
+    'npm install --include=dev --no-audit --no-fund --prefix navigator',
+  ]],
+  ['Compilazione server', ['npm run build --prefix server']],
+  ['Compilazione navigator', ['npm run build --prefix navigator']],
+  ['Compilazione marketplace', ['npm run build --prefix marketplace']],
 ];
 
-console.log('=== deploy-build: inizio in ' + root);
-console.log('=== node ' + process.version);
+console.log('Build ArtAround');
+console.log('Node ' + process.version);
 
-for (const [nome, comando] of passi) {
-  console.log('\n--- ' + nome + ': ' + comando);
-  try {
-    execSync(comando, { cwd: root, stdio: 'inherit', env: ambiente });
-    console.log('--- ' + nome + ': OK');
-  } catch (errore) {
-    // Uscire con codice diverso da zero: un fallimento silenzioso qui
-    // diventerebbe una pagina bianca su /navigator/ mezz'ora piu' tardi.
-    console.error('\n!!! ' + nome + ' FALLITO (uscita ' + errore.status + ')');
-    console.error('!!! i passi successivi non vengono eseguiti');
-    process.exit(1);
+for (const [nome, comandi] of passi) {
+  console.log('\n' + nome);
+  for (const comando of comandi) {
+    try {
+      execSync(comando, {
+        cwd: root,
+        env: ambiente,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 20 * 1024 * 1024,
+      });
+    } catch (errore) {
+      console.error('\nBuild interrotta durante: ' + nome);
+      console.error('Comando: ' + comando + '\n');
+      if (errore.stdout) process.stdout.write(String(errore.stdout));
+      if (errore.stderr) process.stderr.write(String(errore.stderr));
+      process.exit(1);
+    }
   }
 }
 
-console.log('\n=== deploy-build: tutto riuscito.');
-console.log('=== Ora si puo\' spegnere questo e accendere il server.');
+const sorgenti = path.join(root, 'sources');
+const fuori = ['node_modules', '.git', '.npm-cache', 'dist', 'dist-ssr',
+  'sources', '.claude', '.vscode', '.idea', 'cypress'];
+function tieni(p) {
+  const n = path.basename(p);
+  if (fuori.includes(n)) return false;
+  if (n === '.env' || n.startsWith('.env.') || n.endsWith('.local')) return false;
+  if (n.endsWith('.tsbuildinfo') || n.endsWith('.swp') || n === '.DS_Store') return false;
+  if (n.endsWith('.md')) return false;
+  return path.relative(root, p) !== path.join('server', 'public', 'images');
+}
+
+console.log('\nPreparazione sorgenti');
+try {
+  fs.rmSync(sorgenti, { recursive: true, force: true });
+  fs.mkdirSync(sorgenti);
+  for (const v of fs.readdirSync(root)) {
+    if (!tieni(path.join(root, v))) continue;
+    fs.cpSync(path.join(root, v), path.join(sorgenti, v), { recursive: true, filter: tieni });
+  }
+  try { execSync("chmod -R u=rwX,go=rX '" + sorgenti + "'"); } catch {}
+} catch (e) {
+  console.error('Preparazione sorgenti non riuscita: ' + e.message);
+  console.error('Il deploy puo\' proseguire.');
+}
+
+console.log('\nBuild completata.');
+console.log('Spegnere il builder e avviare il server.');

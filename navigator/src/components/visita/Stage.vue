@@ -1,40 +1,13 @@
 <script setup lang="ts">
 /**
- * Il palcoscenico: mappa ed elenco, alla pari.
- *
- * Non sono un contenuto e la sua barra laterale, perche' su uno schermo da 375px
- * due pannelli affiancati ne danno due inutilizzabili. Renderli pari e' anche il
- * modello di accessibilita': il percorso non spaziale deve essere altrettanto
- * capace, non solo presente, quindi cio' che si fa sulla mappa si fa nell'elenco
- * e i numeri delle tappe combaciano.
- *
- * I nodi della mappa diventano veri controlli da tastiera e portano sopra il
- * numero della tappa. I dischi si disegnano sull'ANCORA: una tappa che parla di
- * uno stile prende il posto dell'opera che la segue, e finisce nel gruppo di chi
- * condivide quell'oggetto, cioe' un disco con due numeri.
- *
- * Ordine del fuoco: ogni nodo viene riattaccato al suo gruppo scorrendo le tappe
- * in ordine di visita. Il fuoco segue il DOM, non il `tabindex` (che se positivo
- * si mette davanti a tutta la pagina), e le tecnologie assistive leggono il DOM,
- * quindi il DOM e' l'unico punto dove sistemarlo. Va riattaccato al PROPRIO
- * gruppo: portato fuori dal suo `data-floor`, un nodo perde il piano.
- *
- * I piani stanno tutti nello stesso disegno, uno sopra l'altro, dentro un
- * <g data-floor> ciascuno (contratto in `server/src/services/svgGraph.ts`). Qui
- * se ne INQUADRA uno per volta spostando il viewBox, invece di nascondere gli
- * altri: un sottoalbero nascosto non ha piu' un getBBox, e i numeri delle tappe
- * si disegnano proprio con quello. Inquadrando, i numeri e il segnalino degli
- * altri piani cadono fuori dal riquadro da soli. Per lo stesso motivo i numeri
- * si ricalcolano quando si torna sulla mappa.
- *
- * Il piano si annuncia a ogni cambio, ed e' il selettore a rispondere alla
- * domanda "a che piano sono": nessun sensore lo sa, il GPS da' due coordinate e
- * non tre. Chi non vede la pianta ha percio' lo stesso modo di dichiararlo.
- *
- * Col teletrasporto armato nodi e righe collocano invece di aprire. Da pixel a
- * unita' del disegno si passa per `getScreenCTM()`, perche' i conti a mano
- * sbagliano appena la pianta viene incorniciata; una tappa invece non si misura,
- * si emette quale e', cosi' vale anche dall'elenco.
+ * Rappresenta il percorso come mappa SVG o elenco equivalente. Raggruppa le tappe
+ * della stessa opera, conserva fuoco e piano e inoltra il tocco al teletrasporto
+ * quando e' armato. Tre ingrandimenti fissi ridimensionano l'SVG e lasciano lo
+ * scorrimento al browser, mantenendo fluido il gesto e prevedibili i controlli.
+ * La stanza corrente usa un semplice riempimento senza effetti aggiuntivi; il
+ * segnalino non intercetta il puntatore, altrimenti coprirebbe il nodo corrente.
+ * I piani occupano zone diverse nello stesso SVG: il selettore conserva il punto
+ * planimetrico e dichiara su quale piano cercare le opere vicine.
  */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
@@ -42,20 +15,26 @@ import {
   isOptionalItem,
   map,
   matchedContent,
+  museum,
   visit,
   stageView,
   setStageView,
   stopName,
   stopSubtitle,
 } from "@/state";
-import { bussola, stima } from "@/localization";
+import {
+  angoloNordMappa,
+  bussola,
+  changeFloor,
+  stima,
+} from "@/localization";
 import { useAnnouncer } from "@/composables/useAnnouncer";
 import { t } from "@/i18n";
 
 const emit = defineEmits<{
   select: [value: number];
   locate: [];
-  teleportPoint: [x: number, y: number];
+  teleportPoint: [x: number, y: number, floor: number];
   teleportStop: [index: number];
   poi: [value: { target: string; label: string }];
 }>();
@@ -63,11 +42,25 @@ const props = defineProps<{
   currentLocationId?: string;
   currentIndex?: number;
   armed?: boolean;
+  active?: boolean;
 }>();
 
 const { announce } = useAnnouncer();
 const container = ref<HTMLElement | null>(null);
 const listeners: { element: Element; type: string; handler: EventListener }[] = [];
+const ZOOM_SIZES = ["100%", "200%", "300%"] as const;
+const ROOM_COLORS: Record<string, string> = {
+  notte: "var(--structure)",
+  verderame: "var(--accent)",
+  ottone: "var(--brass)",
+  salvia: "var(--sage)",
+  ardesia: "var(--slate)",
+  atrio: "color-mix(in oklab, var(--surface) 93%, var(--text))",
+  servizio: "color-mix(in oklab, var(--surface) 96%, var(--text))",
+};
+const zoomIndex = ref(0);
+const mapSize = computed(() => ZOOM_SIZES[zoomIndex.value]);
+let resizeObserver: ResizeObserver | null = null;
 
 function stopNumber(index: number): number {
   return index + 1;
@@ -80,12 +73,37 @@ interface Piano {
   etichetta: string;
 }
 
+interface FloorOrigin {
+  x: number;
+  y: number;
+}
+
 const piani = ref<Piano[]>([]);
 const pianoAttivo = ref<number | null>(null);
+const floorOrigins = new Map<number, FloorOrigin>();
+
+function originOf(element: Element): FloorOrigin | null {
+  const graphics = element as SVGGraphicsElement;
+  if (typeof graphics.getBBox !== "function") return null;
+
+  const display = graphics.getAttribute("display");
+  graphics.removeAttribute("display");
+  try {
+    const box = graphics.getBBox();
+    if (!box.width || !box.height) return null;
+    return { x: box.x, y: box.y };
+  } catch {
+    return null;
+  } finally {
+    if (display === null) graphics.removeAttribute("display");
+    else graphics.setAttribute("display", display);
+  }
+}
 
 function leggiPiani() {
   const root = container.value;
   const trovati = new Map<number, string>();
+  floorOrigins.clear();
   if (root) {
     root.querySelectorAll("[data-floor]").forEach((el) => {
       const numero = parseInt(el.getAttribute("data-floor") || "", 10);
@@ -94,6 +112,8 @@ function leggiPiani() {
       let etichetta = el.getAttribute("data-floor-label") || "";
       if (!etichetta) etichetta = `Piano ${numero}`;
       trovati.set(numero, etichetta);
+      const origin = originOf(el);
+      if (origin) floorOrigins.set(numero, origin);
     });
   }
 
@@ -102,8 +122,6 @@ function leggiPiani() {
   elenco.sort((a, b) => a.numero - b.numero);
   piani.value = elenco;
 
-  // Cambiando museo il piano ricordato puo' non esistere piu': si riparte dal
-  // piu' basso, che e' quello da cui si entra.
   let esiste = false;
   for (const p of elenco) {
     if (p.numero === pianoAttivo.value) esiste = true;
@@ -115,6 +133,16 @@ function leggiPiani() {
   }
 }
 
+function syncPositionFloor() {
+  const floor = pianoAttivo.value;
+  const current = stima.value;
+  if (floor === null || !current || floor === current.floor) return;
+  const source = floorOrigins.get(current.floor);
+  const target = floorOrigins.get(floor);
+  if (!source || !target) return;
+  changeFloor(floor, target.x - source.x, target.y - source.y);
+}
+
 function pianoDi(el: Element | null): number | null {
   if (!el) return null;
   const gruppo = el.closest("[data-floor]");
@@ -124,11 +152,79 @@ function pianoDi(el: Element | null): number | null {
   return numero;
 }
 
-function inquadraPiano() {
+function roomInfo(match: (typeof matchedContent.value)[number]) {
+  const location = match.anchor ? match.anchor.locationId : "";
+  if (!location) return null;
+  return museum.value?.mapLocations?.[location] || null;
+}
+
+function roomName(match: (typeof matchedContent.value)[number]): string {
+  const room = roomInfo(match);
+  return room ? room.room : "";
+}
+
+function roomStyle(
+  match: (typeof matchedContent.value)[number],
+  current: boolean,
+): Record<string, string> | undefined {
+  if (current) return undefined;
+  const room = roomInfo(match);
+  if (!room) return undefined;
+  return { "--room-color": ROOM_COLORS[room.tone] || "var(--slate)" };
+}
+
+const floorSections = computed(() => {
+  const sections: {
+    firstIndex: number;
+    floor: number | null;
+    label: string;
+    stops: { match: (typeof matchedContent.value)[number]; index: number }[];
+  }[] = [];
+
+  matchedContent.value.forEach((match, index) => {
+    const floor = roomInfo(match)?.floor ?? null;
+    let section = sections[sections.length - 1];
+    if (!section || section.floor !== floor) {
+      const known = piani.value.find((candidate) => candidate.numero === floor);
+      section = {
+        firstIndex: index,
+        floor,
+        label: known?.etichetta || (floor === null ? t("Piano non indicato") : `Piano ${floor}`),
+        stops: [],
+      };
+      sections.push(section);
+    }
+    section.stops.push({ match, index });
+  });
+
+  return sections;
+});
+
+function centerCurrentStop() {
+  const root = container.value;
+  if (!root || !props.currentLocationId) return;
+  const current = root.querySelector(
+    `#${CSS.escape(props.currentLocationId)}`,
+  ) as SVGGraphicsElement | null;
+  if (!current || pianoDi(current) !== pianoAttivo.value) return;
+  const rootRect = root.getBoundingClientRect();
+  const currentRect = current.getBoundingClientRect();
+  root.scrollLeft +=
+    currentRect.left + currentRect.width / 2 - rootRect.left - rootRect.width / 2;
+  root.scrollTop +=
+    currentRect.top + currentRect.height / 2 - rootRect.top - rootRect.height / 2;
+}
+
+function inquadraPiano(centerStop = false) {
   const root = container.value;
   if (!root || pianoAttivo.value === null) return;
   const svg = root.querySelector("svg");
   if (!svg) return;
+  svg.querySelectorAll("[data-floor]").forEach((floor) => {
+    const active = floor.getAttribute("data-floor") === String(pianoAttivo.value);
+    if (active) floor.removeAttribute("display");
+    else floor.setAttribute("display", "none");
+  });
   const gruppo = svg.querySelector(
     `[data-floor="${pianoAttivo.value}"]`,
   ) as SVGGraphicsElement | null;
@@ -137,16 +233,54 @@ function inquadraPiano() {
     const box = gruppo.getBBox();
     if (!box.width || !box.height) return;
     const margine = 16;
-    svg.setAttribute(
-      "viewBox",
-      `${box.x - margine} ${box.y - margine} ` +
-        `${box.width + margine * 2} ${box.height + margine * 2}`,
-    );
+    const bounds = {
+      x: box.x - margine,
+      y: box.y - margine,
+      width: box.width + margine * 2,
+      height: box.height + margine * 2,
+    };
+    const ratio = root.clientWidth / root.clientHeight;
+    if (ratio > 0 && bounds.width / bounds.height < ratio) {
+      const width = bounds.height * ratio;
+      bounds.x -= (width - bounds.width) / 2;
+      bounds.width = width;
+    } else if (ratio > 0) {
+      const height = bounds.width / ratio;
+      bounds.y -= (height - bounds.height) / 2;
+      bounds.height = height;
+    }
+    svg.setAttribute("viewBox", `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
+    if (centerStop) centerCurrentStop();
   } catch {
   }
 }
 
-/** La tappa aperta decide il piano: aprirne una di sopra porta la pianta di sopra. */
+async function changeZoom(delta: number) {
+  const root = container.value;
+  if (!root) return;
+  const nextIndex = Math.min(ZOOM_SIZES.length - 1, Math.max(0, zoomIndex.value + delta));
+  if (nextIndex === zoomIndex.value) return;
+  const centerX = (root.scrollLeft + root.clientWidth / 2) / root.scrollWidth;
+  const centerY = (root.scrollTop + root.clientHeight / 2) / root.scrollHeight;
+  zoomIndex.value = nextIndex;
+  await nextTick();
+  root.scrollLeft = centerX * root.scrollWidth - root.clientWidth / 2;
+  root.scrollTop = centerY * root.scrollHeight - root.clientHeight / 2;
+}
+
+function aggiornaFuoco() {
+  const root = container.value;
+  if (!root) return;
+  root.querySelectorAll(".nodo-opera, [data-poi]").forEach((el) => {
+    const piano = pianoDi(el);
+    if (pianoAttivo.value === null || piano === null || piano === pianoAttivo.value) {
+      el.setAttribute("tabindex", "0");
+    } else {
+      el.setAttribute("tabindex", "-1");
+    }
+  });
+}
+
 function seguiTappa() {
   const root = container.value;
   if (!root || !props.currentLocationId) return;
@@ -166,10 +300,9 @@ function onMapClick(event: MouseEvent) {
   if (!(bersaglio instanceof Node) || !svg.contains(bersaglio)) return;
   const ctm = svg.getScreenCTM();
   if (!ctm) return;
-  const punto = new DOMPoint(event.clientX, event.clientY).matrixTransform(
-    ctm.inverse(),
-  );
-  emit("teleportPoint", punto.x, punto.y);
+  const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
+  if (pianoAttivo.value === null) return;
+  emit("teleportPoint", point.x, point.y, pianoAttivo.value);
 }
 
 function onStopPress(index: number) {
@@ -180,14 +313,6 @@ function onStopPress(index: number) {
   emit("select", index);
 }
 
-/**
- * I servizi sono nodi come le opere, e si toccano come le opere: la risposta
- * pero' non e' una didascalia ma la strada per arrivarci. Tipo ed etichetta si
- * leggono dal disegno (`data-poi`, `data-label`), quindi vale qualunque servizio
- * il curatore abbia messo sulla sua pianta, senza nessun elenco qui dentro.
- * A teletrasporto armato il tocco non viene fermato: scivola all'<svg>, che
- * colloca. Cosi' un servizio non e' un buco nel bersaglio.
- */
 function preparePois() {
   const root = container.value;
   if (!root) return;
@@ -238,12 +363,19 @@ function clearListeners() {
 function highlightCurrent() {
   const root = container.value;
   if (!root) return;
-  root.querySelectorAll(".nodo-corrente").forEach((el) =>
-    el.classList.remove("nodo-corrente"),
-  );
+  root.querySelectorAll(".nodo-corrente, .sala-corrente").forEach((el) => {
+    el.classList.remove("nodo-corrente", "sala-corrente");
+  });
   if (!props.currentLocationId) return;
   const el = root.querySelector(`#${CSS.escape(props.currentLocationId)}`);
   if (el) el.classList.add("nodo-corrente");
+
+  const currentRoom = museum.value?.mapLocations?.[props.currentLocationId]?.room;
+  if (!currentRoom) return;
+  root.querySelectorAll("[data-room]").forEach((room) => {
+    if (room.getAttribute("data-room") === currentRoom)
+      room.classList.add("sala-corrente");
+  });
 }
 
 function prepareMap() {
@@ -260,10 +392,6 @@ function prepareMap() {
 
   const svg = root.querySelector("svg");
 
-  // Una visita puo' avere piu' item per lo stesso oggetto (slide 21): sulla
-  // mappa restano UN nodo solo. Senza raggruppare, il secondo passaggio
-  // sovrascriveva l'etichetta del primo, sovrapponeva due numeri e lasciava due
-  // ascoltatori sullo stesso disco.
   const perNodo = new Map<string, number[]>();
   matchedContent.value.forEach((match, index) => {
     const luogo = match.anchor ? match.anchor.locationId : "";
@@ -291,7 +419,6 @@ function prepareMap() {
     element.setAttribute("role", "button");
     element.classList.add("nodo-opera");
 
-    // Il nodo e' opzionale solo se lo sono TUTTE le tappe che vi si fermano.
     let optional = true;
     for (const i of indices) {
       const m = matchedContent.value[i];
@@ -299,13 +426,11 @@ function prepareMap() {
     }
     if (optional) element.classList.add("nodo-opzionale");
 
-    let numeri = String(stopNumber(index));
-    if (indices.length > 1) {
-      numeri = indices.map((i) => stopNumber(i)).join(", ");
-    }
+    const numeriCompleti = indices.map((i) => stopNumber(i)).join(", ");
+    const numeri = indices.length > 1 ? `${stopNumber(index)}+` : numeriCompleti;
     let label =
       indices.length > 1
-        ? t("Tappe {numeri}: {nome}", { numeri, nome: art.name })
+        ? t("Tappe {numeri}: {nome}", { numeri: numeriCompleti, nome: art.name })
         : t("Tappa {numeri}: {nome}", { numeri, nome: art.name });
     if (optional) label += " " + t("(tappa opzionale)");
     if (indices.length > 1) label += ", " + t("{n} descrizioni", { n: indices.length });
@@ -317,8 +442,6 @@ function prepareMap() {
     }
     title.textContent = label;
 
-    // Il nodo si tiene il tocco: senza fermarlo arriverebbe anche all'<svg>, che
-    // collocherebbe una seconda volta sul pixel invece che sull'opera.
     const clickHandler = ((e: Event) => {
       if (props.armed) e.stopPropagation();
       onStopPress(index);
@@ -347,24 +470,21 @@ function prepareMap() {
       text.setAttribute("dominant-baseline", "central");
       text.setAttribute("aria-hidden", "true");
       text.textContent = numeri;
-      svg.appendChild(text);
+      element.parentNode?.appendChild(text);
     } catch {
     }
   });
 
   preparePois();
   highlightCurrent();
-  drawPosition();
   leggiPiani();
   seguiTappa();
-  inquadraPiano();
+  syncPositionFloor();
+  inquadraPiano(true);
+  drawPosition();
+  aggiornaFuoco();
 }
 
-/**
- * Dove sei col corpo, che non e' l'opera aperta: il segnalino si muove da solo
- * coi sensori e non apre mai niente. Il cono e' la direzione dello sguardo:
- * senza bussola non viene disegnato affatto, invece di puntare a caso.
- */
 function drawPosition() {
   const root = container.value;
   if (!root) return;
@@ -390,7 +510,10 @@ function drawPosition() {
         `A ${raggio} ${raggio} 0 0 1 ${dove.x + dx} ${dove.y - dy} Z`,
     );
     cono.setAttribute("class", "cono-vista");
-    cono.setAttribute("transform", `rotate(${bussola.value} ${dove.x} ${dove.y})`);
+    cono.setAttribute(
+      "transform",
+      `rotate(${bussola.value + angoloNordMappa.value} ${dove.x} ${dove.y})`,
+    );
     gruppo.appendChild(cono);
   }
 
@@ -409,29 +532,54 @@ async function redraw() {
   prepareMap();
 }
 
-onMounted(redraw);
+onMounted(() => {
+  resizeObserver = new ResizeObserver(() => {
+    if (stageView.value === "mappa") inquadraPiano();
+  });
+  if (container.value) resizeObserver.observe(container.value);
+  redraw();
+});
 watch(map, redraw);
 watch(matchedContent, redraw, { deep: true });
 watch(includeOptional, redraw);
 watch(stageView, (v) => {
   if (v === "mappa") redraw();
 });
+watch(() => props.active, (active) => {
+  if (active) redraw();
+});
 watch(() => props.currentLocationId, () =>
   nextTick(() => {
     highlightCurrent();
     seguiTappa();
+    syncPositionFloor();
+    inquadraPiano(true);
+    drawPosition();
   }),
 );
 watch(pianoAttivo, (nuovo, vecchio) => {
-  nextTick(inquadraPiano);
+  nextTick(() => {
+    syncPositionFloor();
+    inquadraPiano();
+    drawPosition();
+    aggiornaFuoco();
+  });
   if (vecchio === null || nuovo === vecchio) return;
   for (const p of piani.value) {
     if (p.numero === nuovo) announce(t("Pianta: {nome}", { nome: p.etichetta }));
   }
 });
-watch([stima, bussola], () => nextTick(drawPosition));
+watch([stima, bussola, angoloNordMappa], () =>
+  nextTick(() => {
+    syncPositionFloor();
+    drawPosition();
+  }),
+);
 
-onBeforeUnmount(clearListeners);
+onBeforeUnmount(() => {
+  clearListeners();
+  resizeObserver?.disconnect();
+});
 
 const optionalCount = computed(() => {
   if (!visit.value || !visit.value.optionalItems) return 0;
@@ -441,17 +589,17 @@ const optionalCount = computed(() => {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <!-- Due modi pari di navigare la stessa visita.
-         Sul telefono questo controllo non c'e': li' Mappa ed Elenco sono due
-         schede del guscio (`Visita.vue`), e ripeterle qui vorrebbe dire due
-         comandi diversi che fanno la stessa cosa a due dita di distanza. -->
-    <div class="flex shrink-0 items-center gap-2 px-3 py-2">
+
+    <div
+      class="shrink-0 flex-wrap items-center gap-2 px-3 py-2"
+      :class="stageView === 'mappa' ? 'flex' : 'hidden lg:flex'"
+    >
       <div class="segmenti hidden lg:inline-flex" role="radiogroup" :aria-label="t('Come vedere la visita')">
         <button
           type="button"
           role="radio"
           :aria-checked="stageView === 'mappa'"
-          class="segmento"
+          class="segmento segmento-mappa"
           :class="stageView === 'mappa' ? 'segmento-attivo' : ''"
           @click="setStageView('mappa')"
         >
@@ -461,7 +609,7 @@ const optionalCount = computed(() => {
           type="button"
           role="radio"
           :aria-checked="stageView === 'elenco'"
-          class="segmento"
+          class="segmento segmento-elenco"
           :class="stageView === 'elenco' ? 'segmento-attivo' : ''"
           @click="setStageView('elenco')"
         >
@@ -469,13 +617,28 @@ const optionalCount = computed(() => {
         </button>
       </div>
 
-      <button type="button" class="btn-secondario ml-auto" @click="emit('locate')">
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
-          <circle cx="12" cy="10" r="2.4" />
-        </svg>
-        {{ t("Dove sono?") }}
-      </button>
+      <div v-if="stageView === 'mappa'" class="ml-auto flex flex-wrap justify-end gap-2">
+        <label v-if="piani.length > 1" for="piano-mappa" class="sr-only">
+          {{ t("Piano del museo") }}
+        </label>
+        <select
+          v-if="piani.length > 1"
+          id="piano-mappa"
+          v-model.number="pianoAttivo"
+          class="campo-select"
+        >
+          <option v-for="p in piani" :key="p.numero" :value="p.numero">
+            {{ p.etichetta }}
+          </option>
+        </select>
+        <button type="button" class="btn-secondario" @click="emit('locate')">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
+            <circle cx="12" cy="10" r="2.4" />
+          </svg>
+          {{ t("Dove sono?") }}
+        </button>
+      </div>
     </div>
 
     <label
@@ -496,39 +659,41 @@ const optionalCount = computed(() => {
     <!-- MAPPA -->
     <div
       v-show="stageView === 'mappa'"
-      class="min-h-0 flex-1 overflow-auto p-3"
+      class="flex min-h-0 flex-1 flex-col overflow-hidden p-3"
     >
-      <!-- PIANI: compare solo se il museo ne ha piu' d'uno -->
       <div
-        v-show="piani.length > 1"
-        class="segmenti mx-auto mb-2 flex max-w-3xl flex-wrap"
-        role="radiogroup"
-        :aria-label="t('Piano del museo')"
-      >
-        <button
-          v-for="p in piani"
-          :key="p.numero"
-          type="button"
-          role="radio"
-          :aria-checked="pianoAttivo === p.numero"
-          class="segmento"
-          :class="pianoAttivo === p.numero ? 'segmento-attivo' : ''"
-          @click="pianoAttivo = p.numero"
-        >
-          {{ p.etichetta }}
-        </button>
-      </div>
-
-      <div
-        ref="container"
-        class="mappa mx-auto w-full max-w-3xl"
+        class="mappa-viewport relative mx-auto min-h-72 w-full max-w-3xl flex-1 overflow-hidden"
         :class="{
           'mappa-senza-opzionali': !includeOptional,
           'mappa-armata': props.armed,
         }"
-        v-html="map"
-        @click="onMapClick"
-      ></div>
+      >
+        <div
+          ref="container"
+          class="mappa h-full w-full overflow-auto"
+          :style="{ '--map-size': mapSize }"
+          v-html="map"
+          @click="onMapClick"
+        ></div>
+        <div v-if="map" class="controlli-zoom" role="group" :aria-label="t('Zoom mappa')">
+          <button
+            type="button"
+            :disabled="zoomIndex === 0"
+            :aria-label="t('Riduci mappa')"
+            @click="changeZoom(-1)"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            :disabled="zoomIndex === ZOOM_SIZES.length - 1"
+            :aria-label="t('Ingrandisci mappa')"
+            @click="changeZoom(1)"
+          >
+            +
+          </button>
+        </div>
+      </div>
       <p v-if="!map" class="vuoto mt-4">
         {{ t("La mappa di questo museo non è disponibile. Usa l'elenco delle tappe.") }}
       </p>
@@ -536,37 +701,53 @@ const optionalCount = computed(() => {
 
     <!-- ELENCO -->
     <div v-show="stageView === 'elenco'" class="min-h-0 flex-1 overflow-auto p-3">
-      <ul v-if="matchedContent.length" class="mx-auto flex max-w-3xl flex-col gap-2">
-        <li v-for="(match, i) in matchedContent" :key="match.item['@id']">
-          <button
-            type="button"
-            class="lastra filo-accento flex w-full items-center gap-4 p-4 text-left"
-            :class="{
-              'opacity-60': isOptionalItem(match.item['@id']) && !includeOptional,
-              'border-l-4 border-l-accent': i === props.currentIndex,
-            }"
-            @click="onStopPress(i)"
+      <div v-if="matchedContent.length" class="mx-auto flex max-w-3xl flex-col gap-5">
+        <section
+          v-for="section in floorSections"
+          :key="section.firstIndex"
+          :aria-labelledby="`titolo-piano-${section.firstIndex}`"
+        >
+          <h2
+            :id="`titolo-piano-${section.firstIndex}`"
+            class="mb-2 flex items-center gap-3 px-1 font-display text-title-3 text-slate"
           >
-            <span class="tabular w-9 shrink-0 text-center font-display text-title-2 text-muted">
-              {{ String(stopNumber(i)).padStart(2, "0") }}
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate font-medium">{{ stopName(match) }}</span>
-              <!-- Il tono distingue due tappe sulla stessa opera, che altrimenti
-                   sarebbero due righe identiche. -->
-              <span class="block truncate text-small text-muted">
-                {{ stopSubtitle(match) }}
-                <span v-if="match.item.educationalLevel">
-                  · {{ t(match.item.educationalLevel) }}
+            <span>{{ section.label }}</span>
+            <span class="h-px flex-1 bg-slate-velo" aria-hidden="true"></span>
+          </h2>
+          <ul class="flex flex-col gap-2">
+            <li v-for="entry in section.stops" :key="entry.match.item['@id']">
+              <button
+                type="button"
+                class="lastra filo-accento tappa-elenco flex w-full items-center gap-4 p-4 text-left"
+                :class="{
+                  'opacity-60': isOptionalItem(entry.match.item['@id']) && !includeOptional,
+                  'tappa-elenco-corrente': entry.index === props.currentIndex,
+                }"
+                :style="roomStyle(entry.match, entry.index === props.currentIndex)"
+                @click="onStopPress(entry.index)"
+              >
+                <span class="tabular w-9 shrink-0 text-center font-display text-title-2 text-muted">
+                  {{ String(stopNumber(entry.index)).padStart(2, "0") }}
                 </span>
-              </span>
-            </span>
-            <span v-if="isOptionalItem(match.item['@id'])" class="pastiglia pastiglia-ametista shrink-0">
-              {{ t("Opzionale") }}
-            </span>
-          </button>
-        </li>
-      </ul>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{{ stopName(entry.match) }}</span>
+
+                  <span class="block truncate text-small text-muted">
+                    {{ stopSubtitle(entry.match) }}
+                    <span v-if="roomName(entry.match)" class="tappa-sala">
+                      <span v-if="stopSubtitle(entry.match)" aria-hidden="true"> · </span>
+                      {{ roomName(entry.match) }}
+                    </span>
+                  </span>
+                </span>
+                <span v-if="isOptionalItem(entry.match.item['@id'])" class="pastiglia pastiglia-ametista shrink-0">
+                  {{ t("Opzionale") }}
+                </span>
+              </button>
+            </li>
+          </ul>
+        </section>
+      </div>
       <p v-else class="vuoto">{{ t("Questa visita non ha tappe.") }}</p>
     </div>
   </div>
@@ -575,15 +756,52 @@ const optionalCount = computed(() => {
 <style scoped>
 @reference "../../assets/main.css";
 
-.mappa :deep(svg) {
-  width: 100%;
-  height: auto;
+.mappa-viewport {
   background-color: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 6px;
 }
+.mappa {
+  overscroll-behavior: contain;
+  will-change: scroll-position;
+}
+.mappa :deep(svg) {
+  display: block;
+  width: var(--map-size) !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: var(--map-size) !important;
+  user-select: none;
+}
+.controlli-zoom {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.controlli-zoom button {
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.controlli-zoom button + button {
+  border-top: 1px solid var(--line);
+}
+.controlli-zoom button:disabled {
+  opacity: 0.35;
+}
+.controlli-zoom button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+}
 
-/* Le tappe sono dischi numerati: segnaletica da pianta, non forme anonime */
 .mappa :deep(.nodo-opera) {
   cursor: pointer;
   fill: var(--accent);
@@ -602,40 +820,50 @@ const optionalCount = computed(() => {
 }
 .mappa :deep(.numero-tappa) {
   fill: var(--on-accent);
+  stroke: var(--accent);
+  stroke-width: 0.75px;
+  paint-order: stroke fill;
   font-family: var(--font-display);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 9.5px;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
   pointer-events: none;
 }
 
-/* L'opera aperta: anello marcato, riconoscibile a colpo d'occhio */
 .mappa :deep(.nodo-corrente) {
-  fill: var(--text);
-  stroke: var(--accent);
-  stroke-width: 4px;
+  fill: var(--location);
+  stroke: var(--surface);
+  stroke-width: 6px;
   paint-order: stroke;
 }
-@media (prefers-reduced-motion: no-preference) {
-  .mappa :deep(.nodo-corrente) {
-    animation: battito 1.6s ease-in-out infinite;
-  }
-}
-@keyframes battito {
-  0%,
-  100% {
-    stroke-opacity: 1;
-  }
-  50% {
-    stroke-opacity: 0.3;
-  }
+.mappa :deep(.sala-corrente) {
+  fill: color-mix(in oklab, var(--surface) 68%, var(--location));
 }
 
-/* Dove sei col corpo: struttura e non accento, perche' l'accento dice dove puoi
-   andare e questo non e' un comando ma un fatto. Il cono e' lo sguardo.
-   E' disegnato per ultimo, quindi sta sopra ai nodi: senza `pointer-events:
-   none` si prende lui il tocco, e la tappa su cui ci si trova diventa l'unica
-   che non si riesce piu' ad aprire. */
+.tappa-elenco {
+  --room-color: var(--slate);
+  --room-accent: color-mix(in oklab, var(--room-color) 68%, var(--text));
+  --room-veil: color-mix(in oklab, var(--room-color) 18%, transparent);
+  border-color: color-mix(in oklab, var(--room-color) 34%, var(--line));
+  background-image: linear-gradient(90deg, var(--room-veil), transparent 58%);
+}
+.tappa-elenco > .tabular,
+.tappa-sala {
+  color: var(--room-accent);
+}
+.tappa-elenco-corrente {
+  --room-color: var(--location);
+  --room-accent: var(--location);
+  --room-veil: var(--location-veil);
+  border: 2px solid var(--location);
+  background-image: linear-gradient(
+    90deg,
+    var(--location-veil),
+    transparent 48%
+  );
+}
+
 .mappa :deep(.segnalino-posizione) {
   pointer-events: none;
 }
@@ -650,13 +878,10 @@ const optionalCount = computed(() => {
   opacity: 0.16;
 }
 
-/* Teletrasporto armato: la pianta e' un bersaglio e lo dice prima del tocco.
-   La velatura sta sopra il disegno, perche' il fondo dell'SVG lo coprono le
-   sale, e lascia passare il tocco, che deve arrivare alla pianta. */
-.mappa-armata {
+.mappa-armata .mappa {
   position: relative;
 }
-.mappa-armata::after {
+.mappa-armata .mappa::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -670,9 +895,6 @@ const optionalCount = computed(() => {
   cursor: crosshair;
 }
 
-/* I servizi si toccano: lo dicono col cursore e con l'anello del fuoco, come le
-   tappe. Il colore resta quello che il curatore ha dato loro sul disegno, cosi'
-   un'opera e un bagno non si somigliano. */
 .mappa :deep([data-poi]) {
   cursor: pointer;
 }
@@ -691,7 +913,6 @@ const optionalCount = computed(() => {
   cursor: crosshair;
 }
 
-/* Tappe opzionali: tratteggio + attenuazione. Mai il solo colore. */
 .mappa :deep(.nodo-opzionale) {
   stroke: var(--accent);
   stroke-width: 2px;

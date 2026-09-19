@@ -1,15 +1,6 @@
 /**
- * Rotta delle indicazioni di orientamento.
- *
- * Due livelli di risposta. Quella predefinita e' SEMPLICE: il nome della sala,
- * preso dalla mappa, senza scomodare l'LLM. Su richiesta si passa al percorso
- * passo-passo, dove il grafo garantisce la correttezza e l'LLM si limita a dirlo
- * in parole.
- *
- * Il titolo dell'opera lo sa il database e non la mappa: sul disegno un nodo
- * opera porta il qid, quindi senza cercarne qui il nome le indicazioni parlate
- * direbbero «la destinazione Q248101». Si cerca solo sulla strada dettagliata,
- * che e' l'unica a usare quel nome: la risposta semplice dice la sala.
+ * Espone l'orientamento ricavato dal grafo della pianta. La risposta breve usa sala
+ * e piano; quella dettagliata affida all'LLM soltanto la verbalizzazione.
  */
 import { Router } from "express";
 import { MuseumModel } from "../models/museum";
@@ -21,25 +12,9 @@ import { directionsFromRoute } from "../services/llm";
 const router = Router();
 
 /**
- * POST /api/wayfinding
- * body: { museumQid, from, target, language, detailed }
- *  - museumQid: qid del museo (per risalire alla mappa SVG)
- *  - from:      qid dell'opera presso cui si trova l'utente
- *  - target:    tipo di POI ("toilet"|"exit"|"bar"|"shop"|...),
- *               "obstacles", oppure il qid di un'altra opera
- *  - language:  nome della lingua in cui rispondere (es. "English")
- *  - detailed:  se true (o per gli ostacoli) restituisce il percorso passo-passo
- *               verbalizzato dall'LLM; altrimenti (default) la risposta "semplice"
- *
- * Due livelli di risposta:
- *  - SEMPLICE (default): comunica solo in quale ZONA si trova la destinazione,
- *    cioe' il nome della sala (data-room) authorata nell'SVG che la contiene
- *    (es. "Great Court"). Nessun LLM: e' un valore statico della mappa. Il piano
- *    compare solo quando la destinazione e' su un altro piano, perche' dirlo
- *    quando non cambia sarebbe rumore, e in un museo a un piano solo non
- *    compare mai.
- *  - DETTAGLIATA (detailed=true, oppure target="obstacles"): calcola il percorso
- *    sul grafo e lo verbalizza con l'LLM (sistema completo, non rimosso).
+ * POST /api/wayfinding  { museumQid, from, target, language, detailed }
+ * `from` e' un'opera o l'ingresso; `target` e' POI, ostacoli o un'opera. Ritorna sala o percorso
+ * verbalizzato se `detailed`.
  */
 router.post("/", async (req, res) => {
   try {

@@ -1,24 +1,11 @@
 /**
- * TESTERS: utilità che toccano il database.
- *
- * Tutto ciò che modifica dati esistenti vive qui e solo qui: il seed ricostruisce
- * da zero (e costa ore di chiamate all'LLM), queste funzioni invece riallineano
- * quello che c'è già. Sono idempotenti: eseguirle due volte non fa danni.
- *
- * Uso:
- *   npx ts-node src/scripts/testers.ts stato
- *   npx ts-node src/scripts/testers.ts toni
- *   npx ts-node src/scripts/testers.ts nomi
- *   npx ts-node src/scripts/testers.ts logistica
- *   npx ts-node src/scripts/testers.ts generi
- *   npx ts-node src/scripts/testers.ts mappe
- *   npx ts-node src/scripts/testers.ts percorso
- *   npx ts-node src/scripts/testers.ts miniature
- *   npx ts-node src/scripts/testers.ts buchi
- *   npx ts-node src/scripts/testers.ts tutto
+ * Collaudi e migrazioni idempotenti di database e piante. I comandi che riscrivono
+ * dati restano separati dai resoconti per poterli eseguire esplicitamente nel
+ * container di laboratorio.
  */
-
-import { MONGO_URI } from "../env";
+import { MONGO_URI, SERVER_ROOT } from "../env";
+import fs from "fs";
+import path from "path";
 import mongoose from "mongoose";
 import { ItemModel } from "../models/item";
 import { VisitModel } from "../models/visit";
@@ -35,10 +22,35 @@ import {
   DEFAULT_LICENSE,
   educationalLevels,
   formatDuration,
+  secPerArt,
+  SEED_AUTHOR,
+  priceForTone,
 } from "../../../shared/constants";
 import { UserRole } from "../../../shared/types";
+import { hashPassword } from "../password";
 
-/** Oltre questo, due tappe consecutive non sono piu' un passo ma un ritorno. */
+const PUBLIC_DIR = path.join(SERVER_ROOT, "public");
+
+function guaioCopertina(percorso: string): string {
+  if (fs.existsSync(path.join(PUBLIC_DIR, percorso))) return "";
+  const suDisco = path.join(PUBLIC_DIR, percorso);
+  const cartella = path.dirname(suDisco);
+  const nudo = path.basename(percorso, path.extname(percorso));
+  let omonimi: string[] = [];
+  try {
+    omonimi = fs
+      .readdirSync(cartella)
+      .filter((f) => f !== path.basename(percorso))
+      .filter((f) => path.basename(f, path.extname(f)) === nudo);
+  } catch {}
+  if (omonimi.length > 0)
+    return (
+      `dichiara ${percorso}, ma sul disco c'e' ${path.dirname(percorso)}/${omonimi[0]}` +
+      `: cambia quella riga nel file di configurazione`
+    );
+  return `dichiara ${percorso}, ma quel file non c'e'`;
+}
+
 const SALE_FRA_DUE_TAPPE = 2;
 
 const TONE_MAP: Record<string, string> = {
@@ -205,22 +217,221 @@ export async function migrateLogistics() {
   console.log(`Visite con note logistiche convertite: ${changed}.`);
 }
 
+export async function migrateMuseumPaths() {
+  let cambiati = 0;
+  for (const config of loadMuseumConfigs()) {
+    const museo = await MuseumModel.findOne({ qid: config.qid });
+    if (!museo) {
+      console.log(`  ${config.name}: non e' nel database, salto.`);
+      continue;
+    }
+    if (config.imagePath) {
+      const guaio = guaioCopertina(config.imagePath);
+      if (guaio)
+        console.log(`  ! ${config.name}: ${guaio}. La carta restera' di solo testo.`);
+    }
+    const vecchiaMappa = museo.mapPath || "";
+    const vecchiaCopertina = museo.imagePath || "";
+    const nuovaCopertina = config.imagePath || "";
+    if (vecchiaMappa === config.mapPath && vecchiaCopertina === nuovaCopertina)
+      continue;
+
+    museo.mapPath = config.mapPath;
+    museo.imagePath = nuovaCopertina;
+    await museo.save();
+    cambiati++;
+    console.log(
+      `  ${config.name}: mappa ${vecchiaMappa || "(vuota)"} -> ${config.mapPath}` +
+        `, copertina ${vecchiaCopertina || "(vuota)"} -> ${nuovaCopertina || "(vuota)"}`,
+    );
+  }
+  console.log(`Musei riallineati alla configurazione: ${cambiati}.`);
+  await migrateVisitCovers();
+}
+
+async function migrateVisitCovers() {
+  let cambiate = 0;
+  for (const config of loadMuseumConfigs()) {
+    const copertine = config.visitImages;
+    if (!copertine) continue;
+    for (const tono of Object.keys(copertine)) {
+      const guaio = guaioCopertina(copertine[tono]);
+      if (guaio) console.log(`  ! ${config.name} / ${tono}: ${guaio}.`);
+      const esito = await VisitModel.updateMany(
+        { "@id": new RegExp(`^visit-${config.qid}-${tono}-`), level: tono },
+        { $set: { imagePath: copertine[tono] } },
+      );
+      cambiate += esito.modifiedCount;
+    }
+  }
+  console.log(`Visite di catalogo con la copertina del loro tono: ${cambiate}.`);
+}
+
+export async function checkItemGrid() {
+  const durate = secPerArt.map((d) => `${d}`);
+  const attesiPerOpera = educationalLevels.length * secPerArt.length;
+
+  for (const config of loadMuseumConfigs()) {
+    const uri = `http://www.wikidata.org/entity/${config.qid}`;
+    const items = await ItemModel.find({
+      kind: "opera",
+      author: SEED_AUTHOR,
+      ofMuseum: uri,
+    }).select("about educationalLevel timeRequired");
+
+    const visti = new Set(
+      items.map(
+        (i: any) => `${i.about}|${i.educationalLevel}|${i.timeRequired}`,
+      ),
+    );
+
+    const complete: string[] = [];
+    const parziali: { qid: string; n: number }[] = [];
+    const assenti: string[] = [];
+    let riempite = 0;
+    for (const qid of config.activeArtworks) {
+      let n = 0;
+      for (const tono of educationalLevels) {
+        for (const durata of durate) {
+          if (visti.has(`http://www.wikidata.org/entity/${qid}|${tono}|${durata}`))
+            n++;
+        }
+      }
+      riempite += n;
+      if (n === attesiPerOpera) complete.push(qid);
+      else if (n === 0) assenti.push(qid);
+      else parziali.push({ qid, n });
+    }
+
+    const attesi = config.activeArtworks.length * attesiPerOpera;
+    const orfani = items.length - riempite;
+    console.log(
+      `\n${config.name}: ${config.activeArtworks.length} opere attive, ` +
+        `${educationalLevels.length} toni x ${secPerArt.length} durate = ${attesi} contenuti attesi`,
+    );
+    console.log(
+      `  complete ${complete.length}   parziali ${parziali.length}   assenti ${assenti.length}` +
+        `   (caselle riempite ${riempite}/${attesi}, ne mancano ${attesi - riempite})`,
+    );
+    if (orfani > 0)
+      console.log(
+        `  ${orfani} contenuti di opere non piu' in activeArtworks: restano nel ` +
+          `database e non si vedono in vetrina.`,
+      );
+    if (parziali.length > 0) {
+      console.log(
+        `  ! ${parziali.length} opere a meta' griglia: ` +
+          parziali.slice(0, 8).map((p) => `${p.qid}=${p.n}/${attesiPerOpera}`).join(", "),
+      );
+      console.log(
+        `    Rilanciare il seed NON le completa: sono opere che il catalogo da' per fatte.` +
+          `\n    Esegui:  npx ts-node src/scripts/seed.ts ${config.qid} --force`,
+      );
+    }
+    if (assenti.length > 0) {
+      console.log(
+        `  ${assenti.length} opere ancora da fare: ` +
+          assenti.slice(0, 8).join(", ") +
+          (assenti.length > 8 ? " …" : ""),
+      );
+      console.log(
+        `    Esegui:  npx ts-node src/scripts/seed.ts ${config.qid}` +
+          `   (il seed stampa la sua stima mentre gira)`,
+      );
+    }
+    if (parziali.length === 0 && assenti.length === 0)
+      console.log("  griglia completa.");
+  }
+  console.log("");
+}
+
+export async function migrateVisitVisibility() {
+  const visits = await VisitModel.find({ visibility: { $ne: "privato" } });
+  let chiuse = 0;
+  for (const v of visits) {
+    if (!v.author || v.author === SEED_AUTHOR) continue;
+    const account = await UserModel.findOne({ username: v.author });
+    if (!account) {
+      console.log(`  ${v["@id"]}: autore "${v.author}" non e' un account, salto.`);
+      continue;
+    }
+    if (account.role === "autore") continue;
+    v.visibility = "privato";
+    await v.save();
+    chiuse++;
+    console.log(
+      `  ${v["@id"]}: composta da ${v.author} (${account.role}) -> privata.`,
+    );
+  }
+  console.log(`Visite passate a privata: ${chiuse}.`);
+
+  const esito = await VisitModel.updateMany(
+    { visibility: { $exists: false } },
+    { $set: { visibility: "pubblico" } },
+  );
+  console.log(`Visite senza il campo, ora esplicitamente pubbliche: ${esito.modifiedCount}.`);
+}
+
+export async function migrateSeedAuthor() {
+  const vecchio = "sistema";
+  const item = await ItemModel.updateMany(
+    { author: vecchio },
+    { $set: { author: SEED_AUTHOR } },
+  );
+  const visite = await VisitModel.updateMany(
+    { author: vecchio },
+    { $set: { author: SEED_AUTHOR } },
+  );
+  console.log(
+    `Autore dei contenuti seminati "${vecchio}" -> "${SEED_AUTHOR}": ` +
+      `${item.modifiedCount} contenuti, ${visite.modifiedCount} visite.`,
+  );
+  const rimasti = await ItemModel.countDocuments({ author: vecchio });
+  if (rimasti > 0) console.log(`  ! ne restano ${rimasti} col nome vecchio.`);
+}
+
+export async function migrateSeedPrices() {
+  const prima = await ItemModel.aggregate([
+    { $match: { author: SEED_AUTHOR } },
+    { $group: { _id: "$price", n: { $sum: 1 } } },
+    { $sort: { _id: 1 } },
+  ]);
+  console.log(
+    "  prezzi prima: " +
+      prima.map((r: any) => `${r._id}€ x${r.n}`).join(", "),
+  );
+
+  let cambiati = 0;
+  for (const tono of educationalLevels) {
+    const esito = await ItemModel.updateMany(
+      { author: SEED_AUTHOR, educationalLevel: tono, price: { $ne: priceForTone(tono) } },
+      { $set: { price: priceForTone(tono) } },
+    );
+    cambiati += esito.modifiedCount;
+    console.log(
+      `  ${tono.padEnd(10)} -> ${priceForTone(tono).toFixed(2)}€   (${esito.modifiedCount} riscritti)`,
+    );
+  }
+  console.log(`Contenuti del museo riprezzati: ${cambiati}.`);
+}
+
 export async function requiredAccounts() {
   const users: { username: string; role: UserRole }[] = [
     { username: "autore1", role: "autore" },
     { username: "autore2", role: "autore" },
     { username: "visitatore1", role: "visitatore" },
     { username: "visitatore2", role: "visitatore" },
-    { username: "curatore1", role: "curatore" },
+    { username: "curatore", role: "curatore" },
   ];
   for (const u of users) {
     const onInsert: any =
       u.role === "visitatore"
         ? { wallet: 100, collezione: [] }
         : { collezione: [] };
+    const password = await hashPassword("12345678");
     await UserModel.updateOne(
       { username: u.username, role: u.role },
-      { $set: { password: "12345678" }, $setOnInsert: onInsert },
+      { $set: { password }, $setOnInsert: onInsert },
       { upsert: true },
     );
     console.log(`  account pronto: ${u.username} (${u.role})`);
@@ -236,11 +447,6 @@ export async function requiredAccounts() {
   }
 }
 
-/**
- * Riallinea gli item scritti quando un contenuto poteva parlare solo di un'opera:
- * `kind` e' "opera" e il museo si legge dall'opera che descrivono. Senza, non
- * appartengono a nessun catalogo e spariscono dal marketplace senza un errore.
- */
 async function migrateKinds() {
   const artworks = await ArtworkModel.find().select("@id ofMuseum");
   const museoDi = new Map<string, string>();
@@ -277,18 +483,6 @@ async function migrateKinds() {
   );
 }
 
-/**
- * Toglie dalle opere i buchi di Wikidata scritti come se fossero nomi.
- *
- * Sono di due forme: la parola "Unknown", e l'indirizzo di un nodo anonimo
- * (`.well-known/genid/…`), che e' quel che Wikidata risponde per un'entita'
- * senza etichetta. Da oggi `services/wikidata.ts` non li scrive piu', ma un
- * riseed non li ripulisce: quando l'opera esiste gia' il seed le aggiorna solo
- * la posizione sulla pianta. Vanno percio' riallineati qui.
- *
- * Il campo diventa una stringa vuota e non sparisce: le viste si chiedono gia'
- * se c'e' un valore, e rispondono con `n/d` o nascondendo la riga.
- */
 async function migrateUnknowns() {
   const artworks = await ArtworkModel.find();
   let autori = 0;
@@ -320,26 +514,8 @@ async function migrateUnknowns() {
   );
 }
 
-/**
- * Allinea la licenza dei contenuti GENERATI a `DEFAULT_LICENSE`.
- *
- * Serve perche' il seed la licenza non l'ha mai scritta: gli item nati prima di
- * questa correzione portano il vecchio default dello schema, che era per giunta
- * un indirizzo (`https://creativecommons.org/licenses/by/4.0/`) mentre tutto il
- * resto del sistema usa il codice. A schermo usciva l'indirizzo per esteso.
- *
- * Tocca SOLO quel che ha scritto il museo (`author: "sistema"`). I contenuti di
- * un autore non si toccano: la sua licenza l'ha scelta lui, e cambiargliela
- * sotto i piedi e' l'unica cosa che questo comando non deve poter fare.
- *
- * ⚠️ Non serve dopo un seed nuovo -- da adesso la licenza la scrive il seed --
- * ma serve su un database gia' popolato, perche' il seed **salta gli item che
- * esistono gia'**: riseminare senza `--force` non la riscriverebbe, e con
- * `--force` rigenererebbe anche tutti i testi, cioe' ore di chiamate al modello
- * per cambiare un campo.
- */
 async function migrateLicenses() {
-  const generati = { author: "sistema" };
+  const generati = { author: SEED_AUTHOR };
   const prima = await ItemModel.distinct("license", generati);
   const r = await ItemModel.updateMany(
     { ...generati, license: { $ne: DEFAULT_LICENSE } },
@@ -349,42 +525,23 @@ async function migrateLicenses() {
   console.log(`  prima: ${prima.map((l) => JSON.stringify(l)).join(" | ")}`);
   console.log(`  ora:   ${JSON.stringify(DEFAULT_LICENSE)}`);
 
-  const altrui = await ItemModel.distinct("license", { author: { $ne: "sistema" } });
+  const altrui = await ItemModel.distinct("license", { author: { $ne: SEED_AUTHOR } });
   console.log(`Licenze dei contenuti d'autore, non toccate: ${altrui.length === 0 ? "(nessun contenuto d'autore)" : altrui.join(" | ")}`);
 }
 
 // --- Piante e percorsi ------------------------------------------------------
 
-/**
- * Il collaudo di una pianta: le regole che il parser non puo' far rispettare.
- *
- * `svgGraph.ts` legge quel che il curatore ha annotato e non giudica: un nodo
- * fuori da ogni sala, una sala irraggiungibile o un percorso che salta da
- * un'ala all'altra sono disegni leciti. Nessuno di questi da' errore: la mappa
- * si carica, il percorso si calcola, e la cosa sbagliata si vede soltanto
- * camminando. Ogni controllo qui sotto e' un modo di sbagliare gia' successo.
- *
- * Il piu' importante e' l'ULTIMO, ed e' quello che sembra piu' innocuo.
- * `data-flow` non e' una classifica, e' un CAMMINO: numeri crescenti dicono
- * solo che nessuna sala si visita due volte, non che la 25 sia accanto alla 24.
- * In una galleria di sale in fila la differenza non si vede; in un edificio a
- * piu' ali o a piu' piani, una numerazione crescente puo' mandare il visitatore
- * avanti e indietro per mezzo museo a ogni tappa. La distanza fra due numeri
- * consecutivi deve percio' essere UNA sala (c'e' una porta) o DUE (si passa dal
- * corridoio, che e' una sala anche lui).
- *
- * Il controllo guarda il GRAFO, non il disegno: non sa dire se un'opera sta
- * nella sala giusta o se l'ordine ha senso per un curatore. Dice se la pianta
- * e' percorribile, che e' l'unica meta' verificabile da una macchina.
- */
 function problemiDellaMappa(graph: MuseumGraph, qidAttesi: string[]): string[] {
   const problemi: string[] = [];
 
   for (const n of graph.nodes) {
-    if (n.room) continue;
-    problemi.push(
-      `nodo fuori da ogni sala: ${n.elementId || n.qid || n.poiType} (${n.x}, ${n.y})`,
-    );
+    if (!n.room) {
+      problemi.push(
+        `nodo fuori da ogni sala: ${n.elementId || n.qid || n.poiType} (${n.x}, ${n.y})`,
+      );
+    } else if (n.kind === "artwork" && !n.roomTone) {
+      problemi.push(`sala senza tono per il nodo: ${n.elementId || n.qid}`);
+    }
   }
   for (const o of graph.obstacles) {
     if (!o.room) problemi.push(`ostacolo fuori da ogni sala: "${o.description}"`);
@@ -481,7 +638,6 @@ function distanzaFraSale(
   return Infinity;
 }
 
-/** Il collaudo di tutte le piante configurate. Non tocca il database. */
 async function checkMaps() {
   let totale = 0;
   for (const config of loadMuseumConfigs()) {
@@ -504,16 +660,6 @@ async function checkMaps() {
   );
 }
 
-/**
- * Le visite SEMINATE che non sono nell'ordine in cui il museo si attraversa,
- * con l'ordine giusto accanto. La usano il resoconto (che segnala) e la
- * migrazione (che riscrive), cosi' "qual e' l'ordine giusto" e' scritto una
- * volta sola.
- *
- * Guarda SOLO i `@id` che cominciano per `visit-`, il prefisso del seed: quelle
- * d'autore (`tour-…`) e quelle su misura (`custom-…`) hanno l'ordine che ha
- * scelto qualcuno, e non e' cosa da riallineare.
- */
 async function ordiniDaCorreggere(): Promise<
   { visita: any; ordinati: string[] }[]
 > {
@@ -522,7 +668,7 @@ async function ordiniDaCorreggere(): Promise<
     if (!museo.mapPath) continue;
     const visite = await VisitModel.find({
       ofMuseum: museo["@id"],
-      "@id": { $regex: "^visit-" },
+      "@id": { $regex: `^visit-${museo.qid}-` },
     });
     for (const visita of visite) {
       const ids = visita.itemListElement || [];
@@ -546,22 +692,6 @@ async function ordiniDaCorreggere(): Promise<
   return daFare;
 }
 
-/**
- * Rimette le tappe delle visite seminate nell'ordine in cui il museo si
- * attraversa.
- *
- * Il seed le scriveva nell'ordine in cui il database restituiva gli item, che
- * non e' un ordine: il percorso rimbalzava da una sala all'altra, e da quando
- * le piante hanno i piani saliva e scendeva le scale a ogni tappa. Da oggi il
- * seed le ordina da se' (`inOrdineDiPercorso`), ma le visite gia' scritte
- * restano come sono: rifarle costerebbe ore di chiamate al modello per
- * rigenerare testi che vanno benissimo, mentre qui si riscrive solo l'elenco.
- * Serve anche dopo ogni ritocco ai `data-flow` di una pianta.
- *
- * Nel percorso con contenuti opzionali gli opzionali tornano a essere la
- * seconda meta' del cammino, che e' la regola del seed: tenendo il vecchio
- * insieme diventerebbero tappe sparse a caso lungo il nuovo giro.
- */
 async function migrateVisitOrder() {
   const daFare = await ordiniDaCorreggere();
   for (const { visita, ordinati } of daFare) {
@@ -576,31 +706,12 @@ async function migrateVisitOrder() {
   );
 }
 
-/**
- * Duecento richieste di fila fanno scattare il limite per i bot di Wikimedia
- * (429), e i ritentativi non bastano perche' a essere troppo alta e' la cadenza,
- * non il singolo picco. Mezzo secondo fra una figura e l'altra tiene il giro
- * sotto i due minuti e non se ne lamenta nessuno.
- */
 const PAUSA_WIKIMEDIA_MS = 500;
 
 function pausa(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Scrive le miniature che mancano alle opere gia' sul disco.
- *
- * Le figure sono state scaricate per mesi in un formato solo, quindi una
- * tessera larga 324 px riceveva l'originale da 960: da 7 a 16 volte i pixel che
- * puo' mostrare, e su un telefono molti di piu'. Da oggi il seed scrive la
- * coppia (`imageDownloader`), ma i file gia' scritti restano soli — e il client
- * la miniatura la NOMINA senza chiedere se c'e', quindi senza questo giro
- * quelle tessere resterebbero vuote.
- *
- * Costa richieste HTTP a Wikimedia e nessuna chiamata al modello: minuti, non
- * le ore di un seed. Ed e' ripetibile: chi la miniatura ce l'ha si salta.
- */
 async function migrateThumbs() {
   const opere = await ArtworkModel.find({
     imagePath: { $regex: "^/images/artworks/" },
@@ -634,6 +745,11 @@ const COMMANDS: Record<string, () => Promise<void>> = {
   licenze: migrateLicenses,
   account: requiredAccounts,
   mappe: checkMaps,
+  musei: migrateMuseumPaths,
+  griglia: checkItemGrid,
+  private: migrateVisitVisibility,
+  autore: migrateSeedAuthor,
+  prezzi: migrateSeedPrices,
   percorso: migrateVisitOrder,
   miniature: migrateThumbs,
   async tutto() {
@@ -642,6 +758,10 @@ const COMMANDS: Record<string, () => Promise<void>> = {
     await migrateLogistics();
     await migrateKinds();
     await migrateUnknowns();
+    await migrateMuseumPaths();
+    await migrateVisitVisibility();
+    await migrateSeedAuthor();
+    await migrateSeedPrices();
     await migrateVisitOrder();
     await migrateThumbs();
     await requiredAccounts();
@@ -650,12 +770,6 @@ const COMMANDS: Record<string, () => Promise<void>> = {
   },
 };
 
-/**
- * Il collaudo delle piante legge file, non documenti: deve poter girare su una
- * copia appena scaricata, PRIMA del seed. E' li' che serve, perche' aggiungere
- * un museo e' un JSON piu' un SVG e poi ore di seed: sapere prima se la pianta
- * si cammina evita di scoprirlo dopo.
- */
 const SENZA_DATABASE = new Set(["mappe"]);
 
 async function main() {

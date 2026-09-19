@@ -1,8 +1,6 @@
 /**
- * Rotta di traduzione dei contenuti statici del database.
- *
- * Le risposte dell'LLM non passano di qui: quelle nascono gia' nella lingua
- * giusta.
+ * Traduce in blocco i testi persistiti; le risposte dell'LLM nascono gia' nella
+ * lingua richiesta e non passano da questa rotta.
  */
 import { Router } from "express";
 import { translateTexts } from "../services/translate";
@@ -11,8 +9,8 @@ const router = Router();
 
 /**
  * POST /api/translate
- * Body: { texts: string[], target: string }
- * Ritorna { translations: string[] } con i testi tradotti nella lingua target.
+ * Body: { texts: string[], target: string } Ritorna { translations: string[] } con i testi tradotti
+ * nella lingua target.
  */
 router.post("/", async (req, res) => {
   try {

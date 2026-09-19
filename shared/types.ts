@@ -1,23 +1,8 @@
 /**
- * Tipi condivisi da server, navigator e marketplace.
- *
- * Il modello segue Schema.org: un Item e' un CreativeWork, una Visit una
- * ItemList. I campi con la chiocciola vengono da li' e non si rinominano: sono
- * il contratto con cui i dati sono serializzati.
- *
- * I campi meno ovvi: `imageUri` e' l'indirizzo remoto e `imagePath` la copia
- * scaricata; `locationId` e' il nodo sulla mappa SVG, cioe' cio' che lega
- * un'opera al suo posto; `Item["@id"]` e' opaco, perche' lo referenziano le
- * visite e le collezioni; `timeRequired` sono secondi nudi in stringa;
- * `Visit.duration` e' il totale, non il per-opera; `accessKey` marca una visita
- * come guidata, quindi gratuita e fuori dal catalogo.
- *
- * L'identita' di un User e' la coppia (username, role): lo stesso nome puo'
- * esistere come autore e come visitatore, e sono due account scollegati.
+ * Contratto dati comune a server, marketplace e navigator. I campi del payload
+ * restano in italiano perche' rinominarli richiede una migrazione coordinata di
+ * database e tre applicazioni.
  */
-
-// ============================================================================
-//                                  Utenti
 // ============================================================================
 
 export type UserRole = "autore" | "visitatore" | "curatore";
@@ -25,14 +10,10 @@ export type UserRole = "autore" | "visitatore" | "curatore";
 export interface User {
   username: string;
   role: UserRole;
-  /** Budget d'acquisto: solo sugli account visitatore. */
   wallet?: number;
-  /** ID dei contenuti posseduti. */
   collezione: string[];
 }
 
-// ============================================================================
-//                                   Opere
 // ============================================================================
 
 export interface Author {
@@ -58,6 +39,12 @@ export interface Artwork {
   lastUpdated: Date;
 }
 
+export interface MapLocation {
+  room: string;
+  floor: number;
+  tone: string;
+}
+
 export interface Museum {
   "@id": string;
   qid: string;
@@ -65,35 +52,20 @@ export interface Museum {
   created: string;
   location: string;
   mapPath: string;
-  /**
-   * Quante opere e quante visite in vetrina ha il museo. Li conta il server,
-   * perche' il client scarica il catalogo di UN museo alla volta e quindi non
-   * potrebbe piu' contare quelli che non ha scaricato.
-   */
+  imagePath?: string;
   opere?: number;
   visite?: number;
-  /**
-   * Le indicazioni che valgono per tutto il museo e non per una visita sola:
-   * l'ingresso, il biglietto, il guardaroba. Le scrive il curatore nel file di
-   * configurazione, e il navigator le mostra come note d'apertura di qualunque
-   * visita di quel museo.
-   */
   logistics?: string[];
+  mapLocations?: Record<string, MapLocation>;
 }
 
-// ============================================================================
-//                          Contenuti (item e visite)
 // ============================================================================
 
 export interface Item {
   "@id": string;
-  /** Di che cosa parla: uno degli `itemKinds`. */
   kind: string;
-  /** L'opera descritta: c'e' SOLO se `kind` e' "opera". */
   about?: string | Artwork;
-  /** Il nome del soggetto: c'e' solo se NON e' un'opera. */
   subject?: string;
-  /** Immagine propria dell'item; vince su quella dell'opera dove c'e' l'una e l'altra. */
   imagePath?: string;
   ofMuseum: string;
   text: string;
@@ -102,15 +74,9 @@ export interface Item {
   author: string;
   license: string;
   price?: number;
-  /** "privato": fuori dal catalogo e non vendibile, riservato alle visite guidate del suo autore. */
   visibility?: "pubblico" | "privato";
 }
 
-/**
- * Indicazione logistica dentro una visita ("prosegui a sinistra della scala
- * verso la sala 12"). Non e' un item e non fa parte di un item.
- * `after` e' l'@id della tappa dopo la quale mostrarla; null = nota d'apertura.
- */
 export interface LogisticNote {
   after: string | null;
   text: string;
@@ -130,59 +96,90 @@ export interface Visit {
   price?: number;
   license?: string;
   ofMuseum: string;
-  /**
-   * La copertina, caricata da chi compone. Facoltativa: senza, la tessera resta
-   * il titolo sulla struttura. Non c'e' un `imageUri` come per l'opera, perche'
-   * questa non arriva da Wikidata — la carica l'autore e la copia sta da noi.
-   */
   imagePath?: string;
   itemListElement: string[];
-  /** Sottoinsieme di itemListElement da mostrare solo se resta tempo. */
   optionalItems?: string[];
-  /** Una stringa nuda vale come nota d'apertura, senza ancoraggio a una tappa. */
   logistics: (string | LogisticNote)[];
   author?: string;
+  visibility?: "pubblico" | "privato";
   accessKey?: string;
   quiz?: QuizQuestion[];
-  /*
-   * Il conto per chi la sta chiedendo, che `GET /visits` allega alla risposta:
-   * quante tappe gli mancano, quanto costano e quanto pagherebbe in tutto. Non
-   * stanno nel documento su Mongo e cambiano da persona a persona; stanno qui
-   * perche' sono forma dello scambio, come il resto del tipo.
-   */
   mancanti?: number;
   costoMancanti?: number;
   totale?: number;
 }
 
-/**
- * Una tappa della visita. `anchor` e' l'opera davanti a cui si sta mentre la si
- * ascolta: un contenuto su uno stile non ha un posto sulla pianta, ma chi lo
- * ascolta ce l'ha, ed e' la prossima opera del percorso.
- */
+// ============================================================================
+
+export interface VisitaCitata {
+  id: string;
+  name: string;
+  author: string | null;
+  guidata: boolean;
+}
+
+export interface VisitaNominata {
+  id: string;
+  name: string;
+}
+
+export interface ImpactReport {
+  id: string;
+  author: string;
+  educationalLevel: string;
+  visite: VisitaCitata[];
+  svuotate: VisitaNominata[];
+  adozioni: number;
+}
+
+export interface ArtworkImpactReport {
+  qid: string;
+  nome: string;
+  descrizioni: number;
+  visite: VisitaCitata[];
+  svuotate: VisitaNominata[];
+  adozioni: number;
+}
+
+export interface MuseumOverview {
+  conteggi: {
+    opere: number;
+    item: number;
+    itemPrivati: number;
+    visite: number;
+    visiteGuidate: number;
+  };
+  copertura: {
+    opereTotali: number;
+    combinazioniPerTono: number;
+    senzaDescrizione: { qid: string; name: string }[];
+    perTono: { tono: string; descrizioni: number }[];
+  };
+  account: { autori: number; visitatori: number; curatori: number };
+}
+
+export interface SaleRow {
+  id: string;
+  type: "Item" | "Visita";
+  name: string;
+  ofMuseum?: string;
+  educationalLevel?: string;
+  price: number;
+  license: string;
+  adozioni: number;
+  ricavo: number;
+}
+
 export interface Match {
   item: Item;
   artwork: Artwork | null;
   anchor: Artwork | null;
 }
 
-/** Unione usata dal marketplace, dove item e visite stanno negli stessi elenchi. */
 export type Content = Item | Visit;
 
-/**
- * Le guardie di tipo con cui si stabilisce che cosa si ha in mano.
- *
- * `Content` e' un'unione, e un campo che esiste solo su una delle due meta'
- * (`level`, `itemListElement`, `kind`) non si puo' leggere prima di sapere quale
- * delle due sia.
- *
- * Si distinguono per un campo obbligatorio di ciascuna e non per `@type`, che
- * non fa parte di questi tipi: esiste solo come default dello schema Mongoose,
- * quindi un documento inserito per altra via ne sarebbe privo.
- *
- * Il campo obbligatorio dell'item e' `kind`, non `about`: cercare `about`
- * farebbe sparire dagli elenchi ogni contenuto che non parla di un'opera.
- */
+// --- Guardie di tipo --------------------------------------------------------
+
 export function isVisit(c: Content | Artwork): c is Visit {
   return "itemListElement" in c;
 }
@@ -191,7 +188,6 @@ export function isItem(c: Content | Artwork): c is Item {
   return "kind" in c;
 }
 
-/** L'unica domanda che il codice pone sul genere: gli altri si mostrano e basta. */
 export function isAboutArtwork(i: Item): boolean {
   return i.kind === "opera";
 }

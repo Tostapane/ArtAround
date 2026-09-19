@@ -29,6 +29,7 @@ Thumbs.db
 cypress/videos/
 cypress/screenshots/
 __screenshots__/
+/testers/
 
 # Vite
 *.timestamp-*-*.mjs
@@ -39,3 +40,12 @@ CLAUDE.md
 
 # cache di npm creata da deploy-build.js dentro il container
 .npm-cache/
+
+# istantanea dei sorgenti, ricostruita da deploy-build.js a ogni build
+/sources/
+
+# archivio Mongo autosufficiente prodotto per il trasferimento al dipartimento
+/import-db.js
+
+# comando distruttivo trasferito a mano soltanto quando serve
+/nuke-db.js

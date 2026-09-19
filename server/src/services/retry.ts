@@ -1,24 +1,8 @@
 /**
- * Ritentativi per le chiamate di rete.
- *
- * Il seed fa centinaia di chiamate a Gemini e a Wikidata di fila e dura quasi
- * un'ora, e un singolo timeout di connessione, che capita, non deve costare
- * l'intera esecuzione. Qui si riprova, e solo dopo l'ultimo tentativo si lascia
- * passare l'errore, cosi' chi chiama continua a gestire il fallimento come
- * prima: questa funzione aggiunge i tentativi, non cambia chi decide che cosa
- * fare quando non c'e' piu' niente da fare.
- *
- * Si riprova su QUALSIASI errore, senza distinguere i casi transitori dagli
- * altri: distinguerli vorrebbe dire leggere la forma degli errori di due
- * librerie diverse, e sbagliare la lettura significherebbe non riprovare
- * proprio quando serve. Una richiesta malformata costa due tentativi in piu' e
- * fallisce lo stesso; un timeout di rete invece si salva.
+ * Ritenta i servizi esterni con attesa crescente e rende l'ultimo errore utile. Nel
+ * seed una risposta transitoria non deve perdere il lavoro gia' completato.
  */
-
-/** Quante volte si prova in tutto, primo tentativo compreso. */
 export const TENTATIVI = 3;
-
-/** L'attesa cresce a ogni tentativo: 3s, poi 6s. */
 const ATTESA_MS = 3000;
 
 function pausa(ms: number): Promise<void> {
@@ -27,7 +11,6 @@ function pausa(ms: number): Promise<void> {
 
 function messaggio(err: unknown): string {
   if (err instanceof Error) {
-    // I timeout di undici tengono il motivo vero dentro `cause`.
     const causa = (err as { cause?: unknown }).cause;
     if (causa instanceof Error) return `${err.message} (${causa.message})`;
     return err.message;
@@ -35,13 +18,6 @@ function messaggio(err: unknown): string {
   return String(err);
 }
 
-/**
- * Esegue `azione`, riprovando fino a TENTATIVI volte.
- * Se falliscono tutti, rilancia l'errore dell'ultimo tentativo.
- *
- * `cosa` compare nel log ed e' l'unica cosa che, a seed finito, dice DOVE la
- * rete ha fatto le bizze.
- */
 export async function conTentativi<T>(
   cosa: string,
   azione: () => Promise<T>,

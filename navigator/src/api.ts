@@ -1,26 +1,10 @@
 /**
- * Chiamate al server.
- *
- * Nessun indirizzo scritto a mano: la base arriva dal file di configurazione del
- * curatore, o si ricava dall'host da cui e' stata aperta la pagina.
- *
- * CHI CHIEDE NON STA NELL'INDIRIZZO: nessuna funzione qui sotto ha un parametro
- * `user` o `username`. Lo dice il biglietto che `call` attacca a ogni richiesta,
- * e il server lo traduce nell'account, quindi non c'e' nessun punto in cui
- * dimenticarsene, e nessun nome che si possa riscrivere a mano.
- *
- * IL BIGLIETTO ARRIVA DAL MARKETPLACE, una volta sola, nell'indirizzo con cui
- * questa pagina si apre: le due applicazioni stanno su origini diverse e questa
- * non vede la memoria dell'altra. Si spende subito in cambio di una sessione
- * propria, che sta in `sessionStorage`: chiusa la scheda non resta niente.
- * Aprire il navigator da solo non porta da nessuna parte, ed e' voluto: si entra
- * dal marketplace.
- *
- * Le rotte delle visite guidate usano l'interrogazione periodica; `GuidedEndedError`
- * distingue "la sessione non c'e' piu'" da un errore di rete, perche' le due cose
- * vogliono reazioni diverse.
+ * Client HTTP del navigator. Ricava la base dalla configurazione, scambia una volta
+ * l'handoff del marketplace e gestisce centralmente sessione e 401; le sessioni
+ * guidate distinguono una fine prevista da un errore di rete.
  */
 import type { Artwork, Item, Museum, Visit } from "../../shared/types";
+import { SESSION_KEY } from "../../shared/constants";
 import { apiBase } from "./config";
 import { t } from "./i18n";
 
@@ -28,17 +12,11 @@ const base = () => apiBase();
 
 // --- Il biglietto -------------------------------------------------------------
 
-const TOKEN_KEY = "artaround-sessione";
 let onExpired: () => void = () => {};
 
-/**
- * Un browser che nega la memoria non deve far cadere il modulo: senza guardia
- * l'eccezione arriva mentre `api` si valuta, cioe' prima che esista qualcosa in
- * grado di dirlo, e l'applicazione resta bianca.
- */
 function leggiToken(): string {
   try {
-    return sessionStorage.getItem(TOKEN_KEY) || "";
+    return sessionStorage.getItem(SESSION_KEY) || "";
   } catch {
     return "";
   }
@@ -47,12 +25,9 @@ function leggiToken(): string {
 function scriviToken(value: string) {
   token = value;
   try {
-    if (value) sessionStorage.setItem(TOKEN_KEY, value);
-    else sessionStorage.removeItem(TOKEN_KEY);
-  } catch {
-    // Senza memoria la sessione dura quanto questa pagina, e non e' un errore
-    // da mostrare: quel che rompe e' solo il ricaricamento.
-  }
+    if (value) sessionStorage.setItem(SESSION_KEY, value);
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch {}
 }
 
 let token = leggiToken();
@@ -61,7 +36,6 @@ export function hasSession(): boolean {
   return token !== "";
 }
 
-/** Che cosa fare quando il server dice che la sessione non c'e' piu'. */
 export function onSessionExpired(handler: () => void): void {
   onExpired = handler;
 }
@@ -77,13 +51,6 @@ export async function redeemHandoff(handoff: string): Promise<void> {
   scriviToken(data.token || "");
 }
 
-/**
- * Il 401 si gestisce qui e non nelle chiamate una per una: durante una visita
- * ognuna sta dentro il suo `catch`, quindi una sessione scaduta arriverebbe a
- * schermo come un guasto diverso a seconda di quale bottone si e' premuto.
- * Si avvisa solo se un biglietto c'era: senza, il 401 e' l'ingresso mancato che
- * `App.vue` racconta gia' da se'.
- */
 async function call(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -138,11 +105,6 @@ export async function createCustomVisit(
   return res.json();
 }
 
-/**
- * Visite di un museo, filtrate per chi sta guardando: le gratuite piu' quelle
- * che questa persona possiede. Le visite guidate non compaiono mai, perche' ci
- * si entra con la parola chiave e non scegliendole da un elenco.
- */
 export async function getVisitsByMuseum(qid: string): Promise<Visit[]> {
   const res = await call(
     `${base()}/museums/${encodeURIComponent(qid)}/visits`,
@@ -152,11 +114,6 @@ export async function getVisitsByMuseum(qid: string): Promise<Visit[]> {
   return res.json();
 }
 
-/**
- * Tutte le opere del museo, tappe della visita o no. Servono alla
- * localizzazione: le opere fra cui scegliere sono quelle disegnate sulla pianta,
- * e la pianta non sa niente della visita in corso.
- */
 export async function getMuseumArtworks(qid: string): Promise<Artwork[]> {
   const res = await call(
     `${base()}/museums/${encodeURIComponent(qid)}/artworks`,
@@ -247,7 +204,7 @@ export async function translateTexts(
   return data.translations;
 }
 
-const gsBase = () => `${apiBase()}/guided-sessions`;
+const gsBase = () => `${base()}/guided-sessions`;
 
 export class GuidedEndedError extends Error {
   constructor() {
@@ -260,8 +217,7 @@ async function readGuidedError(res: Response): Promise<string> {
   try {
     const data = await res.json();
     if (data && data.error) return data.error;
-  } catch {
-  }
+  } catch {}
   return `Errore ${res.status}`;
 }
 
@@ -289,8 +245,28 @@ export async function getGuidedStudentState(id: string): Promise<any> {
   return res.json();
 }
 
-export async function getGuidedItems(id: string): Promise<Item[]> {
-  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/items`);
+export async function waitForGuidedState(
+  id: string,
+  knownRevision: number,
+  status: { attentive: boolean; autoplay: boolean },
+  signal: AbortSignal,
+) {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/wait`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ knownRevision, ...status }),
+    signal,
+  });
+  if (res.status === 204) return null;
+  if (res.status === 410) throw new GuidedEndedError();
+  if (!res.ok) throw new Error(await readGuidedError(res));
+  return res.json();
+}
+
+export async function getGuidedContent(
+  id: string,
+): Promise<{ visit: Visit; items: Item[] }> {
+  const res = await call(`${gsBase()}/${encodeURIComponent(id)}/content`);
   if (res.status === 410) throw new GuidedEndedError();
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
@@ -328,10 +304,6 @@ export async function postGuidedLeave(id: string): Promise<void> {
   if (!res.ok) throw new Error(await readGuidedError(res));
 }
 
-/**
- * Quiz di fine visita (modulo 18-27). Le risposte corrette non lasciano mai il
- * server: qui si mandano solo gli indici scelti e si riceve il punteggio.
- */
 export async function postGuidedQuizStart(
   id: string,
   durationSec: number,
@@ -377,6 +349,5 @@ export async function postGuidedAsk(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, artwork }),
     });
-  } catch {
-  }
+  } catch {}
 }

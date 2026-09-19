@@ -1,45 +1,12 @@
 <script setup lang="ts">
 /**
- * La scheda: la didascalia dell'opera e i comandi, in un pannello sempre aperto.
- *
- * Non e' una finestra ne' un foglio che si apre: e' meta' fissa dello schermo,
- * colonna accanto alla pianta da `lg` in su e fascia sotto di essa sul telefono.
- * Le due domande del visitatore hanno cosi' una risposta ciascuna, tutte e due in
- * vista, senza comandi da scoprire per passare dall'una all'altra.
- *
- * Dall'alto in basso, nell'ordine in cui la si usa: lingua, opera, barra della
- * voce e dell'avanzamento, Chiedi/Orientati. Lingua e barra si cercano senza
- * guardare, quindi stanno ai bordi e non si spostano; opera e comandi si
- * spartiscono il resto in proporzione fissa, e con una risposta aperta la
- * proporzione si ribalta, perche' quella risposta e' il motivo per cui si e'
- * premuto.
- *
- * Senza nessuna tappa aperta al posto dell'opera c'e' la porta d'ingresso della
- * visita: un pannello sempre presente deve dire cosa fare anche quando non c'e'
- * niente da leggere. Le domande invece funzionano da subito, perche'
- * `riferimento` vale l'ultima tappa raggiunta.
- *
- * Chiedi e Orientati sono separati perche' rispondono sistemi diversi: l'LLM per
- * l'opera, il grafo della mappa per l'edificio.
- *
- * SUL TELEFONO LE DUE META' SI DIVIDONO, e `sezione` dice quale delle due si sta
- * guardando: la scheda intera in 55dvh voleva dire due centimetri di testo
- * dell'opera sopra due colonne di pastiglie, cioe' nessuna delle due leggibile.
- * Sono percio' due schede del guscio (`Visita.vue`), e qui restano due blocchi
- * che si accendono e si spengono. Da `lg` in su NON cambia niente: la colonna e'
- * alta quanto lo schermo e le due meta' ci stanno insieme, che e' il motivo per
- * cui questo pannello e' sempre aperto. Ogni blocco porta quindi la sua regola
- * scritta due volte — `hidden` per il telefono e `lg:` per rimetterlo — e non un
- * `matchMedia`: la larghezza la sa gia' il foglio di stile.
- *
- * La barra della voce e dell'avanzamento non si spegne mai: e' il comando, non il
- * contenuto, e cercarlo cambiando scheda vorrebbe dire perdere "Prossimo" proprio
- * mentre si sta leggendo la risposta a una domanda.
+ * Pannello persistente dell'opera con testo, voce, avanzamento e domande.
+ * Opera e domande sono separate in tab sia sul telefono sia su schermi larghi.
  */
 import { computed, ref, watch } from "vue";
 import Pannello from "./Pannello.vue";
 import Comando from "./Comando.vue";
-import { useTTS } from "./useTTS";
+import TTSButton from "./TTSButton.vue";
 import LanguageSelector from "../selection/LanguageSelector.vue";
 import { labelForCommand } from "../../../../shared/constants";
 import { stopImage } from "@/state";
@@ -55,28 +22,29 @@ const props = defineProps<{
   optional: boolean;
   hasPrev: boolean;
   hasNext: boolean;
+  navigationLoading: "" | "prev" | "next";
   canEnd: boolean;
+  canStartQuiz: boolean;
   numero: number;
   guidedStudent: boolean;
   guidedTeacher: boolean;
   richiesta: string;
-  /** La destinazione, se la domanda non la porta con se': servizio o opera. */
+
   target: string;
-  /** Se esiste una tappa successiva verso cui si possa chiedere la strada. */
+
   canAskNext: boolean;
-  /** Quale meta' si sta guardando sul telefono: `opera` o `domande`. Da `lg` in
-   *  su non decide niente, perche' li' si vedono tutt'e due. */
+
   sezione: string;
 }>();
 
 const emit = defineEmits<{
-  navigation: [value: string];
+  navigation: [value: "prev" | "next"];
   action: [value: string];
+  section: [value: "opera" | "domande"];
   closeRequest: [];
   apriTappa: [];
+  quiz: [];
 }>();
-
-const tts = useTTS();
 
 const nextLabel = computed(() => {
   if (props.guidedTeacher) return t("Porta tutti alla prossima opera");
@@ -85,7 +53,6 @@ const nextLabel = computed(() => {
 
 // --- L'opera -----------------------------------------------------------------
 
-/** Cambiando tappa il testo riparte dall'inizio: la colonna non scorre da se'. */
 const opera = ref<HTMLElement | null>(null);
 const imgBroken = ref(false);
 watch(
@@ -101,7 +68,6 @@ const immagine = computed(() => {
   return stopImage(props.content);
 });
 
-/** Lo stile, che ce l'ha solo un'opera: sotto al nome sta accanto all'autore. */
 const stile = computed(() => {
   if (!props.content) return "";
   const a = props.content.artwork;
@@ -117,9 +83,35 @@ const stile = computed(() => {
     class="flex min-h-0 flex-1 flex-col bg-surface
            lg:h-auto lg:w-[26rem] lg:flex-none lg:border-l lg:border-line"
   >
+    <div
+      class="mx-3 mt-3 hidden shrink-0 grid-cols-2 gap-1 rounded-plate border border-line bg-surface p-1 lg:grid"
+      role="tablist"
+      :aria-label="t('Contenuto della tappa')"
+    >
+      <button
+        v-for="s in [
+          { id: 'opera', label: t('Opera') },
+          { id: 'domande', label: t('Domande') },
+        ]"
+        :key="s.id"
+        type="button"
+        role="tab"
+        :aria-selected="sezione === s.id"
+        :aria-controls="'contenuto-' + s.id"
+        class="segmento"
+        :class="[
+          'segmento-' + s.id,
+          sezione === s.id ? 'segmento-attivo' : '',
+        ]"
+        @click="emit('section', s.id as 'opera' | 'domande')"
+      >
+        {{ s.label }}
+      </button>
+    </div>
+
     <!-- LINGUA -->
     <div
-      class="shrink-0 items-center gap-3 border-b border-line px-3 py-2 lg:flex"
+      class="shrink-0 items-center gap-3 border-b border-line px-3 py-2"
       :class="sezione === 'opera' ? 'flex' : 'hidden'"
     >
       <span class="etichetta-impostazione shrink-0" aria-hidden="true">
@@ -134,36 +126,32 @@ const stile = computed(() => {
 
     <!-- OPERA -->
     <div
+      id="contenuto-opera"
       ref="opera"
-      class="min-h-0 basis-0 overflow-y-auto lg:block"
+      role="tabpanel"
+      class="sezione-opera min-h-0 basis-0 overflow-y-auto"
       :class="[
         richiesta ? 'grow-[2]' : 'grow-[3]',
         sezione === 'opera' ? 'block' : 'hidden',
       ]"
     >
       <template v-if="content">
-        <!-- Sul telefono l'intestazione e' una didascalia da museo, con l'opera
-             a sinistra del titolo, perche' la colonna e' bassa e una foto a piena
-             larghezza se la prenderebbe tutta, lasciando fuori proprio il testo.
-             Sfuma verso il titolo invece di finire con un angolo netto: cosi' e'
-             la stessa lingua della vetrina e delle righe d'elenco. Da `lg` in su
-             c'e' l'altezza per l'opera intera, e li' si contiene invece di
-             ritagliare -- la maschera si toglie da se'. -->
-        <div class="flex items-start gap-3 p-4 lg:block lg:p-0">
+
+        <div>
           <img
             v-if="immagine.src && !imgBroken"
-            class="figura figura-sfumata h-20 w-28 shrink-0 rounded-none object-cover
-                   lg:h-auto lg:max-h-48 lg:w-full lg:object-contain"
+            class="figura block max-h-[60dvh] w-full rounded-none bg-surface-2 object-contain
+                   lg:max-h-[52vh]"
             :src="immagine.src"
             :alt="t('Immagine di {nome}', { nome: immagine.name })"
             @error="imgBroken = true"
           />
 
-          <div class="min-w-0 lg:p-4 lg:pb-0">
+          <div class="min-w-0 p-4 pb-0">
             <div class="flex items-baseline gap-3">
               <span
                 v-if="numero > 0"
-                class="tabular shrink-0 font-display text-title-3 text-muted lg:text-title-2"
+                class="tabular shrink-0 font-display text-title-3 text-brass lg:text-title-2"
                 aria-hidden="true"
               >
                 {{ String(numero).padStart(2, "0") }}
@@ -186,7 +174,7 @@ const stile = computed(() => {
         <p class="measure px-4 pb-4 text-body lg:pt-4">{{ fields[2] }}</p>
       </template>
 
-      <!-- PORTA D'INGRESSO: nessuna tappa aperta -->
+      <!-- PORTA D'INGRESSO -->
       <div v-else class="p-4">
         <button
           v-if="azione"
@@ -201,44 +189,32 @@ const stile = computed(() => {
       </div>
     </div>
 
-    <!-- BARRA: voce e avanzamento -->
+    <!-- BARRA -->
     <div class="flex shrink-0 items-center gap-2 border-t border-line p-3">
       <button
         v-if="!guidedStudent"
         type="button"
         class="btn-secondario"
-        :disabled="!hasPrev"
+        :class="navigationLoading === 'prev' ? 'disabled:opacity-70' : ''"
+        :disabled="!hasPrev || navigationLoading !== ''"
+        :aria-busy="navigationLoading === 'prev'"
+        :aria-label="navigationLoading === 'prev' ? t('Caricamento…') : t(labelForCommand('Precedente'))"
         @click="emit('navigation', 'prev')"
       >
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <span v-if="navigationLoading === 'prev'">{{ t("Caricamento…") }}</span>
+        <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19 8 12l7-7" />
         </svg>
-        <span class="sr-only">{{ t(labelForCommand("Precedente")) }}</span>
       </button>
 
-      <button
-        v-if="!tts.isSpeaking.value"
-        type="button"
+      <TTSButton
+        v-if="!guidedStudent"
         class="icona-tonda shrink-0"
+        active-class="icona-tonda-attiva"
+        :text="fields[2] || ''"
+        :label="t('Leggi la descrizione ad alta voce')"
         :disabled="!content"
-        :aria-label="t('Leggi la descrizione ad alta voce')"
-        @click="emit('action', 'Leggi')"
-      >
-        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z" />
-        </svg>
-      </button>
-      <button
-        v-else
-        type="button"
-        class="icona-tonda icona-tonda-attiva shrink-0"
-        :aria-label="t('Ferma la lettura')"
-        @click="emit('action', 'Ferma lettura')"
-      >
-        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 6h12v12H6z" />
-        </svg>
-      </button>
+      />
 
       <Comando
         class="min-w-0 flex-1"
@@ -247,18 +223,35 @@ const stile = computed(() => {
       />
 
       <button
-        v-if="!guidedStudent && !canEnd"
+        v-if="!guidedStudent && !canEnd && !canStartQuiz"
         type="button"
         class="btn-primario"
-        :disabled="!hasNext"
-        :aria-label="nextLabel"
+        :class="navigationLoading === 'next' ? 'disabled:opacity-70' : ''"
+        :disabled="!hasNext || navigationLoading !== ''"
+        :aria-busy="navigationLoading === 'next'"
+        :aria-label="navigationLoading === 'next' ? t('Caricamento…') : nextLabel"
         @click="emit('navigation', 'next')"
       >
-        <span class="hidden sm:inline lg:hidden xl:inline">
+        <span v-if="navigationLoading === 'next'">{{ t("Caricamento…") }}</span>
+        <span v-else class="hidden sm:inline lg:hidden xl:inline">
           {{ guidedTeacher ? t("Tutti avanti") : t(labelForCommand("Prossimo")) }}
         </span>
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+        <svg v-if="navigationLoading !== 'next'" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
+      </button>
+
+      <button
+        v-if="canStartQuiz"
+        type="button"
+        class="btn-primario"
+        :aria-label="t('Quiz di fine visita')"
+        @click="emit('quiz')"
+      >
+        <span>{{ t("Quiz") }}</span>
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h8M8 12h5M8 17h3" />
+          <rect x="4" y="3" width="16" height="18" rx="2" />
         </svg>
       </button>
 
@@ -283,7 +276,9 @@ const stile = computed(() => {
 
     <!-- CHIEDI / ORIENTATI -->
     <div
-      class="min-h-0 basis-0 overflow-y-auto border-t border-line p-3 lg:block"
+      id="contenuto-domande"
+      role="tabpanel"
+      class="sezione-domande min-h-0 basis-0 overflow-y-auto border-t border-line p-3"
       :class="[
         richiesta ? 'grow-[3]' : 'grow-[2]',
         sezione === 'domande' ? 'block' : 'hidden',

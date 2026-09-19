@@ -1,47 +1,11 @@
 /**
- * Da mappa SVG a grafo delle sale.
- *
- * La mappa e' l'unica fonte di verita' spaziale: il curatore annota con
- * attributi data-* il disegno che fa comunque, e qui lo si traduce in sale,
- * nodi, collegamenti e ostacoli.
- *
- * Il contratto che il curatore annota:
- *  - sala          data-room="Nome" su una forma. Le aree si valutano in ordine
- *                  di documento e vince la prima che contiene il punto, quindi
- *                  una sala dentro un'altra va scritta prima di quella che la
- *                  circonda.
- *  - nodo-opera    data-qid="Qxxx" [+ data-label]
- *  - nodo-POI      data-poi="exit|emergency_exit|toilet|bar|shop|elevator|stairs"
- *  - ostacolo      data-obstacle="steps|door|chairs|object" + data-desc
- *  - collegamento  <line data-edge>: ogni estremo si risolve alla sala che lo
- *                  contiene, non al nodo piu' vicino
- *  - percorso      data-flow="3" sulla sala: l'ordine in cui il museo consiglia
- *                  di attraversarla. Non si calcola, perche' non e' una
- *                  proprieta' geometrica. Le sale che tacciono vanno in fondo.
- *  - piano         <g data-floor="1" data-floor-label="Primo piano">
- *
- * La sala di un nodo e' quella la cui area lo contiene, non quella piu' vicina,
- * cosi' i muri contano. I collegamenti sono solo quelli disegnati: ogni spazio
- * percorribile, corridoi compresi, deve essere una sala o non puo' comparire in
- * un percorso.
- *
- * Il grafo non si divide per piano. Le scale sono un vano su ciascun piano, i
- * due vani sono uniti da un data-edge come due sale confinanti, e un percorso
- * attraversa i piani come attraversa le sale: non esiste un caso "cambio piano".
- * Il nome del piano lo scrive il curatore, perche' un museo ha il Mezzanino e un
- * altro cinque piani numerati.
- *
- * Tre trappole:
- *  - le coordinate si leggono alla lettera (cx/cy, x/y/width/height): un
- *    transform su un elemento con data-* non viene applicato, e il nodo finisce
- *    nella sala sbagliata senza che nessuno se ne accorga;
- *  - i nomi delle sale sono unici su tutta la mappa, piani compresi, perche' le
- *    adiacenze si tengono per nome: due omonime diventerebbero una sola;
- *  - i commenti si tolgono prima di scandire, o un <g> nominato in un commento
- *    sposta il conto dei gruppi e con lui il piano di tutto il resto.
+ * Converte l'SVG annotato nel grafo del museo: sale, porte, piani, opere, servizi e
+ * ostacoli. Il parser descrive il disegno senza inventare collegamenti, lasciando
+ * gli errori al collaudo.
  */
 import fs from "fs";
 import path from "path";
+import { SERVER_ROOT } from "../env";
 
 export interface GraphNode {
   id: string;
@@ -52,23 +16,15 @@ export interface GraphNode {
   x: number;
   y: number;
   room: string;
-  /** Il piano: quello della sua sala, o del gruppo che lo contiene. */
+  roomTone: string;
   floor: number;
-  /**
-   * L'attributo `id` dell'elemento SVG, che il navigator usa per ritrovare la
-   * forma da colorare e numerare (`Artwork.locationId`). Non e' `id` qui sopra:
-   * quello, per un'opera, e' il qid, perche' e' con quello che il pathfinding
-   * indica una destinazione.
-   */
   elementId: string;
 }
 
 export interface GraphRegion {
   name: string;
   neighbors: string[];
-  /** Il piano su cui sta la sala. Senza `data-floor` sulla mappa e' 0. */
   floor: number;
-  /** L'ordine di visita che il curatore le ha dato. 0 = non dichiarato. */
   flow: number;
 }
 
@@ -81,7 +37,6 @@ export interface GraphObstacle {
 
 export interface GraphFloor {
   floor: number;
-  /** Come lo chiama il curatore. Un piano senza `data-floor-label` e' "piano N". */
   label: string;
 }
 
@@ -89,21 +44,16 @@ export interface MuseumGraph {
   nodes: GraphNode[];
   regions: GraphRegion[];
   obstacles: GraphObstacle[];
-  /**
-   * I piani che la mappa dichiara, dal basso in alto. Resta VUOTO se la mappa
-   * non ne dichiara nessuno: un museo a un piano solo non ha piani di cui
-   * parlare, e da questo elenco vuoto discende che non se ne parli mai.
-   */
   floors: GraphFloor[];
 }
 
-type RegionShape = { floor: number; flow: number } & (
+type RegionShape = { floor: number; flow: number; tone: string } & (
   | { kind: "circle"; name: string; cx: number; cy: number; r: number }
   | { kind: "rect"; name: string; x: number; y: number; w: number; h: number }
   | { kind: "polygon"; name: string; pts: { x: number; y: number }[] }
 );
 
-const PUBLIC_DIR = path.join(__dirname, "..", "..", "public");
+const PUBLIC_DIR = path.join(SERVER_ROOT, "public");
 
 const cache = new Map<string, MuseumGraph>();
 
@@ -131,14 +81,6 @@ function parseSvgFile(mapPath: string): MuseumGraph {
   return parseSvg(svg);
 }
 
-/**
- * I qid delle opere nell'ordine in cui il curatore vuole che si percorra il
- * museo: `data-flow` sulle sale, e dentro una sala l'ordine in cui sono
- * disegnate, perche' li' non c'e' niente da percorrere, ci si e' gia'.
- *
- * Le sale senza `data-flow` vanno in fondo nell'ordine del disegno, quindi una
- * mappa che non lo dichiara affatto lascia le opere come stavano.
- */
 export function flowOrder(mapPath: string): string[] {
   const graph = getMuseumGraph(mapPath);
   const flusso = new Map<string, number>();
@@ -149,7 +91,6 @@ export function flowOrder(mapPath: string): string[] {
   opere.forEach((n, i) => posizione.set(n.qid, i));
 
   const ordinate = [...opere].sort((a, b) => {
-    // Una sala senza flusso dichiarato viene dopo tutte quelle che ce l'hanno.
     const fa = flusso.get(a.room) || Number.MAX_SAFE_INTEGER;
     const fb = flusso.get(b.room) || Number.MAX_SAFE_INTEGER;
     if (fa !== fb) return fa - fb;
@@ -158,10 +99,6 @@ export function flowOrder(mapPath: string): string[] {
   return ordinate.map((n) => n.qid);
 }
 
-/**
- * Mette le opere nell'ordine di percorrenza. Chi non e' sulla mappa resta in
- * fondo: e' un'opera del catalogo che nessuno ha ancora collocato, non un errore.
- */
 export function sortByFlow<T extends { qid: string }>(
   items: T[],
   mapPath: string,
@@ -254,6 +191,7 @@ export function parseSvg(svg: string): MuseumGraph {
           x: center.x,
           y: center.y,
           room: "",
+          roomTone: "",
           floor,
           elementId: attrs["id"] || "",
         });
@@ -273,6 +211,7 @@ export function parseSvg(svg: string): MuseumGraph {
           x: center.x,
           y: center.y,
           room: "",
+          roomTone: "",
           floor,
           elementId: attrs["id"] || "",
         });
@@ -314,6 +253,7 @@ export function parseSvg(svg: string): MuseumGraph {
     const sala = regionAt(regions, n.x, n.y);
     if (sala) {
       n.room = sala.name;
+      n.roomTone = sala.tone;
       n.floor = sala.floor;
     }
   }
@@ -373,12 +313,13 @@ function makeRegion(
   floor: number,
 ): RegionShape | null {
   const name = attrs["data-room"];
+  const tone = roomTone(attrs["class"] || "");
   let flow = parseInt(attrs["data-flow"] || "", 10);
   if (isNaN(flow)) flow = 0;
   if (attrs["points"] !== undefined) {
     const pts = parsePoints(attrs["points"]);
     if (pts.length < 3) return null;
-    return { kind: "polygon", name, pts, floor, flow };
+    return { kind: "polygon", name, pts, floor, flow, tone };
   }
   if (
     attrs["r"] !== undefined &&
@@ -393,6 +334,7 @@ function makeRegion(
       r: parseFloat(attrs["r"]),
       floor,
       flow,
+      tone,
     };
   }
   if (
@@ -410,9 +352,20 @@ function makeRegion(
       h: parseFloat(attrs["height"]),
       floor,
       flow,
+      tone,
     };
   }
   return null;
+}
+
+function roomTone(className: string): string {
+  const values = className.split(/\s+/);
+  for (const value of values) {
+    if (/^t-[a-z0-9-]+$/i.test(value)) return value.slice(2);
+  }
+  if (values.includes("sala-atrio")) return "atrio";
+  if (values.includes("sala-servizio")) return "servizio";
+  return "";
 }
 
 function parsePoints(s: string): { x: number; y: number }[] {

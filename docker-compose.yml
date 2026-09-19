@@ -17,9 +17,9 @@ services:
     working_dir: /app
     environment:
       - MONGO_URI=mongodb://localuser:localpassword@mongodb:27017/artaround?authSource=admin
+      - NAVIGATOR_ORIGIN=/navigator
     ports:
       - "8000:8000"
-      - "5173:5173"
     volumes:
       - ./:/app
       - /app/navigator/node_modules
@@ -27,13 +27,11 @@ services:
       - /app/marketplace/node_modules
     depends_on:
       - mongodb
+    # Prova lo stesso artefatto compilato avviato da gocker.
     command: >
-      sh -c "npm install --prefix navigator &&
-              npm install --prefix server &&
-              npm install --prefix marketplace &&
-              npm run build --prefix marketplace &&
-              (npm run dev --prefix navigator -- --host &) &&
-              npm run start --prefix server"
+      sh -c "npm run setup &&
+              npm run build &&
+              npm start"
 
 volumes:
   db_data:

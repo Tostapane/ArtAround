@@ -1,15 +1,9 @@
+/* Stili propri del navigator; token e componenti generici restano in shared/. */
 @import "tailwindcss";
-/* Token e componenti: un'unica fonte condivisa col marketplace.
-   Non aggiungere qui colori o componenti generici: vanno in shared/. */
+
 @import "../../../shared/theme.css";
 @import "../../../shared/components.css";
 
-/*
-  LA SALA: solo cio' che esiste unicamente nell'app da museo.
-  L'app si usa in piedi, con una mano, dentro un edificio: l'altezza reale
-  della finestra (dvh) e le safe-area dei telefoni sono un requisito, non un
-  dettaglio (prelude.md §6 C6).
-*/
 @layer base {
   html,
   body,
@@ -18,7 +12,79 @@
   }
 
   body {
-    /* Niente rimbalzo elastico: sotto c'e' una mappa, non una pagina che scorre */
+
     overscroll-behavior-y: none;
+  }
+}
+
+@layer components {
+  .segmento-elenco {
+    --segment-color: var(--slate);
+    --segment-veil: var(--slate-velo);
+  }
+
+  .segmento-opera {
+    --segment-color: var(--brass);
+    --segment-veil: var(--brass-velo);
+  }
+
+  .segmento-domande {
+    --segment-color: var(--sage);
+    --segment-veil: var(--sage-velo);
+  }
+
+  .nav-visita {
+    background-color: color-mix(in oklab, var(--surface) 94%, var(--accent));
+  }
+
+  .nav-visita-tab {
+    color: color-mix(in oklab, var(--accent) 58%, var(--muted));
+  }
+
+  .nav-visita-tab[data-section="elenco"] {
+    --accent: var(--slate);
+    --accent-velo: var(--slate-velo);
+  }
+
+  .nav-visita-tab[data-section="opera"] {
+    --accent: var(--brass);
+    --accent-velo: var(--brass-velo);
+  }
+
+  .nav-visita-tab[data-section="domande"] {
+    --accent: var(--sage);
+    --accent-velo: var(--sage-velo);
+  }
+
+  .nav-visita-tab:hover {
+    color: var(--accent);
+    background-color: var(--accent-velo);
+  }
+
+  .nav-visita-tab-attivo {
+    border-color: var(--accent);
+    color: var(--accent);
+    background-color: var(--accent-velo);
+  }
+
+  .sezione-opera {
+    background-image: linear-gradient(
+      145deg,
+      var(--brass-velo),
+      transparent 42%
+    );
+  }
+
+  .sezione-domande {
+    background-image: linear-gradient(
+      145deg,
+      var(--sage-velo),
+      transparent 42%
+    );
+  }
+
+  .pannello-domande {
+    --accent: var(--sage);
+    --accent-velo: var(--sage-velo);
   }
 }

@@ -1,13 +1,10 @@
 /**
- * Documento Mongoose di un'opera.
+ * Schema Mongoose delle opere e indici per identificativo e museo, le due forme con
+ * cui il catalogo le interroga.
  */
 import { Schema, model } from "mongoose";
 import { Artwork as SharedArtwork } from "../../../shared/types";
 
-/**
- * Interface representing the Artwork document in Mongoose.
- * It extends the SharedArtwork interface to include Schema.org metadata.
- */
 export interface IArtwork extends SharedArtwork {
   "@context": string;
   "@type": string;
@@ -34,8 +31,6 @@ const artworkSchema = new Schema<IArtwork>({
   locationId: String,
 });
 
-// Indici: vedi la nota in models/item.ts.
-// `@id` e' gia' unique nel campo, quindi Mongoose gli fa l'indice da se'.
 artworkSchema.index({ qid: 1 });
 artworkSchema.index({ ofMuseum: 1 });
 

@@ -14,12 +14,23 @@ In locale il browser parla con **tre** cose: Vite (`:5173`), Express (`:8000`) e
 | marketplace | Express `:8000` | Express, stessa origine |
 | API | `http://host:8000/api` | `/api`, stessa origine |
 | Mongo | `localhost:27017` | `mongo_site252627:27017`, **solo da dentro il cluster** |
-| porta di Express | 8000 | **3000**, che e' quella che gocker pubblica: `PORT` in `server/.env` |
+| porta di Express | 8000 | **8000**, la stessa: e' il container che esporta `PORT=8000`, ed e' quella che il proxy pubblica. Non va scritta da nessuna parte |
 | https | no | si', e **non lo impostiamo noi**: lo termina il proxy del dipartimento davanti al container, che parla in chiaro col nostro processo |
 
 Conseguenza da sapere: marketplace e navigator finiscono sulla **stessa origine**, quindi
 condividono `sessionStorage`. Il biglietto di passaggio continua a funzionare, ma il navigator
 aperto da solo trova la sessione del marketplace invece di rimandare indietro.
+
+⚠️ **Gli indirizzi del marketplace sono percorsi veri** (`/vetrina`, `/opera/Q12418`), non piu'
+frammenti dopo un `#`. Cambia una cosa che in sviluppo non si vedeva: quegli indirizzi ora
+**arrivano al server**, che deve rispondere col guscio. Lo fa lui, in fondo a `server/src/index.ts`,
+e riconosce solo i nomi elencati in `shared/constants.ts`. Due ricadute per il laboratorio:
+
+- il proxy del dipartimento pubblica il sito su una **radice** (`https://site252627.tw.cs.unibo.it/`),
+  che e' quello che questi indirizzi assumono. Se un giorno finisse sotto un sottopercorso,
+  tutti i riferimenti assoluti (`/dist`, `/images`, `/api`) andrebbero rivisti insieme;
+- il controllo che conta non e' piu' aprire `/` e cliccare: e' **ricaricare** su una schermata
+  interna. Cliccando funziona anche se il server non sapesse niente di quegli indirizzi.
 
 ⚠️ E ne segue una che si vede solo li': **un biglietto che non si riscatta non si nota piu'**.
 In sviluppo il navigator, non trovando nessuna sessione, dice di entrare dal marketplace; in
@@ -49,31 +60,34 @@ tracciati e sono inerti: Express serve `marketplace/public` e `server/public`, n
 
 ```bash
 npm run setup      # server + marketplace + navigator
-npm run build      # i due dist/
+npm run build      # server + marketplace + navigator
 ```
 
 `setup` installa **anche le devDependencies**, e lo chiede per scritto (`--include=dev`):
-i due `build` girano con `tsc`, `vite` e `vue-tsc`, che stanno li'. Su una macchina con
+le tre applicazioni si compilano con `tsc`, `vite` e `vue-tsc`, che stanno li'. Su una macchina con
 `NODE_ENV=production` un `npm install` nudo li salterebbe, `setup` finirebbe bene e `build`
-morirebbe con `tsc: not found`. E' lo stesso motivo per cui `ts-node` e `typescript` stanno
-fra le `dependencies` del server, applicato all'altra meta' del lavoro.
+morirebbe con `tsc: not found`.
 
 **3. `server/.env`** — non e' nel repository, quindi va scritto a mano **una volta sola** e
 sopravvive a ogni `git pull`:
 
 ```
-PORT=3000
 MONGO_URI=mongodb://site252627:LA_PASSWORD@mongo_site252627:27017/site252627?authSource=admin
 NAVIGATOR_ORIGIN=https://site252627.tw.cs.unibo.it/navigator
 GEMINI_API_KEY=…
 GOOGLE_API_KEY=…
 ```
 
-`PORT` **e' la riga che decide se il sito risponde**: gocker pubblica una porta sola per
-sito e pretende che lo script si metta in ascolto proprio li' (il numero lo dice il suo
-banner d'accesso, ed e' 3000). Senza, il server parte sulla 8000 come in sviluppo, non
-sbaglia niente e non dice niente: davanti c'e' un proxy che bussa dove non c'e' nessuno.
+**`PORT` non va messa**, ed e' l'errore che questo file ha insegnato per tre settimane.
+Il container esporta gia' `PORT=8000`: e' cosi' che dice allo script dove mettersi in
+ascolto, ed e' la porta che il proxy pubblica. Scrivere `PORT=3000` nel file porta a un
+**502**, cioe' il proxy che trova il container acceso e nessuno in ascolto dove bussa.
 Il codice legge `process.env.PORT` e ripiega su 8000, quindi in locale non cambia niente.
+
+Da `cc7aae2` **quel che dice il file vince su quel che dice l'ambiente** (`server/src/env.ts`):
+dotenv, da solo, non sovrascrive una variabile gia' presente, ed e' il motivo per cui una
+riga `PORT` scritta li' sembrava non avere alcun effetto. Ora l'ha, il che vuol dire che
+scriverla sbagliata fa danno: se non c'e' una ragione precisa, non si tocca.
 
 La password e' quella che ha stampato `start mongo site252627`. **Il resto della riga non
 va indovinato**: l'applicazione d'esempio di Company resta sul disco dopo il clone (passo 1)
@@ -121,14 +135,12 @@ curl -s -o /dev/null -w '%{http_code}\n' https://generativelanguage.googleapis.c
 ```bash
 ssh gocker.cs.unibo.it
 (gocker): start mongo site252627          # una volta sola
-(gocker): start nodemon-22 site252627 index.js
+(gocker): start node-22 site252627 index.js
 ```
 
-**Per la consegna e per l'esame si accende `node-22`, non `nodemon-22`.** `nodemon` riparte
-da solo a ogni modifica sotto `server/src` o `shared`, e le sale delle visite guidate stanno
-in memoria per scelta dichiarata: un `git pull` mentre una classe e' collegata la scioglie.
-`nodemon` serve mentre si lavora; il giorno della dimostrazione si vuole un processo che
-riparte solo quando lo si dice.
+`index.js` avvia il Javascript gia' compilato in `server/dist`; non compila durante
+l'avvio. In locale, `npm run dev --prefix server` continua invece a eseguire i sorgenti con
+`ts-node`.
 
 ## Aggiornare (il giro di tutti i giorni)
 
@@ -137,46 +149,110 @@ Da qui si committa e si spinge; sulla macchina:
 ```bash
 cd /home/web/site252627/html
 git pull
-npm run build        # solo se sono cambiati navigator o marketplace
+npm run build
 ```
 
-`nodemon` riavvia da se' quando cambia `server/src`, e **non** quando cambia un `dist/`:
-`nodemon.json` gli fa guardare solo il codice. E' anche il motivo per cui il caricamento
-dell'immagine di un contenuto non fa piu' ripartire il server in mezzo alla richiesta.
+Se `node` non c'e' sulla macchina nuda, il `build` passa dal container come il primo giorno:
+`start node-22 site252627 deploy-build.js`. **Si rilancia tale e quale**, non solo al primo
+deploy: installa le dipendenze e ricompila le tre applicazioni. Ricompilare sempre e' voluto —
+un `dist/` saltato e' il difetto che si debugga una settimana dopo. ⚠️ Ricordarsi che occupa
+**lo slot node del sito**: spegnere il server, buildare, riaccendere.
 
-`server/.env` e i `dist/` sono in `.gitignore`, quindi un `git pull` non li tocca mai.
+⚠️ **Il riavvio va fatto a mano dopo il build.** Un `git pull` lascia in piedi il processo
+vecchio; un `git pull` senza build lascia anche il vecchio Javascript in `server/dist`.
+
+⚠️ **Anche il marketplace va ricompilato in questo giro**, non solo il navigator: il router
+sta in `state.ts` e l'elenco delle schermate in `shared/`, e sono entrambi dentro
+`marketplace/dist/`.
+
+⚠️ **E questo giro chiede anche una riga sul database**, che e' la sola cosa che un `git pull`
+non puo' sistemare da se'. L'allestimento dei musei (configurazione, pianta, copertina) e'
+passato in `server/public/allestimento/`, ma `mapPath` era stato copiato dentro i documenti al
+momento del seed: il dump in laboratorio dice ancora `/maps/…`, cioe' un indirizzo che non
+esiste piu'. Vetrina e catalogo non se ne accorgono; il navigator smette di disegnare la sala
+e il calcolo del percorso resta senza grafo.
+
+```bash
+cd server && npx ts-node src/scripts/testers.ts musei    # pianta e copertine dai file di configurazione
+cd server && npx ts-node src/scripts/testers.ts private  # visibilita' delle visite, esplicita su tutte
+cd server && npx ts-node src/scripts/testers.ts autore   # firma dei contenuti seminati: "sistema" -> "Museo"
+cd server && npx ts-node src/scripts/testers.ts mappe    # le piante si camminano ancora?
+cd server && npx ts-node src/scripts/testers.ts griglia  # la griglia toni x durate e' completa?
+```
+
+Sono tutte idempotenti: rilanciarle non fa danni, e le prime tre stampano `0` quando non
+c'e' piu' niente da fare. ⚠️ **`autore` va eseguita prima di qualunque seed successivo**: il
+seed riconosce quel che ha gia' scritto cercando l'autore, e finche' nel database c'e' il nome
+vecchio non trova niente e rigenera tutto da capo, migliaia di chiamate al modello comprese.
+
+Vale la nota del passo 4 del primo deploy: se la shell non e' dentro il cluster, Mongo non si
+raggiunge e questi due comandi vanno fatti girare in un container.
+
+`server/.env` e i `dist/` sono in `.gitignore`, quindi un `git pull` non li tocca mai. **Niente
+cambia in `.env`** per questo aggiornamento: `NAVIGATOR_ORIGIN` resta quello, e `PORT` non
+c'e' e non ci va.
 
 ## Controlli, in quest'ordine
 
 | | atteso |
 | --- | --- |
-| i log all'avvio | `on port 3000`. Se dice 8000, manca `PORT` e il resto della tabella non ha senso di essere provato |
+| l'**ora** di `log/lastout` | e' di adesso. Se e' vecchia, quel che c'e' scritto sotto e' di un processo di ore fa e non dice niente su questo avvio: e' il primo controllo, prima di leggere qualunque riga |
+| i log all'avvio | `on port 8000` |
 | `/api/health` | `{"message":"Unified Backend running"}` |
 | `/` | la soglia del marketplace, con lo sciame che compone le opere |
 | `/api/config` | `navigatorOrigin` col tuo indirizzo https, sei `thresholdArtworks` |
+| **`/vetrina` scritto a mano nella barra** | **la pagina si apre** (chiede il museo, che non si ricorda mai: e' voluto). Un **404** qui vuol dire server vecchio, ed e' il primo controllo da fare dopo questo aggiornamento |
+| **ricarica su una schermata interna** | resta dov'era invece di dare 404 |
+| **tasto "indietro" dopo tre schermate** | torna indietro una per volta, senza rimbalzare avanti |
+| **una voce del binario** | cambia schermata **senza** che la pagina lampeggi: se lampeggia, `dist/` e' vecchio e i click non vengono intercettati |
+| `/manca-davvero.css` | ancora **404**: il guscio risponde solo ai nomi delle schermate, non a tutto |
 | entra e apri una visita | finisce su `/navigator/?museum=…&visit=…` |
 | console del browser | nessuna richiesta a `:5173` o `:8000`, nessun avviso di contenuto misto |
-| `/maps/…svg` e `/images/artworks/…jpg` | 200 |
+| `/allestimento/…svg` e `/images/artworks/…jpg` | 200 |
 | «Parla» | funziona: https e' un contesto sicuro |
 
 Log: `logs site252627` da gocker, oppure `/home/web/site252627/log/`.
 
 ## Le cose che si rompono, e perche'
 
-- **Il sito non risponde affatto, e i log non dicono niente di sbagliato** → manca `PORT=3000`
-  in `server/.env`. Il processo e' vivo e in ascolto, ma su una porta che nessuno pubblica.
-  Nei log si legge `ArtAround Unified Backend on port 8000`: e' quello il segnale.
+- **`503` contro `502`**, ed e' la distinzione che fa risparmiare ore. **503**: non c'e'
+  nessun container acceso — il proxy non trova niente dietro di se'. **502**: il container
+  c'e' e nessuno ascolta dove il proxy bussa, cioe' una porta sbagliata (`PORT` in `.env`,
+  che non ci va: la esporta il container).
+- **`start` non fa niente e non lo dice.** Se un container del sito c'e' gia', `start` torna
+  al prompt senza un messaggio e senza avviare nulla: si continua a leggere il log del
+  processo di prima, che dice cose giuste su un avvio vecchio. **Guardare l'ORA di
+  `log/lastout` prima del testo** e' l'unico modo di accorgersene. Al contrario, dopo uno
+  `stop` (che stampa "Site removed") capita che il `start` seguente non prenda: la coppia che
+  rimette in piedi il sito e' `start mongo <sito>` e poi `start node-22 <sito> index.js`.
+- **`logs` e `list` non dicono lo stato.** `logs` si attacca solo a un container vivo e
+  risponde `No such service` quando e' morto — che e' un'informazione, ma arriva uguale
+  quando `start` non ha fatto niente; `list` elenca i siti che possiedi, non quel che gira.
+  Lo stato vero sono l'ora di `log/lastout` e `log/lasterr`, che sopravvivono al container.
+- **Il server non parte e nei log c'e' `Cannot find module 'X'`** → `node_modules` sulla
+  macchina e' anteriore all'ultima dipendenza aggiunta, oppure manca `server/dist`. Si risolve
+  rilanciando `deploy-build.js`.
 - **`tsc: not found` / `vite: not found` durante `npm run build`** → le devDependencies non
   sono state installate. `npm run setup` le chiede esplicitamente; se qualcuno ha installato
   a mano con `--omit=dev` o con `NODE_ENV=production`, rifare `npm run setup`.
 - **`require` fallisce all'avvio** → e' rimasto il `package.json` di Company, che si dichiara
   ESM. Il nostro va sovrascritto.
-- **`Cannot find module 'ts-node'`** → `npm install --prefix server` con `NODE_ENV=production`
-  salterebbe le devDependencies; per questo `ts-node` e `typescript` stanno fra le
-  `dependencies`.
 - **Pagina bianca su `/navigator/`** → `npm run build` non e' stato rifatto dopo un `git pull`,
   oppure e' stato fatto senza `base: '/navigator/'` (che `vite.config.ts` mette da se' solo in
   `build`, non in `dev`).
 - **Il navigator non trova le API** → e' `apiBase` in `navigator/dist/config.json`: in deploy
   deve restare **vuoto**, cosi' vale la stessa origine. Scriverci un `http://host:8000` su una
   pagina https e' contenuto misto, e il browser lo blocca in silenzio.
+- **404 ricaricando `/vetrina`, ma cliccando si naviga benissimo** → il server e' quello vecchio.
+  Cliccando non se ne accorge nessuno perche' il percorso non esce dal browser; ricaricando
+  invece lo si chiede al server, che non sa cosa sia. Rifare il build e riaccendere `node-22`.
+- **Ogni voce del binario fa lampeggiare la pagina, e il catalogo si ricarica ogni volta** →
+  `marketplace/dist/` e' vecchio: senza `interceptClicks()` i collegamenti sono navigazioni
+  vere e l'applicazione riparte da zero a ogni click. Rifare il build del marketplace.
+- **La pianta non compare nel navigator, e il percorso non si calcola** → i documenti dei musei
+  puntano ancora a `/maps/…`. Succede dopo aver aggiornato senza aver lanciato
+  `testers.ts musei`, o dopo aver ripristinato un dump vecchio. Si vede subito: la carta del
+  museo si apre, la visita parte, e la sala resta vuota.
+- **Il tasto "indietro" non esce piu' da una schermata** → e' il caso che `redirectTo()` esiste
+  per evitare (una correzione di rotta che si impila invece di sostituire). Se ricompare,
+  qualcuno ha rimesso `goTo()` in una delle tre guardie: `state.md` §4.1-bis.

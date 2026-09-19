@@ -1,0 +1,36 @@
+{
+  "qid": "Q6373",
+  "name": "British Museum",
+  "location": "Camden",
+  "created": "1753",
+  "mapPath": "/allestimento/British Museum.svg",
+  "imagePath": "/allestimento/British Museum.jpeg",
+  "visitImages": {
+    "Infantile": "/allestimento/British Museum - Infantile.jpg",
+    "Semplice": "/allestimento/British Museum - Semplice.jpg",
+    "Medio": "/allestimento/British Museum - Medio.jpg",
+    "Avanzato": "/allestimento/British Museum - Avanzato.jpg"
+  },
+  "activeArtworks": [
+    "Q18173428",
+    "Q11765908",
+    "Q1458937",
+    "Q3565037",
+    "Q1603141",
+    "Q2709726",
+    "Q17060006",
+    "Q1218084",
+    "Q2324840",
+    "Q17064861",
+    "Q21585351",
+    "Q748518",
+    "Q17630850",
+    "Q48584",
+    "Q1400866",
+    "Q252485",
+    "Q405008",
+    "Q524447",
+    "Q1471650",
+    "Q254170"
+  ]
+}

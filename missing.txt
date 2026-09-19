@@ -1,21 +1,16 @@
 MANCANTI
-- perche l'hashtag?
 - rimuovere bullshit e caratteri strani
 - ottimizzazioni
-- svg piu' dettagliati e complessi, opere tonde?
-- adozione mediante unico file di configurazione
-- mettere imagini per scelta museo e per le visite
 - superseed, rework dei prezzi, - gli uffizi hanno tutto gratis
-http://localhost:8000/#/componi da autore le cose da selezionare rendono la pagina lunghissima
 MOBILE
+- sidebar invece cha un footer da mobile?
 - hard reload?
-- rendere impossibile creare visite senza alcun item
-- ti fa entrare dando per scontata la scelta del museo
-- light mode selettore navigator
-- simbolo di caricamento?
 DA DISCUTERE
 DA TESTARE
 - testare interazioni con movimento, logistica e indicazioni 
+- eliminare una visita, cosa succede? 
+- eliminazione di visite da utente, autore 
+- eliminazione di item da autore
 - testare il nuovo sistema di audio su iphone
 - Un autore dovrebbe avere più filtri che riguardano le vendite che ha fatto. Tipo filtrarle per periodi (vendite effettuate in mese x anno y)
 - E se avesse piu' piani?
@@ -33,8 +28,13 @@ e sapere che il primo step è recarsi al primo piano? Il tasto di cui parlavo po
 - testare funzionalita del curatore
 - ordine delle visite
 PROBLEMI
+se usao a posizione, epr capire l'asse y si deve basare unicamente sul piano selezionato (non puo indovinare sovrapposizioni)
+posso associare piu item tipo difficile e facile allo stesso artwork?
 da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede dopo che faccio una domanda e clicco
 fuori dalla finestra
 la barra di ricerca con gli item e visite ha i bordi strani se cerchi
 
-
+- sistemare i messaggi di avvio del sito 
+- sistemare i nomi: retino, soglia
+- la preview?
+- swarm su schermi di dimensioni diverse
