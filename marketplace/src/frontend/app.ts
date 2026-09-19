@@ -1,6 +1,8 @@
 /**
  * Collega Alpine allo stato del marketplace e registra i componenti locali. I
- * binding restano sottili perche' Alpine li valuta come stringhe a runtime.
+ * binding restano sottili perche' Alpine li valuta come stringhe a runtime. Lo
+ * sciame vaga finche' arriva la prima figura e lascia quella corrente soltanto
+ * quando la successiva e' pronta; ogni immagine viene elaborata una volta sola.
  */
 import { state } from "./state.js";
 import { percorsoMiniatura, THEME_KEY } from "../../../shared/constants.js";
@@ -56,6 +58,7 @@ export function swarm() {
 
     shapes: [] as Shape[],
     shapeIndex: -1,
+    loadingShapes: true,
 
     phase: "hold" as "morph" | "hold",
     phaseAt: 0,
@@ -132,7 +135,6 @@ export function swarm() {
 
     async loadShapes(this: any) {
       try {
-
         const config = await fetch("/api/config")
           .then((r) => (r.ok ? r.json() : {}))
           .catch(() => ({}) as any);
@@ -141,7 +143,6 @@ export function swarm() {
         ).filter((a: any) => a && a.imagePath);
 
         for (const artwork of figures) {
-
           const shape = await this.shapeFromImage(
             percorsoMiniatura(artwork.imagePath),
           );
@@ -150,7 +151,10 @@ export function swarm() {
 
           if (this.shapeIndex < 0) this.compose();
         }
-      } catch {}
+      } catch {
+      } finally {
+        this.loadingShapes = false;
+      }
     },
 
     shapeFromImage(this: any, src: string): Promise<Shape | null> {
@@ -413,7 +417,13 @@ export function swarm() {
     tick(this: any, now: number, dt: number) {
       let elapsed = now - this.phaseAt;
 
-      if (this.phase === "hold" && elapsed > this.HOLD) {
+      const nextShapeReady = this.shapeIndex + 1 < this.shapes.length;
+      const canRestart = !this.loadingShapes && this.shapes.length > 1;
+      if (
+        this.phase === "hold" &&
+        elapsed > this.HOLD &&
+        (nextShapeReady || canRestart)
+      ) {
         this.compose();
         elapsed = 0;
       } else if (this.phase === "morph" && elapsed > this.MORPH) {
