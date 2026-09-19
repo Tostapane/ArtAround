@@ -2,7 +2,8 @@
  * Collega Alpine allo stato del marketplace e registra i componenti locali. I
  * binding restano sottili perche' Alpine li valuta come stringhe a runtime. Lo
  * sciame vaga finche' arriva la prima figura e lascia quella corrente soltanto
- * quando la successiva e' pronta; ogni immagine viene elaborata una volta sola.
+ * quando la successiva e' pronta. Le miniature dello sciame ignorano la cache
+ * HTTP e ogni immagine viene elaborata una volta sola per caricamento di pagina.
  */
 import { state } from "./state.js";
 import { percorsoMiniatura, THEME_KEY } from "../../../shared/constants.js";
@@ -157,19 +158,30 @@ export function swarm() {
       }
     },
 
-    shapeFromImage(this: any, src: string): Promise<Shape | null> {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            resolve(this.halftone(img));
-          } catch {
-            resolve(null);
-          }
-        };
-        img.onerror = () => resolve(null);
-        img.src = src;
-      });
+    async shapeFromImage(this: any, src: string): Promise<Shape | null> {
+      let objectUrl = "";
+      try {
+        const response = await fetch(src, { cache: "no-store" });
+        if (!response.ok) return null;
+
+        objectUrl = URL.createObjectURL(await response.blob());
+        return await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              resolve(this.halftone(img));
+            } catch {
+              resolve(null);
+            }
+          };
+          img.onerror = () => resolve(null);
+          img.src = objectUrl;
+        });
+      } catch {
+        return null;
+      } finally {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      }
     },
 
     sample(this: any, img: HTMLImageElement) {
