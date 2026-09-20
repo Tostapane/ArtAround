@@ -485,7 +485,7 @@
 
       <section
         x-show="view === 'soglia'"
-        class="relative min-h-[100dvh] overflow-hidden bg-structure text-on-structure"
+        class="soglia relative h-[100dvh] overflow-hidden bg-structure text-on-structure"
       >
         <!-- fondale animato -->
         <canvas
@@ -497,7 +497,7 @@
         <div class="sciame-velo" aria-hidden="true"></div>
 
         <div
-          class="relative flex min-h-[100dvh] flex-col justify-between p-6 sm:p-10 lg:p-16"
+          class="relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] px-[clamp(1rem,4vw,4rem)] py-[clamp(1rem,4vh,4rem)]"
         >
           <!-- LINGUA -->
           <div class="flex justify-start">
@@ -520,9 +520,9 @@
             </div>
           </div>
 
-          <div class="my-auto max-w-4xl py-16">
+          <div class="flex min-h-0 max-w-4xl flex-col justify-center py-4">
             <svg
-              class="marchio mb-8 text-accent"
+              class="marchio mb-[clamp(1rem,4vh,2rem)] text-accent"
               viewBox="0 0 64 64"
               role="img"
               :aria-label="t(`ArtAround`)"
@@ -535,11 +535,13 @@
               ART<br />AROUND<span class="text-accent">.</span>
             </h1>
             <p
-              class="measure mt-8 text-title-3 text-on-structure/85"
+              class="measure mt-[clamp(1rem,4vh,2rem)] text-title-3 text-on-structure/85"
               x-text="t(`Prepara, scopri e vivi la visita di un museo, alla tua maniera. Scegli un percorso già pronto, componi il tuo, o fatti guidare.`)"
             ></p>
             <!-- ACCESSO -->
-            <div class="mt-10 flex flex-col gap-3 sm:flex-row">
+            <div
+              class="mt-[clamp(1.5rem,5vh,2.5rem)] flex flex-col gap-3 sm:flex-row"
+            >
               <button
                 type="button"
                 @click="enterFrom('marketplace')"

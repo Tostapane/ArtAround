@@ -1,6 +1,5 @@
 MANCANTI
 - rimuovere bullshit e caratteri strani
-- ottimizzazioni
 - superseed, rework dei prezzi, - gli uffizi hanno tutto gratis
 MOBILE
 - sidebar invece cha un footer da mobile?
@@ -34,7 +33,7 @@ da mobile se chiudo la card non riesco a riaprirla, l'app era freezata, succede 
 fuori dalla finestra
 la barra di ricerca con gli item e visite ha i bordi strani se cerchi
 
-- sistemare i messaggi di avvio del sito 
 - sistemare i nomi: retino, soglia
 - la preview?
 - swarm su schermi di dimensioni diverse
+-  

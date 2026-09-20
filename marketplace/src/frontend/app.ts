@@ -448,7 +448,6 @@ export function swarm() {
     },
 
     advance(this: any, dt: number, phase: string, time = 0, progress = 1) {
-      const canvas = this.canvas as HTMLCanvasElement;
       const idle = this.shapeIndex < 0;
       const damping = 0.88;
 
@@ -463,9 +462,12 @@ export function swarm() {
       const sy = this.sy as Float32Array;
       const bow = this.bow as Float32Array;
       const delay = this.delay as Float32Array;
-      const midX = canvas.width / 2;
-      const midY = canvas.height / 2;
       const morphing = phase === "morph";
+      const { cx, cy, roomW, roomH } = this.bounds();
+      const left = cx - roomW / 2;
+      const right = cx + roomW / 2;
+      const top = cy - roomH / 2;
+      const bottom = cy + roomH / 2;
 
       for (let i = 0; i < count; i++) {
         if (idle) {
@@ -474,12 +476,19 @@ export function swarm() {
           vx[i] += Math.sin(flowY + time * 0.25) * 5 * dt;
           vy[i] += Math.cos(flowX - time * 0.2) * 5 * dt;
 
-          vx[i] += (midX - px[i]) * 0.05 * dt;
-          vy[i] += (midY - py[i]) * 0.05 * dt;
           vx[i] *= damping;
           vy[i] *= damping;
           px[i] += vx[i];
           py[i] += vy[i];
+
+          if (px[i] < left || px[i] > right) {
+            px[i] = Math.max(left, Math.min(right, px[i]));
+            vx[i] *= -1;
+          }
+          if (py[i] < top || py[i] > bottom) {
+            py[i] = Math.max(top, Math.min(bottom, py[i]));
+            vy[i] *= -1;
+          }
         } else if (!morphing) {
 
           px[i] = tx[i];

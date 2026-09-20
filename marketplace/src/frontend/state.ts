@@ -33,6 +33,7 @@ import {
   kindById,
   languages,
   percorsoMiniatura,
+  versioneImmagine,
   SOURCE_LANG,
   WORDS_PER_MINUTE,
   MAX_VISITE_VISITATORE,
@@ -1708,12 +1709,12 @@ export class AppState {
 
   visitImage(v: Visit | null): string {
     if (!v) return "";
-    return v.imagePath || "";
+    return versioneImmagine(v.imagePath || "");
   }
 
   museumImage(m: Museum | null): string {
     if (!m || !m.imagePath) return "";
-    return encodeURI(m.imagePath);
+    return encodeURI(versioneImmagine(m.imagePath));
   }
 
   async caricaImmagine(event: Event) {
@@ -1927,7 +1928,7 @@ export class AppState {
 
   artworkImage(about: Artwork | Soggetto | string | null | undefined): string {
     if (!about || typeof about !== "object") return "";
-    return about.imagePath || about.imageUri || "";
+    return versioneImmagine(about.imagePath || about.imageUri || "");
   }
 
   miniatura(figura: string): string {
@@ -2328,7 +2329,7 @@ export class AppState {
     const item = this.findItem(id);
     if (!item || !isItem(item)) return "";
     if (item.about) return this.artworkImage(item.about);
-    return item.imagePath || "";
+    return versioneImmagine(item.imagePath || "");
   }
 
   itemInVisit(id: string) {

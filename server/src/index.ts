@@ -1,7 +1,8 @@
 /**
  * Avvia Express, collega Mongo e monta API, file pubblici, navigator, cataloghi e
  * sorgenti. I file reali precedono il fallback delle sole rotte marketplace, cosi'
- * un asset mancante resta 404.
+ * un asset mancante resta 404. Le immagini hanno nomi stabili e vengono quindi
+ * rivalidate, invece di essere dichiarate immutabili.
  */
 import { MONGO_URI, PROJECT_ROOT, SERVER_ROOT } from "./env";
 import express from "express";
@@ -40,8 +41,7 @@ app.use("/api", resolveSession);
 app.use(
   "/images",
   express.static(path.join(SERVER_ROOT, "public/images"), {
-    maxAge: "30d",
-    immutable: true,
+    maxAge: 0,
   }),
 );
 app.use(express.static(path.join(SERVER_ROOT, "public")));

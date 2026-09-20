@@ -43,12 +43,16 @@ watch(
   { immediate: true },
 );
 
+const availableVisits = computed(() =>
+  visits.value.filter((v) => !incompleta(v)),
+);
+
 const availableLevels = computed(() => [
-  ...new Set(visits.value.map((v) => v.level).filter(Boolean)),
+  ...new Set(availableVisits.value.map((v) => v.level).filter(Boolean)),
 ]);
 
 const filteredVisits = computed(() =>
-  visits.value.filter((v) => {
+  availableVisits.value.filter((v) => {
     if (levelFilter.value !== "tutti" && v.level !== levelFilter.value)
       return false;
     if (durationFilter.value === "tutti") return true;

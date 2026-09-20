@@ -124,12 +124,22 @@ export function pickLanguage(saved: string | null): Language {
 // ============================================================================
 
 const CARTELLA_OPERE = "/images/artworks/";
+const VERSIONE_IMMAGINI = "2";
+
+export function versioneImmagine(figura: string): string {
+  if (!figura.startsWith("/images/")) return figura;
+  const separatore = figura.includes("?") ? "&" : "?";
+  return `${figura}${separatore}v=${VERSIONE_IMMAGINI}`;
+}
 
 export function percorsoMiniatura(figura: string): string {
   if (!figura.startsWith(CARTELLA_OPERE)) return figura;
-  const punto = figura.lastIndexOf(".");
+  const inizioQuery = figura.indexOf("?");
+  const percorso = inizioQuery < 0 ? figura : figura.slice(0, inizioQuery);
+  const query = inizioQuery < 0 ? "" : figura.slice(inizioQuery);
+  const punto = percorso.lastIndexOf(".");
   if (punto < 0) return figura;
-  return `${figura.slice(0, punto)}-c${figura.slice(punto)}`;
+  return `${percorso.slice(0, punto)}-c${percorso.slice(punto)}${query}`;
 }
 
 // ============================================================================

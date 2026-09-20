@@ -9,6 +9,7 @@ import {
   LANG_KEY,
   kindById,
   pickLanguage,
+  versioneImmagine,
   type Language,
 } from "../../shared/constants";
 import { getMuseum, getMuseumArtworks, getVisitItems } from "./api";
@@ -177,7 +178,7 @@ export function stopImage(stop: Match): { src: string; name: string } {
 
 function mediaUrl(src: string): string {
   if (src.startsWith("http")) return src;
-  return mediaOrigin() + src;
+  return mediaOrigin() + versioneImmagine(src);
 }
 
 // ============================================================================
