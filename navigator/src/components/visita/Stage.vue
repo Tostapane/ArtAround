@@ -11,7 +11,7 @@
  */
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from "vue";
 import {
-  includeOptional,
+  skipOptional,
   isOptionalItem,
   map,
   matchedContent,
@@ -541,7 +541,7 @@ onMounted(() => {
 });
 watch(map, redraw);
 watch(matchedContent, redraw, { deep: true });
-watch(includeOptional, redraw);
+watch(skipOptional, redraw);
 watch(stageView, (v) => {
   if (v === "mappa") redraw();
 });
@@ -646,13 +646,12 @@ const optionalCount = computed(() => {
       class="mx-3 mb-2 flex shrink-0 cursor-pointer items-center gap-3 rounded-card border border-line bg-surface px-4 py-3"
     >
       <input
-        v-model="includeOptional"
+        v-model="skipOptional"
         type="checkbox"
         class="h-5 w-5 shrink-0 accent-[var(--accent)]"
       />
       <span class="text-small">
-        <span class="font-medium">{{ t("Includi le {n} tappe opzionali", { n: optionalCount }) }}</span>
-        <span class="block text-caption text-muted">{{ t("Se hai ancora tempo") }}</span>
+        <span class="font-medium">{{ t("Salta le {n} tappe opzionali", { n: optionalCount }) }}</span>
       </span>
     </label>
 
@@ -664,7 +663,7 @@ const optionalCount = computed(() => {
       <div
         class="mappa-viewport relative mx-auto min-h-72 w-full max-w-3xl flex-1 overflow-hidden"
         :class="{
-          'mappa-senza-opzionali': !includeOptional,
+          'mappa-senza-opzionali': skipOptional,
           'mappa-armata': props.armed,
         }"
       >
@@ -720,7 +719,8 @@ const optionalCount = computed(() => {
                 type="button"
                 class="lastra filo-accento tappa-elenco flex w-full items-center gap-4 p-4 text-left"
                 :class="{
-                  'opacity-60': isOptionalItem(entry.match.item['@id']) && !includeOptional,
+                  'tappa-elenco-opzionale': isOptionalItem(entry.match.item['@id']),
+                  'opacity-60': isOptionalItem(entry.match.item['@id']) && skipOptional,
                   'tappa-elenco-corrente': entry.index === props.currentIndex,
                 }"
                 :style="roomStyle(entry.match, entry.index === props.currentIndex)"
@@ -863,6 +863,11 @@ const optionalCount = computed(() => {
     transparent 48%
   );
 }
+.tappa-elenco-opzionale:not(.tappa-elenco-corrente) {
+  --room-color: var(--slate);
+  --room-accent: var(--slate);
+  --room-veil: var(--slate-velo);
+}
 
 .mappa :deep(.segnalino-posizione) {
   pointer-events: none;
@@ -914,9 +919,13 @@ const optionalCount = computed(() => {
 }
 
 .mappa :deep(.nodo-opzionale) {
-  stroke: var(--accent);
+  fill: var(--slate);
+  stroke: var(--slate);
   stroke-width: 2px;
   stroke-dasharray: 5 4;
+}
+.mappa :deep(.nodo-opzionale + .numero-tappa) {
+  stroke: var(--slate);
 }
 .mappa-senza-opzionali :deep(.nodo-opzionale) {
   opacity: 0.45;

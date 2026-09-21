@@ -1269,7 +1269,7 @@
                 <div class="mt-12">
                   <h2
                     class="font-display text-title-2"
-                    x-text="t(`Riprendi`)"
+                    x-text="t(`Inizia una visita`)"
                   ></h2>
                   <ul class="mt-4 flex flex-col gap-3">
                     <template
@@ -1307,7 +1307,7 @@
                           <a
                             :href="'/visita/' + encodeURIComponent(v['@id'])"
                             class="btn-secondario shrink-0"
-                            x-text="t(`Completa`)"
+                            x-text="t(`Da comprare`)"
                           ></a>
                         </template>
                       </li>
@@ -2468,12 +2468,12 @@
                           <p class="mt-1 flex flex-wrap items-center gap-2">
                             <span
                               x-show="v.accessKey"
-                              class="pastiglia pastiglia-ametista lowercase"
+                              class="pastiglia pastiglia-ametista"
                             >
                               <svg class="h-3.5 w-3.5" aria-hidden="true">
                                 <use href="#ico-chiave" />
                               </svg>
-                              <span x-text="v.accessKey"></span>
+                              <span x-text="t(`Visita guidata`)"></span>
                             </span>
                             <span
                               class="tabular text-caption text-muted"
@@ -3096,10 +3096,8 @@
                               </svg>
                             </span>
 
-                            <div
-                              class="riga-corpo flex flex-wrap items-center gap-3"
-                            >
-                              <div class="min-w-0 grow basis-full sm:basis-0">
+                            <div class="riga-corpo flex flex-col gap-2">
+                              <div class="min-w-0">
                                 <template x-if="stop.tipo === 'item'">
                                   <div>
                                     <p
@@ -3130,7 +3128,7 @@
                                 </template>
                               </div>
 
-                              <div class="flex shrink-0 items-center gap-1">
+                              <div class="flex flex-wrap items-center justify-end gap-1 self-stretch">
                                 <button
                                   type="button"
                                   x-show="stop.tipo === 'item'"

@@ -74,7 +74,7 @@ export function setLanguage(lang: Language) {
 
 // ============================================================================
 
-export const includeOptional = ref(false);
+export const skipOptional = ref(false);
 
 export function isOptionalItem(itemId: string): boolean {
   if (!visit.value) return false;
@@ -187,7 +187,7 @@ export function clearVisit() {
   visit.value = undefined;
   matchedContent.value = [];
   contentVisitId = "";
-  includeOptional.value = false;
+  skipOptional.value = false;
   currentArtwork.value = null;
   lastVisitIndex.value = -1;
   openingShown.value = false;
@@ -197,7 +197,7 @@ export function setCustomVisit(v: Visit, content: Match[]) {
   visit.value = v;
   matchedContent.value = content;
   contentVisitId = v["@id"];
-  includeOptional.value = false;
+  skipOptional.value = false;
   currentArtwork.value = null;
   lastVisitIndex.value = -1;
   openingShown.value = false;
@@ -205,7 +205,7 @@ export function setCustomVisit(v: Visit, content: Match[]) {
 
 export function setVisit(v: Visit) {
   visit.value = v;
-  includeOptional.value = false;
+  skipOptional.value = false;
   currentArtwork.value = null;
   lastVisitIndex.value = -1;
   openingShown.value = false;

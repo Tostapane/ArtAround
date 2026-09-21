@@ -2332,16 +2332,46 @@ export class AppState {
     return this.draft.tappe.some((t) => t.tipo === "item" && t.value === id);
   }
 
+  private editorItemOrder(): Map<string, number> {
+    const groups = this.percorrenza(this.groupByArtwork(this.visibleItems()));
+    const order = new Map<string, number>();
+    let position = 0;
+    for (const group of groups) {
+      for (const item of group.items) {
+        order.set(item["@id"], position);
+        position++;
+      }
+    }
+    return order;
+  }
+
   addStop(tipo: "item" | "logistica", value: string = "") {
     if (tipo === "item" && this.itemInVisit(value)) {
       return this.showError("Questa descrizione è già nel percorso.");
     }
-    this.draft.tappe.push({ tipo, value });
-    if (tipo === "item") {
-      this.announce(
-        `${this.itemName(value)} aggiunta. ${this.stopCount()} tappe nel percorso.`,
-      );
+    if (tipo === "logistica") {
+      this.draft.tappe.push({ tipo, value });
+      return;
     }
+
+    const order = this.editorItemOrder();
+    const position = order.get(value);
+    let insertAt = this.draft.tappe.length;
+    if (position !== undefined) {
+      for (let i = 0; i < this.draft.tappe.length; i++) {
+        const stop = this.draft.tappe[i];
+        if (stop.tipo !== "item") continue;
+        const stopPosition = order.get(stop.value);
+        if (stopPosition !== undefined && stopPosition > position) {
+          insertAt = i;
+          break;
+        }
+      }
+    }
+    this.draft.tappe.splice(insertAt, 0, { tipo, value });
+    this.announce(
+      `${this.itemName(value)} aggiunta. ${this.stopCount()} tappe nel percorso.`,
+    );
   }
 
   removeStop(index: number) {

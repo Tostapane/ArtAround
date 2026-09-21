@@ -20,7 +20,7 @@ import { getArtworkPreview } from "@/api";
 import {
   stopName,
   stopSubtitle,
-  includeOptional,
+  skipOptional,
   isOptionalItem,
   loadVisitContent,
   map,
@@ -144,7 +144,7 @@ function stepIndex(from: number, step: number): number {
   for (let i = from + step; i >= 0 && i < matchedContent.value.length; i += step) {
     const match = matchedContent.value[i];
     if (!match) return -1;
-    if (includeOptional.value || !isOptionalItem(match.item["@id"])) return i;
+    if (!skipOptional.value || !isOptionalItem(match.item["@id"])) return i;
   }
   return -1;
 }
@@ -191,7 +191,7 @@ const canStartQuiz = computed(
 // --- Avanzamento: "Tappa 3 di 13" -----------------------------------------
 const navigableStops = computed(() =>
   matchedContent.value.filter(
-    (m) => includeOptional.value || !isOptionalItem(m.item["@id"]),
+    (m) => !skipOptional.value || !isOptionalItem(m.item["@id"]),
   ),
 );
 const currentPosition = computed(() => {
