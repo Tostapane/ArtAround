@@ -1154,6 +1154,7 @@ export class AppState {
         const u = await ArtAPI.buy(visit["@id"]);
         this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
         this.userCollection = u.collezione;
+        await this.reloadVisits();
       } catch (e) {
         this.showError((e as Error).message);
       }
@@ -1447,17 +1448,10 @@ export class AppState {
   marketDurationOptions(): { value: string; label: string }[] {
     if (this.marketType === "opere" || this.marketType === "meta")
       return this.opzioniSecondi();
-    if (this.marketType === "visite") {
-      return visitDurationBands.map((b) => ({
-        value: b.value,
-        label: this.t(b.label),
-      }));
-    }
-    return [];
+    return this.opzioniFasce();
   }
 
   private matchesMarketDuration(secondi: number): boolean {
-    if (this.marketType !== "visite") return true;
     return this.inFascia(this.marketDurationFilter, secondi);
   }
 
@@ -2388,6 +2382,20 @@ export class AppState {
       if (it && isItem(it)) tot += Number(it.timeRequired) || 0;
     }
     return tot;
+  }
+
+  selectedItemsPrice(): number {
+    const ids = new Set(
+      this.draft.tappe
+        .filter((t) => t.tipo === "item")
+        .map((t) => t.value),
+    );
+    let total = 0;
+    for (const id of ids) {
+      const item = this.findItem(id);
+      if (item && isItem(item)) total += Number(item.price) || 0;
+    }
+    return total;
   }
 
   addQuizQuestion() {

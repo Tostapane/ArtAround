@@ -404,7 +404,7 @@ router.post("/", async (req, res) => {
         name,
         level: payload.level || CUSTOM_LEVEL,
         duration,
-        price: accessKey ? 0 : payload.prezzo || payload.price,
+        price: accessKey ? 0 : prezzoDichiarato,
         author,
         license: payload.licenza || payload.license || DEFAULT_LICENSE,
         ofMuseum: museoUri,

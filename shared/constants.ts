@@ -222,9 +222,10 @@ export const visitDurationBands: {
   label: string;
   test: (min: number) => boolean;
 }[] = [
-  { value: "breve", label: "Meno di 30 min", test: (m) => m < 30 },
-  { value: "media", label: "Da 30 a 60 min", test: (m) => m >= 30 && m <= 60 },
-  { value: "lunga", label: "Più di 60 min", test: (m) => m > 60 },
+  { value: "fino-60", label: "Fino a 60 min", test: (m) => m <= 60 },
+  { value: "60-120", label: "Da 61 a 120 min", test: (m) => m > 60 && m <= 120 },
+  { value: "120-180", label: "Da 121 a 180 min", test: (m) => m > 120 && m <= 180 },
+  { value: "oltre-180", label: "Più di 180 min", test: (m) => m > 180 },
 ];
 
 export function durationMinutes(totalSeconds: number): number {

@@ -55,12 +55,20 @@ const nextLabel = computed(() => {
 
 const opera = ref<HTMLElement | null>(null);
 const imgBroken = ref(false);
+const imgLoading = ref(false);
 watch(
   () => props.content,
   () => {
-    imgBroken.value = false;
     if (opera.value) opera.value.scrollTop = 0;
   },
+);
+watch(
+  () => (props.content ? stopImage(props.content).src : ""),
+  (src) => {
+    imgBroken.value = false;
+    imgLoading.value = Boolean(src);
+  },
+  { immediate: true },
 );
 
 const immagine = computed(() => {
@@ -138,14 +146,28 @@ const stile = computed(() => {
       <template v-if="content">
 
         <div>
-          <img
-            v-if="immagine.src && !imgBroken"
-            class="figura block max-h-[60dvh] w-full rounded-none bg-surface-2 object-contain
-                   lg:max-h-[52vh]"
-            :src="immagine.src"
-            :alt="t('Immagine di {nome}', { nome: immagine.name })"
-            @error="imgBroken = true"
-          />
+          <div v-if="immagine.src && !imgBroken" class="bg-surface-2">
+            <div
+              v-if="imgLoading"
+              class="flex h-48 items-center justify-center"
+              role="status"
+              :aria-label="t('Caricamento…')"
+            >
+              <span
+                class="h-8 w-8 animate-spin rounded-full border-2 border-brass border-r-transparent"
+                aria-hidden="true"
+              ></span>
+            </div>
+            <img
+              v-show="!imgLoading"
+              :key="immagine.src"
+              class="figura max-h-[60dvh] w-full rounded-none object-contain lg:max-h-[52vh]"
+              :src="immagine.src"
+              :alt="t('Immagine di {nome}', { nome: immagine.name })"
+              @load="imgLoading = false"
+              @error="imgLoading = false; imgBroken = true"
+            />
+          </div>
 
           <div class="min-w-0 p-4 pb-0">
             <div class="flex items-baseline gap-3">

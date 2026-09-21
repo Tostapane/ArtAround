@@ -3494,13 +3494,13 @@
 
                 <div
                   x-show="currentUserRole === 'autore' && !draft.guidata"
-                  class="grid gap-6 sm:grid-cols-2"
+                  class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
                 >
                   <div>
                     <label
                       for="v-prezzo"
                       class="etichetta"
-                      x-text="t(`Prezzo (€)`)"
+                      x-text="t(`Prezzo (ricavo autore)`)"
                     ></label>
                     <input
                       id="v-prezzo"
@@ -3510,6 +3510,16 @@
                       x-model="draft.price"
                       class="campo tabular"
                     />
+                  </div>
+                  <div>
+                    <span
+                      class="etichetta"
+                      x-text="t(`Prezzo item selezionati`)"
+                    ></span>
+                    <output
+                      class="campo tabular"
+                      x-text="readablePrice(selectedItemsPrice())"
+                    ></output>
                   </div>
                   <div>
                     <label
@@ -3527,6 +3537,10 @@
                       ></template>
                     </select>
                   </div>
+                  <p
+                    class="text-caption text-muted sm:col-span-2 lg:col-span-3"
+                    x-text="t(`Il prezzo per l'utente somma questo ricavo ai prezzi degli item che non possiede già.`)"
+                  ></p>
                 </div>
 
               </div>
