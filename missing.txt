@@ -1,7 +1,0 @@
-MANCANTI
-- rimuovere bullshit e caratteri strani
-- permessi
-- account
-- generare qr code dalle macchine
-- rimuovere file dalle macchine del lab
--0 mettere il prezzo a 0 non significa visita con prezzo 0, dovremmo mostrare il prezzo corrente da qualche aprte
