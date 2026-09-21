@@ -126,7 +126,10 @@ router.get("/:id/items", async (req, res) => {
 
     const byId = new Map(items.map((it: any) => [it["@id"], it]));
     const ordered = ids.map((itemId) => byId.get(itemId)).filter(Boolean);
-    const user = sessionUser(req).username;
+    const chi = sessionUser(req);
+    if (chi.role === "curatore" && visit.visibility !== "privato")
+      return res.json(ordered);
+    const user = chi.username;
     const owned = await purchasedBy(user);
     res.json(readableItems(ordered, user, owned));
   } catch (err: any) {

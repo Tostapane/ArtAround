@@ -10,6 +10,7 @@ import { artworkByQid } from "@/state";
 import { mediaOrigin } from "@/config";
 import { bussola, localizzabile, rank, stima, type Candidato } from "@/localization";
 import { t } from "@/i18n";
+import { versioneImmagine } from "../../../../shared/constants";
 
 const props = defineProps<{ sensorError: string; posizioneAttiva: boolean }>();
 const emit = defineEmits<{
@@ -78,7 +79,7 @@ function immagineOpera(qid: string): string {
   const opera = artworkByQid(qid);
   if (!opera || !opera.imagePath) return "";
   if (opera.imagePath.startsWith("http")) return opera.imagePath;
-  return mediaOrigin() + opera.imagePath;
+  return mediaOrigin() + versioneImmagine(opera.imagePath);
 }
 
 function trova() {

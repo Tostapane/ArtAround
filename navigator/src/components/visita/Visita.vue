@@ -27,7 +27,6 @@ import {
   notesAfter,
   openingNotes,
   matchedContent,
-  stageView,
   setStageView,
   visit,
   posizioneAttiva,
@@ -89,7 +88,7 @@ watch(
 
 // --- Le quattro schede del telefono ----------------------------------------
 type VistaMobile = "mappa" | "elenco" | "opera" | "domande";
-const vistaMobile = ref<VistaMobile>(stageView.value);
+const vistaMobile = ref<VistaMobile>("opera");
 
 function apriVista(v: VistaMobile) {
   vistaMobile.value = v;

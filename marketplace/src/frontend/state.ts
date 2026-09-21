@@ -33,6 +33,7 @@ import {
   kindById,
   languages,
   percorsoMiniatura,
+  versioneImmagine,
   SOURCE_LANG,
   WORDS_PER_MINUTE,
   MAX_VISITE_VISITATORE,
@@ -232,7 +233,7 @@ export class AppState {
       if (head === vecchio)
         return { view: "vetrina", param: "", tipo: vecchio };
     }
-    if (head === "") return { view: "soglia", param: "", tipo: "" };
+    if (head === "") return { view: "landing", param: "", tipo: "" };
     return null;
   }
 
@@ -243,15 +244,15 @@ export class AppState {
   applyRoute() {
     const letta = this.parsePath(window.location.pathname);
     const { view, param, tipo } = letta || {
-      view: "soglia" as View,
+      view: "landing" as View,
       param: "",
       tipo: "",
     };
     if (tipo === "visite" || tipo === "opere") this.marketType = tipo;
-    const pubbliche: View[] = ["soglia", "accedi", "registrati"];
+    const pubbliche: View[] = ["landing", "accedi", "registrati"];
 
     if (!this.currentUser) {
-      this.view = pubbliche.includes(view) ? view : "soglia";
+      this.view = pubbliche.includes(view) ? view : "landing";
       this.param = "";
       this.announceView();
       return;
@@ -304,7 +305,7 @@ export class AppState {
 
   guscioMontato(): boolean {
     if (!this.currentUser) return false;
-    if (this.view === "soglia") return false;
+    if (this.view === "landing") return false;
     if (this.view === "accedi") return false;
     if (this.view === "registrati") return false;
     return true;
@@ -323,7 +324,7 @@ export class AppState {
   viewLabel(): string {
     const labels: Record<View, string> = {
       avvio: "ArtAround",
-      soglia: "ArtAround",
+      landing: "ArtAround",
       accedi: this.t("Accedi"),
       registrati: this.t("Crea un profilo"),
       musei: this.t("Scegli il museo"),
@@ -434,7 +435,7 @@ export class AppState {
   }
 
   private sessionLost() {
-    this.resetToThreshold();
+    this.resetToLanding();
     this.showError("La sessione è scaduta: entra di nuovo.");
   }
 
@@ -557,10 +558,10 @@ export class AppState {
   async logout() {
     await ArtAPI.logout();
     clearToken();
-    this.resetToThreshold();
+    this.resetToLanding();
   }
 
-  private resetToThreshold() {
+  private resetToLanding() {
     this.currentUser = null;
     this.currentUserRole = null;
     this.wallet = 0;
@@ -594,7 +595,7 @@ export class AppState {
     this.salesTypeFilter = "tutti";
     this.editorFilter = "tutti";
     this.draft = this.emptyDraft();
-    this.goTo("soglia");
+    this.goTo("landing");
   }
 
   private museumEntityId(): string | null {
@@ -612,6 +613,8 @@ export class AppState {
   async selectMuseum(m: Museum) {
     this.selectedMuseum = m;
     storeMuseumQid(m.qid);
+    this.marketSearch = "";
+    this.librarySearch = "";
     this.museumArtworkSearch = "";
 
     if (await this.goToNavigatorIfAsked()) return;
@@ -1708,12 +1711,12 @@ export class AppState {
 
   visitImage(v: Visit | null): string {
     if (!v) return "";
-    return v.imagePath || "";
+    return versioneImmagine(v.imagePath || "");
   }
 
   museumImage(m: Museum | null): string {
     if (!m || !m.imagePath) return "";
-    return encodeURI(m.imagePath);
+    return encodeURI(versioneImmagine(m.imagePath));
   }
 
   async caricaImmagine(event: Event) {
@@ -1927,7 +1930,7 @@ export class AppState {
 
   artworkImage(about: Artwork | Soggetto | string | null | undefined): string {
     if (!about || typeof about !== "object") return "";
-    return about.imagePath || about.imageUri || "";
+    return versioneImmagine(about.imagePath || about.imageUri || "");
   }
 
   miniatura(figura: string): string {
@@ -2328,7 +2331,7 @@ export class AppState {
     const item = this.findItem(id);
     if (!item || !isItem(item)) return "";
     if (item.about) return this.artworkImage(item.about);
-    return item.imagePath || "";
+    return versioneImmagine(item.imagePath || "");
   }
 
   itemInVisit(id: string) {

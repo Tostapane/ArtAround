@@ -156,13 +156,16 @@ router.get("/:qid/topics", requireSession, async (req, res) => {
 
 /**
  * GET /api/museums/:qid/visits
- * Ritorna: le visite percorribili da chi chiama; esclude guidate, private altrui e acquisti mancanti.
+ * Ritorna: le visite percorribili da chi chiama; il curatore vede tutte le
+ * pubbliche, mentre gli altri profili devono aver sbloccato quelle a pagamento.
  */
 router.get("/:qid/visits", requireSession, async (req, res) => {
   try {
     const { qid } = req.params;
     const museumId = `http://www.wikidata.org/entity/${qid}`;
-    const username = sessionUser(req).username;
+    const chi = sessionUser(req);
+    const username = chi.username;
+    const curatore = chi.role === "curatore";
     const visits = await VisitModel.find({
       ofMuseum: museumId,
       $or: [{ visibility: { $ne: "privato" } }, { author: username }],
@@ -172,6 +175,7 @@ router.get("/:qid/visits", requireSession, async (req, res) => {
 
     const visible = visits.filter((v: any) => {
       if (v.accessKey) return false;
+      if (curatore) return v.visibility !== "privato";
       const isFree = !v.price || Number(v.price) === 0;
       if (isFree) return true;
       if (!username) return false;
@@ -188,6 +192,17 @@ router.get("/:qid/visits", requireSession, async (req, res) => {
 
     res.json(
       visible.map((v: any) => {
+        if (curatore) {
+          const mancanti = (v.itemListElement || []).filter(
+            (id: string) => !byId.has(id),
+          ).length;
+          return {
+            ...v.toObject(),
+            mancanti,
+            costoMancanti: 0,
+            totale: 0,
+          };
+        }
         const c = conto(v, username, owned, byId);
         return {
           ...v.toObject(),

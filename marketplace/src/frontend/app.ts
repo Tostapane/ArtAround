@@ -1,6 +1,9 @@
 /**
  * Collega Alpine allo stato del marketplace e registra i componenti locali. I
- * binding restano sottili perche' Alpine li valuta come stringhe a runtime.
+ * binding restano sottili perche' Alpine li valuta come stringhe a runtime. Lo
+ * sciame vaga finche' arriva la prima figura e lascia quella corrente soltanto
+ * quando la successiva e' pronta. Ogni immagine viene elaborata una volta sola
+ * per caricamento di pagina.
  */
 import { state } from "./state.js";
 import { percorsoMiniatura, THEME_KEY } from "../../../shared/constants.js";
@@ -55,7 +58,11 @@ export function swarm() {
     dot: 1.6,
 
     shapes: [] as Shape[],
+    shapeSources: [] as string[],
     shapeIndex: -1,
+    nextShapeSource: 0,
+    loadingShapes: true,
+    loadingNextShape: false,
 
     phase: "hold" as "morph" | "hold",
     phaseAt: 0,
@@ -111,7 +118,7 @@ export function swarm() {
 
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) this.stop();
-        else if (canvas.clientWidth) this.run();
+        else if (canvas.clientWidth && this.shapeIndex >= 0) this.run();
       });
 
       this.loadShapes();
@@ -132,40 +139,68 @@ export function swarm() {
 
     async loadShapes(this: any) {
       try {
-
         const config = await fetch("/api/config")
           .then((r) => (r.ok ? r.json() : {}))
           .catch(() => ({}) as any);
-        const figures = (
-          Array.isArray(config.thresholdArtworks) ? config.thresholdArtworks : []
-        ).filter((a: any) => a && a.imagePath);
+        this.shapeSources = (
+          Array.isArray(config.landingArtworks) ? config.landingArtworks : []
+        )
+          .filter((a: any) => a && a.imagePath)
+          .map((a: any) => percorsoMiniatura(a.imagePath));
+        if (this.shapeSources.length === 0) this.loadingShapes = false;
+        else await this.loadNextShape();
+      } catch {
+        this.loadingShapes = false;
+      }
+    },
 
-        for (const artwork of figures) {
-
-          const shape = await this.shapeFromImage(
-            percorsoMiniatura(artwork.imagePath),
-          );
+    async loadNextShape(this: any) {
+      if (this.loadingNextShape || !this.loadingShapes) return;
+      this.loadingNextShape = true;
+      try {
+        while (this.nextShapeSource < this.shapeSources.length) {
+          const src = this.shapeSources[this.nextShapeSource++];
+          const shape = await this.shapeFromImage(src);
           if (!shape) continue;
           this.shapes.push(shape);
 
-          if (this.shapeIndex < 0) this.compose();
+          if (this.shapeIndex < 0 && this.count > 0) {
+            this.compose();
+            if (!document.hidden) this.run();
+          }
+          break;
         }
-      } catch {}
+      } finally {
+        this.loadingNextShape = false;
+        if (this.nextShapeSource >= this.shapeSources.length)
+          this.loadingShapes = false;
+      }
     },
 
-    shapeFromImage(this: any, src: string): Promise<Shape | null> {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            resolve(this.halftone(img));
-          } catch {
-            resolve(null);
-          }
-        };
-        img.onerror = () => resolve(null);
-        img.src = src;
-      });
+    async shapeFromImage(this: any, src: string): Promise<Shape | null> {
+      let objectUrl = "";
+      try {
+        const response = await fetch(src);
+        if (!response.ok) return null;
+
+        objectUrl = URL.createObjectURL(await response.blob());
+        return await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              resolve(this.halftone(img));
+            } catch {
+              resolve(null);
+            }
+          };
+          img.onerror = () => resolve(null);
+          img.src = objectUrl;
+        });
+      } catch {
+        return null;
+      } finally {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      }
     },
 
     sample(this: any, img: HTMLImageElement) {
@@ -281,9 +316,13 @@ export function swarm() {
       this.shapeIndex = -1;
       this.phase = "hold";
       this.phaseAt = performance.now();
-      this.run();
-
-      this.compose();
+      if (this.shapes.length > 0) {
+        this.compose();
+        this.run();
+      } else {
+        this.stop();
+        this.draw();
+      }
     },
 
     compose(this: any) {
@@ -307,32 +346,20 @@ export function swarm() {
     run(this: any) {
       this.stop();
       if (this.still) {
-
-        let attempts = 0;
-        const settle = () => {
-          if (this.shapes.length === 0) {
-            if (attempts++ > 25) {
-              this.draw();
-              return;
-            }
-            window.setTimeout(settle, 200);
-            return;
-          }
-
-          this.nextShape();
-          this.px.set(this.tx);
-          this.py.set(this.ty);
-          this.draw();
-        };
-        settle();
+        if (this.shapeIndex < 0) return;
+        this.px.set(this.tx);
+        this.py.set(this.ty);
+        this.draw();
         return;
       }
+      if (this.shapeIndex < 0) return;
       let last = performance.now();
       const loop = (now: number) => {
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;
+        const previousPhase = this.phase;
         this.tick(now, dt);
-        this.draw();
+        if (this.phase !== "hold" || previousPhase !== "hold") this.draw();
         this.frame = requestAnimationFrame(loop);
       };
       this.frame = requestAnimationFrame(loop);
@@ -347,7 +374,7 @@ export function swarm() {
       const canvas = this.canvas as HTMLCanvasElement;
       const wide = canvas.width >= 1024;
 
-      const libero = wide ? 0 : 96;
+      const libero = wide ? 0 : 48;
       const cx = canvas.width * (wide ? 0.7 : 0.5);
       const cy = libero + (canvas.height - libero) * (wide ? 0.5 : 0.37);
       return {
@@ -413,20 +440,32 @@ export function swarm() {
     tick(this: any, now: number, dt: number) {
       let elapsed = now - this.phaseAt;
 
-      if (this.phase === "hold" && elapsed > this.HOLD) {
+      const nextShapeReady = this.shapeIndex + 1 < this.shapes.length;
+      const canRestart = !this.loadingShapes && this.shapes.length > 1;
+      if (
+        this.phase === "hold" &&
+        elapsed > this.HOLD &&
+        (nextShapeReady || canRestart)
+      ) {
         this.compose();
         elapsed = 0;
       } else if (this.phase === "morph" && elapsed > this.MORPH) {
         this.phase = "hold";
         this.phaseAt = now;
         elapsed = 0;
+        this.px.set(this.tx);
+        this.py.set(this.ty);
+      }
+      if (this.phase === "hold") {
+        const nextShapeReady = this.shapeIndex + 1 < this.shapes.length;
+        if (!nextShapeReady) void this.loadNextShape();
+        return;
       }
       const span = this.phase === "morph" ? this.MORPH : this.HOLD;
       this.advance(dt, this.phase, now / 1000, Math.min(1, elapsed / span));
     },
 
     advance(this: any, dt: number, phase: string, time = 0, progress = 1) {
-      const canvas = this.canvas as HTMLCanvasElement;
       const idle = this.shapeIndex < 0;
       const damping = 0.88;
 
@@ -441,9 +480,12 @@ export function swarm() {
       const sy = this.sy as Float32Array;
       const bow = this.bow as Float32Array;
       const delay = this.delay as Float32Array;
-      const midX = canvas.width / 2;
-      const midY = canvas.height / 2;
       const morphing = phase === "morph";
+      const { cx, cy, roomW, roomH } = this.bounds();
+      const left = cx - roomW / 2;
+      const right = cx + roomW / 2;
+      const top = cy - roomH / 2;
+      const bottom = cy + roomH / 2;
 
       for (let i = 0; i < count; i++) {
         if (idle) {
@@ -452,12 +494,19 @@ export function swarm() {
           vx[i] += Math.sin(flowY + time * 0.25) * 5 * dt;
           vy[i] += Math.cos(flowX - time * 0.2) * 5 * dt;
 
-          vx[i] += (midX - px[i]) * 0.05 * dt;
-          vy[i] += (midY - py[i]) * 0.05 * dt;
           vx[i] *= damping;
           vy[i] *= damping;
           px[i] += vx[i];
           py[i] += vy[i];
+
+          if (px[i] < left || px[i] > right) {
+            px[i] = Math.max(left, Math.min(right, px[i]));
+            vx[i] *= -1;
+          }
+          if (py[i] < top || py[i] > bottom) {
+            py[i] = Math.max(top, Math.min(bottom, py[i]));
+            vy[i] *= -1;
+          }
         } else if (!morphing) {
 
           px[i] = tx[i];
