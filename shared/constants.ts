@@ -244,7 +244,7 @@ export const MAX_VISITE_VISITATORE = 5;
 // ============================================================================
 
 export const marketplaceViews = [
-  "soglia",
+  "landing",
   "accedi",
   "registrati",
   "musei",

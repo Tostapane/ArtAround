@@ -199,8 +199,8 @@ c'e' e non ci va.
 | l'**ora** di `log/lastout` | e' di adesso. Se e' vecchia, quel che c'e' scritto sotto e' di un processo di ore fa e non dice niente su questo avvio: e' il primo controllo, prima di leggere qualunque riga |
 | i log all'avvio | `on port 8000` |
 | `/api/health` | `{"message":"Unified Backend running"}` |
-| `/` | la soglia del marketplace, con lo sciame che compone le opere |
-| `/api/config` | `navigatorOrigin` col tuo indirizzo https, sei `thresholdArtworks` |
+| `/` | la landing del marketplace, con lo sciame che compone le opere |
+| `/api/config` | `navigatorOrigin` col tuo indirizzo https, sei `landingArtworks` |
 | **`/vetrina` scritto a mano nella barra** | **la pagina si apre** (chiede il museo, che non si ricorda mai: e' voluto). Un **404** qui vuol dire server vecchio, ed e' il primo controllo da fare dopo questo aggiornamento |
 | **ricarica su una schermata interna** | resta dov'era invece di dare 404 |
 | **tasto "indietro" dopo tre schermate** | torna indietro una per volta, senza rimbalzare avanti |

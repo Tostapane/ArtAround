@@ -1,7 +1,6 @@
 /**
- * Traduce in blocco i testi persistiti; le risposte dell'LLM nascono gia' nella
- * lingua richiesta e non passano da questa rotta.
- */
+ * Traduce in blocco i testi.
+ * */
 import { Router } from "express";
 import { translateTexts } from "../services/translate";
 

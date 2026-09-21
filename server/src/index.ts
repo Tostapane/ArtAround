@@ -109,9 +109,9 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-function readThresholdArtworks(): string[] {
+function readLandingArtworks(): string[] {
   try {
-    const file = path.join(SERVER_ROOT, "src/data/soglia.json");
+    const file = path.join(SERVER_ROOT, "src/data/landing.json");
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
     if (!Array.isArray(parsed.opere)) return [];
     return parsed.opere.filter((qid: unknown) => typeof qid === "string");
@@ -120,11 +120,11 @@ function readThresholdArtworks(): string[] {
   }
 }
 
-async function thresholdFigures(): Promise<
+async function landingFigures(): Promise<
   { qid: string; imagePath: string }[]
 > {
   try {
-    const wanted = readThresholdArtworks();
+    const wanted = readLandingArtworks();
     const filter = wanted.length > 0 ? { qid: { $in: wanted } } : {};
     const found = await ArtworkModel.find({
       ...filter,
@@ -158,7 +158,7 @@ app.get("/api/config", async (req, res) => {
     const protocol = req.protocol || "http";
     navigatorOrigin = `${protocol}://${host}:5173`;
   }
-  res.json({ navigatorOrigin, thresholdArtworks: await thresholdFigures() });
+  res.json({ navigatorOrigin, landingArtworks: await landingFigures() });
 });
 
 const schermateMarketplace = new Set<string>([

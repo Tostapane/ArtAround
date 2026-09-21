@@ -2,8 +2,8 @@
  * Collega Alpine allo stato del marketplace e registra i componenti locali. I
  * binding restano sottili perche' Alpine li valuta come stringhe a runtime. Lo
  * sciame vaga finche' arriva la prima figura e lascia quella corrente soltanto
- * quando la successiva e' pronta. Le miniature dello sciame ignorano la cache
- * HTTP e ogni immagine viene elaborata una volta sola per caricamento di pagina.
+ * quando la successiva e' pronta. Ogni immagine viene elaborata una volta sola
+ * per caricamento di pagina.
  */
 import { state } from "./state.js";
 import { percorsoMiniatura, THEME_KEY } from "../../../shared/constants.js";
@@ -58,8 +58,11 @@ export function swarm() {
     dot: 1.6,
 
     shapes: [] as Shape[],
+    shapeSources: [] as string[],
     shapeIndex: -1,
+    nextShapeSource: 0,
     loadingShapes: true,
+    loadingNextShape: false,
 
     phase: "hold" as "morph" | "hold",
     phaseAt: 0,
@@ -115,7 +118,7 @@ export function swarm() {
 
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) this.stop();
-        else if (canvas.clientWidth) this.run();
+        else if (canvas.clientWidth && this.shapeIndex >= 0) this.run();
       });
 
       this.loadShapes();
@@ -139,29 +142,45 @@ export function swarm() {
         const config = await fetch("/api/config")
           .then((r) => (r.ok ? r.json() : {}))
           .catch(() => ({}) as any);
-        const figures = (
-          Array.isArray(config.thresholdArtworks) ? config.thresholdArtworks : []
-        ).filter((a: any) => a && a.imagePath);
+        this.shapeSources = (
+          Array.isArray(config.landingArtworks) ? config.landingArtworks : []
+        )
+          .filter((a: any) => a && a.imagePath)
+          .map((a: any) => percorsoMiniatura(a.imagePath));
+        if (this.shapeSources.length === 0) this.loadingShapes = false;
+        else await this.loadNextShape();
+      } catch {
+        this.loadingShapes = false;
+      }
+    },
 
-        for (const artwork of figures) {
-          const shape = await this.shapeFromImage(
-            percorsoMiniatura(artwork.imagePath),
-          );
+    async loadNextShape(this: any) {
+      if (this.loadingNextShape || !this.loadingShapes) return;
+      this.loadingNextShape = true;
+      try {
+        while (this.nextShapeSource < this.shapeSources.length) {
+          const src = this.shapeSources[this.nextShapeSource++];
+          const shape = await this.shapeFromImage(src);
           if (!shape) continue;
           this.shapes.push(shape);
 
-          if (this.shapeIndex < 0) this.compose();
+          if (this.shapeIndex < 0 && this.count > 0) {
+            this.compose();
+            if (!document.hidden) this.run();
+          }
+          break;
         }
-      } catch {
       } finally {
-        this.loadingShapes = false;
+        this.loadingNextShape = false;
+        if (this.nextShapeSource >= this.shapeSources.length)
+          this.loadingShapes = false;
       }
     },
 
     async shapeFromImage(this: any, src: string): Promise<Shape | null> {
       let objectUrl = "";
       try {
-        const response = await fetch(src, { cache: "no-store" });
+        const response = await fetch(src);
         if (!response.ok) return null;
 
         objectUrl = URL.createObjectURL(await response.blob());
@@ -297,9 +316,13 @@ export function swarm() {
       this.shapeIndex = -1;
       this.phase = "hold";
       this.phaseAt = performance.now();
-      this.run();
-
-      this.compose();
+      if (this.shapes.length > 0) {
+        this.compose();
+        this.run();
+      } else {
+        this.stop();
+        this.draw();
+      }
     },
 
     compose(this: any) {
@@ -323,32 +346,20 @@ export function swarm() {
     run(this: any) {
       this.stop();
       if (this.still) {
-
-        let attempts = 0;
-        const settle = () => {
-          if (this.shapes.length === 0) {
-            if (attempts++ > 25) {
-              this.draw();
-              return;
-            }
-            window.setTimeout(settle, 200);
-            return;
-          }
-
-          this.nextShape();
-          this.px.set(this.tx);
-          this.py.set(this.ty);
-          this.draw();
-        };
-        settle();
+        if (this.shapeIndex < 0) return;
+        this.px.set(this.tx);
+        this.py.set(this.ty);
+        this.draw();
         return;
       }
+      if (this.shapeIndex < 0) return;
       let last = performance.now();
       const loop = (now: number) => {
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;
+        const previousPhase = this.phase;
         this.tick(now, dt);
-        this.draw();
+        if (this.phase !== "hold" || previousPhase !== "hold") this.draw();
         this.frame = requestAnimationFrame(loop);
       };
       this.frame = requestAnimationFrame(loop);
@@ -363,7 +374,7 @@ export function swarm() {
       const canvas = this.canvas as HTMLCanvasElement;
       const wide = canvas.width >= 1024;
 
-      const libero = wide ? 0 : 96;
+      const libero = wide ? 0 : 48;
       const cx = canvas.width * (wide ? 0.7 : 0.5);
       const cy = libero + (canvas.height - libero) * (wide ? 0.5 : 0.37);
       return {
@@ -442,6 +453,13 @@ export function swarm() {
         this.phase = "hold";
         this.phaseAt = now;
         elapsed = 0;
+        this.px.set(this.tx);
+        this.py.set(this.ty);
+      }
+      if (this.phase === "hold") {
+        const nextShapeReady = this.shapeIndex + 1 < this.shapes.length;
+        if (!nextShapeReady) void this.loadNextShape();
+        return;
       }
       const span = this.phase === "morph" ? this.MORPH : this.HOLD;
       this.advance(dt, this.phase, now / 1000, Math.min(1, elapsed / span));

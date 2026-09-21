@@ -484,8 +484,8 @@
       ></div>
 
       <section
-        x-show="view === 'soglia'"
-        class="soglia relative h-[100dvh] overflow-hidden bg-structure text-on-structure"
+        x-show="view === 'landing'"
+        class="landing relative h-[100dvh] overflow-hidden bg-structure text-on-structure"
       >
         <!-- fondale animato -->
         <canvas
@@ -503,12 +503,12 @@
           <div class="flex justify-start">
             <div class="w-44">
               <label
-                for="lingua-soglia"
+                for="lingua-landing"
                 class="sr-only"
                 x-text="t('Lingua')"
               ></label>
               <select
-                id="lingua-soglia"
+                id="lingua-landing"
                 class="campo-select campo-select-struttura w-full"
                 :value="lingua"
                 @change="cambiaLingua($event.target.value)"
@@ -520,7 +520,7 @@
             </div>
           </div>
 
-          <div class="flex min-h-0 max-w-4xl flex-col justify-center py-4">
+          <div class="flex min-h-0 max-w-4xl flex-col justify-end pt-4 lg:justify-center lg:py-4">
             <svg
               class="marchio mb-[clamp(1rem,4vh,2rem)] text-accent"
               viewBox="0 0 64 64"
@@ -534,10 +534,6 @@
             >
               ART<br />AROUND<span class="text-accent">.</span>
             </h1>
-            <p
-              class="measure mt-[clamp(1rem,4vh,2rem)] text-title-3 text-on-structure/85"
-              x-text="t(`Prepara, scopri e vivi la visita di un museo, alla tua maniera. Scegli un percorso già pronto, componi il tuo, o fatti guidare.`)"
-            ></p>
             <!-- ACCESSO -->
             <div
               class="mt-[clamp(1.5rem,5vh,2.5rem)] flex flex-col gap-3 sm:flex-row"
@@ -552,7 +548,7 @@
                 type="button"
                 @click="enterFrom('navigator')"
                 class="btn-fantasma-chiaro text-title-3"
-                x-text="t(`Entra nell'app da museo`)"
+                x-text="t(`Entra nel navigator`)"
               ></button>
             </div>
           </div>
@@ -566,7 +562,7 @@
         <div class="w-full max-w-sm">
           <button
             type="button"
-            @click="goTo('soglia')"
+            @click="goTo('landing')"
             class="btn-fantasma mb-8 -ml-3"
           >
             <svg class="h-5 w-5" aria-hidden="true">
@@ -2601,7 +2597,10 @@
                 class="font-display text-title-1"
                 x-text="editingId ? 'Modifica la descrizione' : 'Nuova descrizione'"
               ></h1>
-              <div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+              <div
+                class="mt-8 grid gap-8"
+                :class="draftSubject() ? 'lg:grid-cols-[minmax(0,1fr)_18rem]' : 'grid-cols-1'"
+              >
                 <form @submit.prevent="saveItem()" class="flex flex-col gap-8">
                   <div class="flex flex-col gap-8 border-l-4 border-l-accent py-2 pl-4">
                   <div>
@@ -2847,7 +2846,10 @@
                 </form>
 
                 <!-- OPERA -->
-                <aside class="order-first lg:order-none">
+                <aside
+                  x-show="draftSubject()"
+                  class="order-first lg:order-none"
+                >
                   <div
                     class="lastra p-4 lg:sticky lg:top-6 lg:z-10"
                     x-data="{ rotta: false }"

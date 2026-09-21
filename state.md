@@ -269,7 +269,7 @@ statici devono continuare a essere gestiti dal browser.
 
 | Gruppo | Schermate |
 | --- | --- |
-| ingresso | `soglia`, `accedi`, `registrati`, `musei` |
+| ingresso | `landing`, `accedi`, `registrati`, `musei` |
 | comuni | `home`, `vetrina`, `opera`, `visita` |
 | visitatore | `libreria`, `componi`, `sumisura` |
 | autore | `lavori`, `nuovo`, `componi`, `vendite` |
@@ -296,7 +296,7 @@ Nella lista dei contenuti dell'autore la parola chiave delle visite guidate è
 mostrata in minuscolo, senza modificare il valore conservato e usato per
 l'accesso. Le interfacce mostrano soltanto istruzioni operative: le spiegazioni
 duplicate, gli stati positivi ovvi e il testo promozionale interno sono rimossi
-anche dai cataloghi di traduzione. La soglia iniziale occupa un solo viewport
+anche dai cataloghi di traduzione. La landing iniziale occupa un solo viewport
 senza scorrimento; negli schermi orizzontali molto bassi nasconde soltanto il
 marchio, lasciando visibili lingua, titolo e accessi.
 
