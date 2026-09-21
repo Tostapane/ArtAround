@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ArtAround">
+  <title>ArtAround</title>
+  <!-- Favicon: stesso marchio delle pagine, con colori autonomi per restare leggibile fuori dal tema. -->
+  <rect width="64" height="64" rx="12" fill="#0a3a55" />
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#ffffff" stroke-width="2.8">
+      <path d="M32 7 L53.65 19.5 L53.65 44.5 L32 57 L10.35 44.5 L10.35 19.5 Z" />
+      <path d="M32 32 L53.65 19.5 M32 32 L10.35 19.5 M32 32 L32 57" />
+    </g>
+    <g stroke="#7fc4c4" stroke-width="2.6">
+      <path d="M47.8 29.63 L47.8 41.13 L37.85 46.88 L37.85 35.38 Z" />
+      <path d="M26.15 35.38 L26.15 46.88 L16.2 41.13 L16.2 29.63 Z" />
+      <path d="M32 13.75 L41.96 19.5 L32 25.25 L22.04 19.5 Z" />
+    </g>
+    <g stroke="#7fc4c4" stroke-width="1.8">
+      <path d="M45.56 33.51 L45.56 39.83 L40.09 42.99 L40.09 36.67 Z" />
+      <path d="M23.91 36.67 L23.91 42.99 L18.44 39.83 L18.44 33.51 Z" />
+      <path d="M32 16.34 L37.48 19.5 L32 22.66 L26.52 19.5 Z" />
+    </g>
+  </g>
+</svg>
