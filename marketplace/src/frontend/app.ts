@@ -180,7 +180,7 @@ export function swarm() {
     async shapeFromImage(this: any, src: string): Promise<Shape | null> {
       let objectUrl = "";
       try {
-        const response = await fetch(src);
+        const response = await fetch(src, { cache: "no-cache" });
         if (!response.ok) return null;
 
         objectUrl = URL.createObjectURL(await response.blob());
