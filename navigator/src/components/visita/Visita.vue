@@ -716,7 +716,7 @@ onUnmounted(() => {
         >
           {{ transition.target < 0 ? t("Prima di cominciare") : t("Verso la prossima tappa") }}
         </p>
-        <ul class="mt-3 flex min-h-0 flex-col gap-3 overflow-y-auto">
+        <ul class="scorrimento mt-3 flex min-h-0 flex-col gap-3 overflow-y-auto">
           <li
             v-for="(n, i) in transition.notes"
             :key="i"
@@ -766,7 +766,7 @@ onUnmounted(() => {
           }}
         </p>
 
-        <ul v-if="fine.notes.length" class="mt-5 flex min-h-0 flex-col gap-3 overflow-y-auto">
+        <ul v-if="fine.notes.length" class="scorrimento mt-5 flex min-h-0 flex-col gap-3 overflow-y-auto">
           <li
             v-for="(n, i) in fine.notes"
             :key="i"

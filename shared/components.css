@@ -87,6 +87,28 @@
     color: var(--on-accent);
   }
 
+  .scorrimento {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, currentColor 38%, transparent) transparent;
+  }
+  .scorrimento::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scorrimento::-webkit-scrollbar-track,
+  .scorrimento::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  .scorrimento::-webkit-scrollbar-thumb {
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background-color: color-mix(in oklab, currentColor 38%, transparent);
+    background-clip: padding-box;
+  }
+  .scorrimento::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--accent) 72%, transparent);
+  }
+
   .etichetta {
     @apply block text-small font-medium text-text;
   }

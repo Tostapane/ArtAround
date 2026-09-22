@@ -5,10 +5,24 @@
 @import "../../../shared/components.css";
 
 @layer base {
+  :root:not(.dark) {
+    --surface: #f6f4ee;
+    --surface-2: color-mix(in oklab, var(--muro) 58%, var(--surface));
+  }
+
   html,
   body,
   #app {
     height: 100%;
+  }
+
+  :where(a, button) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  a {
+    -webkit-user-drag: none;
   }
 
   body {

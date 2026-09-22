@@ -669,7 +669,7 @@ const optionalCount = computed(() => {
       >
         <div
           ref="container"
-          class="mappa h-full w-full overflow-auto"
+          class="mappa scorrimento h-full w-full overflow-auto"
           :style="{ '--map-size': mapSize }"
           v-html="map"
           @click="onMapClick"
@@ -699,7 +699,7 @@ const optionalCount = computed(() => {
     </div>
 
     <!-- ELENCO -->
-    <div v-show="stageView === 'elenco'" class="min-h-0 flex-1 overflow-auto p-3">
+    <div v-show="stageView === 'elenco'" class="scorrimento min-h-0 flex-1 overflow-auto p-3">
       <div v-if="matchedContent.length" class="mx-auto flex max-w-3xl flex-col gap-5">
         <section
           v-for="section in floorSections"
@@ -757,9 +757,10 @@ const optionalCount = computed(() => {
 @reference "../../assets/main.css";
 
 .mappa-viewport {
-  background-color: var(--surface-2);
-  border: 1px solid var(--line);
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
+  box-shadow: var(--shadow-1);
 }
 .mappa {
   overscroll-behavior: contain;

@@ -122,7 +122,7 @@ onUnmounted(() => scanner.stop());
       role="dialog"
       aria-modal="true"
       aria-labelledby="posizione-titolo"
-      class="lastra max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto p-5 shadow-l2"
+      class="lastra scorrimento max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto p-5 shadow-l2"
     >
       <div class="flex items-start justify-between gap-3">
         <h2 id="posizione-titolo" class="font-display text-title-2">{{ t("Dove sono?") }}</h2>

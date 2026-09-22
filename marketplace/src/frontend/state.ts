@@ -1,7 +1,8 @@
 /**
  * Stato unico e azioni del marketplace. Tiene insieme router History API, sessione,
- * catalogo per museo ed editor, cosi' i binding Alpine chiamano metodi semplici. Il
- * QID del museo resta nella sessione della scheda perche' le route non lo contengono.
+ * catalogo per museo ed editor, cosi' i binding Alpine chiamano metodi semplici. La
+ * libreria distingue le visite adottate da quelle composte dall'utente. Il QID del
+ * museo resta nella sessione della scheda perche' le route non lo contengono.
  */
 import {
   UserRole,
@@ -141,6 +142,7 @@ export class AppState {
 
   catalogSearch: string = "";
   museumArtworkSearch: string = "";
+  artworkSearch: string = "";
 
   catalogTypeFilter: "tutti" | "descrizioni" | "visite" = "tutti";
 
@@ -585,6 +587,7 @@ export class AppState {
     this.librarySearch = "";
     this.worksSearch = "";
     this.museumArtworkSearch = "";
+    this.artworkSearch = "";
     this.editorSearch = "";
     this.marketType = "tutti";
     this.marketLevelFilter = "tutti";
@@ -616,6 +619,7 @@ export class AppState {
     this.marketSearch = "";
     this.librarySearch = "";
     this.museumArtworkSearch = "";
+    this.artworkSearch = "";
 
     if (await this.goToNavigatorIfAsked()) return;
     this.loading = true;
@@ -646,7 +650,31 @@ export class AppState {
   }
 
   museumArtworks() {
-    return this.availableArtworks.filter((a) => this.belongsToMuseum(a));
+    return this.availableArtworks
+      .filter((a) => this.belongsToMuseum(a))
+      .sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", this.lingua, {
+          sensitivity: "base",
+        }),
+      );
+  }
+
+  draftArtworkOptions(): Artwork[] {
+    const terms = this.searchTerms(this.artworkSearch);
+    if (terms.length === 0) return this.museumArtworks();
+    return this.museumArtworks().filter((artwork) => {
+      const name = this.normalizeSearch(artwork.name || "");
+      const compactName = name.replace(/ /g, "");
+      return terms.every(
+        (term) => name.includes(term) || compactName.includes(term),
+      );
+    });
+  }
+
+  selectDraftArtwork(artwork: Soggetto | null) {
+    if (!artwork) return;
+    this.draft.selectedArtworkUri = artwork["@id"];
+    this.artworkSearch = artwork.name || "";
   }
 
   filteredMuseumArtworks() {
@@ -852,7 +880,7 @@ export class AppState {
   visitPrice(v: Visit | null): string {
     if (this.inLibrary(v)) {
       if (v && v.author && v.author === this.currentUser)
-        return this.t("Pubblicata da te");
+        return this.t("Creata da te");
       return this.t("Acquistato");
     }
     return this.readablePrice(this.costoDi(v));
@@ -1563,27 +1591,6 @@ export class AppState {
     );
   }
 
-  marketSummary(): string {
-    const v = this.shownVisits().length;
-    const gruppi = this.shownArtworks();
-
-    const soggetti = gruppi.filter((g) => this.gruppoDiSoggetto(g)).length;
-    const opere = gruppi.length - soggetti;
-    const pezzi: string[] = [];
-    if (this.marketType !== "opere") {
-      if (v === 1) pezzi.push(this.t("1 visita"));
-      else pezzi.push(this.t("{n} visite", { n: v }));
-    }
-    if (this.marketType !== "visite") {
-      if (opere === 1) pezzi.push(this.t("1 opera"));
-      else pezzi.push(this.t("{n} opere", { n: opere }));
-      if (soggetti === 1) pezzi.push(this.t("1 soggetto"));
-      else if (soggetti > 1)
-        pezzi.push(this.t("{n} soggetti", { n: soggetti }));
-    }
-    return pezzi.join(" · ");
-  }
-
   marketEmpty(): boolean {
     return this.shownVisits().length === 0 && this.shownArtworks().length === 0;
   }
@@ -1608,13 +1615,6 @@ export class AppState {
     const n = g.items.length;
     if (n === 1) return this.t("1 descrizione");
     return this.t("{n} descrizioni", { n });
-  }
-
-  artworkFromPrice(g: ArtworkGroup): string {
-    const prices = g.items.map((i) => Number(i.price) || 0);
-    const cheapest = prices.length ? Math.min(...prices) : 0;
-    if (cheapest === 0) return this.t("Gratis");
-    return this.t("da {prezzo}", { prezzo: `€ ${cheapest.toFixed(2)}` });
   }
 
   currentArtwork(): Soggetto | null {
@@ -1857,6 +1857,19 @@ export class AppState {
     return base;
   }
 
+  libraryVisitSections(): { id: string; title: string; visits: Visit[] }[] {
+    const adopted: Visit[] = [];
+    const composed: Visit[] = [];
+    for (const visit of this.myVisits()) {
+      if (visit.author === this.currentUser) composed.push(visit);
+      else adopted.push(visit);
+    }
+    return [
+      { id: "adopted", title: this.t("Visite"), visits: adopted },
+      { id: "composed", title: this.t("Le mie visite"), visits: composed },
+    ];
+  }
+
   myItemGroups(): ArtworkGroup[] {
     const posseduti = this.visibleItems().filter(
       (i) =>
@@ -2064,8 +2077,14 @@ export class AppState {
 
   openNewItem() {
     this.editingId = null;
+    this.artworkSearch = "";
     this.draft = this.emptyDraft();
     this.goTo("nuovo");
+  }
+
+  openNewItemForArtwork(artwork: Soggetto | null) {
+    this.openNewItem();
+    this.selectDraftArtwork(artwork);
   }
 
   editItem(item: Item | null) {
@@ -2075,6 +2094,13 @@ export class AppState {
     this.draft.genere = item.kind;
     this.draft.selectedArtworkUri =
       (typeof item.about === "object" ? item.about["@id"] : item.about) || "";
+    const selectedArtwork =
+      typeof item.about === "object"
+        ? item.about
+        : this.availableArtworks.find(
+            (artwork) => artwork["@id"] === this.draft.selectedArtworkUri,
+          );
+    this.artworkSearch = selectedArtwork?.name || "";
     this.draft.soggetto = item.subject || "";
     this.draft.immagine = item.imagePath || "";
     this.draft.tono = item.educationalLevel || "";
@@ -2372,6 +2398,23 @@ export class AppState {
     this.announce(
       `${this.itemName(value)} aggiunta. ${this.stopCount()} tappe nel percorso.`,
     );
+  }
+
+  async addLogisticsStop(list?: HTMLElement) {
+    let insertAt = this.draft.tappe.length;
+    if (list && list.scrollHeight > list.clientHeight) {
+      const top = list.getBoundingClientRect().top;
+      const cards = Array.from(list.querySelectorAll<HTMLElement>(":scope > li"));
+      const firstVisible = cards.findIndex(
+        (card) => card.getBoundingClientRect().bottom > top,
+      );
+      if (firstVisible >= 0) insertAt = firstVisible;
+    }
+    this.draft.tappe.splice(insertAt, 0, { tipo: "logistica", value: "" });
+    await this.afterPaint();
+    const input = document.getElementById(`nota-${insertAt}`);
+    input?.scrollIntoView({ block: "nearest" });
+    input?.focus();
   }
 
   removeStop(index: number) {

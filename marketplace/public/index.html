@@ -34,7 +34,7 @@
     <script defer src="/vendor/alpine-3.15.0.min.js"></script>
   </head>
 
-  <body class="bg-bg text-text font-sans antialiased">
+  <body class="scorrimento bg-bg text-text font-sans antialiased">
     <svg
       width="0"
       height="0"
@@ -485,7 +485,7 @@
 
       <section
         x-show="view === 'landing'"
-        class="landing relative h-[100dvh] overflow-hidden bg-structure text-on-structure"
+        class="landing marchio-su-struttura relative h-[100dvh] overflow-hidden bg-structure text-on-structure"
       >
         <!-- fondale animato -->
         <canvas
@@ -780,17 +780,21 @@
         </div>
       </section>
 
-      <div x-show="guscioMontato()" class="lg:flex">
+      <div
+        x-show="guscioMontato()"
+        x-data="{ sidebarExpanded: true }"
+        class="lg:flex"
+      >
         <!-- BARRA COMPATTA -->
         <header
-          class="sticky top-0 z-40 flex h-[var(--app-bar)] items-center justify-between gap-3 border-b border-line bg-structure px-4 text-on-structure lg:hidden"
+          class="sticky top-0 z-40 flex h-[var(--app-bar)] items-center justify-between border-b border-line bg-structure px-2 text-on-structure sm:px-4 lg:hidden"
         >
           <!-- MARCHIO COMPATTO -->
           <button
             type="button"
             @click="changeMuseum()"
             :aria-label="t('Scegli il museo')"
-            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-on-structure/10"
+            class="marchio-su-struttura inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-on-structure/10"
           >
             <svg
               class="h-7 w-7 text-accent"
@@ -800,51 +804,49 @@
               <use href="#ico-marchio" />
             </svg>
           </button>
-          <div class="flex min-w-0 items-center gap-2">
-            <label
-              for="lingua-barra"
-              class="sr-only"
-              x-text="t('Lingua')"
-            ></label>
-            <select
-              id="lingua-barra"
-              class="campo-select campo-select-struttura w-28 shrink"
-              :value="lingua"
-              @change="cambiaLingua($event.target.value)"
-            >
-              <template x-for="l in lingueDisponibili" :key="l.translate">
-                <option :value="l.translate" x-text="l.name"></option>
-              </template>
-            </select>
-            <span
-              x-show="currentUserRole === 'visitatore'"
-              class="tabular shrink-0 text-small"
-              x-text="'€ ' + wallet.toFixed(2)"
-              :aria-label="t(`Credito disponibile: {n} euro`, { n: wallet.toFixed(2) })"
-            ></span>
-            <button
-              type="button"
-              x-data="themeToggle()"
-              @click="toggle()"
-              :aria-pressed="dark"
-              :aria-label="label()"
-              class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10"
-            >
-              <svg class="h-5 w-5" aria-hidden="true">
-                <use :href="dark ? '#ico-sole' : '#ico-luna'" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              @click="logout()"
-              :aria-label="t(`Esci dal profilo`)"
-              class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10"
-            >
-              <svg class="h-5 w-5" aria-hidden="true">
-                <use href="#ico-esci" />
-              </svg>
-            </button>
-          </div>
+          <label
+            for="lingua-barra"
+            class="sr-only"
+            x-text="t('Lingua')"
+          ></label>
+          <select
+            id="lingua-barra"
+            class="campo-select campo-select-struttura w-28 shrink-0"
+            :value="lingua"
+            @change="cambiaLingua($event.target.value)"
+          >
+            <template x-for="l in lingueDisponibili" :key="l.translate">
+              <option :value="l.translate" x-text="l.name"></option>
+            </template>
+          </select>
+          <span
+            x-show="currentUserRole === 'visitatore'"
+            class="tabular shrink-0 text-caption sm:text-small"
+            x-text="'€ ' + wallet.toFixed(2)"
+            :aria-label="t(`Credito disponibile: {n} euro`, { n: wallet.toFixed(2) })"
+          ></span>
+          <button
+            type="button"
+            x-data="themeToggle()"
+            @click="toggle()"
+            :aria-pressed="dark"
+            :aria-label="label()"
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10"
+          >
+            <svg class="h-5 w-5" aria-hidden="true">
+              <use :href="dark ? '#ico-sole' : '#ico-luna'" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            @click="logout()"
+            :aria-label="t(`Esci dal profilo`)"
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-structure hover:bg-on-structure/10"
+          >
+            <svg class="h-5 w-5" aria-hidden="true">
+              <use href="#ico-esci" />
+            </svg>
+          </button>
         </header>
 
         <!-- BINARIO -->
@@ -852,56 +854,76 @@
           id="binario"
           tabindex="-1"
           :aria-label="t(`Navigazione principale`)"
-          class="fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-structure text-on-structure lg:sticky lg:top-0 lg:h-[100dvh] lg:w-64 lg:shrink-0 lg:border-r lg:border-t-0"
+          :data-collapsed="sidebarExpanded ? 'false' : 'true'"
+          :class="sidebarExpanded ? 'lg:w-64' : 'lg:w-24'"
+          class="fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-structure text-on-structure lg:sticky lg:top-0 lg:h-[100dvh] lg:shrink-0 lg:border-r lg:border-t-0"
         >
-          <div class="flex h-full flex-col">
-            <div class="hidden px-6 pt-7 lg:block">
+          <div class="relative flex h-full flex-col">
+            <div
+              class="hidden items-center pt-3 lg:flex"
+              :class="sidebarExpanded ? 'justify-between px-4' : 'justify-center px-1'"
+            >
               <button
                 type="button"
                 @click="changeMuseum()"
-                class="flex items-center gap-2.5 font-display text-title-2"
                 :aria-label="t(`ArtAround, scegli il museo`)"
+                :title="sidebarExpanded ? null : t(`ArtAround, scegli il museo`)"
+                class="marchio-su-struttura flex h-11 min-w-0 items-center justify-center rounded-full hover:bg-on-structure/10"
+                :class="sidebarExpanded ? 'gap-2.5 px-2 font-display text-title-2' : 'w-11'"
               >
                 <svg
-                  class="h-7 w-7 shrink-0 text-accent"
+                  class="shrink-0 text-accent"
+                  :class="sidebarExpanded ? 'h-7 w-7' : 'h-6 w-6'"
                   viewBox="0 0 64 64"
                   aria-hidden="true"
                 >
                   <use href="#ico-marchio" />
                 </svg>
-                <span>ArtAround<span class="text-accent">.</span></span>
+                <span x-show="sidebarExpanded">
+                  ArtAround<span class="text-accent">.</span>
+                </span>
               </button>
+
               <button
                 type="button"
-                x-show="selectedMuseum && view !== 'musei'"
-                @click="changeMuseum()"
-                class="mt-5 block w-full text-left"
-                :aria-label="'Museo: ' + (selectedMuseum ? selectedMuseum.name : '') + '. Cambia museo'"
+                @click="sidebarExpanded = !sidebarExpanded"
+                :aria-expanded="sidebarExpanded"
+                :aria-label="sidebarExpanded ? t(`Comprimi il menu laterale`) : t(`Espandi il menu laterale`)"
+                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-on-structure/85 hover:bg-on-structure/10 hover:text-on-structure"
               >
-                <span
-                  class="block text-caption uppercase tracking-wider text-on-structure/60"
-                  x-text="t(`Museo`)"
-                ></span>
-                <span class="mt-1 flex items-center gap-2 text-small">
-                  <svg class="h-4 w-4 shrink-0" aria-hidden="true">
-                    <use href="#ico-museo" />
-                  </svg>
-                  <span
-                    class="truncate"
-                    x-text="selectedMuseum ? selectedMuseum.name : ''"
-                  ></span>
-                </span>
-                <span
-                  class="text-caption text-accent"
-                  x-text="t(`Cambia`)"
-                ></span>
+                <svg
+                  class="h-5 w-5"
+                  :class="sidebarExpanded ? '' : 'rotate-180'"
+                  aria-hidden="true"
+                >
+                  <use href="#ico-indietro" />
+                </svg>
               </button>
             </div>
 
             <ul
               x-show="selectedMuseum && view !== 'musei'"
-              class="flex justify-around lg:mt-8 lg:flex-col lg:justify-start lg:gap-1 lg:px-3"
+              class="lista-binario flex justify-around lg:mt-4 lg:flex-col lg:justify-start lg:gap-1 lg:px-3"
             >
+              <li class="hidden lg:block">
+                <button
+                  type="button"
+                  @click="changeMuseum()"
+                  class="voce-binario w-full"
+                  data-section="musei"
+                  :aria-label="t(`Scegli il museo`)"
+                  :title="sidebarExpanded ? null : (selectedMuseum ? selectedMuseum.name : '')"
+                >
+                  <svg class="h-5 w-5" aria-hidden="true">
+                    <use href="#ico-museo" />
+                  </svg>
+                  <span
+                    class="binario-etichetta min-w-0 truncate"
+                    x-text="selectedMuseum ? selectedMuseum.name : ''"
+                  ></span>
+                </button>
+              </li>
+
               <template x-if="currentUserRole === 'visitatore'">
                 <li class="contents">
                   <template
@@ -918,11 +940,12 @@
                       :data-section="v.id"
                       :class="view === v.id ? 'voce-attiva' : ''"
                       :aria-current="view === v.id ? 'page' : false"
+                      :title="sidebarExpanded ? null : v.label"
                     >
                       <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true">
                         <use :href="v.ico" />
                       </svg>
-                      <span x-text="v.label"></span>
+                      <span class="binario-etichetta" x-text="v.label"></span>
                     </a>
                   </template>
                 </li>
@@ -944,11 +967,12 @@
                       :data-section="v.id"
                       :class="view === v.id ? 'voce-attiva' : ''"
                       :aria-current="view === v.id ? 'page' : false"
+                      :title="sidebarExpanded ? null : v.label"
                     >
                       <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true">
                         <use :href="v.ico" />
                       </svg>
-                      <span x-text="v.label"></span>
+                      <span class="binario-etichetta" x-text="v.label"></span>
                     </a>
                   </template>
                 </li>
@@ -968,11 +992,12 @@
                       :data-section="v.id"
                       :class="view === v.id ? 'voce-attiva' : ''"
                       :aria-current="view === v.id ? 'page' : false"
+                      :title="sidebarExpanded ? null : v.label"
                     >
                       <svg class="h-6 w-6 lg:h-5 lg:w-5" aria-hidden="true">
                         <use :href="v.ico" />
                       </svg>
-                      <span x-text="v.label"></span>
+                      <span class="binario-etichetta" x-text="v.label"></span>
                     </a>
                   </template>
                 </li>
@@ -980,12 +1005,15 @@
             </ul>
 
             <!-- Piede del binario (solo schermo largo) -->
-            <div class="mt-auto hidden px-6 pb-7 lg:block">
+            <div
+              x-show="sidebarExpanded"
+              class="mt-auto hidden px-6 pb-7 lg:block"
+            >
               <!-- LINGUA -->
               <div class="mb-4">
                 <label
                   for="lingua-binario"
-                  class="etichetta-impostazione text-on-structure/60"
+                  class="etichetta-impostazione text-on-structure/75"
                   x-text="t('Lingua')"
                 ></label>
                 <select
@@ -1001,7 +1029,7 @@
               </div>
               <div x-show="currentUserRole === 'visitatore'" class="mb-4">
                 <span
-                  class="etichetta-impostazione text-on-structure/60"
+                  class="etichetta-impostazione text-on-structure/75"
                   x-text="t('Credito')"
                 ></span>
                 <span
@@ -1043,6 +1071,36 @@
                 </div>
               </div>
             </div>
+
+            <div
+              x-show="!sidebarExpanded"
+              class="mt-auto hidden flex-col items-center gap-1 border-t border-on-structure/20 pb-3 pt-3 lg:flex"
+            >
+              <button
+                type="button"
+                x-data="themeToggle()"
+                @click="toggle()"
+                :aria-pressed="dark"
+                :aria-label="label()"
+                :title="label()"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-on-structure/10"
+              >
+                <svg class="h-5 w-5" aria-hidden="true">
+                  <use :href="dark ? '#ico-sole' : '#ico-luna'" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                @click="logout()"
+                :aria-label="t(`Esci dal profilo`)"
+                :title="t(`Esci dal profilo`)"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-on-structure/10"
+              >
+                <svg class="h-5 w-5" aria-hidden="true">
+                  <use href="#ico-esci" />
+                </svg>
+              </button>
+            </div>
           </div>
         </nav>
 
@@ -1051,7 +1109,10 @@
           tabindex="-1"
           class="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-10"
         >
-          <div class="mx-auto max-w-5xl">
+          <div
+            class="mx-auto w-full max-w-5xl"
+            :class="sidebarExpanded ? '' : 'lg:max-w-7xl'"
+          >
             <!-- SCELTA DEL MUSEO -->
             <section x-show="view === 'musei'">
               <h1
@@ -1137,11 +1198,11 @@
                   </span>
                   <h2
                     class="mt-4 font-display text-title-2"
-                    x-text="t(`Raccontaci che visita vuoi`)"
+                    x-text="t(`Visita su misura`)"
                   ></h2>
                   <p
                     class="mt-2 flex-1 text-small text-muted"
-                    x-text="t(`Descrivi la giornata che hai in mente: il percorso nasce da lì.`)"
+                    x-text="t(`Descrivi la visita che hai in mente`)"
                   ></p>
                   <span
                     class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent"
@@ -1187,11 +1248,11 @@
                   </svg>
                   <h2
                     class="mt-4 font-display text-title-2"
-                    x-text="t(`Componi il tuo percorso`)"
+                    x-text="t(`Costruisci la tua visita`)"
                   ></h2>
                   <p
                     class="mt-2 flex-1 text-small text-muted"
-                    x-text="t(`Scegli tu le opere, l'ordine e cosa è opzionale.`)"
+                    x-text="t(`Scegli tu le opere e le descrizioni`)"
                   ></p>
                   <span
                     class="mt-4 inline-flex items-center gap-1 text-small font-semibold text-accent"
@@ -1265,70 +1326,18 @@
                 </button>
               </div>
 
-              <template x-if="myVisits().length > 0">
-                <div class="mt-12">
-                  <h2
-                    class="font-display text-title-2"
-                    x-text="t(`Inizia una visita`)"
-                  ></h2>
-                  <ul class="mt-4 flex flex-col gap-3">
-                    <template
-                      x-for="v in myVisits().slice(0, 4)"
-                      :key="v['@id']"
-                    >
-                      <li
-                        class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center"
-                      >
-                        <div class="min-w-0 flex-1">
-                          <a
-                            :href="'/visita/' + encodeURIComponent(v['@id'])"
-                            class="font-display text-title-3 link-scuro"
-                            x-text="v.name"
-                          ></a>
-                          <p
-                            class="tabular text-small text-muted"
-                            x-text="visitSummary(v)"
-                          ></p>
-                        </div>
-                        <template x-if="visitUsable(v)">
-                          <button
-                            type="button"
-                            @click="openNavigator(navigatorUrl(v))"
-                            class="btn-primario shrink-0"
-                            :aria-label="t(`Inizia la visita {nome}`, { nome: v.name })"
-                          >
-                            <svg class="h-5 w-5" aria-hidden="true">
-                              <use href="#ico-avvia" />
-                            </svg>
-                            <span x-text="t(`Inizia`)"></span>
-                          </button>
-                        </template>
-                        <template x-if="!visitUsable(v)">
-                          <a
-                            :href="'/visita/' + encodeURIComponent(v['@id'])"
-                            class="btn-secondario shrink-0"
-                            x-text="t(`Da comprare`)"
-                          ></a>
-                        </template>
-                      </li>
-                    </template>
-                  </ul>
-                </div>
-              </template>
             </section>
 
             <!-- LA VETRINA: visite e opere in un posto solo -->
             <section x-show="view === 'vetrina'">
               <h1 class="font-display text-title-1" x-text="t(`Vetrina`)"></h1>
-              <p class="mt-1 text-small text-muted">
-                <span class="tabular" x-text="marketSummary()"></span>
-                <span
-                  x-text="' · ' + (selectedMuseum ? selectedMuseum.name : '')"
-                ></span>
-              </p>
 
-              <div class="barra mt-6">
-                <div class="campo-cerca">
+              <div
+                class="contents md:sticky md:top-[var(--app-bar)] md:z-40 md:mt-1 md:flex md:items-center md:gap-3 md:border-b md:border-line md:bg-bg md:py-3"
+              >
+                <div
+                  class="campo-cerca sticky top-[var(--app-bar)] z-40 mt-1 md:static md:z-auto md:mt-0"
+                >
                   <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true">
                     <use href="#ico-cerca" />
                   </svg>
@@ -1341,11 +1350,10 @@
                     id="cerca-vetrina"
                     type="search"
                     x-model.debounce.250ms="marketSearch"
-                    :placeholder="t(`Cerca una visita, un'opera, un pittore…`)"
-                    @input.debounce.300ms="announce(marketSummary())"
+                    :placeholder="t(`Cerca`)"
                   />
                 </div>
-                <div class="flex flex-wrap gap-3">
+                <div class="mt-2 flex flex-wrap gap-3 md:mt-0">
                   <div
                     class="segmenti"
                     role="group"
@@ -1462,7 +1470,7 @@
                           class="mt-1 text-caption uppercase tracking-wider text-muted"
                         >
                           <span
-                            x-text="t(`Curatore: {nome}`, { nome: v.author || 'n/d' })"
+                            x-text="t(`Autore: {nome}`, { nome: v.author || 'n/d' })"
                           ></span>
                         </p>
                         <div
@@ -1490,7 +1498,7 @@
                             <a
                               :href="'/visita/' + encodeURIComponent(v['@id'])"
                               class="btn-secondario relative z-30"
-                              x-text="t(`Completa`)"
+                              x-text="t(`Da comprare`)"
                             ></a>
                           </template>
                           <template x-if="!inLibrary(v) && canBuy()">
@@ -1565,16 +1573,11 @@
                           x-text="g.artwork.author ? g.artwork.author.name : ''"
                         ></p>
                         <p
-                          class="mt-auto flex flex-wrap items-baseline gap-x-2 pt-4 text-caption uppercase tracking-wider"
+                          class="mt-auto pt-4 text-caption uppercase tracking-wider"
                         >
                           <span
                             class="tabular text-slate"
                             x-text="artworkCount(g)"
-                          ></span>
-                          <span class="text-muted" aria-hidden="true">·</span>
-                          <span
-                            class="valore"
-                            x-text="artworkFromPrice(g)"
                           ></span>
                         </p>
                       </div>
@@ -1772,7 +1775,7 @@
                           ></span>
                           <span
                             class="text-caption text-muted"
-                            x-text="t(`Curatore: {nome}`, { nome: it.author || 'n/d' })"
+                            x-text="t(`Autore: {nome}`, { nome: it.author || 'n/d' })"
                           ></span>
                           <span
                             x-show="it.visibility === 'privato'"
@@ -1899,7 +1902,7 @@
                       x-show="currentUserRole === 'autore'"
                       type="button"
                       class="btn-primario mt-4"
-                      @click="openNewItem(); draft.selectedArtworkUri = currentArtwork()['@id']"
+                      @click="openNewItemForArtwork(currentArtwork())"
                       x-text="t(`Scrivine una`)"
                     ></button>
                   </div>
@@ -1958,7 +1961,7 @@
                         class="mt-1 text-caption uppercase tracking-wider text-muted"
                       >
                         <span
-                          x-text="t(`Curatore: {nome}`, { nome: currentVisit().author || 'n/d' })"
+                          x-text="t(`Autore: {nome}`, { nome: currentVisit().author || 'n/d' })"
                         ></span>
                         ·
                         <span
@@ -2230,13 +2233,8 @@
                 class="font-display text-title-1"
                 x-text="t(`La mia libreria`)"
               ></h1>
-              <p class="mt-1 text-small text-muted">
-                <span
-                  x-text="t(`Quello che possiedi in {museo}.`, { museo: selectedMuseum ? selectedMuseum.name : '' })"
-                ></span>
-              </p>
 
-              <div class="barra mt-6">
+              <div class="barra mt-1">
                 <div class="campo-cerca">
                   <svg class="h-5 w-5 shrink-0 text-muted" aria-hidden="true">
                     <use href="#ico-cerca" />
@@ -2250,105 +2248,93 @@
                     id="cerca-lib"
                     type="search"
                     x-model="librarySearch"
-                    :placeholder="t(`Cerca…`)"
+                    :placeholder="t(`Cerca`)"
                   />
                 </div>
-                <a
-                  href="/componi"
-                  @click="openComposer()"
-                  class="btn-secondario shrink-0"
-                >
-                  <svg class="h-4 w-4" aria-hidden="true">
-                    <use href="#ico-componi" />
-                  </svg>
-                  <span x-text="t(`Componi una visita`)"></span>
-                </a>
               </div>
 
-              <h2
-                class="mt-10 font-display text-title-2"
-                x-text="t(`Visite`)"
-              ></h2>
-              <ul class="mt-4 flex flex-col gap-3">
-                <template x-for="v in myVisits()" :key="v['@id']">
-                  <li
-                    class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <a
-                        :href="'/visita/' + encodeURIComponent(v['@id'])"
-                        class="font-display text-title-3 link-scuro"
-                        x-text="v.name"
-                      ></a>
-                      <p
-                        class="tabular text-small text-muted"
-                        x-text="visitSummary(v)"
-                      ></p>
-                      <p
-                        x-show="!visitUsable(v)"
-                        class="mt-1 text-caption text-muted"
-                        x-text="'Contiene ' + mancantiDi(v) + ' contenuti da sbloccare'"
-                      ></p>
-                    </div>
-                    <template x-if="visitUsable(v)">
-                      <button
-                        type="button"
-                        @click="openNavigator(navigatorUrl(v))"
-                        class="btn-primario shrink-0"
-                        :aria-label="t(`Inizia la visita {nome}`, { nome: v.name })"
+              <template
+                x-for="(section, sectionIndex) in libraryVisitSections()"
+                :key="section.id"
+              >
+                <div :class="sectionIndex === 0 ? 'mt-10' : 'mt-12'">
+                  <h2
+                    class="font-display text-title-2"
+                    x-text="section.title"
+                  ></h2>
+                  <ul class="mt-4 flex flex-col gap-3">
+                    <template x-for="v in section.visits" :key="v['@id']">
+                      <li
+                        class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center"
                       >
-                        <svg class="h-5 w-5" aria-hidden="true">
-                          <use href="#ico-avvia" />
-                        </svg>
-                        <span x-text="t(`Inizia`)"></span>
-                      </button>
-                    </template>
-                    <template x-if="!visitUsable(v) && canBuy()">
-                      <button
-                        type="button"
-                        @click="openCompleteVisit(v)"
-                        class="btn-secondario shrink-0"
-                        x-text="unlockVisitLabel(v)"
-                      ></button>
-                    </template>
-                    <template x-if="!visitUsable(v) && !canBuy()">
-                      <a
-                        :href="'/visita/' + encodeURIComponent(v['@id'])"
-                        class="btn-secondario shrink-0"
-                        x-text="t(`Apri`)"
-                      ></a>
-                    </template>
+                        <div class="min-w-0 flex-1">
+                          <a
+                            :href="'/visita/' + encodeURIComponent(v['@id'])"
+                            class="font-display text-title-3 link-scuro"
+                            x-text="v.name"
+                          ></a>
+                          <p
+                            class="tabular text-small text-muted"
+                            x-text="visitSummary(v)"
+                          ></p>
+                          <p
+                            x-show="!visitUsable(v)"
+                            class="mt-1 text-caption text-muted"
+                            x-text="'Contiene ' + mancantiDi(v) + ' contenuti da sbloccare'"
+                          ></p>
+                        </div>
+                        <template x-if="visitUsable(v)">
+                          <button
+                            type="button"
+                            @click="openNavigator(navigatorUrl(v))"
+                            class="btn-primario shrink-0"
+                            :aria-label="t(`Inizia la visita {nome}`, { nome: v.name })"
+                          >
+                            <svg class="h-5 w-5" aria-hidden="true">
+                              <use href="#ico-avvia" />
+                            </svg>
+                            <span x-text="t(`Inizia`)"></span>
+                          </button>
+                        </template>
+                        <template x-if="!visitUsable(v) && canBuy()">
+                          <button
+                            type="button"
+                            @click="openCompleteVisit(v)"
+                            class="btn-secondario shrink-0"
+                            x-text="unlockVisitLabel(v)"
+                          ></button>
+                        </template>
+                        <template x-if="!visitUsable(v) && !canBuy()">
+                          <a
+                            :href="'/visita/' + encodeURIComponent(v['@id'])"
+                            class="btn-secondario shrink-0"
+                            x-text="t(`Apri`)"
+                          ></a>
+                        </template>
 
-                    <template x-if="canDeleteVisit(v)">
-                      <button
-                        type="button"
-                        @click="openDeleteVisit(v)"
-                        class="btn-pericolo shrink-0"
-                        :aria-label="t(`Elimina la visita {nome}`, { nome: v.name })"
-                      >
-                        <svg class="h-4 w-4" aria-hidden="true">
-                          <use href="#ico-elimina" />
-                        </svg>
-                        <span x-text="t(`Elimina`)"></span>
-                      </button>
+                        <template x-if="canDeleteVisit(v)">
+                          <button
+                            type="button"
+                            @click="openDeleteVisit(v)"
+                            class="btn-pericolo shrink-0"
+                            :aria-label="t(`Elimina la visita {nome}`, { nome: v.name })"
+                          >
+                            <svg class="h-4 w-4" aria-hidden="true">
+                              <use href="#ico-elimina" />
+                            </svg>
+                            <span x-text="t(`Elimina`)"></span>
+                          </button>
+                        </template>
+                      </li>
                     </template>
-                  </li>
-                </template>
-              </ul>
-              <p
-                x-show="currentUserRole === 'visitatore'"
-                class="mt-3 text-caption text-muted"
-                x-text="t(`Itinerari tuoi in questo museo: {n} di {max}.`, { n: composedVisitCount(), max: maxVisiteVisitatore })"
-              ></p>
-              <div x-show="myVisits().length === 0" class="vuoto mt-4">
-                <p x-text="t(`Non hai ancora visite.`)"></p>
-                <a
-                  href="/vetrina"
-                  @click="setMarketType('visite')"
-                  class="btn-primario mt-4"
-                  x-text="t(`Vai alle visite`)"
-                ></a>
-              </div>
+                  </ul>
+                  <p
+                    x-show="section.id === 'composed' && section.visits.length > 0 && currentUserRole === 'visitatore'"
+                    class="mt-3 text-caption text-muted"
+                    x-text="t(`Itinerari tuoi in questo museo: {n} di {max}.`, { n: composedVisitCount(), max: maxVisiteVisitatore })"
+                  ></p>
+                </div>
+              </template>
 
               <h2
                 class="mt-12 font-display text-title-2"
@@ -2383,15 +2369,6 @@
                   </a>
                 </template>
               </div>
-              <div x-show="myItemGroups().length === 0" class="vuoto mt-4">
-                <p x-text="t(`Non hai ancora descrizioni.`)"></p>
-                <a
-                  href="/vetrina"
-                  @click="setMarketType('opere')"
-                  class="btn-primario mt-4"
-                  x-text="t(`Sfoglia le opere`)"
-                ></a>
-              </div>
             </section>
 
             <section x-show="view === 'lavori'">
@@ -2419,7 +2396,7 @@
                     id="cerca-lav"
                     type="search"
                     x-model="worksSearch"
-                    :placeholder="t(`Cerca…`)"
+                    :placeholder="t(`Cerca`)"
                   />
                 </div>
                 <div
@@ -2601,12 +2578,12 @@
                 class="mt-8 grid gap-8"
                 :class="draftSubject() ? 'lg:grid-cols-[minmax(0,1fr)_18rem]' : 'grid-cols-1'"
               >
-                <form @submit.prevent="saveItem()" class="flex flex-col gap-8">
+                <form @submit.prevent="saveItem()" class="flex max-w-3xl flex-col gap-8">
                   <div class="flex flex-col gap-8 border-l-4 border-l-accent py-2 pl-4">
                   <div>
                     <label
                       for="ed-genere"
-                      class="etichetta"
+                      class="block font-display text-title-3 font-semibold text-accent"
                       x-text="t(`Di che cosa parli?`)"
                     ></label>
                     <select
@@ -2622,23 +2599,86 @@
                   </div>
 
                   <!-- OPERA -->
-                  <div x-show="draft.genere === 'opera'">
+                  <div
+                    x-show="draft.genere === 'opera'"
+                    x-data="{ open: false, active: -1 }"
+                    @click.outside="open = false; active = -1"
+                  >
                     <label
+                      id="ed-opera-label"
                       for="ed-opera"
-                      class="etichetta"
+                      class="block font-display text-title-3 font-semibold text-accent"
                       x-text="t(`Opera`)"
                     ></label>
-                    <select
-                      id="ed-opera"
-                      x-model="draft.selectedArtworkUri"
-                      :disabled="!!editingId"
-                      class="campo"
-                    >
-                      <option value="" x-text="t(`Scegli un'opera…`)"></option>
-                      <template x-for="a in museumArtworks()" :key="a['@id']">
-                        <option :value="a['@id']" x-text="a.name"></option>
-                      </template>
-                    </select>
+                    <div class="relative mt-1.5">
+                      <div class="campo-cerca">
+                        <svg
+                          class="h-5 w-5 shrink-0 text-muted"
+                          aria-hidden="true"
+                        >
+                          <use href="#ico-cerca" />
+                        </svg>
+                        <input
+                          id="ed-opera"
+                          type="search"
+                          x-model="artworkSearch"
+                          :disabled="!!editingId"
+                          :placeholder="t(`Cerca`)"
+                          autocomplete="off"
+                          role="combobox"
+                          aria-autocomplete="list"
+                          aria-controls="ed-opera-opzioni"
+                          :aria-expanded="open && !editingId"
+                          :aria-activedescendant="open && active >= 0 ? 'ed-opera-opzione-' + active : null"
+                          @focus="open = !editingId"
+                          @input="draft.selectedArtworkUri = ''; open = true; active = -1"
+                          @keydown.arrow-down.prevent="open = true; active = Math.min(active + 1, draftArtworkOptions().length - 1)"
+                          @keydown.arrow-up.prevent="open = true; active = draftArtworkOptions().length ? Math.max(active - 1, 0) : -1"
+                          @keydown.enter.prevent="open && active >= 0 && selectDraftArtwork(draftArtworkOptions()[active]); open = false"
+                          @keydown.escape.prevent="open = false; active = -1"
+                          @keydown.tab="open = false; active = -1"
+                        />
+                      </div>
+
+                      <div
+                        x-show="open && !editingId"
+                        class="scorrimento absolute inset-x-0 z-30 mt-1 max-h-64 overflow-y-auto overscroll-contain rounded-card border border-line-strong bg-surface shadow-l2"
+                      >
+                        <ul
+                          id="ed-opera-opzioni"
+                          role="listbox"
+                          :aria-labelledby="'ed-opera-label'"
+                        >
+                          <template
+                            x-for="(a, index) in draftArtworkOptions()"
+                            :key="a['@id']"
+                          >
+                            <li
+                              :id="'ed-opera-opzione-' + index"
+                              role="option"
+                              class="border-b border-line last:border-b-0"
+                              :aria-selected="draft.selectedArtworkUri === a['@id']"
+                            >
+                              <button
+                                type="button"
+                                tabindex="-1"
+                                class="min-h-11 w-full px-3 py-2 text-left text-small"
+                                :class="active === index || draft.selectedArtworkUri === a['@id'] ? 'bg-accent-velo text-accent' : 'hover:bg-surface-2'"
+                                @mouseenter="active = index"
+                                @mousedown.prevent
+                                @click="selectDraftArtwork(a); open = false; active = -1"
+                                x-text="a.name"
+                              ></button>
+                            </li>
+                          </template>
+                        </ul>
+                        <p
+                          x-show="draftArtworkOptions().length === 0"
+                          class="p-3 text-small text-muted"
+                          x-text="t(`Nessun contenuto corrisponde a quello che hai cercato.`)"
+                        ></p>
+                      </div>
+                    </div>
                   </div>
 
                   <div
@@ -2648,7 +2688,7 @@
                     <div>
                       <label
                         for="ed-soggetto"
-                        class="etichetta"
+                        class="block font-display text-title-3 font-semibold text-accent"
                         x-text="t(`Soggetto`)"
                       ></label>
                       <input
@@ -2670,7 +2710,7 @@
                     <div>
                       <label
                         for="ed-immagine"
-                        class="etichetta"
+                        class="block font-display text-title-3 font-semibold text-accent"
                         x-text="t(`Immagine (facoltativa)`)"
                       ></label>
                       <input
@@ -2690,7 +2730,10 @@
 
                   <div class="flex flex-col gap-8 border-l-4 border-l-accent py-2 pl-4">
                   <fieldset>
-                    <legend class="etichetta" x-text="t(`Tono`)"></legend>
+                    <legend
+                      class="font-display text-title-3 font-semibold text-accent"
+                      x-text="t(`Tono`)"
+                    ></legend>
                     <div
                       class="mt-3 grid gap-2 sm:grid-cols-2"
                       role="radiogroup"
@@ -2725,7 +2768,7 @@
                   <div>
                     <label
                       for="ed-durata"
-                      class="etichetta"
+                      class="block font-display text-title-3 font-semibold text-accent"
                       x-text="t(`Durata della lettura (secondi)`)"
                     ></label>
                     <input
@@ -2741,7 +2784,7 @@
                   <div>
                     <label
                       for="ed-testo"
-                      class="etichetta"
+                      class="block font-display text-title-3 font-semibold text-accent"
                       x-text="t(`Testo`)"
                     ></label>
                     <textarea
@@ -2765,7 +2808,7 @@
                     <div x-show="!draft.privato">
                       <label
                         for="ed-prezzo"
-                        class="etichetta"
+                        class="block font-display text-title-3 font-semibold text-accent"
                         x-text="t(`Prezzo (€)`)"
                       ></label>
                       <input
@@ -2780,7 +2823,7 @@
                     <div>
                       <label
                         for="ed-licenza"
-                        class="etichetta"
+                        class="block font-display text-title-3 font-semibold text-accent"
                         x-text="t(`Licenza`)"
                       ></label>
                       <select
@@ -2940,36 +2983,17 @@
               </p>
             </section>
 
-            <section x-show="view === 'componi'" class="max-w-none">
+            <section
+              x-show="view === 'componi'"
+              class="max-w-none"
+            >
               <h1
                 class="font-display text-title-1"
                 x-text="editingId ? 'Modifica la visita' : 'Componi una visita'"
               ></h1>
 
-              <!-- GENERAZIONE DA RICHIESTA -->
-              <template x-if="!editingId && currentUserRole !== 'autore'">
-                <div
-                  class="lastra filo-iride mt-4 flex flex-col gap-3 p-4 pl-5 sm:flex-row sm:items-center"
-                >
-                  <span class="tessera-iride">
-                    <svg class="h-6 w-6" aria-hidden="true">
-                      <use href="#ico-scintilla" />
-                    </svg>
-                  </span>
-                  <p
-                    class="flex-1 text-small"
-                    x-text="t(`Non hai voglia di sceglierle una per una? Descrivi la visita che vorresti e la trovi già composta.`)"
-                  ></p>
-                  <a
-                    href="/sumisura"
-                    class="btn-secondario shrink-0"
-                    x-text="t(`Raccontala a parole`)"
-                  ></a>
-                </div>
-              </template>
-
               <nav
-                class="passi mt-6"
+                class="passi mt-4 lg:mt-3"
                 :aria-label="t(`Passi della composizione`)"
               >
                 <template
@@ -2993,7 +3017,10 @@
               </nav>
 
               <!-- PASSO 1: il percorso, con la libreria accanto -->
-              <div x-show="visitStep === 'percorso'" class="mt-6">
+              <div
+                x-show="visitStep === 'percorso'"
+                class="mt-4 lg:mt-3"
+              >
                 <div
                   role="tablist"
                   :aria-label="t(`Pannelli del compositore`)"
@@ -3034,7 +3061,7 @@
                     >
                       <label
                         for="v-titolo"
-                        class="block font-display text-title-3 text-accent"
+                        class="block font-display text-title-3 font-semibold text-accent"
                         x-text="t(`Titolo della visita`)"
                       ></label>
                       <input
@@ -3051,7 +3078,7 @@
                     >
                       <div class="flex items-baseline justify-between">
                         <h2
-                          class="font-display text-title-3 text-accent"
+                          class="font-display text-title-3 font-semibold text-accent"
                           x-text="t(`Il percorso`)"
                         ></h2>
                         <span
@@ -3061,7 +3088,8 @@
                       </div>
 
                       <ol
-                        class="mt-3 flex max-h-[60dvh] flex-col gap-2 overflow-y-auto overscroll-contain pr-1"
+                        x-ref="visitPath"
+                        class="scorrimento mt-3 flex max-h-[60dvh] flex-col gap-2 overflow-y-auto overscroll-contain pr-1 lg:max-h-[34rem]"
                       >
                         <template
                           x-for="(stop, index) in draft.tappe"
@@ -3096,7 +3124,9 @@
                               </svg>
                             </span>
 
-                            <div class="riga-corpo flex flex-col gap-2">
+                            <div
+                              class="riga-corpo grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1 sm:gap-2"
+                            >
                               <div class="min-w-0">
                                 <template x-if="stop.tipo === 'item'">
                                   <div>
@@ -3108,6 +3138,15 @@
                                       class="text-caption text-muted"
                                       x-text="itemDetail(stop.value)"
                                     ></p>
+                                    <button
+                                      type="button"
+                                      @click="toggleOptional(index)"
+                                      :aria-pressed="!!stop.opzionale"
+                                      :aria-label="toggleOptionalLabel(stop.opzionale, index)"
+                                      class="pastiglia-bottone mt-2"
+                                      :class="stop.opzionale ? 'pastiglia-attiva' : ''"
+                                      x-text="t(`Opzionale`)"
+                                    ></button>
                                   </div>
                                 </template>
                                 <template x-if="stop.tipo === 'logistica'">
@@ -3128,17 +3167,7 @@
                                 </template>
                               </div>
 
-                              <div class="flex flex-wrap items-center justify-end gap-1 self-stretch">
-                                <button
-                                  type="button"
-                                  x-show="stop.tipo === 'item'"
-                                  @click="toggleOptional(index)"
-                                  :aria-pressed="!!stop.opzionale"
-                                  :aria-label="toggleOptionalLabel(stop.opzionale, index)"
-                                  class="pastiglia-bottone"
-                                  :class="stop.opzionale ? 'pastiglia-attiva' : ''"
-                                  x-text="t(`Opzionale`)"
-                                ></button>
+                              <div class="flex items-center self-center">
                                 <div class="flex flex-col">
                                   <button
                                     type="button"
@@ -3185,7 +3214,7 @@
 
                       <button
                         type="button"
-                        @click="addStop('logistica')"
+                        @click="addLogisticsStop($refs.visitPath)"
                         class="btn-secondario mt-3 w-full justify-center"
                       >
                         <svg class="h-4 w-4" aria-hidden="true">
@@ -3256,7 +3285,7 @@
                           id="cerca-ed"
                           type="search"
                           x-model.debounce.250ms="editorSearch"
-                          :placeholder="t(`Cerca un'opera…`)"
+                          :placeholder="t(`Cerca`)"
                         />
                       </div>
                       <div
@@ -3280,7 +3309,7 @@
                     </div>
 
                     <ul
-                      class="mt-4 flex flex-col gap-2 lg:max-h-[70vh] lg:overflow-y-auto lg:pr-1"
+                      class="scorrimento mt-4 flex flex-col gap-2 lg:h-[34rem] lg:max-h-[34rem] lg:overflow-y-auto lg:pr-1"
                     >
                       <template
                         x-for="g in editorLibrary()"
@@ -3647,7 +3676,9 @@
                 </div>
               </div>
 
-              <div class="barra-salva mt-8">
+              <div
+                class="barra-salva barra-salva-compositore mt-8"
+              >
                 <p
                   class="text-small"
                   :class="visitIssues().length ? 'text-muted' : 'text-sage'"
@@ -3682,10 +3713,6 @@
                 class="font-display text-title-1"
                 x-text="t(`Vendite e adozioni`)"
               ></h1>
-              <p
-                class="mt-1 text-small text-muted"
-                x-text="selectedMuseum ? selectedMuseum.name : ''"
-              ></p>
 
               <div class="barra mt-6">
                 <div class="campo-cerca">
@@ -3701,7 +3728,7 @@
                     id="cerca-vendite"
                     type="search"
                     x-model.debounce.250ms="salesSearch"
-                    :placeholder="t(`Cerca…`)"
+                    :placeholder="t(`Cerca`)"
                   />
                 </div>
                 <div
@@ -3750,7 +3777,7 @@
               </div>
 
               <div
-                class="lastra mt-8 max-h-[60dvh] overflow-auto overscroll-contain"
+                class="lastra scorrimento mt-8 max-h-[60dvh] overflow-auto overscroll-contain"
               >
                 <table class="w-full text-left text-small">
                   <caption
@@ -3852,10 +3879,6 @@
                     class="font-display text-title-1"
                     x-text="t(`Gestione del museo`)"
                   ></h1>
-                  <p
-                    class="mt-1 text-small text-muted"
-                    x-text="selectedMuseum ? selectedMuseum.name : ''"
-                  ></p>
                 </div>
 
                 <a
@@ -3955,7 +3978,7 @@
                   <div class="mt-4 max-w-xl">
                     <label
                       for="cerca-opere-museo"
-                      class="etichetta"
+                      class="sr-only"
                       x-text="t(`Cerca`)"
                     ></label>
                     <input
@@ -3963,12 +3986,12 @@
                       type="search"
                       class="campo"
                       x-model.debounce.250ms="museumArtworkSearch"
-                      :placeholder="t(`Cerca un'opera…`)"
+                      :placeholder="t(`Cerca`)"
                     />
                   </div>
 
                   <ul
-                    class="lastra mt-4 max-h-[55vh] divide-y divide-line overflow-y-auto overscroll-contain"
+                    class="lastra scorrimento mt-4 max-h-[55vh] divide-y divide-line overflow-y-auto overscroll-contain"
                   >
                     <template x-for="a in opereMuseo" :key="a['@id']">
                       <li class="flex items-center gap-4 px-5 py-3">
@@ -4035,14 +4058,6 @@
                 class="font-display text-title-1"
                 x-text="t(`Catalogo del museo`)"
               ></h1>
-              <p
-                class="mt-1 text-small text-muted"
-                x-text="selectedMuseum ? selectedMuseum.name : ''"
-              ></p>
-              <p
-                class="mt-3 text-small text-muted"
-                x-text="t(`Comprende le descrizioni private e le visite guidate. L'eliminazione è definitiva.`)"
-              ></p>
 
               <div class="mt-6 flex flex-wrap items-end gap-4">
                 <div class="min-w-[16rem] flex-1">
@@ -4056,7 +4071,7 @@
                     type="search"
                     class="campo"
                     x-model.debounce.250ms="catalogSearch"
-                    :placeholder="t(`Titolo, autore, tono o codice Wikidata`)"
+                    :placeholder="t(`Cerca`)"
                   />
                 </div>
                 <div>
@@ -4204,7 +4219,7 @@
               </p>
 
               <div
-                class="lastra mt-3 max-h-[60vh] overflow-auto overscroll-contain"
+                class="lastra scorrimento mt-3 max-h-[60vh] overflow-auto overscroll-contain"
               >
                 <table class="w-full text-left text-small">
                   <caption
@@ -4331,7 +4346,7 @@
           aria-describedby="conferma-testo"
           x-trap.inert.noscroll="confirmOpen"
           @click.away="cancelConfirm()"
-          class="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-card border border-line bg-surface p-7 shadow-l2"
+          class="scorrimento max-h-[85vh] w-full max-w-md overflow-y-auto rounded-card border border-line bg-surface p-7 shadow-l2"
         >
           <h2
             id="conferma-titolo"

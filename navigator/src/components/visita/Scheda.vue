@@ -137,7 +137,7 @@ const stile = computed(() => {
       id="contenuto-opera"
       ref="opera"
       role="tabpanel"
-      class="sezione-opera min-h-0 basis-0 overflow-y-auto"
+      class="sezione-opera scorrimento min-h-0 basis-0 overflow-y-auto"
       :class="[
         richiesta ? 'grow-[2]' : 'grow-[3]',
         sezione === 'opera' ? 'block' : 'hidden',
@@ -146,7 +146,7 @@ const stile = computed(() => {
       <template v-if="content">
 
         <div>
-          <div v-if="immagine.src && !imgBroken" class="bg-surface-2">
+          <div v-if="immagine.src && !imgBroken" class="bg-brass-velo">
             <div
               v-if="imgLoading"
               class="flex h-48 items-center justify-center"
@@ -300,7 +300,7 @@ const stile = computed(() => {
     <div
       id="contenuto-domande"
       role="tabpanel"
-      class="sezione-domande min-h-0 basis-0 overflow-y-auto border-t border-line p-3"
+      class="sezione-domande scorrimento min-h-0 basis-0 overflow-y-auto border-t border-line p-3"
       :class="[
         richiesta ? 'grow-[3]' : 'grow-[2]',
         sezione === 'domande' ? 'block' : 'hidden',

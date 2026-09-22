@@ -239,7 +239,7 @@ async function createCustom() {
       </div>
     </div>
 
-    <div class="relative mt-5 min-h-0 flex-1 overflow-y-auto rounded-card border border-line-strong p-4">
+    <div class="scorrimento relative mt-5 min-h-0 flex-1 overflow-y-auto rounded-card border border-line-strong p-4">
       <Attesa v-if="loading" :testo="t('Caricamento delle visite…')" />
 
       <p v-else class="text-small text-muted" role="status">

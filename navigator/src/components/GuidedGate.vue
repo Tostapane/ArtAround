@@ -263,7 +263,7 @@ async function consegna() {
 <template>
   <div
     v-if="guidedStato === 'attesa'"
-    class="flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-structure p-6
+    class="scorrimento flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-structure p-6
            text-on-structure sm:p-10"
   >
     <p class="text-caption uppercase tracking-[0.18em] text-on-structure/70">
@@ -293,7 +293,7 @@ async function consegna() {
         </p>
         <ul
           v-if="guidedParticipants.length"
-          class="mt-4 flex max-h-56 flex-col gap-2 overflow-y-auto"
+          class="scorrimento mt-4 flex max-h-56 flex-col gap-2 overflow-y-auto"
         >
           <li
             v-for="p in guidedParticipants"
@@ -418,7 +418,7 @@ async function consegna() {
 
         <!-- Studenti -->
         <template v-if="panel === 'studenti'">
-          <div v-if="guidedParticipants.length" class="mt-4 overflow-auto">
+          <div v-if="guidedParticipants.length" class="scorrimento mt-4 overflow-auto">
             <table class="w-full min-w-[38rem] text-left text-small">
               <thead>
                 <tr class="border-b border-line text-caption uppercase tracking-wider text-muted">
@@ -475,7 +475,7 @@ async function consegna() {
         </template>
 
         <template v-else>
-          <ul v-if="recentQuestions.length" class="mt-4 flex flex-1 flex-col gap-2 overflow-y-auto">
+          <ul v-if="recentQuestions.length" class="scorrimento mt-4 flex flex-1 flex-col gap-2 overflow-y-auto">
             <li
               v-for="(q, i) in recentQuestions"
               :key="i"
@@ -498,7 +498,7 @@ async function consegna() {
   <!-- DOCENTE -->
   <div
     v-else-if="guidedStato === 'quiz' && isTeacher"
-    class="min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
+    class="scorrimento min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
   >
     <div class="mx-auto max-w-2xl">
       <p class="text-caption uppercase tracking-[0.18em] text-on-structure/70">
@@ -583,7 +583,7 @@ async function consegna() {
   <!-- STUDENTE -->
   <div
     v-else-if="guidedStato === 'quiz'"
-    class="min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
+    class="scorrimento min-h-0 flex-1 overflow-y-auto bg-structure p-6 text-on-structure sm:p-10"
   >
     <div class="mx-auto max-w-xl">
       <div class="flex items-baseline justify-between gap-3">
@@ -682,7 +682,7 @@ async function consegna() {
 
   <div
     v-else
-    class="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-structure p-6
+    class="scorrimento flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-structure p-6
            text-on-structure"
   >
     <div class="max-w-md text-center">
