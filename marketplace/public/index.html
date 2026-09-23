@@ -555,8 +555,8 @@
         </div>
       </section>
 
+      <template x-if="view === 'accedi'">
       <section
-        x-show="view === 'accedi'"
         class="flex min-h-[100dvh] items-center justify-center p-6"
       >
         <div class="w-full max-w-sm">
@@ -634,9 +634,10 @@
           </p>
         </div>
       </section>
+      </template>
 
+      <template x-if="view === 'registrati'">
       <section
-        x-show="view === 'registrati'"
         class="flex min-h-[100dvh] items-center justify-center p-6"
       >
         <div class="w-full max-w-md">
@@ -779,6 +780,7 @@
           </form>
         </div>
       </section>
+      </template>
 
       <div
         x-show="guscioMontato()"
@@ -2668,7 +2670,7 @@
                                 @mouseenter="active = index"
                                 @mousedown.prevent
                                 @click="selectDraftArtwork(a); open = false; active = -1"
-                                x-text="a.name"
+                                x-text="artworkLabel(a)"
                               ></button>
                             </li>
                           </template>

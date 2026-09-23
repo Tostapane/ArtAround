@@ -31,6 +31,7 @@ import {
 } from "@/localization";
 import { useAnnouncer } from "@/composables/useAnnouncer";
 import { t } from "@/i18n";
+import { guidedActive, guidedRole } from "@/guided";
 
 const emit = defineEmits<{
   select: [value: number];
@@ -642,7 +643,12 @@ const optionalCount = computed(() => {
             {{ p.etichetta }}
           </option>
         </select>
-        <button type="button" class="btn-secondario" @click="emit('locate')">
+        <button
+          v-if="!(guidedActive && guidedRole === 'studente')"
+          type="button"
+          class="btn-secondario"
+          @click="emit('locate')"
+        >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" />
             <circle cx="12" cy="10" r="2.4" />

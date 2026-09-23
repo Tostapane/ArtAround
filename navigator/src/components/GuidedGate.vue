@@ -326,10 +326,6 @@ async function consegna() {
       <p class="mt-6 text-title-3 text-on-structure/85">
         {{ t("In attesa che il docente dia il via.") }}
       </p>
-      <p class="tabular mt-2 text-small text-on-structure/70">
-        {{ guidedParticipantsCount }}
-        {{ guidedParticipantsCount === 1 ? "collegato" : "collegati" }}
-      </p>
       <button
         type="button"
         class="mt-6"

@@ -659,11 +659,17 @@ export class AppState {
       );
   }
 
+  artworkLabel(artwork: { name: string; author?: { name?: string } }): string {
+    const autore = artwork.author?.name;
+    if (!autore) return artwork.name || "";
+    return `${artwork.name}, ${this.t("Autore")}: ${autore}`;
+  }
+
   draftArtworkOptions(): Artwork[] {
     const terms = this.searchTerms(this.artworkSearch);
     if (terms.length === 0) return this.museumArtworks();
     return this.museumArtworks().filter((artwork) => {
-      const name = this.normalizeSearch(artwork.name || "");
+      const name = this.normalizeSearch(this.artworkLabel(artwork));
       const compactName = name.replace(/ /g, "");
       return terms.every(
         (term) => name.includes(term) || compactName.includes(term),
@@ -674,7 +680,7 @@ export class AppState {
   selectDraftArtwork(artwork: Soggetto | null) {
     if (!artwork) return;
     this.draft.selectedArtworkUri = artwork["@id"];
-    this.artworkSearch = artwork.name || "";
+    this.artworkSearch = this.artworkLabel(artwork);
   }
 
   filteredMuseumArtworks() {
@@ -2112,7 +2118,7 @@ export class AppState {
         : this.availableArtworks.find(
             (artwork) => artwork["@id"] === this.draft.selectedArtworkUri,
           );
-    this.artworkSearch = selectedArtwork?.name || "";
+    this.artworkSearch = selectedArtwork ? this.artworkLabel(selectedArtwork) : "";
     this.draft.soggetto = item.subject || "";
     this.draft.immagine = item.imagePath || "";
     this.draft.tono = item.educationalLevel || "";
