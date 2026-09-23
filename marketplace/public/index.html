@@ -3613,13 +3613,15 @@
                         class="sr-only"
                         x-text="t(`Testo della domanda`)"
                       ></label>
-                      <input
+                      <textarea
                         :id="'q-' + qi"
-                        type="text"
                         x-model="q.question"
-                        class="campo"
+                        rows="2"
+                        class="campo resize-none overflow-hidden"
+                        x-init="$nextTick(() => { $el.style.height = $el.scrollHeight + 'px' })"
+                        @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
                         :placeholder="t(`Che cosa distingue il manierismo?`)"
-                      />
+                      ></textarea>
                       <fieldset class="mt-4">
                         <legend
                           class="text-caption uppercase tracking-wider text-muted"

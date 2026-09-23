@@ -145,12 +145,7 @@ onUnmounted(() => scanner.stop());
           :checked="props.posizioneAttiva"
           @change="emit('cambiaPosizione', ($event.target as HTMLInputElement).checked)"
         />
-        <span class="text-small">
-          <span class="font-medium">{{ t("Tieni conto di dove sono") }}</span>
-          <span class="block text-caption text-muted">
-            {{ t("Le indicazioni partono da dove ti trovi, invece che dall'opera aperta.") }}
-          </span>
-        </span>
+        <span class="text-small font-medium">{{ t("Geolocalizzazione") }}</span>
       </label>
 
       <div

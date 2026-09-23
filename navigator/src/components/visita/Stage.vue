@@ -16,6 +16,7 @@ import {
   map,
   matchedContent,
   museum,
+  posizioneAttiva,
   visit,
   stageView,
   setStageView,
@@ -490,7 +491,7 @@ function drawPosition() {
   if (!root) return;
   root.querySelectorAll(".segnalino-posizione").forEach((el) => el.remove());
   const svg = root.querySelector("svg");
-  const dove = stima.value;
+  const dove = posizioneAttiva.value ? stima.value : null;
   if (!svg || !dove) return;
 
   const gruppo = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -520,7 +521,7 @@ function drawPosition() {
   const punto = document.createElementNS("http://www.w3.org/2000/svg", "circle");
   punto.setAttribute("cx", String(dove.x));
   punto.setAttribute("cy", String(dove.y));
-  punto.setAttribute("r", "7");
+  punto.setAttribute("r", "9");
   punto.setAttribute("class", "punto-posizione");
   gruppo.appendChild(punto);
 
@@ -569,7 +570,7 @@ watch(pianoAttivo, (nuovo, vecchio) => {
     if (p.numero === nuovo) announce(t("Pianta: {nome}", { nome: p.etichetta }));
   }
 });
-watch([stima, bussola, angoloNordMappa], () =>
+watch([stima, bussola, angoloNordMappa, posizioneAttiva], () =>
   nextTick(() => {
     syncPositionFloor();
     drawPosition();
@@ -874,7 +875,7 @@ const optionalCount = computed(() => {
   pointer-events: none;
 }
 .mappa :deep(.punto-posizione) {
-  fill: var(--structure);
+  fill: color-mix(in oklab, var(--location) 70%, #8de8ff);
   stroke: var(--surface);
   stroke-width: 3px;
   paint-order: stroke;
