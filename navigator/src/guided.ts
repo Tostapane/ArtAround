@@ -3,7 +3,13 @@
  * polling leggero; lo studente mantiene una richiesta in attesa dei cambiamenti.
  */
 import { ref, watch } from "vue";
-import { buildStops, loadMuseum, setCustomVisit, clearVisit } from "./state";
+import {
+  buildStops,
+  loadMuseum,
+  setCustomVisit,
+  clearVisit,
+  posizioneAttiva,
+} from "./state";
 import {
   createGuidedSession,
   getGuidedTeacherView,
@@ -264,6 +270,7 @@ export async function startAsTeacher(visitId: string) {
 }
 
 export async function attachAsStudent(sessionId: string) {
+  posizioneAttiva.value = false;
   guidedActive.value = true;
   guidedRole.value = "studente";
   guidedSessionId.value = sessionId;
