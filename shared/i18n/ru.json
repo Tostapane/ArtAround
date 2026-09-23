@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "Выберите точку на плане",
   "Scegli la tua visita.": "Выберите ваш маршрут.",
   "Scegli tu le opere e le descrizioni": "Выберите произведения и описания самостоятельно",
-  "Scegli un'altra visita": "Выберите другой маршрут",
   "Scegli una visita pronta": "Выберите готовый маршрут",
   "Scegli…": "Выберите…",
   "Scelta della visita": "Выбор маршрута",
@@ -493,5 +492,7 @@
   "Voto": "Оценка",
   "Vuoi procedere a comprare \"{nome}\"?": "Хотите купить «{nome}»?",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "Хотите купить недостающий контент для «{nome}»?",
+  "Vuoi terminare la visita guidata per tutti?": "Вы хотите завершить экскурсию для всех?",
+  "Vuoi uscire dalla visita guidata?": "Вы хотите выйти из экскурсии?",
   "Zoom mappa": "Масштаб карты"
 }

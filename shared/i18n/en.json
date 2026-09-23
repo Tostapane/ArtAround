@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "Choose the point on the floor plan",
   "Scegli la tua visita.": "Choose your tour.",
   "Scegli tu le opere e le descrizioni": "Choose the artworks and descriptions yourself",
-  "Scegli un'altra visita": "Choose another tour",
   "Scegli una visita pronta": "Choose a pre-made tour",
   "Scegli…": "Choose…",
   "Scelta della visita": "Tour selection",
@@ -493,5 +492,7 @@
   "Voto": "Score",
   "Vuoi procedere a comprare \"{nome}\"?": "Do you want to proceed with purchasing \"{nome}\"?",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "Do you want to proceed with purchasing the missing content for \"{nome}\"?",
+  "Vuoi terminare la visita guidata per tutti?": "Do you want to end the tour for everyone?",
+  "Vuoi uscire dalla visita guidata?": "Do you want to exit the tour?",
   "Zoom mappa": "Zoom map"
 }

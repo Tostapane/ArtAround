@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "Kies het punt op de plattegrond",
   "Scegli la tua visita.": "Kies je bezoek.",
   "Scegli tu le opere e le descrizioni": "Kies zelf de kunstwerken en beschrijvingen",
-  "Scegli un'altra visita": "Kies een ander bezoek",
   "Scegli una visita pronta": "Kies een kant-en-klare rondleiding",
   "Scegli…": "Kies…",
   "Scelta della visita": "Keuze van het bezoek",
@@ -493,5 +492,7 @@
   "Voto": "Cijfer",
   "Vuoi procedere a comprare \"{nome}\"?": "Wil je \"{nome}\" kopen?",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "Wil je de ontbrekende inhoud van \"{nome}\" kopen?",
+  "Vuoi terminare la visita guidata per tutti?": "Wil je de rondleiding voor iedereen beëindigen?",
+  "Vuoi uscire dalla visita guidata?": "Wil je de rondleiding verlaten?",
   "Zoom mappa": "Zoom in op de kaart"
 }

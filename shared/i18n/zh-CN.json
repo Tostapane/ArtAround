@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "在平面图上选择地点",
   "Scegli la tua visita.": "选择你的参观路线。",
   "Scegli tu le opere e le descrizioni": "自己选择作品和讲解",
-  "Scegli un'altra visita": "选择另一条参观路线",
   "Scegli una visita pronta": "选择现成的参观路线",
   "Scegli…": "选择…",
   "Scelta della visita": "选择参观路线",
@@ -493,5 +492,7 @@
   "Voto": "评分",
   "Vuoi procedere a comprare \"{nome}\"?": "确定要购买“{nome}”吗？",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "确定要购买“{nome}”中缺失的内容吗？",
+  "Vuoi terminare la visita guidata per tutti?": "确定要结束所有人的导览吗？",
+  "Vuoi uscire dalla visita guidata?": "确定要退出导览吗？",
   "Zoom mappa": "缩放地图"
 }

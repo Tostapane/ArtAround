@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "Plandan noktayı seç",
   "Scegli la tua visita.": "Turunu seç.",
   "Scegli tu le opere e le descrizioni": "Eserleri ve açıklamaları kendin seç",
-  "Scegli un'altra visita": "Başka bir tur seç",
   "Scegli una visita pronta": "Hazır bir ziyaret seç",
   "Scegli…": "Seç…",
   "Scelta della visita": "Tur seçimi",
@@ -493,5 +492,7 @@
   "Voto": "Puan",
   "Vuoi procedere a comprare \"{nome}\"?": "\"{nome}\" içeriğini satın almak istiyor musunuz?",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "\"{nome}\" için eksik içerikleri satın almak istiyor musunuz?",
+  "Vuoi terminare la visita guidata per tutti?": "Rehberli turu herkes için bitirmek istiyor musun?",
+  "Vuoi uscire dalla visita guidata?": "Rehberli turdan çıkmak istiyor musun?",
   "Zoom mappa": "Harita yakınlaştırma"
 }

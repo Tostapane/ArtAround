@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "Choisissez le point sur le plan",
   "Scegli la tua visita.": "Choisissez votre visite.",
   "Scegli tu le opere e le descrizioni": "Choisissez vous-même les œuvres et les descriptions",
-  "Scegli un'altra visita": "Choisir une autre visite",
   "Scegli una visita pronta": "Choisissez un parcours prédéfini",
   "Scegli…": "Choisir…",
   "Scelta della visita": "Choix de la visite",
@@ -493,5 +492,7 @@
   "Voto": "Note",
   "Vuoi procedere a comprare \"{nome}\"?": "Souhaitez-vous procéder à l'achat de \"{nome}\" ?",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "Souhaitez-vous procéder à l'achat des contenus manquants de \"{nome}\" ?",
+  "Vuoi terminare la visita guidata per tutti?": "Souhaitez-vous terminer la visite pour tous ?",
+  "Vuoi uscire dalla visita guidata?": "Souhaitez-vous quitter la visite ?",
   "Zoom mappa": "Zoom sur le plan"
 }

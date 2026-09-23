@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "Escolhe o ponto na planta",
   "Scegli la tua visita.": "Escolhe a tua visita.",
   "Scegli tu le opere e le descrizioni": "Escolha as obras e as descrições",
-  "Scegli un'altra visita": "Escolhe outra visita",
   "Scegli una visita pronta": "Escolha uma visita pronta",
   "Scegli…": "Escolha…",
   "Scelta della visita": "Escolha da visita",
@@ -493,5 +492,7 @@
   "Voto": "Nota",
   "Vuoi procedere a comprare \"{nome}\"?": "Deseja proceder com a compra de \"{nome}\"?",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "Deseja proceder com a compra dos conteúdos em falta de \"{nome}\"?",
+  "Vuoi terminare la visita guidata per tutti?": "Deseja encerrar a visita guiada para todos?",
+  "Vuoi uscire dalla visita guidata?": "Deseja sair da visita guiada?",
   "Zoom mappa": "Zoom no mapa"
 }

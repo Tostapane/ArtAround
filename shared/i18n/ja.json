@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "マップ上の場所を選択してください",
   "Scegli la tua visita.": "ツアーを選んでください。",
   "Scegli tu le opere e le descrizioni": "作品と解説を自分で選ぶ",
-  "Scegli un'altra visita": "別のツアーを選ぶ",
   "Scegli una visita pronta": "推奨ルートを選択",
   "Scegli…": "選択…",
   "Scelta della visita": "ツアー選択",
@@ -493,5 +492,7 @@
   "Voto": "評価",
   "Vuoi procedere a comprare \"{nome}\"?": "「{nome}」を購入しますか？",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "「{nome}」の不足しているコンテンツを購入しますか？",
+  "Vuoi terminare la visita guidata per tutti?": "ガイド付きツアーを全員分終了しますか？",
+  "Vuoi uscire dalla visita guidata?": "ガイド付きツアーを終了しますか？",
   "Zoom mappa": "地図ズーム"
 }

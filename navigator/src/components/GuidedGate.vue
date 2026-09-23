@@ -127,17 +127,18 @@ async function studentExit() {
   try {
     await studentLeave();
   } finally {
-    backToSelection();
+    backHome();
   }
 }
 
-function exitVisit() {
-  if (isTeacher.value) end();
-  else studentExit();
-}
-
-function backToSelection() {
-  window.location.replace(window.location.pathname);
+async function exitVisit() {
+  const domanda = isTeacher.value
+    ? t("Vuoi terminare la visita guidata per tutti?")
+    : t("Vuoi uscire dalla visita guidata?");
+  if (!window.confirm(domanda)) return;
+  if (!isTeacher.value) return studentExit();
+  await end();
+  backHome();
 }
 
 function backHome() {
@@ -708,9 +709,6 @@ async function consegna() {
       <div class="mt-8 flex flex-col gap-2">
         <button type="button" class="btn-primario justify-center" @click="backHome">
           {{ t("Torna alla home") }}
-        </button>
-        <button type="button" class="btn-fantasma-chiaro justify-center" @click="backToSelection">
-          {{ t("Scegli un'altra visita") }}
         </button>
       </div>
     </div>

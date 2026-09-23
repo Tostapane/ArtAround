@@ -387,7 +387,6 @@
   "Scegli il punto sulla pianta": "지도에서 지점을 선택하세요",
   "Scegli la tua visita.": "관람 경로를 선택하세요.",
   "Scegli tu le opere e le descrizioni": "작품과 설명을 직접 선택하세요",
-  "Scegli un'altra visita": "다른 관람 경로 선택",
   "Scegli una visita pronta": "준비된 관람 코스 선택",
   "Scegli…": "선택…",
   "Scelta della visita": "관람 경로 선택",
@@ -493,5 +492,7 @@
   "Voto": "평점",
   "Vuoi procedere a comprare \"{nome}\"?": "\"{nome}\"을(를) 구매하시겠습니까?",
   "Vuoi procedere a comprare i contenuti mancanti di \"{nome}\"?": "\"{nome}\"의 누락된 콘텐츠를 구매하시겠습니까?",
+  "Vuoi terminare la visita guidata per tutti?": "모두를 위한 관람을 종료하시겠습니까?",
+  "Vuoi uscire dalla visita guidata?": "관람을 종료하시겠습니까?",
   "Zoom mappa": "지도 줌"
 }
