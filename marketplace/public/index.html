@@ -2433,7 +2433,7 @@
                   <ul class="mt-4 flex flex-col gap-3">
                     <template x-for="v in workVisits()" :key="v['@id']">
                       <li
-                        class="lastra flex flex-col gap-3 p-4 sm:flex-row sm:items-center"
+                        class="lastra flex items-start gap-3 p-4 sm:items-center"
                       >
                         <div class="min-w-0 flex-1">
                           <a
@@ -2461,13 +2461,11 @@
                               x-text="adoptionsOf(v['@id']) + ' adozioni'"
                             ></span>
                           </p>
-                        </div>
-                        <div class="flex shrink-0 flex-wrap gap-2">
                           <template x-if="v.accessKey">
                             <button
                               type="button"
                               @click="openNavigator(startGuidedUrl(v))"
-                              class="btn-primario"
+                              class="btn-primario mt-3"
                               :aria-label="'Apri la sala d\'attesa di ' + v.name"
                             >
                               <svg class="h-5 w-5" aria-hidden="true">
@@ -2476,6 +2474,8 @@
                               <span x-text="t(`Sala d'attesa`)"></span>
                             </button>
                           </template>
+                        </div>
+                        <div class="flex shrink-0 flex-col gap-2 sm:flex-row">
                           <button
                             type="button"
                             @click="editVisit(v)"
