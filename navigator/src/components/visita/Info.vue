@@ -60,7 +60,6 @@ function partenza(): string {
   }
 
   if (!qui && props.about.anchor) qui = props.about.anchor.qid;
-  if (qui === bersaglio.value) return "";
   return qui;
 }
 
@@ -70,11 +69,16 @@ async function ask() {
   responseText.value = LOADING;
 
   if (bersaglio.value) {
+    const qui = partenza();
+    if (qui === bersaglio.value) {
+      responseText.value = t("Sei già davanti a quest'opera.");
+      return;
+    }
     try {
       const museumQid = museum.value ? museum.value.qid : "";
       const text = await getDirections(
         museumQid,
-        partenza(),
+        qui,
         bersaglio.value,
         language.value.name,
         detailed.value,

@@ -221,9 +221,9 @@ export async function planVisit(
     if (typeof raw.name !== "string" || !Array.isArray(raw.artworks)) return undefined;
     const artworks: PlannedArtwork[] = [];
     for (const entry of raw.artworks) {
-      if (typeof entry !== "string") return undefined;
-      const [qid, tone, durationSec, ...twist] = entry.split("|");
-      if (!qid || !tone || !durationSec || twist.length === 0) return undefined;
+      if (typeof entry !== "string") continue;
+      const [qid, tone, durationSec, ...twist] = entry.split("|").map((p) => p.trim());
+      if (!qid || !tone || !durationSec) continue;
       artworks.push({ qid, tone, durationSec, twist: twist.join("|") });
     }
     return { name: raw.name, artworks };

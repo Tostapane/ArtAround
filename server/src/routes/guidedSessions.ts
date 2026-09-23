@@ -2,7 +2,7 @@
  * Sessioni effimere delle visite sincronizzate. Il long polling consegna i cambi
  * di stato, mentre una vista periodica informa il docente su studenti e domande.
  */
-import { Router, type Response } from "express";
+import { Router } from "express";
 import { sessionUser } from "../session";
 import { VisitModel } from "../models/visit";
 import { ItemModel } from "../models/item";
@@ -241,6 +241,7 @@ router.post("/", async (req, res) => {
     const existing = byAccessKey.get(visit.accessKey);
     if (existing && sessions.has(existing)) {
       const s = sessions.get(existing)!;
+      if (onlineCount(s) > 0) return res.status(200).json(teacherView(s));
       s.hasQuiz = hasQuiz;
       s.stato = "attesa";
       s.itemIds = [...(visit.itemListElement || [])];
@@ -318,15 +319,19 @@ router.post("/join", async (req, res) => {
     });
 
   if (!s || s.stato === "terminata") {
-    const visitExists = await VisitModel.exists({ accessKey: key });
-    if (visitExists)
-      return res.status(409).json({
-        error:
-          "Il docente non ha ancora avviato la sala d'attesa. Riprova appena la visita è aperta.",
-      });
-    return res
-      .status(404)
-      .json({ error: "Nessuna visita guidata attiva con questa parola chiave" });
+    try {
+      const visitExists = await VisitModel.exists({ accessKey: key });
+      if (visitExists)
+        return res.status(409).json({
+          error:
+            "Il docente non ha ancora avviato la sala d'attesa. Riprova appena la visita è aperta.",
+        });
+      return res
+        .status(404)
+        .json({ error: "Nessuna visita guidata attiva con questa parola chiave" });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Errore nell'ingresso" });
+    }
   }
 
   if (!s.partecipanti.has(username)) {
@@ -385,20 +390,20 @@ async function prepareAudio(s: Session, index: number) {
 
 async function moveToStep(s: Session, index: number): Promise<boolean> {
   const commandId = ++s.commandId;
-  const audio = await prepareAudio(s, index);
+  let audio: { text: string; language: string } | null = null;
+  try {
+    audio = await prepareAudio(s, index);
+  } catch (err) {
+    console.error("Guided audio preparation failed", err);
+  }
   if (commandId !== s.commandId) return false;
   s.stato = "attiva";
   s.currentStep = index;
-  s.playAt = Date.now() + AUDIO_LEAD_MS;
-  s.audioText = audio.text;
-  s.audioLanguage = audio.language;
+  s.playAt = audio ? Date.now() + AUDIO_LEAD_MS : null;
+  s.audioText = audio ? audio.text : "";
+  s.audioLanguage = audio ? audio.language : DEFAULT_GUIDED_AUDIO_LANGUAGE;
   publish(s);
   return true;
-}
-
-function sendAudioPreparationError(res: Response, err: unknown): void {
-  console.error("Guided audio preparation failed", err);
-  res.status(502).json({ error: "Preparazione audio non riuscita" });
 }
 
 /**
@@ -410,12 +415,8 @@ router.post("/:id/start", async (req, res) => {
   if (!s) return res.status(404).json({ error: "Sessione non trovata" });
   if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può avviare" });
-  try {
-    await moveToStep(s, 0);
-    res.json(teacherView(s));
-  } catch (err: unknown) {
-    sendAudioPreparationError(res, err);
-  }
+  await moveToStep(s, 0);
+  res.json(teacherView(s));
 });
 
 /**
@@ -430,12 +431,8 @@ router.post("/:id/step", async (req, res) => {
   const index = Number(req.body.index);
   if (!Number.isInteger(index) || index < 0 || index >= s.itemIds.length)
     return res.status(400).json({ error: "index non valido" });
-  try {
-    await moveToStep(s, index);
-    res.json(teacherView(s));
-  } catch (err: unknown) {
-    sendAudioPreparationError(res, err);
-  }
+  await moveToStep(s, index);
+  res.json(teacherView(s));
 });
 
 /**
@@ -448,7 +445,12 @@ router.post("/:id/quiz/start", async (req, res) => {
   if (sessionUser(req).username !== s.teacher)
     return res.status(403).json({ error: "Solo il docente può avviare il quiz" });
 
-  const visit = await VisitModel.findOne({ "@id": s.visitId });
+  let visit;
+  try {
+    visit = await VisitModel.findOne({ "@id": s.visitId });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "Errore nell'avvio del quiz" });
+  }
   const quiz = (visit?.quiz as any[]) || [];
   if (!Array.isArray(quiz) || quiz.length === 0)
     return res.status(400).json({ error: "Questa visita non ha un quiz" });

@@ -35,6 +35,8 @@ const props = defineProps<{
   canAskNext: boolean;
 
   sezione: string;
+
+  caricando: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -143,7 +145,19 @@ const stile = computed(() => {
         sezione === 'opera' ? 'block' : 'hidden',
       ]"
     >
-      <template v-if="content">
+      <div
+        v-if="caricando"
+        class="flex h-48 items-center justify-center"
+        role="status"
+        :aria-label="t('Caricamento…')"
+      >
+        <span
+          class="h-8 w-8 animate-spin rounded-full border-2 border-brass border-r-transparent"
+          aria-hidden="true"
+        ></span>
+      </div>
+
+      <template v-else-if="content">
 
         <div>
           <div v-if="immagine.src && !imgBroken" class="bg-brass-velo">

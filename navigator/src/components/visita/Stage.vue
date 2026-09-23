@@ -443,9 +443,14 @@ function prepareMap() {
     }
     title.textContent = label;
 
+    const pressIndex = () =>
+      props.currentIndex !== undefined && indices.includes(props.currentIndex)
+        ? props.currentIndex
+        : index;
+
     const clickHandler = ((e: Event) => {
       if (props.armed) e.stopPropagation();
-      onStopPress(index);
+      onStopPress(pressIndex());
     }) as EventListener;
     element.addEventListener("click", clickHandler);
     listeners.push({ element, type: "click", handler: clickHandler });
@@ -453,7 +458,7 @@ function prepareMap() {
     const keyHandler = ((e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
         e.preventDefault();
-        onStopPress(index);
+        onStopPress(pressIndex());
       }
     }) as EventListener;
     element.addEventListener("keydown", keyHandler);
@@ -548,6 +553,11 @@ watch(stageView, (v) => {
 });
 watch(() => props.active, (active) => {
   if (active) redraw();
+});
+watch(() => props.armed, (armed) => {
+  if (!armed) return;
+  zoomIndex.value = 0;
+  nextTick(() => inquadraPiano());
 });
 watch(() => props.currentLocationId, () =>
   nextTick(() => {

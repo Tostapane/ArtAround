@@ -195,8 +195,8 @@ async function freeItemId(base: string): Promise<string> {
 
 /**
  * POST /api/items
- * Solo autore. Ritorna: 201 alla pubblicazione, 200 alla modifica; con `editId` cambiano solo
- * testo e prezzo.
+ * Solo autore. Ritorna: 201 alla pubblicazione, 200 alla modifica; con `editId` cambia solo
+ * il testo.
  */
 router.post("/", async (req, res) => {
   try {
@@ -225,8 +225,6 @@ router.post("/", async (req, res) => {
         return res.status(403).json({ error: "Puoi modificare solo i tuoi item." });
       const desc = payload.descrizioni?.[0] || {};
       if (typeof desc.testo === "string") esistente.text = desc.testo;
-      if (esistente.visibility === "privato") esistente.price = 0;
-      else esistente.price = Number(payload.prezzo) || 0;
       await esistente.save();
       return res.status(200).send({ message: "Item aggiornato con successo" });
     }

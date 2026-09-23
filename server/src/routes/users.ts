@@ -14,7 +14,7 @@ import {
 } from "../session";
 import { UserModel } from "../models/user";
 import { ItemModel } from "../models/item";
-import { conto } from "../pricing";
+import { centesimi, conto } from "../pricing";
 import { VisitModel } from "../models/visit";
 import { SEED_AUTHOR } from "../../../shared/constants";
 import { SaleRow } from "../../../shared/types";
@@ -112,13 +112,17 @@ router.post("/login", async (req, res) => {
  * Ritorna: l'account corrente, riletto per aggiornare portafoglio e collezione.
  */
 router.get("/me", requireSession, async (req, res) => {
-  const who = sessionUser(req);
-  const user = await UserModel.findOne({
-    username: who.username,
-    role: who.role,
-  });
-  if (!user) return res.status(404).json({ error: "Account non trovato" });
-  res.json(sanitize(user));
+  try {
+    const who = sessionUser(req);
+    const user = await UserModel.findOne({
+      username: who.username,
+      role: who.role,
+    });
+    if (!user) return res.status(404).json({ error: "Account non trovato" });
+    res.json(sanitize(user));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Errore nella lettura dell'account" });
+  }
 });
 
 /**
@@ -162,8 +166,12 @@ router.post("/redeem", async (req, res) => {
  * Chiude la sessione corrente; l'operazione e' idempotente.
  */
 router.post("/logout", async (req, res) => {
-  await endSession(req);
-  res.json({ ok: true });
+  try {
+    await endSession(req);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Errore nell'uscita" });
+  }
 });
 
 // --- Acquisto e resoconto vendite -------------------------------------------
@@ -220,15 +228,15 @@ router.post("/buy", requireSession, async (req, res) => {
     if (daPrendere.length === 0) return res.json(sanitize(user));
 
     let credit = 0;
-    if (typeof user.wallet === "number") credit = user.wallet;
+    if (typeof user.wallet === "number") credit = centesimi(user.wallet);
 
     if (credit < cost)
       return res.status(400).json({
         error: `Credito insufficiente: servono € ${cost.toFixed(2)}, ne hai € ${credit.toFixed(2)}.`,
       });
 
-    user.wallet = credit - cost;
-    for (const id of daPrendere) user.collezione.push(id);
+    user.wallet = centesimi(credit - cost);
+    user.collezione = [...new Set([...user.collezione, ...daPrendere])];
     await user.save();
 
     res.json(sanitize(user));

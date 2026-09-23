@@ -77,7 +77,9 @@ export async function resolveSession(
         username: found.username,
         role: found.role,
       };
-  } catch {}
+  } catch {
+    return res.status(503).json({ error: "Database non disponibile." });
+  }
   next();
 }
 

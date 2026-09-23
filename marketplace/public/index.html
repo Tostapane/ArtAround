@@ -963,6 +963,7 @@
                   >
                     <a
                       :href="'/' + v.id"
+                      @click="openAuthorSection(v.id)"
                       class="voce-binario"
                       :data-section="v.id"
                       :class="view === v.id ? 'voce-attiva' : ''"
@@ -2817,6 +2818,7 @@
                         step="0.10"
                         min="0"
                         x-model="draft.price"
+                        :disabled="!!editingId"
                         class="campo tabular"
                       />
                     </div>
@@ -4362,7 +4364,7 @@
           ></p>
 
           <fieldset
-            x-show="(operaToDelete || itemToDelete) && visiteInGioco().length > 0"
+            x-show="(operaToDelete || itemToDelete) && visiteInGioco().length > 0 && currentUserRole === 'curatore'"
             class="mt-5 rounded-card border border-line p-4"
           >
             <legend

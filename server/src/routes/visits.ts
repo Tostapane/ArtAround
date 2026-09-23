@@ -137,6 +137,8 @@ router.get("/:id/items", async (req, res) => {
   }
 });
 
+const MAX_CUSTOM_FAILURES = 5;
+
 /**
  * POST /api/visits/custom  { museumQid, request }
  * Ritorna: { visit, content }, senza salvare; 502 se il modello fallisce o non risolve tappe.
@@ -173,29 +175,34 @@ router.post("/custom", async (req, res) => {
 
     const byQid = new Map(artworks.map((artwork) => [artwork.qid, artwork]));
     const plannedQids = new Set<string>();
-    let validPlan = plan.artworks.length === artworkCount;
+    let failures = Math.max(0, artworkCount - plan.artworks.length);
+    const validArtworks: typeof plan.artworks = [];
     for (const planned of plan.artworks) {
-      if (plannedQids.has(planned.qid) || !byQid.has(planned.qid)) validPlan = false;
-      if (!educationalLevels.includes(planned.tone)) validPlan = false;
-      if (!secPerArt.includes(Number(planned.durationSec))) validPlan = false;
-      if (typeof planned.twist !== "string") validPlan = false;
-      plannedQids.add(planned.qid);
+      const valid =
+        !plannedQids.has(planned.qid) &&
+        byQid.has(planned.qid) &&
+        educationalLevels.includes(planned.tone) &&
+        secPerArt.includes(Number(planned.durationSec));
+      if (valid) {
+        plannedQids.add(planned.qid);
+        validArtworks.push(planned);
+      } else {
+        failures++;
+      }
     }
-    if (!validPlan || plannedQids.size !== artworkCount) {
+    if (failures >= MAX_CUSTOM_FAILURES) {
       return res.status(502).json({ error: "Il modello non ha rispettato il piano richiesto" });
     }
 
     const museo = await MuseumModel.findOne({ qid: museumQid });
-    plan.artworks = sortByFlow(plan.artworks, museo ? museo.mapPath : "");
+    const ordered = sortByFlow(validArtworks, museo ? museo.mapPath : "");
 
     const content: { artwork: unknown; item: unknown }[] = [];
     let totalSec = 0;
 
-    for (const planned of plan.artworks) {
+    for (const planned of ordered) {
       const artwork = byQid.get(planned.qid);
-      if (!artwork) {
-        return res.status(502).json({ error: "Il modello ha scelto un'opera inesistente" });
-      }
+      if (!artwork) continue;
       const durationSec = Number(planned.durationSec);
       const item = await resolveOrGenerateItem(
         artwork,
@@ -204,10 +211,17 @@ router.post("/custom", async (req, res) => {
         planned.twist,
       );
       if (!item) {
-        return res.status(502).json({ error: "Impossibile preparare tutte le tappe" });
+        failures++;
+        if (failures >= MAX_CUSTOM_FAILURES) {
+          return res.status(502).json({ error: "Impossibile preparare tutte le tappe" });
+        }
+        continue;
       }
       content.push({ artwork, item });
       totalSec += Number((item as any).timeRequired) || 0;
+    }
+    if (content.length === 0) {
+      return res.status(502).json({ error: "Impossibile preparare tutte le tappe" });
     }
 
     let name = "Visita su misura";

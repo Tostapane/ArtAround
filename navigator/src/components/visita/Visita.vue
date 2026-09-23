@@ -101,13 +101,20 @@ const schedaVisibile = computed(
 
 // --- Posizione corrente ----------------------------------------------------
 const showLocator = ref(false);
+const locatorSheet = ref<"posizione" | undefined>(undefined);
 
 const sensori = useSensors();
 watch(map, () => startAtEntrance(), { immediate: true });
 
 function apriPosizione() {
+  locatorSheet.value = undefined;
   showLocator.value = true;
   if (posizioneAttiva.value) sensori.start();
+}
+
+function apriTrovami() {
+  locatorSheet.value = "posizione";
+  showLocator.value = true;
 }
 
 function cambiaPosizione(attiva: boolean) {
@@ -239,7 +246,8 @@ function onStageSelect(i: number) {
     return;
   }
   if (guidedTeacher.value) {
-    apriTappa(i);
+    if (i === guidedCurrentStep.value) selectIndex(i);
+    else apriTappa(i);
     return;
   }
   selectIndex(i);
@@ -400,6 +408,7 @@ function teletrasportaSuPunto(x: number, y: number, floor: number) {
   reanchor(x, y, floor);
   teletrasportoArmato.value = false;
   announce(t("Posizione aggiornata"));
+  apriTrovami();
 }
 
 function teletrasportaSuTappa(i: number) {
@@ -418,6 +427,7 @@ function teletrasportaSuTappa(i: number) {
   reanchor(nodo.x, nodo.y, nodo.floor);
   teletrasportoArmato.value = false;
   announce(t("Sei accanto a {nome}", { nome: ancora.name }));
+  apriTrovami();
 }
 
 function onKeyTeletrasporto(e: KeyboardEvent) {
@@ -427,6 +437,8 @@ watch(teletrasportoArmato, (armato) => {
   if (armato) window.addEventListener("keydown", onKeyTeletrasporto);
   else window.removeEventListener("keydown", onKeyTeletrasporto);
 });
+
+const caricandoOpera = ref(false);
 
 async function goToArtwork(qid: string) {
   showLocator.value = false;
@@ -439,6 +451,9 @@ async function goToArtwork(qid: string) {
     apriTappa(i);
     return;
   }
+  const prima = currentArtwork.value;
+  caricandoOpera.value = true;
+  vistaMobile.value = "opera";
   try {
     let level = "";
     let duration = 0;
@@ -449,6 +464,7 @@ async function goToArtwork(qid: string) {
       if (!isNaN(sec)) duration = sec;
     }
     const anteprima = await getArtworkPreview(qid, level, duration);
+    if (currentArtwork.value !== prima) return;
     currentArtwork.value = {
       item: anteprima.item,
       artwork: anteprima.artwork,
@@ -458,6 +474,8 @@ async function goToArtwork(qid: string) {
   } catch (err) {
     console.error("Impossibile caricare l'opera", err);
     announce(t("Opera non trovata"));
+  } finally {
+    caricandoOpera.value = false;
   }
 }
 
@@ -499,6 +517,7 @@ function actionHandler(option: string) {
   if (option === "Precedente") return navigationHandler("prev");
 
   if (option === NEXT_STOP_COMMAND) {
+    if (guidedStudent.value) return;
     if (!nextAnchorQid.value) {
       announce(t("Non c'è una tappa successiva: sei all'ultima."));
       return;
@@ -690,6 +709,7 @@ onUnmounted(() => {
       :richiesta="openRequest"
       :target="openTarget"
       :can-ask-next="nextAnchorQid !== ''"
+      :caricando="caricandoOpera"
       @navigation="navigationHandler"
       @action="actionHandler"
       @section="apriVista"
@@ -795,6 +815,7 @@ onUnmounted(() => {
       v-if="showLocator"
       :sensor-error="sensori.error.value"
       :posizione-attiva="posizioneAttiva"
+      :start-sheet="locatorSheet"
       @cambia-posizione="cambiaPosizione"
       @found="goToArtwork"
       @arm="armaTeletrasporto"

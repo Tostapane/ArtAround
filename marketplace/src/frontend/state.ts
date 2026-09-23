@@ -857,12 +857,7 @@ export class AppState {
       const u = await ArtAPI.buy(item["@id"]);
       this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
       this.userCollection = u.collezione;
-
-      if (isItem(item) && item.about && typeof item.about === "object") {
-        const qid = item.about.qid;
-        const i = this.artworksWithText.indexOf(qid);
-        if (i >= 0) this.artworksWithText.splice(i, 1);
-      }
+      this.artworksWithText = [];
 
       await this.reloadVisits();
     } catch (e) {
@@ -956,10 +951,10 @@ export class AppState {
       return this.t("Rimuovere {opera} dal catalogo?", {
         opera: this.operaToDelete.name,
       });
-    if (this.itemToDelete) return "Eliminare questa descrizione?";
-    if (this.visitToDelete) return "Eliminare questa visita?";
-    if (this.visitToComplete) return "Sbloccare i contenuti mancanti?";
-    return "Confermi l'acquisto?";
+    if (this.itemToDelete) return this.t("Eliminare questa descrizione?");
+    if (this.visitToDelete) return this.t("Eliminare questa visita?");
+    if (this.visitToComplete) return this.t("Sbloccare i contenuti mancanti?");
+    return this.t("Confermi l'acquisto?");
   }
 
   confirmMessage(): string {
@@ -993,41 +988,57 @@ export class AppState {
       testo += ". ";
       if (i.adozioni > 0) {
         testo += this.t(
-          "Spariranno anche dalle librerie di {n} persone, senza rimborso. ",
+          "Spariranno anche dalle librerie di {n} persone, senza rimborso.",
           { n: i.adozioni },
-        );
+        ) + " ";
       }
       return testo + this.t("L'operazione non è reversibile.");
     }
     if (this.itemToDelete) {
-      if (!this.itemImpact) return "Sto calcolando che cosa comporta…";
+      if (!this.itemImpact) return this.t("Sto calcolando che cosa comporta…");
       const visite = this.itemImpact.visite || [];
       const adozioni = this.itemImpact.adozioni || 0;
 
-      let testo = `"${this.itemToDelete.name}" sparirà dal catalogo`;
-      if (visite.length > 0) {
-        const quali =
-          visite.length === 1 ? "una visita" : `${visite.length} visite`;
-        testo += `, ed è una tappa di ${quali} (${this.elencoVisite(visite)})`;
+      let testo = this.t('"{nome}" sparirà dal catalogo', {
+        nome: this.itemToDelete.name,
+      });
+      if (visite.length === 1) {
+        testo += this.t(", ed è una tappa di una visita ({nomi})", {
+          nomi: this.elencoVisite(visite),
+        });
+      } else if (visite.length > 1) {
+        testo += this.t(", ed è una tappa di {n} visite ({nomi})", {
+          n: visite.length,
+          nomi: this.elencoVisite(visite),
+        });
       }
       testo += ". ";
-      if (adozioni > 0) {
-        const chi = adozioni === 1 ? "1 persona" : `${adozioni} persone`;
-        testo += `Sparirà anche dalla libreria di ${chi}, senza rimborso. `;
+      if (adozioni === 1) {
+        testo += this.t("Sparirà anche dalla libreria di 1 persona, senza rimborso.") + " ";
+      } else if (adozioni > 1) {
+        testo += this.t(
+          "Sparirà anche dalla libreria di {n} persone, senza rimborso.",
+          { n: adozioni },
+        ) + " ";
       }
-      return testo + "L'operazione non è reversibile.";
+      return testo + this.t("L'operazione non è reversibile.");
     }
     if (this.visitToDelete) {
-      return `"${this.visitToDelete.name}" sparirà dal marketplace e dalle librerie di chi l'ha adottata. L'operazione non è reversibile.`;
+      return this.t(
+        "\"{nome}\" sparirà dal marketplace e dalle librerie di chi l'ha adottata. L'operazione non è reversibile.",
+        { nome: this.visitToDelete.name },
+      );
     }
     if (this.visitToComplete) {
-      const v = this.visitToComplete;
-      return `Vuoi procedere a comprare i contenuti mancanti di "${v.name}"?`;
+      return this.t(
+        'Vuoi procedere a comprare i contenuti mancanti di "{nome}"?',
+        { nome: this.visitToComplete.name },
+      );
     }
     const item = this.itemToBuy;
     if (!item) return "";
-    const nome = this.contentName(item) || "questo contenuto";
-    return `Vuoi procedere a comprare "${nome}"?`;
+    const nome = this.contentName(item) || this.t("questo contenuto");
+    return this.t('Vuoi procedere a comprare "{nome}"?', { nome });
   }
 
   private elencoVisite(visite: { name: string }[]): string {
@@ -1088,10 +1099,10 @@ export class AppState {
   confirmVerb(): string {
     if (this.museoToWipe) return this.t("Svuota il museo");
     if (this.operaToDelete) return this.t("Rimuovi dal catalogo");
-    if (this.itemToDelete) return "Elimina";
-    if (this.visitToDelete) return "Elimina";
-    if (this.visitToComplete) return "Sblocca tutto";
-    return "Acquista";
+    if (this.itemToDelete) return this.t("Elimina");
+    if (this.visitToDelete) return this.t("Elimina");
+    if (this.visitToComplete) return this.t("Sblocca tutto");
+    return this.t("Acquista");
   }
 
   confirmReady(): boolean {
@@ -1133,7 +1144,7 @@ export class AppState {
       this.cancelConfirm();
       try {
         await ArtAPI.svuotaMuseo(museo.qid);
-        await this.loadMuseumState();
+        await this.loadCatalogue();
       } catch (e) {
         this.showError((e as Error).message);
       }
@@ -1182,6 +1193,7 @@ export class AppState {
         const u = await ArtAPI.buy(visit["@id"]);
         this.wallet = typeof u.wallet === "number" ? u.wallet : 0;
         this.userCollection = u.collezione;
+        this.artworksWithText = [];
         await this.reloadVisits();
       } catch (e) {
         this.showError((e as Error).message);
@@ -1778,7 +1790,7 @@ export class AppState {
       await this.caricaTesti(art.qid);
       return;
     }
-    if ("text" in item) return;
+    if (item.text) return;
     try {
       const risposta = await ArtAPI.fetchItemText(item["@id"]);
       (item as Item).text = risposta.text;
@@ -2189,6 +2201,11 @@ export class AppState {
     this.editorFilter = "tutti";
     this.draft = this.emptyDraft();
     this.goTo("componi");
+  }
+
+  openAuthorSection(id: string) {
+    if (id === "nuovo") this.openNewItem();
+    if (id === "componi") this.openComposer();
   }
 
   editVisit(visit: Visit | null) {

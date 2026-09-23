@@ -217,13 +217,19 @@ const consegneFatte = computed(() => {
   return q.risultati.filter((r) => r.consegnato).length;
 });
 
+const avviandoQuiz = ref(false);
+
 async function avviaQuiz() {
+  if (avviandoQuiz.value) return;
+  avviandoQuiz.value = true;
   try {
     await teacherStartQuiz(quizDurata.value);
     announce(t("Quiz avviato"));
   } catch (err) {
     console.error("Impossibile avviare il quiz", err);
     erroreQuiz.value = (err as Error).message;
+  } finally {
+    avviandoQuiz.value = false;
   }
 }
 
@@ -468,6 +474,8 @@ async function consegna() {
           <button
             type="button"
             class="btn-primario mt-4 w-full justify-center"
+            :disabled="avviandoQuiz"
+            :aria-busy="avviandoQuiz"
             @click="avviaQuiz"
           >
             {{ t("Avvia il quiz") }}

@@ -13,7 +13,7 @@ export async function resolveOrGenerateItem(
   durationSec: number,
   twist: string,
 ): Promise<IItem | null> {
-  const baseFilter = { about: artwork["@id"] };
+  const baseFilter = { about: artwork["@id"], visibility: { $ne: "privato" } };
   const hasTwist = twist.trim() !== "";
 
   if (!hasTwist) {

@@ -258,7 +258,7 @@ export async function waitForGuidedState(
     signal,
   });
   if (res.status === 204) return null;
-  if (res.status === 410) throw new GuidedEndedError();
+  if (res.status === 410 || res.status === 403) throw new GuidedEndedError();
   if (!res.ok) throw new Error(await readGuidedError(res));
   return res.json();
 }

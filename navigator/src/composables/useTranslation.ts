@@ -9,19 +9,19 @@ import { translateTexts } from "@/api";
 
 export function useTranslation(source: () => string[]): Ref<string[]> {
   const translated = ref<string[]>(source());
+  let lastRequest = 0;
 
   watch(
     [source, language],
     async ([texts, lang]) => {
-      if (lang.translate === SOURCE_LANG) {
-        translated.value = texts;
-        return;
-      }
+      const request = ++lastRequest;
+      translated.value = texts;
+      if (lang.translate === SOURCE_LANG) return;
       try {
-        translated.value = await translateTexts(texts, lang.translate);
+        const result = await translateTexts(texts, lang.translate);
+        if (request === lastRequest) translated.value = result;
       } catch (err) {
         console.error("Errore durante la traduzione", err);
-        translated.value = texts;
       }
     },
     { immediate: true, deep: true },

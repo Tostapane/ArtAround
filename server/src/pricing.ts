@@ -34,10 +34,7 @@ export function conto(
 
   for (const id of tappe) {
     const tappa = itemsById.get(id);
-    if (!tappa) {
-      mancanti++;
-      continue;
-    }
+    if (!tappa) continue;
     if (isReadable(tappa, username, owned.has(id))) continue;
     if (daPrendere.includes(id)) continue;
     mancanti++;
@@ -46,5 +43,14 @@ export function conto(
   }
 
   totale += costoMancanti;
-  return { daPrendere, mancanti, costoMancanti, totale };
+  return {
+    daPrendere,
+    mancanti,
+    costoMancanti: centesimi(costoMancanti),
+    totale: centesimi(totale),
+  };
+}
+
+export function centesimi(euro: number): number {
+  return Math.round(euro * 100) / 100;
 }

@@ -9,6 +9,7 @@ import { NEXT_STOP_COMMAND, options } from "../../../../shared/constants";
 import type { CommandOption } from "../../../../shared/constants";
 import type { Match } from "../../../../shared/types";
 import { t } from "@/i18n";
+import { guidedActive, guidedRole } from "@/guided";
 
 const props = defineProps<{
   about: Match | null;
@@ -37,7 +38,11 @@ watch(
 
 const askCommands = computed(() => options.filter((o) => o.surface === "chiedi"));
 const orientCommands = computed(() =>
-  options.filter((o) => o.surface === "orientati"),
+  options.filter((o) => {
+    if (o.surface !== "orientati") return false;
+    const studente = guidedActive.value && guidedRole.value === "studente";
+    return !(studente && o.id === NEXT_STOP_COMMAND);
+  }),
 );
 const shown = computed(() =>
   tab.value === "chiedi" ? askCommands.value : orientCommands.value,

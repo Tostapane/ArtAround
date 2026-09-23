@@ -12,7 +12,11 @@ import { bussola, localizzabile, rank, stima, type Candidato } from "@/localizat
 import { t } from "@/i18n";
 import { versioneImmagine } from "../../../../shared/constants";
 
-const props = defineProps<{ sensorError: string; posizioneAttiva: boolean }>();
+const props = defineProps<{
+  sensorError: string;
+  posizioneAttiva: boolean;
+  startSheet?: "posizione";
+}>();
 const emit = defineEmits<{
   found: [qid: string];
   arm: [];
@@ -29,7 +33,7 @@ const cameraAvailable = computed(
   () => !!navigator.mediaDevices?.getUserMedia,
 );
 const sheet = ref<"qr" | "codice" | "posizione" | "teletrasporto">(
-  cameraAvailable.value ? "qr" : "codice",
+  props.startSheet || (cameraAvailable.value ? "qr" : "codice"),
 );
 
 function extractQid(raw: string): string {
@@ -288,16 +292,22 @@ onUnmounted(() => scanner.stop());
 
       <!-- Teletrasporto -->
       <div v-show="sheet === 'teletrasporto'" class="mt-4">
-        <p class="text-small text-muted">
-          {{ t("Ti porta dove vuoi sulla pianta senza attraversare il museo: il tocco successivo ti sposta lì, su una tappa o sul pavimento. Non apre nessuna tappa: da lì premi «Trovami».") }}
-        </p>
-
-        <p v-if="!localizzabile" class="avviso mt-4">
+        <p v-if="!localizzabile" class="avviso">
           {{ t("La pianta di questo museo non porta la propria misura, quindi da un punto qualunque non saprei calcolare niente.") }}
         </p>
-        <button v-else type="button" class="btn-primario mt-4 w-full justify-center" @click="emit('arm')">
-          {{ t("Scegli il punto sulla pianta") }}
-        </button>
+        <template v-else>
+          <p v-if="!props.posizioneAttiva" class="avviso mb-4">
+            {{ t("Attiva la geolocalizzazione per usare il teletrasporto.") }}
+          </p>
+          <button
+            type="button"
+            class="btn-primario w-full justify-center"
+            :disabled="!props.posizioneAttiva"
+            @click="emit('arm')"
+          >
+            {{ t("Scegli il punto sulla pianta") }}
+          </button>
+        </template>
       </div>
     </div>
   </div>

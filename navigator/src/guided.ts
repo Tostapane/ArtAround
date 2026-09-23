@@ -210,7 +210,9 @@ async function waitForStudentChanges(generation: number) {
 
 async function pollTeacher() {
   try {
-    applyTeacherView(await getGuidedTeacherView(guidedSessionId.value));
+    const view = await getGuidedTeacherView(guidedSessionId.value);
+    if (guidedStato.value === "terminata") return;
+    applyTeacherView(view);
   } catch (err) {
     if (err instanceof GuidedEndedError) endLocally(false);
   }
